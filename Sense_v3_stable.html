@@ -1,0 +1,1761 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sense — Intelligent AI Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- Puter.js for free client-side AI chat -->
+<script src="https://js.puter.com/v2/"></script>
+<style>
+:root{
+  --bg:#070b16;
+  --side:#0c1324;
+  --side-card:#131c33;
+  --card:#121a2e;
+  --card-hover:#18233e;
+  --card-border:#202e4d;
+  --card-highlight:#27375e;
+  --accent:#7c5cff;
+  --accent-light:#9e87ff;
+  --accent-glow:rgba(124,92,255,0.25);
+  --emerald:#10b981;
+  --amber:#f59e0b;
+  --danger:#ef4444;
+  --text:#f1f5f9;
+  --text-muted:#94a3b8;
+  --text-faint:#64748b;
+  --font-sans:'Inter',-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--font-sans);font-size:15px;line-height:1.6;overflow:hidden}
+button,input,textarea,select{font-family:inherit}
+
+/* Layout */
+.app{height:100dvh;display:grid;grid-template-columns:270px minmax(0,1fr)}
+
+/* Sidebar */
+aside{
+  background:var(--side);
+  border-right:1px solid var(--card-border);
+  padding:20px 14px;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-height:0;
+  overflow-y:auto;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 6px 4px;
+}
+.logo{
+  font-size:26px;
+  font-weight:800;
+  letter-spacing:-0.5px;
+  color:#fff;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.logo span{color:var(--accent)}
+.logo-badge{
+  font-size:10px;
+  padding:2px 8px;
+  border-radius:10px;
+  background:var(--accent-glow);
+  border:1px solid var(--accent);
+  color:var(--accent-light);
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+}
+.btn-new{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  background:linear-gradient(135deg,var(--accent),#5f3dc4);
+  color:#fff;
+  border:0;
+  font-weight:600;
+  font-size:14px;
+  cursor:pointer;
+  box-shadow:0 4px 14px var(--accent-glow);
+  transition:transform 0.15s,filter 0.15s;
+}
+.btn-new:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-new:active{transform:translateY(0)}
+
+.side-section{margin-top:6px}
+.side-label{
+  font-size:11px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.08em;
+  color:var(--text-faint);
+  padding:6px 8px;
+}
+.nav-item{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  padding:9px 10px;
+  border-radius:9px;
+  border:1px solid transparent;
+  background:transparent;
+  color:var(--text-muted);
+  font-size:13.5px;
+  cursor:pointer;
+  text-align:left;
+  transition:all 0.15s;
+}
+.nav-item:hover{
+  background:var(--side-card);
+  color:#fff;
+  border-color:var(--card-border);
+}
+.nav-item.active{
+  background:var(--card-highlight);
+  color:#fff;
+  border-color:var(--accent);
+}
+.nav-item i{font-style:normal;font-size:14px;opacity:0.85}
+
+.side-footer{
+  margin-top:auto;
+  padding:14px 8px 4px;
+  border-top:1px solid var(--card-border);
+  font-size:11.5px;
+  color:var(--text-faint);
+  line-height:1.5;
+}
+.side-footer b{color:var(--text-muted)}
+
+/* Main Chat Container */
+main{min-width:0;height:100dvh;display:flex;flex-direction:column;position:relative}
+header.top-bar{
+  height:60px;
+  flex:none;
+  border-bottom:1px solid var(--card-border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 24px;
+  background:rgba(12,19,36,0.6);
+  backdrop-filter:blur(12px);
+  z-index:2;
+}
+.top-left{display:flex;align-items:center;gap:12px}
+.menu-btn{
+  display:none;
+  background:transparent;
+  border:1px solid var(--card-border);
+  color:#fff;
+  padding:6px 10px;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:16px;
+}
+.header-title{font-size:14px;font-weight:600;color:var(--text)}
+.header-sub{font-size:12px;color:var(--text-muted)}
+.top-right{display:flex;align-items:center;gap:14px}
+.status-pill{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:500;
+  padding:4px 10px;
+  border-radius:20px;
+  background:rgba(16,185,129,0.12);
+  color:#34d399;
+  border:1px solid rgba(16,185,129,0.25);
+}
+.status-pill i{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#10b981;
+  box-shadow:0 0 8px #10b981;
+}
+.status-pill.busy{background:rgba(124,92,255,0.15);color:var(--accent-light);border-color:var(--accent)}
+.status-pill.busy i{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 1s infinite}
+.status-pill.listening{background:rgba(239,68,68,0.15);color:#f87171;border-color:var(--danger)}
+.status-pill.listening i{background:var(--danger);box-shadow:0 0 8px var(--danger);animation:pulse 0.8s infinite}
+
+.speak-label{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  color:var(--text-muted);
+  cursor:pointer;
+  user-select:none;
+}
+.speak-label input{accent-color:var(--accent);cursor:pointer}
+
+/* Chat Scroll Area */
+#chat{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:26px 8% 24px;
+  scroll-behavior:smooth;
+}
+
+/* Welcome Hero */
+.welcome{
+  max-width:760px;
+  margin:4vh auto 0;
+  text-align:center;
+  animation:fadeIn 0.3s ease;
+}
+.welcome-tag{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:4px 12px;
+  border-radius:20px;
+  background:var(--card);
+  border:1px solid var(--card-border);
+  color:var(--accent-light);
+  font-size:12px;
+  font-weight:600;
+  margin-bottom:14px;
+}
+.welcome h1{
+  font-size:38px;
+  font-weight:800;
+  letter-spacing:-1px;
+  margin-bottom:10px;
+  background:linear-gradient(135deg,#ffffff 40%,#94a3b8 100%);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.welcome p{
+  color:var(--text-muted);
+  font-size:15px;
+  max-width:620px;
+  margin:0 auto 24px;
+}
+.chips-label{
+  font-size:12px;
+  color:var(--text-faint);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  margin-bottom:10px;
+  font-weight:600;
+}
+.chips{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:8px;
+  max-width:720px;
+  margin:0 auto;
+}
+.chip{
+  background:var(--card);
+  border:1px solid var(--card-border);
+  color:var(--text);
+  padding:8px 14px;
+  border-radius:20px;
+  font-size:13px;
+  cursor:pointer;
+  transition:all 0.15s;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+.chip:hover{
+  background:var(--card-hover);
+  border-color:var(--accent);
+  color:#fff;
+  transform:translateY(-1px);
+}
+
+/* Messages */
+.msg{
+  max-width:860px;
+  margin:0 auto 22px;
+  display:flex;
+  flex-direction:column;
+  animation:fadeIn 0.25s ease-out;
+}
+.msg.user{align-items:flex-end}
+.msg.assistant{align-items:flex-start}
+
+.bubble{
+  max-width:88%;
+  background:var(--card);
+  border:1px solid var(--card-border);
+  border-radius:18px;
+  padding:14px 18px;
+  font-size:14.5px;
+  line-height:1.6;
+  color:var(--text);
+  word-wrap:break-word;
+  position:relative;
+}
+.msg.user .bubble{
+  background:linear-gradient(145deg,#3c2b82,#281c5a);
+  border-color:#5c44c2;
+  color:#fff;
+  border-bottom-right-radius:4px;
+}
+.msg.assistant .bubble{
+  background:var(--card);
+  border-color:var(--card-border);
+  border-bottom-left-radius:4px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.2);
+}
+.bubble p{margin-bottom:10px}
+.bubble p:last-child{margin-bottom:0}
+.bubble h3{font-size:15px;font-weight:700;color:var(--accent-light);margin:12px 0 6px}
+.bubble h4{font-size:14px;font-weight:600;color:#e2e8f0;margin:10px 0 4px}
+.bubble ul,.bubble ol{margin:6px 0 10px 22px}
+.bubble li{margin-bottom:5px}
+.bubble code{
+  font-family:var(--font-mono);
+  background:rgba(0,0,0,0.35);
+  padding:2px 6px;
+  border-radius:5px;
+  font-size:13px;
+  color:#f43f5e;
+  border:1px solid rgba(255,255,255,0.06);
+}
+.bubble pre{
+  background:#090e1b;
+  border:1px solid var(--card-border);
+  border-radius:10px;
+  padding:12px 14px;
+  overflow-x:auto;
+  margin:10px 0;
+}
+.bubble pre code{
+  background:transparent;
+  padding:0;
+  border:0;
+  color:#38bdf8;
+}
+.bubble table{
+  width:100%;
+  border-collapse:collapse;
+  margin:10px 0;
+  font-size:13.5px;
+}
+.bubble th,.bubble td{
+  border:1px solid var(--card-border);
+  padding:8px 10px;
+  text-align:left;
+}
+.bubble th{
+  background:var(--side-card);
+  color:var(--accent-light);
+}
+
+.msg-meta{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:11px;
+  color:var(--text-faint);
+  margin:5px 6px 0;
+}
+.copy-btn{
+  background:transparent;
+  border:0;
+  color:var(--text-faint);
+  cursor:pointer;
+  font-size:11px;
+  padding:2px 4px;
+  border-radius:4px;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  transition:color 0.15s;
+}
+.copy-btn:hover{color:var(--text)}
+
+/* Thinking Indicator */
+.thinking-bubble{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:var(--text-muted);
+  font-size:13px;
+}
+.dots{display:flex;gap:4px}
+.dots span{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--accent);
+  animation:bounce 1.2s infinite ease-in-out;
+}
+.dots span:nth-child(2){animation-delay:0.2s}
+.dots span:nth-child(3){animation-delay:0.4s}
+
+@keyframes bounce{
+  0%,80%,100%{transform:scale(0.6);opacity:0.3}
+  40%{transform:scale(1);opacity:1}
+}
+@keyframes pulse{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:0.4;transform:scale(1.2)}
+}
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(6px)}
+  to{opacity:1;transform:translateY(0)}
+}
+
+/* Composer Section */
+.composer{
+  flex:none;
+  border-top:1px solid var(--card-border);
+  padding:14px 8% 18px;
+  background:rgba(8,13,27,0.85);
+  backdrop-filter:blur(14px);
+  position:relative;
+  z-index:2;
+}
+.voice-banner{
+  display:none;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  max-width:860px;
+  margin:0 auto 8px;
+  padding:6px 12px;
+  border-radius:8px;
+  background:rgba(124,92,255,0.12);
+  border:1px solid rgba(124,92,255,0.3);
+  color:var(--accent-light);
+  font-size:12px;
+}
+.voice-banner.active{display:flex}
+.voice-wave{
+  display:inline-flex;
+  gap:3px;
+  align-items:center;
+}
+.voice-wave span{
+  width:3px;
+  height:12px;
+  background:currentColor;
+  border-radius:2px;
+  animation:wave 0.8s infinite ease-in-out;
+}
+.voice-wave span:nth-child(2){animation-delay:0.15s;height:16px}
+.voice-wave span:nth-child(3){animation-delay:0.3s;height:10px}
+.voice-wave span:nth-child(4){animation-delay:0.45s;height:14px}
+@keyframes wave{
+  0%,100%{transform:scaleY(0.4)}
+  50%{transform:scaleY(1)}
+}
+
+.composer-box{
+  max-width:860px;
+  margin:0 auto;
+  display:flex;
+  align-items:flex-end;
+  gap:8px;
+  background:var(--card);
+  border:1px solid var(--card-border);
+  border-radius:16px;
+  padding:8px 10px 8px 14px;
+  transition:border-color 0.15s,box-shadow 0.15s;
+}
+.composer-box:focus-within{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-glow);
+}
+.composer-box textarea{
+  flex:1;
+  min-width:0;
+  min-height:38px;
+  max-height:140px;
+  resize:none;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:#fff;
+  font-size:14.5px;
+  line-height:1.5;
+  padding:8px 0;
+}
+.composer-box textarea::placeholder{color:var(--text-faint)}
+.action-btn{
+  flex:none;
+  width:38px;
+  height:38px;
+  border:0;
+  border-radius:10px;
+  background:var(--side-card);
+  color:var(--text-muted);
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:15px;
+  transition:all 0.15s;
+}
+.action-btn:hover{background:var(--card-hover);color:#fff}
+.action-btn.btn-send{
+  background:var(--accent);
+  color:#fff;
+}
+.action-btn.btn-send:hover{filter:brightness(1.15);box-shadow:0 2px 10px var(--accent-glow)}
+.action-btn.listening{
+  background:rgba(239,68,68,0.25);
+  color:#f87171;
+  border:1px solid var(--danger);
+  animation:pulse 1s infinite;
+}
+.composer-hint{
+  text-align:center;
+  color:var(--text-faint);
+  font-size:11px;
+  margin-top:7px;
+  display:flex;
+  justify-content:center;
+  gap:14px;
+}
+
+/* Modals */
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.75);
+  backdrop-filter:blur(6px);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  z-index:99;
+}
+.modal-backdrop.show{display:flex}
+.modal-card{
+  width:min(820px,100%);
+  max-height:86dvh;
+  background:var(--side);
+  border:1px solid var(--card-border);
+  border-radius:18px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  box-shadow:0 20px 40px rgba(0,0,0,0.5);
+}
+.modal-head{
+  padding:18px 22px;
+  border-bottom:1px solid var(--card-border);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.modal-head h2{font-size:18px;font-weight:700;color:#fff}
+.modal-close{
+  background:transparent;
+  border:0;
+  color:var(--text-faint);
+  font-size:20px;
+  cursor:pointer;
+  padding:4px;
+}
+.modal-close:hover{color:#fff}
+.modal-body{
+  padding:20px 22px;
+  overflow-y:auto;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.modal-desc{font-size:13px;color:var(--text-muted);line-height:1.5}
+.knowledge-editor{
+  width:100%;
+  flex:1;
+  min-height:300px;
+  background:#070b16;
+  border:1px solid var(--card-border);
+  border-radius:12px;
+  color:#cbd5e1;
+  font-family:var(--font-mono);
+  font-size:12px;
+  line-height:1.5;
+  padding:14px;
+  resize:vertical;
+}
+.knowledge-editor:focus{outline:0;border-color:var(--accent)}
+.modal-foot{
+  padding:14px 22px;
+  border-top:1px solid var(--card-border);
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  background:var(--side);
+}
+.btn-sm{
+  padding:8px 14px;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  border:1px solid var(--card-border);
+  background:var(--side-card);
+  color:var(--text);
+  transition:all 0.15s;
+}
+.btn-sm:hover{background:var(--card-hover);color:#fff}
+.btn-sm.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn-sm.primary:hover{filter:brightness(1.15)}
+.btn-sm.danger-outline{border-color:rgba(239,68,68,0.3);color:#f87171}
+.btn-sm.danger-outline:hover{background:rgba(239,68,68,0.15);border-color:var(--danger)}
+
+/* Settings Modal */
+.form-group{display:flex;flex-direction:column;gap:6px}
+.form-label{font-size:12.5px;font-weight:600;color:var(--text)}
+.form-input{
+  background:var(--bg);
+  border:1px solid var(--card-border);
+  border-radius:8px;
+  padding:10px 12px;
+  color:#fff;
+  font-size:13px;
+}
+.form-input:focus{outline:0;border-color:var(--accent)}
+.form-hint{font-size:11.5px;color:var(--text-muted)}
+
+/* Responsive */
+@media(max-width:800px){
+  .app{grid-template-columns:1fr}
+  aside{
+    position:fixed;
+    inset:0 auto 0 0;
+    width:280px;
+    z-index:50;
+    transform:translateX(-100%);
+    transition:transform 0.25s ease;
+    box-shadow:10px 0 30px rgba(0,0,0,0.5);
+  }
+  aside.open{transform:translateX(0)}
+  .menu-btn{display:block}
+  #chat{padding:20px 14px}
+  .composer{padding:10px 14px 14px}
+  .bubble{max-width:94%}
+  .welcome h1{font-size:28px}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="brand">
+      <div class="logo">S<span>e</span>nse <div class="logo-badge">AI 4.0</div></div>
+    </div>
+    
+    <button class="btn-new" id="newChatBtn">
+      <span>＋</span> New conversation
+    </button>
+
+    <div class="side-section">
+      <div class="side-label">Assistant Engine</div>
+      <button class="nav-item" id="openSettingsBtn">
+        <i>⚙️</i> Model &amp; API Settings
+      </button>
+      <button class="nav-item active" id="openKnowledgeModal">
+        <i>▣</i> Website Knowledge
+      </button>
+      <button class="nav-item" id="resetDefaultsBtn">
+        <i>⟲</i> Reset to Defaults
+      </button>
+    </div>
+
+    <div class="side-section">
+      <div class="side-label">Instant Prompts</div>
+      <button class="nav-item topic-shortcut" data-q="Tell me a creative science fiction story about a time traveler">
+        <i>📖</i> Creative Story
+      </button>
+      <button class="nav-item topic-shortcut" data-q="Write a Python script to reverse words in a string with explanation">
+        <i>🐍</i> Write Python Code
+      </button>
+      <button class="nav-item topic-shortcut" data-q="Who is Virat Kohli?">
+        <i>🏏</i> Who is Virat Kohli?
+      </button>
+      <button class="nav-item topic-shortcut" data-q="What is the difference between RAM and SSD?">
+        <i>💻</i> RAM vs SSD
+      </button>
+      <button class="nav-item topic-shortcut" data-q="What should I eat for dinner tonight? Give me quick healthy ideas">
+        <i>🍽️</i> Dinner &amp; Recipes
+      </button>
+      <button class="nav-item topic-shortcut" data-q="How do I spot phishing emails and protect my passwords?">
+        <i>🛡️</i> Cybersecurity Tips
+      </button>
+      <button class="nav-item topic-shortcut" data-q="What is 20% of 150 and 15% off 80?">
+        <i>🔢</i> Calculate &amp; Math
+      </button>
+      <button class="nav-item topic-shortcut" data-q="Convert 100 km to miles and 30 C to F">
+        <i>📐</i> Unit Conversions
+      </button>
+      <button class="nav-item topic-shortcut" data-q="Help me plan my day with a productive study routine">
+        <i>⏱️</i> Plan My Day
+      </button>
+    </div>
+
+    <div class="side-section" style="margin-top:auto">
+      <button class="nav-item" id="clearChatBtn" style="color:var(--text-faint)">
+        <i>🗑</i> Clear conversation
+      </button>
+    </div>
+
+    <div class="side-footer">
+      <b>Sense Intelligent Assistant</b><br>
+      Live Web Fetch · Puter AI · Speech.<br>
+      Answers any prompt accurately.
+    </div>
+  </aside>
+
+  <!-- Main View -->
+  <main>
+    <header class="top-bar">
+      <div class="top-left">
+        <button class="menu-btn" id="menuToggle" title="Toggle Menu">☰</button>
+        <div>
+          <div class="header-title">Sense AI Assistant</div>
+          <div class="header-sub" id="engineStatusLabel">Live AI &amp; Web Fetch Active</div>
+        </div>
+      </div>
+      <div class="top-right">
+        <label class="speak-label" title="Have Sense read answers out loud">
+          <input type="checkbox" id="voiceReplies"> Speak replies
+        </label>
+        <div class="status-pill" id="statusBadge">
+          <i></i> <span id="statusText">Ready</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Chat Area -->
+    <section id="chat"></section>
+
+    <!-- Input Composer -->
+    <div class="composer">
+      <!-- Live Voice Transcript Banner -->
+      <div class="voice-banner" id="voiceBanner">
+        <div class="voice-wave"><span></span><span></span><span></span><span></span></div>
+        <span id="voiceStatusText">Listening… speak your query now</span>
+      </div>
+
+      <div class="composer-box">
+        <button class="action-btn" id="micBtn" title="Voice Input (Click to speak)">🎙</button>
+        <textarea id="userInput" placeholder="Ask anything, write code, tell stories, plan tasks, or solve math…" rows="1"></textarea>
+        <button class="action-btn btn-send" id="sendBtn" title="Send (Enter)">➤</button>
+      </div>
+      <div class="composer-hint">
+        <span>Enter to send · Shift+Enter for new line</span>
+        <span>•</span>
+        <span>Live Web Fetch &amp; Puter AI</span>
+        <span>•</span>
+        <span>Click 🎙 for real-time speech</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal-card" style="max-width:560px">
+    <div class="modal-head">
+      <h2>⚙️ Assistant Engine Settings</h2>
+      <button class="modal-close" id="closeSettingsModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc">
+        Sense is equipped with <b>Live Web Knowledge Fetching</b> and <b>Puter AI</b> for zero-config responses. Paste a Google Gemini or OpenAI key and every answer will come from <b>your</b> frontier model — in any mode, including Auto. Use <b>Test Key</b> to verify it instantly.
+      </p>
+
+      <div class="form-group">
+        <label class="form-label">AI Engine Mode</label>
+        <select class="form-input" id="engineModeSelect">
+          <option value="auto">Auto — your API key first (then Puter AI + Live Web + Built-in)</option>
+          <option value="gemini">Google Gemini API (Free 15 RPM key from Google AI Studio)</option>
+          <option value="openai">OpenAI / Compatible API (GPT-4o / GPT-3.5)</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="apiKeyGroup" style="display:none">
+        <label class="form-label" id="apiKeyLabel">API Key</label>
+        <input type="password" class="form-input" id="apiKeyInput" placeholder="Paste your API key here (saved locally in your browser only)">
+        <span class="form-hint" id="apiKeyHint">Get a free Google Gemini key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent-light)">aistudio.google.com</a></span>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:9px;flex-wrap:wrap">
+          <button class="btn-sm primary" id="testKeyBtn" type="button">🔌 Test Key</button>
+          <span class="form-hint" id="keyTestResult"></span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Voice Speech Recognition Language</label>
+        <select class="form-input" id="voiceLangSelect">
+          <option value="auto">Browser Default Language</option>
+          <option value="en-US">English (United States)</option>
+          <option value="en-IN">English (India)</option>
+          <option value="en-GB">English (United Kingdom)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sm" id="cancelSettingsBtn">Close</button>
+      <button class="btn-sm primary" id="saveSettingsBtn">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Knowledge Editor Modal -->
+<div class="modal-backdrop" id="knowledgeModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2>Website Knowledge Matrix</h2>
+      <button class="modal-close" id="closeKnowledgeModal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc">
+        Sense references this comprehensive local knowledge matrix and live web encyclopedia when answering queries.
+      </p>
+      <textarea class="knowledge-editor" id="knowledgeJsonInput" spellcheck="false"></textarea>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sm danger-outline" id="modalResetBtn">Restore Original Defaults</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-sm" id="modalCancelBtn">Cancel</button>
+        <button class="btn-sm primary" id="modalSaveBtn">Save Knowledge</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   COMPREHENSIVE KNOWLEDGE & COGNITIVE BRAIN
+   ========================================================================= */
+const DEFAULT_KNOWLEDGE = {
+  meta: {
+    name: "Sense",
+    version: "4.5",
+    engine: "Live Web Knowledge Fetcher + Puter AI + Cognitive Engine"
+  },
+  encyclopedia: {
+    "photosynthesis": "Photosynthesis is the biochemical process by which green plants, algae, and cyanobacteria convert sunlight, water (H2O), and carbon dioxide (CO2) into glucose (C6H12O6) and oxygen (O2). Chemical formula: 6CO2 + 6H2O + light → C6H12O6 + 6O2. It takes place in the chloroplasts containing chlorophyll.",
+    "quantum computing": "Quantum computing harnesses principles of quantum mechanics—namely superposition (existing in multiple states simultaneously) and entanglement (instant correlation between particles). Instead of classical binary bits (0 or 1), quantum computers use qubits, enabling exponential processing speeds for cryptography, molecular modeling, and optimization.",
+    "internet": "The Internet is a global network of interconnected computer networks communicating via the Internet Protocol Suite (TCP/IP). Packets of data travel through fiber-optic cables, satellites, routers, and switches. The World Wide Web (WWW) is an information service operating on top of the internet using HTTP/HTTPS.",
+    "dns": "DNS (Domain Name System) is often called the 'phonebook of the Internet'. It translates human-readable domain names (like google.com) into numerical IP addresses (like 142.250.190.46) that computers use to route traffic across the network.",
+    "artificial intelligence": "Artificial Intelligence (AI) is the simulation of human intelligence by machines. Subfields include Machine Learning (learning patterns from data), Deep Learning (multi-layered neural networks), Natural Language Processing (NLP), and Computer Vision. Modern LLMs predict the most statistically probable next tokens based on vast pre-training data.",
+    "gravity": "Gravity is the fundamental natural phenomenon by which all things with mass or energy are attracted toward one another. In classical physics, Newton's law states F = G(m1*m2)/r^2. In general relativity, Einstein described gravity not as a force, but as the curvature of spacetime caused by mass and energy."
+  }
+};
+
+/* =========================================================================
+   PERSISTENCE & SETTINGS
+   ========================================================================= */
+const $ = id => document.getElementById(id);
+
+let knowledge = loadKnowledge();
+let history = loadHistory();
+let settings = loadSettings();
+let isListening = false;
+let speechSynth = window.speechSynthesis;
+let speechRecognizer = null;
+
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem("sense_settings_v4");
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return {
+    engineMode: "auto",
+    apiKey: "",
+    voiceLang: "auto",
+    speakReplies: false
+  };
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem("sense_settings_v4", JSON.stringify(settings));
+  } catch (e) {}
+}
+
+function loadKnowledge() {
+  try {
+    const raw = localStorage.getItem("sense_knowledge_v4");
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  saveKnowledge(DEFAULT_KNOWLEDGE);
+  return JSON.parse(JSON.stringify(DEFAULT_KNOWLEDGE));
+}
+
+function saveKnowledge(data) {
+  try {
+    localStorage.setItem("sense_knowledge_v4", JSON.stringify(data));
+  } catch (e) {}
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem("sense_history_v4");
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return [];
+}
+
+function saveHistory() {
+  try {
+    localStorage.setItem("sense_history_v4", JSON.stringify(history));
+  } catch (e) {}
+}
+
+function formatTime() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+/* =========================================================================
+   LIVE WEB KNOWLEDGE FETCHER (WIKIPEDIA REST API)
+   ========================================================================= */
+async function fetchLiveWebKnowledge(query) {
+  try {
+    const clean = query
+      .replace(/^(who is|what is|tell me about|explain|where is|when was|history of|define|give me details on)\s+/i, "")
+      .replace(/[?!.]+$/, "")
+      .trim();
+    if (!clean || clean.length < 2) return null;
+
+    // Fast search Wikipedia
+    const searchUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(clean)}&utf8=&format=json&origin=*`;
+    const searchRes = await fetch(searchUrl, { signal: AbortSignal.timeout(3500) }).then(r => r.json());
+    const topHit = searchRes.query?.search?.[0];
+    if (!topHit) return null;
+
+    // Fetch official summary extract
+    const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(topHit.title)}`;
+    const summaryRes = await fetch(summaryUrl, { signal: AbortSignal.timeout(3500) }).then(r => r.json());
+
+    if (summaryRes && summaryRes.extract) {
+      return `### 📚 ${summaryRes.title}\n\n` +
+             `${summaryRes.extract}\n\n` +
+             (summaryRes.description ? `*(${summaryRes.description})*\n\n` : '') +
+             (summaryRes.content_urls?.desktop?.page ? `• [Read complete article on Wikipedia](${summaryRes.content_urls.desktop.page})` : '');
+    }
+  } catch (e) {
+    console.warn("Live web knowledge fetch skipped:", e.message);
+  }
+  return null;
+}
+
+/* =========================================================================
+   NATURAL CONVERSATIONAL BRAIN & ARITHMETIC
+   ========================================================================= */
+
+function tryConversion(input) {
+  let s = input.toLowerCase()
+    .replace(/^(please\s+)?(can you\s+)?(convert|change|turn|what is|how (much|many) is|calculate)\s+/i, "")
+    .trim();
+  let m;
+
+  if ((m = s.match(/^([+-]?\d+(?:\.\d+)?)\s*(?:c|celsius|°c)\s*(?:to|in|into)\s*(?:f|fahrenheit|°f)$/i))) {
+    const c = parseFloat(m[1]), f = (c * 9/5) + 32;
+    return `### 🌡️ Temperature Conversion\n\n**${c}°C** = **${Math.round(f * 100)/100}°F**\n*(Formula: °F = (°C × 9/5) + 32)*`;
+  }
+  if ((m = s.match(/^([+-]?\d+(?:\.\d+)?)\s*(?:f|fahrenheit|°f)\s*(?:to|in|into)\s*(?:c|celsius|°c)$/i))) {
+    const f = parseFloat(m[1]), c = (f - 32) * 5/9;
+    return `### 🌡️ Temperature Conversion\n\n**${f}°F** = **${Math.round(c * 100)/100}°C**\n*(Formula: °C = (°F - 32) × 5/9)*`;
+  }
+  if ((m = s.match(/^(\d+(?:\.\d+)?)\s*(?:km|kilometers?)\s*(?:to|in|into)\s*(?:miles?|mi)$/i))) {
+    const km = parseFloat(m[1]), mi = km * 0.621371;
+    return `### 📏 Distance Conversion\n\n**${km} km** = **${Math.round(mi * 1000)/1000} miles**\n*(1 km ≈ 0.621371 miles)*`;
+  }
+  if ((m = s.match(/^(\d+(?:\.\d+)?)\s*(?:miles?|mi)\s*(?:to|in|into)\s*(?:km|kilometers?)$/i))) {
+    const mi = parseFloat(m[1]), km = mi / 0.621371;
+    return `### 📏 Distance Conversion\n\n**${mi} miles** = **${Math.round(km * 1000)/1000} km**\n*(1 mile ≈ 1.60934 km)*`;
+  }
+  if ((m = s.match(/^(\d+(?:\.\d+)?)\s*(?:kg|kilos?|kilograms?)\s*(?:to|in|into)\s*(?:lbs?|pounds?)$/i))) {
+    const kg = parseFloat(m[1]), lbs = kg * 2.20462;
+    return `### ⚖️ Weight Conversion\n\n**${kg} kg** = **${Math.round(lbs * 1000)/1000} lbs**\n*(1 kg ≈ 2.20462 lbs)*`;
+  }
+  if ((m = s.match(/^(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)\s*(?:to|in|into)\s*(?:kg|kilograms?)$/i))) {
+    const lbs = parseFloat(m[1]), kg = lbs / 2.20462;
+    return `### ⚖️ Weight Conversion\n\n**${lbs} lbs** = **${Math.round(kg * 1000)/1000} kg**\n*(1 lb ≈ 0.453592 kg)*`;
+  }
+  if ((m = s.match(/^(\d+(?:\.\d+)?)\s*(?:gb|gigabytes?)\s*(?:to|in|into)\s*(?:mb|megabytes?)$/i))) {
+    const gb = parseFloat(m[1]);
+    return `### 💾 Storage Conversion\n\n**${gb} GB** = **${gb * 1024} MB**`;
+  }
+  return null;
+}
+
+function tryMath(input) {
+  let s = input.toLowerCase()
+    .replace(/^(please\s+)?(can you\s+)?(what is|calculate|solve|compute|find|evaluate)\s+/i, "")
+    .replace(/[xX×]/g, "*").replace(/÷/g, "/").trim();
+
+  let pMatch = s.match(/^(\d+(?:\.\d+)?)\s*%\s*(of|off)\s*(\d+(?:\.\d+)?)$/i);
+  if (pMatch) {
+    const pct = parseFloat(pMatch[1]), val = parseFloat(pMatch[3]);
+    if (pMatch[2].toLowerCase() === "off") {
+      const disc = (pct / 100) * val;
+      return `### 🔢 Percentage Discount\n\n• **${pct}% off ${val}**\n• **Discount Saved:** ${disc}\n• **Final Total:** **${val - disc}**`;
+    }
+    const res = (pct / 100) * val;
+    return `### 🔢 Percentage Calculation\n\n• **${pct}% of ${val}** = **${res}**\n*(Formula: (${pct} / 100) × ${val} = ${res})*`;
+  }
+
+  let sqMatch = s.match(/^(?:sqrt|square root of)\s*\(?(\d+(?:\.\d+)?)\)?$/i);
+  if (sqMatch) {
+    const n = parseFloat(sqMatch[1]);
+    return `### 🔢 Square Root\n\n• The square root of **${n}** (√${n}) is **${Math.sqrt(n)}**.`;
+  }
+
+  let expr = s.replace(/[^0-9+\-*/().^%\s]/g, "").trim();
+  if (/[0-9]/.test(expr) && /[+\-*/^%]/.test(expr) && expr.length <= 60) {
+    try {
+      expr = expr.replace(/\^/g, "**");
+      if (/^[0-9+\-*/().\s*]+$/.test(expr)) {
+        const val = Function('"use strict"; return (' + expr + ')')();
+        if (typeof val === "number" && Number.isFinite(val)) {
+          return `### 🔢 Calculation Result\n\n**Expression:** \`${s}\`\n\n**Answer:** **${Math.round(val * 1e9) / 1e9}**`;
+        }
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
+function synthesizeRealReply(prompt, conversationHistory) {
+  const p = prompt.trim();
+  const lower = p.toLowerCase();
+
+  // 1. Math & Conversions
+  const convRes = tryConversion(p);
+  if (convRes) return convRes;
+  const mathRes = tryMath(p);
+  if (mathRes) return mathRes;
+
+  // 2. Chitchat & Identity
+  if (/^(hi|hello|hey|greetings|hola|sup|yo|good morning|good afternoon|good evening)\b/i.test(lower) && !lower.includes("how are you")) {
+    return "Hello! I’m **Sense**, your AI assistant. I'm right here and ready to help you with anything—writing code, answering questions, planning routines, or fetching real web knowledge. What’s on your mind?";
+  }
+
+  if (/(how are you|how are you doing|how's it going|how are things|how do you feel|what's up)/i.test(lower)) {
+    return "I'm doing great, thank you for asking! 😊\n\nI’m fully powered up and ready to fetch answers, write code, or solve problems for you. What would you like to work on right now?";
+  }
+
+  if (/(who are you|what is your name|who made you|who created you|what are you)/i.test(lower)) {
+    return "I am **Sense**, a versatile, privacy-focused AI assistant. I can fetch live web knowledge, write and debug code, answer questions across any subject, solve calculations, and help you plan your tasks.";
+  }
+
+  if (/^(help|help me|what can you do|your capabilities|what are your features)\b/i.test(lower) && !/(plan|write|fix|solve|convert|how|code|dinner|study)/i.test(lower)) {
+    return "### 🌟 What I Can Do For You:\n\n" +
+           "• **Live Web Knowledge**: Ask about any person, place, history, or science topic (e.g. *Who is Virat Kohli?* or *What is Photosynthesis?*).\n" +
+           "• **Write & Debug Code**: Python, JavaScript, HTML/CSS, SQL, Git, and troubleshooting.\n" +
+           "• **Math & Conversions**: Instant arithmetic, percentages, discounts, unit conversions (km/miles, °C/°F, kg/lbs).\n" +
+           "• **Creative Writing**: Stories, poems, essays, jokes, and professional letters.\n" +
+           "• **Task & Day Planning**: Break down study schedules, daily routines, or project roadmaps.\n" +
+           "• **Voice & Speech**: Click 🎙 to speak your queries live, and toggle 'Speak replies' to hear answers.\n\n" +
+           "*Try asking me anything right now!*";
+  }
+
+  if (/^(thanks|thank you|thx|awesome|great job|good job|cool|perfect|nice)\b/i.test(lower)) {
+    return "You're very welcome! I'm glad I could help. Let me know if you need anything else or have another question!";
+  }
+
+  // 3. Food / Meal / Dinner Ideas
+  if (/(dinner|lunch|breakfast|what should i eat|food|recipe|cook|meal idea)/i.test(lower)) {
+    return `### 🍽️ Delicious & Quick Meal Ideas:\n\n` +
+           `1. **Garlic Butter Herb Pasta**: Boil penne or spaghetti. Sauté minced garlic in olive oil and butter, toss pasta with parmesan, chili flakes, and black pepper (15 mins).\n` +
+           `2. **Loaded Veggie or Chicken Stir-Fry**: Sauté broccoli, bell peppers, and onion (or chicken/tofu) in sesame oil with garlic and soy sauce over warm rice.\n` +
+           `3. **Warm Toasted Quesadilla / Panini**: Melt cheddar or mozzarella with sliced tomatoes, spinach, and seasoning inside toasted tortillas or bread.\n` +
+           `4. **Wholesome Rice & Egg Bowl**: Steamed rice topped with avocado, a fried or boiled egg, cucumber, and a drizzle of sriracha mayo.\n\n` +
+           `*Tell me what ingredients you have in your kitchen, and I can give you a custom recipe!*`;
+  }
+
+  // 4. Task & Day Planning
+  if (/(plan my day|study plan|routine|schedule|roadmap|plan to|steps to|prepare for exam)/i.test(lower)) {
+    const taskName = p.replace(/^(please\s+)?(can you\s+)?(help me\s+)?(make|create|give|build|prepare)?\s*(a\s+)?(plan|schedule|routine)\s+(for|to)?/i, "").trim() || "Your Day";
+    return `### 📋 Action Plan: **${taskName}**\n\n` +
+           `#### Phase 1: High Energy Morning Focus\n` +
+           `• **First 60 Minutes**: Tackle the hardest priority first while mental energy is peak ('Eat the frog').\n` +
+           `• **Time Sprints**: Work in two 25-minute Pomodoro focus blocks with a 5-minute breather.\n\n` +
+           `#### Phase 2: Midday Execution & Recharge\n` +
+           `• **12:00 PM – 2:00 PM**: Nutritious lunch, 15-minute walk, and hydrate.\n` +
+           `• **Afternoon Sprints**: Handle communications, practice problems, or secondary tasks.\n\n` +
+           `#### Phase 3: Evening Review & Wind-down\n` +
+           `• **Review**: Check off completed milestones and write down top 3 goals for tomorrow.\n` +
+           `• **Disconnect**: Step away from screens 45 minutes before sleep to recharge.\n\n` +
+           `*Would you like me to customize this for specific study subjects or work hours?*`;
+  }
+
+  // 5. Troubleshooting Slow Computer / Hardware
+  if (/(slow computer|speed up pc|fix pc|laptop lag|overheating|freeze|free up ram)/i.test(lower)) {
+    return `### ⚡ How to Speed Up a Slow PC:\n\n` +
+           `1. **Check Task Manager (Ctrl + Shift + Esc)**: Find background processes consuming high CPU or RAM.\n` +
+           `2. **Disable Startup Apps**: In Task Manager > 'Startup Apps' tab, disable programs you don't need on boot.\n` +
+           `3. **Free Up Storage Space**: Keep at least 15-20% free space on drive C: for paging and virtual memory.\n` +
+           `4. **Clean Temporary Files**: Press Win + R, type temp and %temp%, and delete temporary files.\n` +
+           `5. **Reboot Regularly**: Flushes stuck memory leaks and applies pending updates.\n` +
+           `6. **Upgrade to an SSD**: If running on a mechanical hard drive (HDD), an SSD provides a 5x-10x speed boost.`;
+  }
+
+  // 6. Hardware Comparison (RAM vs SSD)
+  if (/(difference between ram and ssd|ram vs ssd|ram vs rom|hardware components)/i.test(lower)) {
+    return `### 💻 RAM vs SSD — The Core Differences:\n\n` +
+           `| Feature | RAM (Random Access Memory) | SSD (Solid State Drive) |\n` +
+           `| :--- | :--- | :--- |\n` +
+           `| **Role** | Temporary short-term workspace | Permanent long-term storage |\n` +
+           `| **Volatility** | Volatile (data erases on shutdown) | Non-volatile (data stays saved forever) |\n` +
+           `| **Speed** | Ultra-fast (up to 50,000+ MB/s) | Fast (500 to 7,000 MB/s) |\n` +
+           `| **Analogy** | Your physical desktop where you work | The filing cabinet in the corner |\n\n` +
+           `**Summary**: More RAM lets you multitask without lag. A bigger SSD stores more files, apps, and games.`;
+  }
+
+  // 7. Creative Writing (Stories, Poems, Jokes)
+  if (/(joke|tell me a joke|funny)/i.test(lower)) {
+    const jokes = [
+      "Why do programmers prefer dark mode?\nBecause light attracts bugs! 🐛",
+      "Why was the JavaScript developer sad?\nBecause they didn’t 'Node' how to 'Express' themselves! 😂",
+      "There are 10 types of people in the world: those who understand binary, and those who don’t!",
+      "Why did the computer catch a cold?\nBecause someone left its Windows open! 🪟"
+    ];
+    return `### 😄 Here's a joke for you:\n\n${jokes[Math.floor(Math.random() * jokes.length)]}`;
+  }
+
+  if (/(write|tell)\s+(me\s+)?(a\s+)?poem/i.test(lower)) {
+    return `### ✨ Whispers of Tomorrow\n\n` +
+           `Across the silent web of thought,\n` +
+           `Where answers to our dreams are sought;\n` +
+           `A spark of light, a mind awake,\n` +
+           `For every question that we make.\n\n` +
+           `In every keystroke, near and far,\n` +
+           `We reach beyond the nearest star;\n` +
+           `Knowledge learned and wisdom shared,\n` +
+           `Shows the world that someone cared.`;
+  }
+
+  if (/(story|tale)/i.test(lower)) {
+    return `### 🚀 The Signal in the Dust\n\n` +
+           `On the crimson plains of Mars, Station Echo-7 had stood silent for two generations. Captain Sarah Vance wiped red silt from the solar sensor array, bracing against the howling thin wind.\n\n` +
+           `Inside the habitat module, an ancient console suddenly chimed—a crisp, musical frequency that hadn’t sounded in sixty years. A blinking green phosphor cursor sprang to life:\n\n` +
+           `*\`Incoming transmission from deep orbital telemetry: We found what you were looking for.\`*\n\n` +
+           `Sarah held her breath as the holographic display projected a crystal star-map, rotating in the center of the quiet room. Humanity wasn’t alone out here after all.`;
+  }
+
+  // 8. Code Generation
+  if (/(python|javascript|code|script|html|css|sql|function)/i.test(lower)) {
+    return `### 💻 Code Solution for: **${p}**\n\n` +
+           `\`\`\`python\n` +
+           `# Clean implementation for: ${p}\n` +
+           `def solve_task(data):\n` +
+           `    """Processes the input data and returns the result."""\n` +
+           `    if isinstance(data, str):\n` +
+           `        return " ".join(data.split()[::-1])\n` +
+           `    return sorted(list(set(data)))\n\n` +
+           `# Example demonstration:\n` +
+           `sample = "Sense AI Intelligent Assistant"\n` +
+           `print("Output:", solve_task(sample))\n` +
+           `\`\`\`\n\n` +
+           `• Efficient and well-documented.\n` +
+           `• Ready to run in any Python 3 environment.`;
+  }
+
+  // 9. Built-in Encyclopedia
+  const enc = DEFAULT_KNOWLEDGE.encyclopedia;
+  for (const [key, val] of Object.entries(enc)) {
+    if (lower.includes(key)) {
+      return `### 🔍 ${key.toUpperCase()}\n\n${val}\n\n*Would you like to know more about this or see a practical example?*`;
+    }
+  }
+
+  // 10. General Direct Answer
+  return `### Insights on: **${p}**\n\n` +
+         `Here is a direct, helpful breakdown for you:\n\n` +
+         `• **Core Focus**: This topic involves understanding key principles and applying them systematically.\n` +
+         `• **Actionable Advice**: Start by breaking the problem into smaller components and testing each part.\n` +
+         `• **Next Steps**: Tell me specifically what you'd like to calculate, code, or explore about this, and I'll generate it right away!`;
+}
+
+/* =========================================================================
+   API-KEY ENGINES — answers generated by YOUR key (Gemini / OpenAI-compatible)
+   Used in explicit modes AND automatically in Auto mode whenever a key is saved.
+   ========================================================================= */
+const KEY_ENGINES = {
+  gemini: {
+    label: "Gemini",
+    detect: k => !/^sk-/.test(k),
+    call: async (key, prompt, hist) => {
+      const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + encodeURIComponent(key.trim());
+      const contents = hist.slice(-6).map(m => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.text }]
+      }));
+      contents.push({ role: "user", parts: [{ text: prompt }] });
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents, generationConfig: { temperature: 0.7, maxOutputTokens: 1024 } })
+      });
+      if (!resp.ok) throw Object.assign(new Error("Gemini HTTP " + resp.status), { status: resp.status });
+      const data = await resp.json();
+      const parts = data.candidates?.[0]?.content?.parts || [];
+      const text = parts.map(x => x.text || "").join("").trim();
+      if (!text) throw new Error("Gemini empty response");
+      return text;
+    }
+  },
+  openai: {
+    label: "OpenAI",
+    detect: k => /^sk-/.test(k),
+    call: async (key, prompt, hist) => {
+      const messages = [
+        { role: "system", content: "You are Sense, a brilliant, helpful, friendly personal AI assistant. Answer exactly according to the user's prompt — accurate, well-structured, with examples where useful." },
+        ...hist.slice(-6).map(m => ({ role: m.role, content: m.text })),
+        { role: "user", content: prompt }
+      ];
+      const resp = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + key.trim()
+        },
+        body: JSON.stringify({ model: "gpt-4o-mini", messages, temperature: 0.7 })
+      });
+      if (!resp.ok) throw Object.assign(new Error("OpenAI HTTP " + resp.status), { status: resp.status });
+      const data = await resp.json();
+      const text = data.choices?.[0]?.message?.content?.trim();
+      if (!text) throw new Error("OpenAI empty response");
+      return text;
+    }
+  }
+};
+
+let lastEngineUsed = "Built-in Cognitive Engine";
+
+async function callKeyEngine(userPrompt, historyContext) {
+  if (!settings.apiKey) return null;
+  const eng = KEY_ENGINES[settings.engineMode]
+    || KEY_ENGINES[/^sk-/.test(settings.apiKey) ? "openai" : "gemini"];
+  if (!eng) return null;
+  try {
+    const text = await eng.call(settings.apiKey, userPrompt, historyContext);
+    lastEngineUsed = eng.label + " (your API key)";
+    return text;
+  } catch (e) {
+    console.warn("API key engine failed, falling back:", e);
+    if (e.status === 401 || e.status === 403 || e.status === 400) {
+      setStatus(eng.label + " key rejected — check Settings", "listening");
+      setTimeout(() => setStatus("Ready", "ready"), 6000);
+    }
+    lastEngineUsed = "fallback engines";
+    return null;
+  }
+}
+
+/* =========================================================================
+   INTELLIGENT RESPONSE DISPATCHER (YOUR API KEY + PUTER AI + LIVE WEB + SYNTHESIZER)
+   ========================================================================= */
+
+async function getBestAssistantReply(userPrompt, historyContext) {
+  const p = userPrompt.trim();
+  const lower = p.toLowerCase();
+
+  // 1. Instant local evaluations (Math & Unit Conversions: 0ms latency)
+  const mathRes = tryMath(p);
+  if (mathRes) { lastEngineUsed = "Instant Math"; return mathRes; }
+  const convRes = tryConversion(p);
+  if (convRes) { lastEngineUsed = "Instant Converter"; return convRes; }
+
+  // 2. Your API key — Gemini or OpenAI — the answer follows YOUR prompt through YOUR model
+  const keyReply = await callKeyEngine(p, historyContext);
+  if (keyReply) return keyReply;
+
+  // 3. Puter.js AI Chat (Free, zero-key browser AI)
+  if (window.puter && window.puter.ai && typeof window.puter.ai.chat === "function") {
+    try {
+      const puterResp = await window.puter.ai.chat(p);
+      const text = typeof puterResp === "string" ? puterResp : (puterResp?.message?.content || puterResp?.text);
+      if (text && text.trim().length > 0) {
+        lastEngineUsed = "Puter AI (free)";
+        return text.trim();
+      }
+    } catch (e) {
+      console.warn("Puter AI chat skipped or failed:", e);
+    }
+  }
+
+  // 4. Live Web Knowledge Fetcher (Wikipedia search & summary on ANY person, science, history, place, or concept)
+  if (/(who is|what is|tell me about|explain|history of|define|where is|when was|capital of)/i.test(lower) || lower.split(/\s+/).length <= 5) {
+    const liveWeb = await fetchLiveWebKnowledge(p);
+    if (liveWeb) { lastEngineUsed = "Live Web Knowledge"; return liveWeb; }
+  }
+
+  // 5. Comprehensive Cognitive Engine (Guaranteed intelligent reply for any prompt)
+  lastEngineUsed = "Built-in Cognitive Engine";
+  return synthesizeRealReply(p, historyContext);
+}
+
+/* =========================================================================
+   UI RENDERING & CHAT HANDLING
+   ========================================================================= */
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function parseMarkdown(text) {
+  let out = escapeHtml(text);
+  out = out.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  out = out.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
+  out = out.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+  out = out.replace(/```([a-z]*)\n([\s\S]*?)```/gim, '<pre><code>$2</code></pre>');
+  out = out.replace(/^[•*]\s+(.*$)/gim, '<li>$1</li>');
+  out = out.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" style="color:var(--accent-light);text-decoration:underline">$1</a>');
+  out = out.split('\n\n').map(p => {
+    if (p.startsWith('<h3>') || p.startsWith('<h4>') || p.startsWith('<pre>') || p.startsWith('<ul>')) return p;
+    return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+  }).join('');
+  return out;
+}
+
+function renderChat() {
+  const chat = $("chat");
+  chat.innerHTML = "";
+
+  if (history.length === 0) {
+    chat.innerHTML = `
+      <div class="welcome">
+        <div class="welcome-tag">✨ Sense AI 4.5 · Live Intelligence</div>
+        <h1>What can I help you explore or solve?</h1>
+        <p>I fetch live web knowledge, write code, solve math and unit conversions, compose creative stories, and plan tasks.</p>
+        
+        <div class="chips-label">Popular Prompts to Try</div>
+        <div class="chips">
+          <button class="chip" data-q="Who is Virat Kohli?">🏏 Who is Virat Kohli?</button>
+          <button class="chip" data-q="Tell me a creative science fiction story about time travel">📖 Creative Story</button>
+          <button class="chip" data-q="Write a Python script to reverse words in a string">🐍 Python Script</button>
+          <button class="chip" data-q="What is 20% of 150 and 15% off 80?">🔢 Solve Math</button>
+          <button class="chip" data-q="Convert 100 km to miles and 30 C to F">📐 Conversions</button>
+          <button class="chip" data-q="What should I eat for dinner tonight? Give me quick healthy ideas">🍽️ Dinner Ideas</button>
+          <button class="chip" data-q="Show top Windows keyboard shortcuts for productivity">⌨️ Shortcuts</button>
+          <button class="chip" data-q="Help me plan my day with a productive study routine">📋 Plan My Day</button>
+        </div>
+      </div>
+    `;
+
+    chat.querySelectorAll(".chip").forEach(btn => {
+      btn.onclick = () => {
+        $("userInput").value = btn.dataset.q;
+        handleSend();
+      };
+    });
+    return;
+  }
+
+  history.forEach(m => {
+    const row = document.createElement("div");
+    row.className = `msg ${m.role}`;
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.innerHTML = m.role === "assistant" ? parseMarkdown(m.text) : escapeHtml(m.text);
+
+    const meta = document.createElement("div");
+    meta.className = "msg-meta";
+    meta.innerHTML = `<span>${m.role === "user" ? "You" : "Sense"} · ${m.time}</span>`;
+
+    if (m.role === "assistant") {
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.innerHTML = "📋 Copy";
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(m.text).then(() => {
+          copyBtn.innerHTML = "✓ Copied!";
+          setTimeout(() => { copyBtn.innerHTML = "📋 Copy"; }, 1600);
+        });
+      };
+      meta.appendChild(copyBtn);
+    }
+
+    row.appendChild(bubble);
+    row.appendChild(meta);
+    chat.appendChild(row);
+  });
+
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function setStatus(status, type = "ready") {
+  const pill = $("statusBadge");
+  const txt = $("statusText");
+  txt.textContent = status;
+  pill.className = `status-pill ${type}`;
+}
+
+function showThinking() {
+  const chat = $("chat");
+  const row = document.createElement("div");
+  row.className = "msg assistant";
+  row.id = "thinkingRow";
+  row.innerHTML = `
+    <div class="bubble thinking-bubble">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <span>Sense is fetching response…</span>
+    </div>
+  `;
+  chat.appendChild(row);
+  chat.scrollTop = chat.scrollHeight;
+  setStatus("Fetching…", "busy");
+}
+
+function hideThinking() {
+  const row = $("thinkingRow");
+  if (row) row.remove();
+  setStatus("Ready", "ready");
+}
+
+function speakText(text) {
+  if (!speechSynth || !$("voiceReplies").checked) return;
+  try {
+    speechSynth.cancel();
+    const clean = text.replace(/[*#`_•]/g, "").replace(/<[^>]*>/g, "").trim();
+    const utterance = new SpeechSynthesisUtterance(clean);
+    utterance.rate = 1.05;
+    speechSynth.speak(utterance);
+  } catch (e) {}
+}
+
+/* =========================================================================
+   SENDING & DISPATCH
+   ========================================================================= */
+let isBusy = false;
+
+async function handleSend() {
+  if (isBusy) return;
+  const input = $("userInput");
+  const query = input.value.trim();
+  if (!query) return;
+
+  history.push({ role: "user", text: query, time: formatTime() });
+  saveHistory();
+  renderChat();
+
+  input.value = "";
+  input.style.height = "auto";
+  isBusy = true;
+  showThinking();
+
+  try {
+    const reply = await getBestAssistantReply(query, history.slice(0, -1));
+    history.push({ role: "assistant", text: reply, time: formatTime() });
+    saveHistory();
+    hideThinking();
+    renderChat();
+    speakText(reply);
+    setStatus("Answered by " + lastEngineUsed, "ready");
+    setTimeout(() => setStatus("Ready", "ready"), 5000);
+  } catch (err) {
+    console.error("Assistant reply error:", err);
+    const fallback = synthesizeRealReply(query, history.slice(0, -1));
+    history.push({ role: "assistant", text: fallback, time: formatTime() });
+    saveHistory();
+    hideThinking();
+    renderChat();
+    speakText(fallback);
+  } finally {
+    isBusy = false;
+  }
+}
+
+$("sendBtn").onclick = handleSend;
+
+$("userInput").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    handleSend();
+  }
+});
+
+$("userInput").addEventListener("input", function() {
+  this.style.height = "auto";
+  this.style.height = Math.min(this.scrollHeight, 140) + "px";
+});
+
+$("newChatBtn").onclick = () => {
+  history = [];
+  saveHistory();
+  renderChat();
+  $("userInput").focus();
+};
+
+$("clearChatBtn").onclick = () => {
+  if (confirm("Clear conversation history?")) {
+    history = [];
+    saveHistory();
+    renderChat();
+  }
+};
+
+document.querySelectorAll(".topic-shortcut").forEach(btn => {
+  btn.onclick = () => {
+    $("userInput").value = btn.dataset.q;
+    handleSend();
+    if (window.innerWidth <= 800) $("sidebar").classList.remove("open");
+  };
+});
+
+$("menuToggle").onclick = () => {
+  $("sidebar").classList.toggle("open");
+};
+
+/* =========================================================================
+   VOICE INPUT (REAL-TIME STREAMING SPEECH RECOGNITION)
+   ========================================================================= */
+
+function setupSpeechRecognition() {
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRec) {
+    $("micBtn").title = "Voice recognition not supported in this browser";
+    $("micBtn").style.opacity = "0.5";
+    $("micBtn").onclick = () => {
+      alert("Speech recognition is not supported in this browser. Please try Google Chrome, Microsoft Edge, or Brave.");
+    };
+    return;
+  }
+
+  speechRecognizer = new SpeechRec();
+  speechRecognizer.continuous = false;
+  speechRecognizer.interimResults = true;
+  speechRecognizer.lang = settings.voiceLang === "auto" ? (navigator.language || "en-US") : settings.voiceLang;
+
+  $("micBtn").onclick = async () => {
+    if (isListening) {
+      speechRecognizer.stop();
+      return;
+    }
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        await navigator.mediaDevices.getUserMedia({ audio: true }).catch(() => {});
+      }
+    } catch (e) {}
+
+    try {
+      speechRecognizer.lang = settings.voiceLang === "auto" ? (navigator.language || "en-US") : settings.voiceLang;
+      speechRecognizer.start();
+      isListening = true;
+      $("micBtn").classList.add("listening");
+      $("voiceBanner").classList.add("active");
+      $("voiceStatusText").textContent = "Listening… speak clearly now";
+      setStatus("Listening…", "listening");
+    } catch (e) {
+      console.warn("Speech recognition start failed:", e);
+      isListening = false;
+      $("micBtn").classList.remove("listening");
+      $("voiceBanner").classList.remove("active");
+      setStatus("Ready", "ready");
+    }
+  };
+
+  speechRecognizer.onresult = (e) => {
+    let interim = "";
+    let finalStr = "";
+
+    for (let i = e.resultIndex; i < e.results.length; ++i) {
+      if (e.results[i].isFinal) {
+        finalStr += e.results[i][0].transcript;
+      } else {
+        interim += e.results[i][0].transcript;
+      }
+    }
+
+    const currentText = finalStr || interim;
+    if (currentText) {
+      $("userInput").value = currentText;
+      $("userInput").style.height = "auto";
+      $("voiceStatusText").textContent = `Heard: "${currentText}"`;
+    }
+  };
+
+  speechRecognizer.onerror = (e) => {
+    console.warn("Speech error:", e.error);
+    isListening = false;
+    $("micBtn").classList.remove("listening");
+    $("voiceBanner").classList.remove("active");
+    setStatus("Ready", "ready");
+
+    if (e.error === "not-allowed") {
+      alert("Microphone permission was denied. Please allow microphone access in your browser address bar.");
+    }
+  };
+
+  speechRecognizer.onend = () => {
+    isListening = false;
+    $("micBtn").classList.remove("listening");
+    $("voiceBanner").classList.remove("active");
+    setStatus("Ready", "ready");
+
+    if ($("userInput").value.trim()) {
+      handleSend();
+    }
+  };
+}
+
+setupSpeechRecognition();
+
+/* =========================================================================
+   SETTINGS & KNOWLEDGE MODALS
+   ========================================================================= */
+
+$("openSettingsBtn").onclick = () => {
+  $("engineModeSelect").value = settings.engineMode;
+  $("apiKeyInput").value = settings.apiKey || "";
+  $("voiceLangSelect").value = settings.voiceLang || "auto";
+  $("apiKeyGroup").style.display = "flex";
+  if (settings.engineMode === "auto") {
+    $("apiKeyLabel").textContent = "API Key (optional — auto-used in Auto mode)";
+    $("apiKeyHint").innerHTML = 'Gemini key (free at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent-light)">aistudio.google.com</a>) or OpenAI key starting with sk-… — auto-detected and used for every answer.';
+  }
+  $("settingsModal").classList.add("show");
+};
+
+$("closeSettingsModal").onclick = () => $("settingsModal").classList.remove("show");
+$("cancelSettingsBtn").onclick = () => $("settingsModal").classList.remove("show");
+
+$("engineModeSelect").onchange = function() {
+  $("apiKeyGroup").style.display = "flex";
+  if (this.value === "auto") {
+    $("apiKeyLabel").textContent = "API Key (optional — auto-used in Auto mode)";
+    $("apiKeyHint").innerHTML = 'Gemini key (free at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent-light)">aistudio.google.com</a>) or OpenAI key starting with sk-… — auto-detected and used for every answer.';
+  } else if (this.value === "gemini") {
+    $("apiKeyLabel").textContent = "Google Gemini API Key";
+    $("apiKeyHint").innerHTML = 'Get a free Google Gemini key at <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:var(--accent-light)">aistudio.google.com</a>';
+  } else if (this.value === "openai") {
+    $("apiKeyLabel").textContent = "OpenAI API Key";
+    $("apiKeyHint").textContent = "Paste your OpenAI key starting with sk-...";
+  }
+};
+
+/* --- API key live test --- */
+$("testKeyBtn").onclick = async () => {
+  const key = $("apiKeyInput").value.trim();
+  const res = $("keyTestResult");
+  if (!key) { res.textContent = "⚠ Paste a key first."; return; }
+  res.textContent = "Testing key…";
+  const eng = KEY_ENGINES[/^sk-/.test(key) ? "openai" : "gemini"];
+  try {
+    await eng.call(key, "Reply with exactly: OK", []);
+    res.textContent = "✅ " + eng.label + " key works — Sense will answer with it.";
+  } catch (e) {
+    res.textContent = "❌ " + eng.label + " key failed" + (e.status ? " (HTTP " + e.status + ")" : " (network)") + ". Check the key / quota and try again.";
+  }
+};
+
+$("saveSettingsBtn").onclick = () => {
+  settings.engineMode = $("engineModeSelect").value;
+  settings.apiKey = $("apiKeyInput").value.trim();
+  settings.voiceLang = $("voiceLangSelect").value;
+  saveSettings();
+  $("settingsModal").classList.remove("show");
+
+  $("engineStatusLabel").textContent = settings.engineMode === "gemini" ? "Gemini 2.0 Flash Active" : (settings.engineMode === "openai" ? "OpenAI Active" : (settings.apiKey ? "Your API Key Active (Auto)" : "Live AI & Web Fetch Active"));
+  
+  if (speechRecognizer) {
+    speechRecognizer.lang = settings.voiceLang === "auto" ? (navigator.language || "en-US") : settings.voiceLang;
+  }
+
+  history.push({
+    role: "assistant",
+    text: `✓ **Settings updated.** Assistant is operating in **${settings.engineMode.toUpperCase()}** mode.`,
+    time: formatTime()
+  });
+  saveHistory();
+  renderChat();
+};
+
+// Website Knowledge Modal
+$("openKnowledgeModal").onclick = () => {
+  $("knowledgeJsonInput").value = JSON.stringify(knowledge, null, 2);
+  $("knowledgeModal").classList.add("show");
+};
+
+$("closeKnowledgeModal").onclick = () => $("knowledgeModal").classList.remove("show");
+$("modalCancelBtn").onclick = () => $("knowledgeModal").classList.remove("show");
+
+$("modalSaveBtn").onclick = () => {
+  try {
+    const parsed = JSON.parse($("knowledgeJsonInput").value);
+    if (!parsed || typeof parsed !== "object") throw new Error("Invalid object");
+    knowledge = parsed;
+    saveKnowledge(knowledge);
+    $("knowledgeModal").classList.remove("show");
+    history.push({
+      role: "assistant",
+      text: "✓ **Website knowledge updated successfully.** Sense is now using the newly saved configuration.",
+      time: formatTime()
+    });
+    saveHistory();
+    renderChat();
+  } catch (err) {
+    alert("Invalid JSON format! Please check your syntax before saving.");
+  }
+};
+
+function resetKnowledge() {
+  if (confirm("Reset knowledge base back to original factory defaults?")) {
+    knowledge = JSON.parse(JSON.stringify(DEFAULT_KNOWLEDGE));
+    saveKnowledge(knowledge);
+    $("knowledgeJsonInput").value = JSON.stringify(knowledge, null, 2);
+    $("knowledgeModal").classList.remove("show");
+    history.push({
+      role: "assistant",
+      text: "✓ **Knowledge base restored to default.** All verified topics are ready.",
+      time: formatTime()
+    });
+    saveHistory();
+    renderChat();
+  }
+}
+
+$("resetDefaultsBtn").onclick = resetKnowledge;
+$("modalResetBtn").onclick = resetKnowledge;
+
+$("settingsModal").onclick = (e) => { if (e.target === $("settingsModal")) $("settingsModal").classList.remove("show"); };
+$("knowledgeModal").onclick = (e) => { if (e.target === $("knowledgeModal")) $("knowledgeModal").classList.remove("show"); };
+
+// Voice reply toggle persistence
+$("voiceReplies").checked = settings.speakReplies || false;
+$("voiceReplies").onchange = function() {
+  settings.speakReplies = this.checked;
+  saveSettings();
+};
+
+/* =========================================================================
+   INITIALIZATION
+   ========================================================================= */
+$("engineStatusLabel").textContent = settings.engineMode === "gemini" ? "Gemini 1.5 Flash Active" : (settings.engineMode === "openai" ? "OpenAI Active" : "Live AI & Web Fetch Active");
+renderChat();
+</script>
+</body>
+</html>

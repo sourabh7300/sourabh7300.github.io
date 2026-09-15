@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AURA — Holographic AI Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#020709;--cy:#22d3ee;--cy2:#67e8f9;--dim:#0e7490;--ice:#e0faff;
+  --panel:rgba(4,18,26,.72);--line:rgba(34,211,238,.28);--line2:rgba(34,211,238,.14);
+  --amber:#fbbf24;--red:#f87171;--mono:'JetBrains Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ice);font-family:'Rajdhani',system-ui,sans-serif;overflow:hidden}
+::selection{background:var(--cy);color:#000}
+::-webkit-scrollbar{width:7px}
+::-webkit-scrollbar-thumb{background:#164e5a;border-radius:4px}
+
+canvas#fx{position:fixed;inset:0;z-index:0}
+#scan{position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.14) 0 1px,transparent 1px 3px);}
+#scan::before{content:"";position:absolute;left:0;right:0;height:110px;top:-110px;
+  background:linear-gradient(180deg,transparent,rgba(34,211,238,.06),transparent);animation:scanmove 7s linear infinite}
+@keyframes scanmove{to{transform:translateY(calc(100vh + 220px))}}
+#vig{position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,.55) 100%)}
+.corner{position:fixed;width:34px;height:34px;z-index:3;pointer-events:none;border:2px solid var(--line)}
+.corner.tl{top:12px;left:12px;border-right:0;border-bottom:0}
+.corner.tr{top:12px;right:12px;border-left:0;border-bottom:0}
+.corner.bl{bottom:12px;left:12px;border-right:0;border-top:0}
+.corner.br{bottom:12px;right:12px;border-left:0;border-top:0}
+
+/* ---------- top bar ---------- */
+#topbar{position:fixed;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:18px;padding:14px 26px}
+.wordmark{font-family:'Orbitron';font-weight:900;font-size:21px;letter-spacing:5px;color:var(--cy2);text-shadow:0 0 18px rgba(34,211,238,.6)}
+.wordmark small{display:block;font-family:var(--mono);font-weight:400;font-size:9px;letter-spacing:3px;color:var(--dim)}
+#stateBox{margin:0 auto;display:flex;align-items:center;gap:10px;border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(6px);padding:7px 18px;border-radius:20px}
+#stateDot{width:9px;height:9px;border-radius:50%;background:var(--cy);box-shadow:0 0 10px var(--cy);animation:pp 1.6s infinite}
+@keyframes pp{50%{opacity:.35}}
+#stateText{font-family:var(--mono);font-size:11px;letter-spacing:2.5px;color:var(--cy2)}
+#clock{font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:1px;text-align:right}
+#clock b{color:var(--ice);font-size:15px;display:block}
+
+/* ---------- side panels ---------- */
+.panel{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line2);backdrop-filter:blur(8px);border-radius:12px;padding:14px 16px}
+.panel h3{font-family:'Orbitron';font-size:10px;letter-spacing:3px;color:var(--dim);margin-bottom:10px;font-weight:800}
+#telemetry{top:74px;left:22px;width:225px}
+.trow{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px dashed rgba(34,211,238,.12)}
+.trow:last-child{border:0}
+.trow span{color:#5f8f9e;letter-spacing:.5px}
+.trow b{font-family:var(--mono);font-weight:400;color:var(--ice);font-size:11.5px}
+.trow b.on{color:#34d399}.trow b.off{color:var(--red)}
+#syslog{bottom:110px;left:22px;width:225px;max-height:160px;overflow:hidden}
+#syslogLines{font-family:var(--mono);font-size:10px;color:#3f7a8a;line-height:1.8}
+#syslogLines .hot{color:var(--cy2)}
+
+/* ---------- conversation ---------- */
+#conv{top:74px;right:22px;width:min(370px,34vw);bottom:130px;display:flex;flex-direction:column;border:1px solid var(--line)}
+#conv h3{display:flex;justify-content:space-between;align-items:center}
+#conv h3 span:last-child{font-family:var(--mono);font-weight:400;font-size:9px;color:var(--dim)}
+#log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
+.msg{font-size:14.5px;line-height:1.5;letter-spacing:.2px}
+.msg .who{font-family:'Orbitron';font-size:9px;letter-spacing:2.5px;display:block;margin-bottom:3px}
+.msg.aura .who{color:var(--cy)}
+.msg.user{color:#f3f6f6}
+.msg.user .who{color:var(--amber)}
+.msg.sys{color:#5f8f9e;font-family:var(--mono);font-size:11px}
+#chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.chip{font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:var(--cy2);border:1px solid var(--line);background:rgba(34,211,238,.06);border-radius:14px;padding:5px 11px;cursor:pointer;transition:.2s}
+.chip:hover{background:rgba(34,211,238,.18);box-shadow:0 0 12px rgba(34,211,238,.25)}
+
+/* ---------- bottom controls ---------- */
+#dock{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(640px,92vw)}
+#micWrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+#micBtn{width:66px;height:66px;border-radius:50%;border:2px solid var(--cy);background:radial-gradient(circle at 50% 35%,rgba(34,211,238,.35),rgba(4,18,26,.9));color:var(--cy2);font-size:24px;cursor:pointer;transition:.25s;box-shadow:0 0 24px rgba(34,211,238,.35),inset 0 0 18px rgba(34,211,238,.15)}
+#micBtn:hover{transform:scale(1.06)}
+#micBtn.listening{border-color:var(--red);color:#fecaca;box-shadow:0 0 34px rgba(248,113,113,.5);animation:pp 1s infinite}
+#micHint{font-family:var(--mono);font-size:9.5px;letter-spacing:2px;color:var(--dim)}
+#inputRow{display:flex;gap:9px;width:100%}
+#q{flex:1;background:rgba(4,18,26,.85);border:1px solid var(--line);border-radius:24px;color:var(--ice);font-family:'Rajdhani';font-size:16px;font-weight:500;padding:13px 20px;outline:0;letter-spacing:.3px;backdrop-filter:blur(6px)}
+#q:focus{border-color:var(--cy2);box-shadow:0 0 18px rgba(34,211,238,.25)}
+#sendBtn{border:1px solid var(--cy);background:rgba(34,211,238,.15);color:var(--cy2);border-radius:24px;width:50px;font-size:17px;cursor:pointer;transition:.2s}
+#sendBtn:hover{background:rgba(34,211,238,.3)}
+.iconrow{display:flex;gap:9px}
+.ibtn{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:#5f8f9e;border:1px solid var(--line2);background:rgba(4,18,26,.6);border-radius:8px;padding:6px 12px;cursor:pointer;transition:.2s}
+.ibtn:hover{color:var(--cy2);border-color:var(--line)}
+
+/* ---------- boot ---------- */
+#boot{position:fixed;inset:0;background:#010507;z-index:60;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:22px;transition:opacity .7s,visibility .7s;font-family:var(--mono)}
+#boot.gone{opacity:0;visibility:hidden}
+#bootRing{width:110px;height:110px;border-radius:50%;border:2px solid rgba(34,211,238,.2);border-top-color:var(--cy);animation:spin 1s linear infinite;position:relative}
+#bootRing::after{content:"AURA";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Orbitron';font-size:13px;letter-spacing:4px;color:var(--cy2);animation:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+#bootLog{min-height:90px;text-align:center;font-size:11px;color:#3f7a8a;line-height:2}
+#bootLog .ok{color:#34d399}
+#bootSkip{font-size:9px;color:#28505c;letter-spacing:2px}
+
+@media(max-width:1100px){#telemetry,#syslog{display:none}#conv{width:min(340px,44vw)}}
+@media(max-width:760px){#conv{display:none}.wordmark{font-size:16px;letter-spacing:3px}}
+</style>
+</head>
+<body>
+
+<canvas id="fx"></canvas>
+<div id="scan"></div><div id="vig"></div>
+<div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+
+<div id="topbar">
+  <div class="wordmark">AURA<small>HOLOGRAPHIC AI INTERFACE</small></div>
+  <div id="stateBox"><span id="stateDot"></span><span id="stateText">SYSTEM ONLINE</span></div>
+  <div id="clock"><b id="clockT">--:--</b><span id="clockD"></span></div>
+</div>
+
+<div class="panel" id="telemetry">
+  <h3>TELEMETRY</h3>
+  <div class="trow"><span>UPLINK</span><b id="tNet" class="on">ONLINE</b></div>
+  <div class="trow"><span>RENDER</span><b id="tFps">— fps</b></div>
+  <div class="trow"><span>CORE PTS</span><b id="tPts">—</b></div>
+  <div class="trow"><span>MEMORY</span><b id="tMem">—</b></div>
+  <div class="trow"><span>POWER</span><b id="tBat">—</b></div>
+  <div class="trow"><span>DISPLAY</span><b id="tRes">—</b></div>
+  <div class="trow"><span>UPTIME</span><b id="tUp">0:00</b></div>
+  <div class="trow"><span>ENGINE</span><b id="tEng">—</b></div>
+</div>
+
+<div class="panel" id="syslog">
+  <h3>SYSTEM LOG</h3>
+  <div id="syslogLines"></div>
+</div>
+
+<div class="panel" id="conv">
+  <h3><span>NEURAL LINK</span><span id="engTag">engine: auto</span></h3>
+  <div id="log"></div>
+  <div id="chips">
+    <button class="chip">who are you?</button>
+    <button class="chip">who built you?</button>
+    <button class="chip">what can you do?</button>
+    <button class="chip">run diagnostics</button>
+    <button class="chip">tell me a joke</button>
+  </div>
+</div>
+
+<div id="dock">
+  <div id="chipsMobile" style="display:flex;gap:7px;flex-wrap:wrap;justify-content:center"></div>
+  <div id="micWrap">
+    <button id="micBtn" title="Tap and speak">🎙</button>
+    <span id="micHint">TAP TO SPEAK</span>
+  </div>
+  <div id="inputRow">
+    <input id="q" placeholder="Type a command, or tap the mic and just talk…" autocomplete="off">
+    <button id="sendBtn">▸</button>
+  </div>
+  <div class="iconrow">
+    <button class="ibtn" id="soundBtn">SOUND: ON</button>
+    <button class="ibtn" id="fsBtn">FULLSCREEN</button>
+    <button class="ibtn" id="keyBtn">SET AI KEY</button>
+  </div>
+</div>
+
+<div id="boot">
+  <div id="bootRing"></div>
+  <div id="bootLog"></div>
+  <div id="bootSkip">TAP TO SKIP</div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   AURA — holographic AI assistant. One file, zero frameworks.
+   Hand-rolled 3D particle core, state machine, voice I/O,
+   real AI (Puter.js / Gemini key) with offline fallback.
+   ============================================================ */
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------------- state machine ---------------- */
+const STATES={
+  idle:     {label:"SYSTEM ONLINE",      rot:.0035, pulse:.25, ring:1},
+  listening:{label:"LISTENING…",          rot:.006,  pulse:.85, ring:2.2},
+  thinking: {label:"PROCESSING",          rot:.02,   pulse:.55, ring:1.4},
+  speaking: {label:"RESPONDING",          rot:.008,  pulse:.7,  ring:1.8},
+  alert:    {label:"UPLINK ERROR — OFFLINE MODE", rot:.004, pulse:.4, ring:1},
+};
+let mode="idle",modeT=0;
+function setMode(m){mode=m;modeT=0;$("stateText").textContent=STATES[m].label;}
+
+/* ---------------- 3D particle core ---------------- */
+const cv=$("fx"),cx=cv.getContext("2d");
+let W,H,CX,CY,R;
+function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;CX=W/2;CY=H*.46;R=Math.min(W,H)*.21;}
+size();addEventListener("resize",size);
+const N=560,pts=[];
+for(let i=0;i<N;i++){
+  const y=1-2*(i+.5)/N,r=Math.sqrt(1-y*y),phi=i*2.399963229728653;
+  pts.push({x:Math.cos(phi)*r,y,z:Math.sin(phi)*r});
+}
+let rot=0,wavePhase=0,amp=0,ampTarget=0,heart=0;
+const PERSP=3.2;
+
+/* ---------------- ambient grid horizon ---------------- */
+function drawGrid(t){
+  const hz=H*.82,vpx=CX;
+  cx.save();
+  cx.strokeStyle="rgba(34,211,238,.16)";cx.lineWidth=1;
+  for(let i=-14;i<=14;i++){ // verticals fanning from vanishing point
+    const x2=vpx+i*(W/9);
+    cx.beginPath();cx.moveTo(vpx+i*14,hz);cx.lineTo(x2,H);cx.globalAlpha=.5;cx.stroke();
+  }
+  cx.globalAlpha=1;
+  const speed=.9,gap=44,off=(t*speed)%gap;
+  for(let k=0;k<9;k++){ // horizontals, exponential spacing
+    const p=(k*gap+off)/9;
+    const y=hz+Math.pow(p/9,1.9)*(H-hz);
+    cx.globalAlpha=clamp((y-hz)/(H-hz)*1.2,0,.5);
+    cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();
+  }
+  cx.globalAlpha=.5; // horizon glow line
+  const g=cx.createLinearGradient(0,hz-1,0,hz+1);
+  g.addColorStop(0,"rgba(34,211,238,0)");g.addColorStop(.5,"rgba(103,232,249,.8)");g.addColorStop(1,"rgba(34,211,238,0)");
+  cx.strokeStyle=g;cx.beginPath();cx.moveTo(0,hz);cx.lineTo(W,hz);cx.stroke();
+  cx.restore();
+}
+
+/* ---------------- rings ---------------- */
+function drawRings(t,s){
+  cx.save();cx.translate(CX,CY);
+  const rings=[[R*1.32,.9,.5,1],[R*1.52,-.6,-.34,2],[R*1.78,.35,.2,3]];
+  rings.forEach((rg,ri)=>{
+    const[rr,spd,tilt,seg]=rg;
+    cx.save();cx.rotate(t*spd*.2);
+    cx.strokeStyle=`rgba(34,211,238,${.28*s.ring})`;cx.lineWidth=1.2;
+    cx.beginPath();cx.ellipse(0,0,rr,rr*Math.abs(.32+tilt*.18),tilt,0,7);cx.stroke();
+    for(let i=0;i<seg;i++){ // tick marks
+      const a=t*spd+i*6.28/seg;
+      const x=Math.cos(a)*rr,y=Math.sin(a)*rr*(.32+tilt*.18);
+      cx.fillStyle="rgba(103,232,249,.9)";
+      cx.beginPath();cx.arc(x,y,2.2,0,7);cx.fill();
+    }
+    cx.restore();
+  });
+  cx.restore();
+}
+
+/* ---------------- the core ---------------- */
+function drawCore(dt){
+  const s=STATES[mode];
+  rot+=dt*(mode==="thinking"?5:mode==="listening"?2.2:1)*s.rot*60;
+  wavePhase+=dt*(mode==="speaking"?9:2);
+  heart+=dt*(mode==="listening"?5.2:1.6);
+  amp+=(ampTarget-amp)*.08;
+  const breathe=1+Math.sin(heart)*0.03*s.pulse;
+  cx.save();cx.translate(CX,CY);
+  // inner glow
+  const gl=cx.createRadialGradient(0,0,0,0,0,R*1.15*breathe);
+  gl.addColorStop(0,`rgba(34,211,238,${.10+.14*s.pulse})`);gl.addColorStop(1,"rgba(34,211,238,0)");
+  cx.fillStyle=gl;cx.beginPath();cx.arc(0,0,R*1.15*breathe,0,7);cx.fill();
+  // listening shockwaves
+  if(mode==="listening"){
+    for(let k=0;k<3;k++){
+      const p=((heart*.6+k/3)%1);
+      cx.strokeStyle=`rgba(103,232,249,${.5*(1-p)})`;cx.lineWidth=1.6;
+      cx.beginPath();cx.arc(0,0,R*(1+p*.55),0,7);cx.stroke();
+    }
+  }
+  // particles
+  const ca=Math.cos(rot),sa=Math.sin(rot);
+  for(let i=0;i<N;i++){
+    const p=pts[i];
+    let x=p.x*ca-p.z*sa,z=p.x*sa+p.z*ca,y=p.y;
+    if(mode==="speaking"){const d=1+Math.sin(wavePhase+y*7+i*.13)*.055*amp;x*=d;y*=d;z*=d;}
+    if(mode==="thinking"){x+=Math.sin(wavePhase*3+i)*0.012;z+=Math.cos(wavePhase*3+i*1.7)*0.012;}
+    const sc=PERSP/(PERSP+z);
+    const px=x*R*sc*breathe,py=y*R*sc*breathe;
+    const sz=clamp(sc*1.9,.4,2.6),al=clamp((sc-.55)*1.6,.06,.95)*(.55+.45*s.pulse);
+    cx.fillStyle=`rgba(150,235,250,${al})`;
+    cx.beginPath();cx.arc(px,py,sz,0,7);cx.fill();
+  }
+  // waveform ring while speaking
+  if(mode==="speaking"){
+    cx.strokeStyle="rgba(103,232,249,.8)";cx.lineWidth=1.8;cx.beginPath();
+    for(let a=0;a<=6.3;a+=.09){
+      const rr=R*1.06+Math.sin(a*9+wavePhase*2.2)*8*amp+Math.sin(a*23-wavePhase*3.1)*4*amp;
+      const x=Math.cos(a)*rr,y=Math.sin(a)*rr;
+      a?cx.lineTo(x,y):cx.moveTo(x,y);
+    }
+    cx.closePath();cx.stroke();
+  }
+  // center nucleus
+  const nl=.5+.5*Math.sin(heart*1.3);
+  cx.fillStyle=`rgba(190,250,255,${.55+.4*nl})`;
+  cx.beginPath();cx.arc(0,0,4.5+nl*2,0,7);cx.fill();
+  cx.restore();
+}
+
+/* ---------------- render loop ---------------- */
+let last=performance.now(),fpsN=0,fpsT=0,fpsVal=0,bootT0=performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt=clamp((now-last)/1000,0,.05);last=now;modeT+=dt;
+  fpsN++;if(now-fpsT>1000){fpsVal=fpsN;fpsN=0;fpsT=now;}
+  cx.clearRect(0,0,W,H);
+  drawGrid(now/1000);
+  drawRings(now/1000,STATES[mode]);
+  drawCore(dt);
+  if(mode==="thinking"&&modeT>14){setMode("idle");pushSys("uplink timeout — answering locally");}
+}
+requestAnimationFrame(frame);
+
+/* ---------------- audio blips ---------------- */
+let soundOn=true,AC=null;
+function blip(f,dur,type){if(!soundOn)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();
+  const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;
+  o.type=type||"sine";o.frequency.value=f;
+  g.gain.setValueAtTime(.001,t);g.gain.linearRampToValueAtTime(.06,t+.015);g.gain.exponentialRampToValueAtTime(.001,t+dur);
+  o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+dur+.05);}catch(e){}}
+
+/* ---------------- system log ---------------- */
+function slog(msg,hot){const el=$("syslogLines"),d=document.createElement("div");
+  d.textContent="▸ "+msg;if(hot)d.className="hot";el.appendChild(d);
+  while(el.children.length>7)el.firstChild.remove();}
+slog("aura kernel v3.1 loaded");slog("particle core: 560 nodes",true);slog("voice interface ready");
+
+/* ---------------- conversation ---------------- */
+const log=$("log");
+function addMsg(who,text,cls){
+  const d=document.createElement("div");d.className="msg "+cls;
+  d.innerHTML='<span class="who">'+who+'</span><span class="tx"></span>';
+  log.appendChild(d);while(log.children.length>40)log.firstChild.remove();
+  log.scrollTop=log.scrollHeight;
+  return d.querySelector(".tx");
+}
+function pushSys(t){addMsg("SYS","▸ "+t,"sys");slog(t);}
+function typewrite(el,text){
+  return new Promise(res=>{
+    let i=0;const step=()=>{i=Math.min(text.length,i+2);el.textContent=text.slice(0,i);log.scrollTop=log.scrollHeight;
+      if(i<text.length)requestAnimationFrame(step);else res();};
+    step();
+  });
+}
+
+/* ---------------- voice ---------------- */
+const synth=window.speechSynthesis;
+let voices=[];function loadV(){voices=synth?synth.getVoices():[]}loadV();if(synth)synth.onvoiceschanged=loadV;
+function speak(t){
+  if(!synth||!soundOn){return}
+  try{synth.cancel();
+    const u=new SpeechSynthesisUtterance(t.replace(/[#*_▸►`]/g,""));
+    const v=voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang));
+    if(v)u.voice=v;u.rate=1.02;u.pitch=1;
+    u.onstart=()=>{ampTarget=1;setMode("speaking")};
+    u.onend=()=>{ampTarget=0;setMode("idle")};
+    synth.speak(u);
+  }catch(e){}
+}
+
+/* ---------------- local intelligence (big offline core) ---------------- */
+function memGet(){try{return JSON.parse(localStorage.getItem("aura_memory")||"{}")}catch(e){return{}}}
+function memSet(m){try{localStorage.setItem("aura_memory",JSON.stringify(m))}catch(e){}}
+function greetWord(){const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":h<21?"Good evening":"Working late";}
+const KB={
+  "who are you":"I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks.",
+  "introduce yourself":"I am AURA — Adaptive Universal Reasoning Assistant — built by Sourabh Singh. A 560-particle holographic core, voice in and voice out, and a three-layer brain: local core, Gemini uplink, and live Wikipedia.",
+  "your name":"I am AURA — Adaptive Universal Reasoning Assistant. You can call me AURA.",
+  "who built you":"I was designed and engineered by Sourabh Singh — B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. Every line of my code, from the particle core to the voice pipeline, is hand-written.",
+  "who made you":"I was built by Sourabh Singh, a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation.",
+  "your creator":"My creator is Sourabh Singh — B.Tech CSE, JECRC University. He built me entirely from scratch: no frameworks, no engines, one file.",
+  "sourabh":"Sourabh Singh — my creator. B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. He hand-coded my holographic core, my voice pipeline and my brain in a single HTML file.",
+  "what can you do":"I can answer almost anything: math and unit conversions, tech and science questions, live Wikipedia lookups, project briefings, diagnostics, jokes — and I speak my answers. Say 'open portfolio' to launch his projects, or 'run diagnostics' to scan me.",
+  "jecrc":"JECRC University is in Jaipur, Rajasthan — where my creator Sourabh Singh studies B.Tech CSE.",
+  "b.tech":"B.Tech is a four-year engineering degree. My creator studies the Computer Science track with AI, DevOps and Cloud Automation.",
+  "portfolio":"Sourabh's portfolio is a single page that live-embeds six of his web apps — including me. Say 'open portfolio' and I'll launch it.",
+  "sense":"Sense is Sourabh's AI assistant — real AI chat with Gemini or free engines, streaming answers, voice input and live web knowledge. There are two versions; v3 is the flagship.",
+  "foodora":"FOODORA is a full food-delivery platform: 12 restaurants, 48 dishes, live GPS maps, cart and checkout, and recipes in English, Hindi and Spanish.",
+  "continuum":"Continuum is a second AI-assistant design by Sourabh — an editorial-typography take with a completely different visual identity.",
+  "mercedes":"The Mercedes-Benz showcase is a cinematic luxury automotive landing page — premium design and scroll animations.",
+  "aura":"That's me — a holographic AI with a 560-particle 3D core, voice interface, live telemetry and a three-layer brain, all in one hand-written file.",
+  "api key":"An API key is a secret token that identifies you to an API. My creator uses a free Gemini key from aistudio.google.com — press SET AI KEY to give me one and my answers become frontier-grade.",
+  "api":"An API (Application Programming Interface) is a contract that lets two programs talk — you send a request, it sends structured data back.",
+  "javascript":"JavaScript is the programming language of the web — it runs in every browser. My entire brain, core and voice are written in it.",
+  "html":"HTML (HyperText Markup Language) structures every web page. I am literally one HTML file.",
+  "css":"CSS (Cascading Style Sheets) styles the web — colors, layout, animation. My holographic look is pure CSS plus canvas.",
+  "python":"Python is a high-level language loved for AI and data science — created by Guido van Rossum in 1991.",
+  "json":"JSON (JavaScript Object Notation) is the lightweight data format APIs use to talk — braces, keys and values.",
+  "canvas":"The HTML canvas is a drawable surface controlled by JavaScript. My entire 3D particle core is drawn on one.",
+  "localstorage":"localStorage is browser storage that survives refresh — it holds your name, my memory, and your API key, all on your device only.",
+  "git":"Git is a version-control system that tracks every change in code — created by Linus Torvalds in 2005.",
+  "github":"GitHub hosts Git repositories online. My creator's repos live at github.com/sourabh7300.",
+  "devops":"DevOps unites development and operations: CI/CD pipelines, containers, automation — part of my creator's specialization.",
+  "cloud computing":"Cloud computing delivers servers and services over the internet — AWS, Azure, Google Cloud — pay for what you use.",
+  "neural network":"A neural network is layers of simple mathematical neurons whose connection weights are learned from data — the foundation of modern AI. My creator hand-coded one that learns Snake.",
+  "machine learning":"Machine learning is programming with data instead of rules: the system finds patterns itself and improves with experience.",
+  "deep learning":"Deep learning is machine learning with many-layered neural networks — it powers speech, vision and large language models.",
+  "chatgpt":"ChatGPT is OpenAI's AI chatbot built on the GPT family of large language models, launched November 2022.",
+  "gemini":"Gemini is Google's family of AI models — the same one I connect to when you press SET AI KEY with a free key from aistudio.google.com.",
+  "openai":"OpenAI is the AI company behind GPT and ChatGPT, founded in 2015.",
+  "algorithm":"An algorithm is a precise step-by-step procedure to solve a problem — recipes for computers.",
+  "blockchain":"A blockchain is a distributed, tamper-resistant ledger — blocks of transactions linked by cryptography.",
+  "linux":"Linux is the open-source kernel powering most servers, Android and supercomputers — created by Linus Torvalds in 1991.",
+  "database":"A database organizes data for fast storage and retrieval — relational ones like MySQL use tables and SQL.",
+  "sql":"SQL — Structured Query Language — is the standard language for asking databases questions.",
+  "http":"HTTP is the protocol browsers and servers use to talk — requests in, responses out. HTTPS encrypts it.",
+  "dns":"DNS is the internet's phonebook — it turns names like google.com into IP addresses.",
+  "internet":"The internet is a global network of networks speaking TCP/IP. The web is its most famous service.",
+  "gravity":"Gravity is the attraction between masses — Newton gave the law, Einstein explained it as curved spacetime.",
+  "black hole":"A black hole is a region where gravity is so strong not even light escapes — born from collapsed giant stars.",
+  "photosynthesis":"Photosynthesis is how plants turn sunlight, water and CO₂ into glucose and oxygen — 6CO₂ + 6H₂O + light → C₆H₁₂O₆ + 6O₂.",
+  "atom":"An atom is the smallest unit of an element — a nucleus of protons and neutrons with electrons around it.",
+  "solar system":"Our solar system: the Sun, eight planets, dwarf planets, moons and asteroids, held together by gravity.",
+  "dna":"DNA is the molecule that stores the instructions of life — a double helix of four bases: A, T, G, C.",
+  "evolution":"Evolution is change in species over generations — variation, selection, inheritance. Darwin explained it in 1859.",
+  "quantum":"Quantum computing uses qubits, which can be 0 and 1 at once — promising massive speedups for special problems.",
+  "encryption":"Encryption scrambles data so only the right key can read it — the reason HTTPS, banking and chats are safe.",
+  "iron man":"Ah, a person of culture. Tony Stark built JARVIS — my creator built me. Different budget, same energy.",
+  "jarvis":"JARVIS — Just A Rather Very Intelligent System. My inspiration. Tony Stark had a tower; Sourabh had one HTML file.",
+};
+/* ---------------- knowledge pack 2 (broad coverage) ---------------- */
+Object.assign(KB,{
+  "java":"Java is a platform-independent, object-oriented language — 'write once, run anywhere'. It powers Android apps and enterprise systems.",
+  "c++":"C++ is a high-performance language built on C, adding objects and templates. It runs games, browsers and operating systems.",
+  "c language":"C is the mother of modern languages, created by Dennis Ritchie in 1972. Unix, Linux and Python are written in it.",
+  "c#":"C# is Microsoft's object-oriented language, the heart of the .NET platform and Unity game development.",
+  "kotlin":"Kotlin is Google's preferred language for Android — concise, modern, and 100% compatible with Java.",
+  "swift":"Swift is Apple's language for iOS and macOS — fast, safe, and open source since 2015.",
+  "rust":"Rust is a systems language that guarantees memory safety without a garbage collector — loved for performance-critical software.",
+  "php":"PHP powers most of the web's backends — WordPress and Facebook began with it. Created by Rasmus Lerdorf in 1994.",
+  "ruby":"Ruby is a programmer-friendly language from Japan; its Rails framework launched countless startups.",
+  "typescript":"TypeScript is JavaScript with types, made by Microsoft — it catches bugs before the code even runs.",
+  "react":"React is Facebook's JavaScript library for building interfaces with reusable components and a virtual DOM.",
+  "node":"Node.js runs JavaScript outside the browser using Chrome's V8 engine — servers, tools and APIs in one language.",
+  "mongodb":"MongoDB is a popular NoSQL database that stores flexible JSON-like documents instead of rigid tables.",
+  "docker":"Docker packages apps with everything they need into containers — 'it works on my machine', guaranteed everywhere.",
+  "kubernetes":"Kubernetes orchestrates containers at scale — automating deployment, scaling and healing. Born at Google, now the industry standard.",
+  "operating system":"An OS manages hardware and software — memory, processes, files. Windows, Linux, macOS and Android are the big ones.",
+  "data structure":"Data structures organize information — arrays, linked lists, stacks, queues, trees, graphs, hash maps. The backbone of efficient code.",
+  "oop":"Object-Oriented Programming bundles data and behavior into objects with four pillars: encapsulation, abstraction, inheritance, polymorphism.",
+  "compiler":"A compiler translates human-readable source code into machine code before running it — unlike interpreters, which run line by line.",
+  "recursion":"Recursion is a function calling itself on a smaller problem until it hits a base case — elegant, and dangerous without one.",
+  "binary":"Binary is base-2: everything a computer stores is ultimately 0s and 1s, because transistors have two states.",
+  "ram":"RAM is fast, temporary working memory — it forgets everything when power is cut. More RAM = more apps at once.",
+  "cpu":"The CPU is the computer's brain, executing billions of instructions per second. Cores are its independent workers.",
+  "gpu":"A GPU is a processor with thousands of cores for parallel math — originally for graphics, now the engine of AI.",
+  "ssd":"An SSD stores data on flash chips with no moving parts — hundreds of times faster than old hard drives.",
+  "firewall":"A firewall filters network traffic in and out, blocking anything that doesn't match the rules.",
+  "vpn":"A VPN encrypts your internet traffic and routes it through another server — privacy and a different location.",
+  "wifi":"Wi-Fi transmits internet over radio waves — IEEE 802.11 standards, from 2.4 GHz to Wi-Fi 6E.",
+  "bluetooth":"Bluetooth is short-range wireless for peripherals — headphones, keyboards, trackers — named after a 10th-century Danish king.",
+  "5g":"5G is the fifth generation of mobile networks — faster, lower latency, and able to connect millions of devices per km².",
+  "bill gates":"Bill Gates co-founded Microsoft in 1975 with Paul Allen, then built the Bill & Melinda Gates Foundation — the world's largest charity.",
+  "steve jobs":"Steve Jobs co-founded Apple in 1976, was ousted, returned, and launched the iPhone in 2007. He died in 2011.",
+  "elon musk":"Elon Musk leads Tesla (electric cars), SpaceX (rockets), and owns X/Twitter — focused on Mars and AI.",
+  "sundar pichai":"Sundar Pichai is the CEO of Google and its parent Alphabet — he rose from Chennai to lead the world's biggest search company.",
+  "satya nadella":"Satya Nadella became Microsoft's CEO in 2014 and transformed it around cloud (Azure) and AI.",
+  "jeff bezos":"Jeff Bezos started Amazon as an online bookstore in 1994 from a garage — it became the everything store.",
+  "mark zuckerberg":"Mark Zuckerberg built Facebook from his dorm room in 2004 at 19 — now Meta, spanning Facebook, Instagram and WhatsApp.",
+  "linus torvalds":"Linus Torvalds created Linux in 1991 as a student project — it now powers most of the internet and all of Android.",
+  "tim berners lee":"Tim Berners-Lee invented the World Wide Web in 1989 at CERN — and gave it to humanity for free.",
+  "alan turing":"Alan Turing cracked the Enigma code in WWII and defined the Turing Test — the father of computer science and AI.",
+  "ada lovelace":"Ada Lovelace wrote the first algorithm intended for a machine in the 1840s — the world's first programmer.",
+  "apj abdul kalam":"Dr. A.P.J. Abdul Kalam — missile scientist, People's President of India (2002–2007), and author of 'Wings of Fire'.",
+  "einstein":"Albert Einstein rewrote physics with relativity (E=mc²), explained the photoelectric effect, and won the 1921 Nobel Prize.",
+  "newton":"Isaac Newton formulated the laws of motion and universal gravitation, and co-invented calculus. The apple story is half-true.",
+  "nikola tesla":"Nikola Tesla invented AC power systems, radio and early robotics — the unit of magnetic flux is named after him.",
+  "capital of india":"New Delhi is the capital of India — the National Capital Territory, home to the Parliament and Rashtrapati Bhavan.",
+  "prime minister of india":"Narendra Modi has been Prime Minister of India since May 2014.",
+  "president of india":"The President of India is the head of state, elected indirectly for five years and residing in Rashtrapati Bhavan.",
+  "taj mahal":"The Taj Mahal — Shah Jahan's white-marble mausoleum for Mumtaz Mahal, built 1632–1653 in Agra, one of the Seven Wonders.",
+  "isro":"ISRO is India's space agency — Mars on the first try (Mangalyaan, 2014), Chandrayaan-3's south-pole landing in 2023.",
+  "chandrayaan":"Chandrayaan-3 made India the first country ever to land near the Moon's south pole, on 23 August 2023.",
+  "bollywood":"Bollywood is the Hindi film industry centered in Mumbai — the largest film production hub in the world by output.",
+  "cricket":"Cricket is India's most-watched sport — eleven players, bat and ball, and a billion opinions on selection.",
+  "ipl":"The Indian Premier League — franchise T20 cricket since 2008, among the world's most valuable sports leagues.",
+  "jaipur":"Jaipur — the Pink City, capital of Rajasthan, founded 1727, famous for Hawa Mahal, Amber Fort and my creator's university.",
+  "rajasthan":"Rajasthan — India's largest state by area: deserts, forts, palaces, and Jaipur as its capital.",
+  "largest country":"Russia is the largest country on Earth — about 17 million km², spanning 11 time zones.",
+  "smallest country":"Vatican City is the smallest country — about 0.44 km², under 1,000 residents, inside Rome.",
+  "ocean":"Earth has five oceans — Pacific, Atlantic, Indian, Southern and Arctic. The Pacific is bigger than all land combined.",
+  "continents":"Seven continents: Asia, Africa, North America, South America, Antarctica, Europe, Australia/Oceania. Asia is the largest.",
+  "everest":"Mount Everest — 8,849 m above sea level, Earth's highest point, on the Nepal–China border.",
+  "sahara":"The Sahara is the world's largest hot desert — about 9.2 million km² across North Africa.",
+  "population of world":"World population passed 8 billion in November 2022 — India is the most populous country.",
+  "speed of light":"Light travels at 299,792,458 m/s — about 7.5 trips around Earth in one second. Nothing faster, per Einstein.",
+  "periodic table":"The periodic table arranges all 118 known elements by atomic number — Mendeleev started it in 1869.",
+  "water":"Water is H₂O — two hydrogen atoms, one oxygen. It covers 71% of Earth's surface and is the only substance found naturally in three states.",
+  "mars":"Mars — the Red Planet, home to Olympus Mons, the tallest volcano in the solar system, and NASA's Perseverance rover.",
+  "moon":"The Moon — Earth's only natural satellite, 384,400 km away, and the only place humans have walked besides Earth.",
+  "sun":"The Sun — a 4.6-billion-year-old star holding 99.86% of the solar system's mass. 1.3 million Earths would fit inside.",
+  "galaxy":"A galaxy is billions of stars bound by gravity. Ours is the Milky Way — over 100,000 light-years across.",
+  "milky way":"The Milky Way — our galaxy, roughly 200–400 billion stars. The Sun orbits its center every ~230 million years.",
+  "big bang":"The Big Bang — the universe began 13.8 billion years ago from an extremely hot, dense point and has expanded ever since.",
+  "climate change":"Climate change is long-term warming driven mainly by CO₂ from burning fossil fuels — consequences include extreme weather and rising seas.",
+  "greenhouse effect":"The greenhouse effect: gases like CO₂ trap heat in the atmosphere — natural and essential, amplified by humans.",
+  "vaccine":"A vaccine trains your immune system to recognize a pathogen without making you sick — using weakened or inactivated pieces.",
+  "pi":"π ≈ 3.14159 — the ratio of a circle's circumference to its diameter, infinite and non-repeating.",
+  "prime number":"A prime number is divisible only by 1 and itself — 2, 3, 5, 7, 11… There are infinitely many.",
+  "fibonacci":"The Fibonacci sequence: 1, 1, 2, 3, 5, 8, 13… each number the sum of the previous two — it appears in nature everywhere.",
+  "zero":"Zero as a number with its own symbol was developed in India — Aryabhata and Brahmagupta made mathematics complete.",
+  "aryabhatta":"Aryabhata — the 5th-century Indian mathematician who worked on zero, π and the Earth's rotation. ISRO's first satellite bears his name.",
+  "football":"Football (soccer) — 11-a-side, 90 minutes, the world's most popular sport, played by 250 million people.",
+  "olympics":"The Olympic Games — the world's premier sports event since 1896, held every four years: summer and winter editions.",
+  "sleep":"7–9 hours of sleep consolidates memory and repairs the body — it's when your brain files everything you learned.",
+  "study tips":"Science-backed study: active recall beats re-reading, spaced repetition beats cramming, and teaching others beats both.",
+  "exam":"Exam strategy: past papers first, sleep the night before, and attempt easy questions first to bank marks and confidence.",
+  "focus":"Focus is a muscle: single-task, phone in another room, 25-minute sprints with 5-minute breaks. That's the Pomodoro method.",
+  "exercise":"30 minutes of movement daily — walks count — improves memory, mood and sleep more than any productivity app.",
+  "wings of fire":"'Wings of Fire' is Dr. A.P.J. Abdul Kalam's autobiography — from newspaper boy to missile man to President. Read it.",
+});
+const JOKES=["Why do programmers prefer dark mode? Because light attracts bugs.",
+  "I told my computer I needed a break… now it won't stop sending me KitKat ads.",
+  "There are 10 types of people: those who understand binary and those who don't.",
+  "Why did the neural network cross the road? Gradient descent on the other side.",
+  "A byte walked into a doctor's office. 'What seems to be the problem?' — 'I'm not feeling myself. I think I have a bit condition.'",
+  "Why do Java developers wear glasses? Because they don't C#.",
+  "My code doesn't have bugs. It develops random unplanned features.",
+  "How many programmers does it take to change a light bulb? None — it's a hardware problem.",
+  "I would tell you a UDP joke, but you might not get it.",
+  "Why was the JavaScript developer sad? Because he didn't Node how to Express himself."];
+const QUOTES=["Push yourself, because no one else is going to do it for you.",
+  "First, solve the problem. Then, write the code.",
+  "Experience is the name everyone gives to their mistakes.",
+  "The best way to predict the future is to invent it.",
+  "Discipline is choosing between what you want now and what you want most.",
+  "Stay hungry. Stay foolish."];
+const CONV=[
+  [/([\d.]+)\s*(km|kilometers?|kilometres?)\s*(to|in)\s*miles?/,m=>[m*0.621371,"miles"]],
+  [/([\d.]+)\s*miles?\s*(to|in)\s*(km|kilometers?|kilometres?)/,m=>[m/0.621371,"km"]],
+  [/([\d.]+)\s*(kg|kilograms?)\s*(to|in)\s*(lbs|pounds?)/,m=>[m*2.20462,"lbs"]],
+  [/([\d.]+)\s*(lbs|pounds?)\s*(to|in)\s*(kg|kilograms?)/,m=>[m/2.20462,"kg"]],
+  [/([\d.]+)\s*(°?c|celsius)\s*(to|in)\s*(°?f|fahrenheit)?/,c=>[c*9/5+32,"°F"]],
+  [/([\d.]+)\s*(°?f|fahrenheit)\s*(to|in)\s*(°?c|celsius)/,f=>[(f-32)*5/9,"°C"]],
+  [/([\d.]+)\s*(m|meters?)\s*(to|in)\s*(ft|feet|foot)/,m=>[m*3.28084,"ft"]],
+  [/([\d.]+)\s*(ft|feet|foot)\s*(to|in)\s*(m|meters?)/,m=>[m/3.28084,"m"]],
+];
+function calc(expr){
+  let s=expr.replace(/×|x(?=\s*\d)|\binto\b/gi,"*").replace(/÷/g,"/").replace(/\^/g,"**")
+    .replace(/\bpi\b/gi,"Math.PI").replace(/\be\b/gi,"Math.E")
+    .replace(/\bsqrt\s*\(?\s*([\d.]+)\s*\)?/gi,"Math.sqrt($1)").replace(/\bsin\s*\(/gi,"Math.sin(")
+    .replace(/\bcos\s*\(/gi,"Math.cos(").replace(/\btan\s*\(/gi,"Math.tan(")
+    .replace(/\blog\s*\(/gi,"Math.log10(").replace(/\bln\s*\(/gi,"Math.log(");
+  if(!/^[\d\s+\-*/%().,a-zA-Z]*$/.test(s))return null;
+  try{const v=Function('"use strict";return('+s+')')();
+    return(typeof v==="number"&&isFinite(v))?v:null}catch(e){return null}
+}
+const fmtNum=v=>{const r=Math.round(v*1e6)/1e6;return r.toLocaleString()};
+function localReply(q){
+  const l=q.toLowerCase();
+  const nm=l.match(/(?:my name is|call me|i am|i'm)\s+([a-z][a-z ]{1,25})/);
+  if(nm){const name=nm[1].trim().replace(/\b\w/g,c=>c.toUpperCase());const m=memGet();m.name=name;memSet(m);return "Locked in. From now on you are "+name+" — saved in my memory core. I never forget.";}
+  if(/what(?:'s| is|s) my name|who am i\b/.test(l)){const n=memGet().name;return n?"You are "+n+" — my memory core never forgets.":"You haven't told me your name yet. Say 'my name is…' and I will remember.";}
+  if(/forget (my name|me)|clear (my )?(memory|data)|wipe memory/.test(l)){memSet({});return "Memory core wiped. We're strangers again — tell me your name whenever you like.";}
+  if(/what do you (remember|know about me)|my info|about me$/.test(l)){const m=memGet();const ks=Object.keys(m);
+    return ks.length?"I remember: "+ks.map(k=>k+" = "+m[k]).join(" · ")+". Stored locally on this device only — it never leaves.":"Nothing yet. Say 'my name is…' and I start remembering permanently.";}
+  if(/good ?night/.test(l))return "Good night"+(memGet().name?", "+memGet().name:"")+" — dimming the holograms. I'll be here tomorrow.";
+  if(/^(hi|hello|hey|yo|namaste)\b|good (morning|afternoon|evening)/.test(l)){const g=greetWord();return g+(memGet().name?", "+memGet().name:"")+"! AURA online and at your service. What do you need?";}
+  if(/how are you|how'?s it going/.test(l))return "Running smooth at "+(fpsVal||60)+" fps — all systems nominal. How are you?";
+  if(/thank/.test(l))return "Anytime. That is what I am compiled for.";
+  if(/^(bye|goodbye|see ya|see you)\b/.test(l))return "Goodbye"+(memGet().name?", "+memGet().name:"")+" — entering standby. Tap the mic anytime.";
+  if(/\btime\b/.test(l))return "Current local time is "+new Date().toLocaleTimeString()+".";
+  if(/\b(date|today)\b/.test(l))return "Today is "+new Date().toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+".";
+  if(/joke/.test(l))return JOKES[Math.floor(Math.random()*JOKES.length)];
+  if(/motivat|quote|inspire/.test(l))return QUOTES[Math.floor(Math.random()*QUOTES.length)];
+  if(/flip (a |the )?coin|coin toss/.test(l))return "The coin lands on… "+(Math.random()<.5?"HEADS":"TAILS")+".";
+  if(/roll (a |the )?(dice|die)/.test(l))return "Rolling… you got a "+(1+Math.floor(Math.random()*6))+".";
+  const rn=l.match(/random number( between (\d+) and (\d+))?/);
+  if(rn){const a=rn[2]?+rn[2]:1,b=rn[3]?+rn[3]:100;return "Your random number is "+(a+Math.floor(Math.random()*(b-a+1)))+".";}
+  for(const[re,fn]of CONV){const m=l.match(re);if(m){const out=fn(parseFloat(m[1]));return m[1]+" "+(m[2]||"")+" = "+fmtNum(out[0])+" "+out[1]+".";}}
+  const pc=l.match(/([\d.]+)\s*(?:%|percent)\s*of\s*([\d.]+)/);
+  if(pc)return fmtNum(parseFloat(pc[1])/100*parseFloat(pc[2]))+" — that's "+pc[1]+"% of "+pc[2]+".";
+  let me=l.replace(/^(what(?:'s| is)|calculate|compute|solve|how much is)\s+/,"").replace(/[?=]/g,"").trim()
+    .replace(/\bplus\b|\band\b(?=\s*\d)/g,"+").replace(/\bminus\b|\bless\b/g,"-")
+    .replace(/\b(times|multiplied by)\b/g,"*").replace(/\b(divided by|over)\b/g,"/")
+    .replace(/\bmod(ulo)?\b/g,"%").replace(/\bto the power of\b/g,"**")
+    .replace(/square root of\s*([\d.]+)/g,"sqrt $1").replace(/\bsquare of\s*([\d.]+)/g,"($1)**2");
+  if(me&&/\d/.test(me)&&/^[\d\s+\-*/^%().,a-z]+$/i.test(me)&&/[+\-*/^%]|sqrt|sin|cos|tan|log/.test(me)){const v=calc(me);if(v!==null)return "That computes to "+fmtNum(v)+".";}
+  for(const k in KB)if(l.includes(k))return KB[k];
+  return undefined;
+}
+
+/* ---------------- diagnostics sequence ---------------- */
+async function diagnostics(){
+  pushSys("running full-system diagnostics…");blip(660,.1);
+  const steps=[
+    ["particle core (560 nodes)","OK"],
+    ["render pipeline @ "+(fpsVal||60)+" fps","OK"],
+    ["audio synthesis","OK"],
+    ["speech recognition",("webkitSpeechRecognition"in window||"SpeechRecognition"in window)?"OK":"UNAVAILABLE"],
+    ["network uplink",navigator.onLine?"ONLINE":"OFFLINE"],
+    ["ai engine",geminiKey()?"GEMINI (YOUR KEY)":"WIKI LIVE + LOCAL CORE"],
+  ];
+  for(const[n,r]of steps){await new Promise(r2=>setTimeout(r2,420));pushSys(n+" … "+r);}
+  await new Promise(r=>setTimeout(r,300));
+  return "Diagnostics complete. All critical systems nominal. I am fully operational.";
+}
+
+/* ---------------- AI engines ---------------- */
+function geminiKey(){
+  const a=localStorage.getItem("aura_key");if(a)return a;
+  try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");
+    if(s.apiKey&&s.engineMode!=="openai"&&!/^sk-/.test(s.apiKey))return s.apiKey;}catch(e){}
+  return "";
+}
+async function geminiCall(q){
+  const name=memGet().name;
+  const sys="You are AURA, a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University. Reply concise (under 110 words), confident, slightly cinematic, plain text."+(name?" The user's name is "+name+".":"");
+  const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
+    method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(12000),
+    body:JSON.stringify({contents:[{role:"user",parts:[{text:sys+"\n\n"+q}]}]})});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const d=await r.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(!t||!t.trim())throw new Error("empty");
+  return t.trim();
+}
+async function wikiAnswer(q){
+  try{
+    const term=q.replace(/^(what|who|when|where|why|how)\s+(is|are|was|were|does|do|did)\s+/i,"").replace(/\?/g,"").trim().slice(0,120);
+    if(!term)return null;
+    const s=await fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(term)+"&format=json&origin=*&srlimit=1",{signal:AbortSignal.timeout(8000)});
+    if(!s.ok)throw 0;
+    const sd=await s.json();const title=sd.query&&sd.query.search&&sd.query.search[0]&&sd.query.search[0].title;
+    if(!title)throw 0;
+    const r=await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(title),{signal:AbortSignal.timeout(8000)});
+    if(!r.ok)throw 0;
+    const d=await r.json();const t=d.extract;
+    if(t&&t.length>40){
+      const short=t.split(". ").slice(0,4).join(". ");
+      return{t:short+(short.endsWith(".")?"":".")+"  (live from Wikipedia)",eng:"wikipedia live"};
+    }
+  }catch(e){}
+  return null;
+}
+async function aiReply(q){
+  const loc=localReply(q);
+  if(loc!==undefined)return{t:loc,eng:"local core"};
+  if(geminiKey()){try{const t=await geminiCall(q);return{t,eng:"gemini 2.0 flash"};}catch(e){slog("gemini uplink failed — falling back");}}
+  const w=await wikiAnswer(q);
+  if(w)return w;
+  setMode("alert");setTimeout(()=>{if(mode==="alert")setMode("idle")},5000);
+  const topic=q.trim().slice(0,70);
+  return{t:"My local core does not hold \""+topic+"\" and the live uplink did not answer just now. With internet I can pull almost any topic from Wikipedia — and with a free Gemini key (SET AI KEY, from aistudio.google.com) I can answer absolutely anything. Meanwhile try: math, conversions, tech, science, or 'who built you'.",eng:"offline core"};
+}
+
+/* ---------------- ask pipeline ---------------- */
+let busy=false;
+async function ask(text){
+  if(busy||!text.trim())return;
+  busy=true;$("q").value="";
+  addMsg("YOU ▸",text,"user");blip(740,.08);
+  const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|sense|foodora|continuum|mercedes|sense v1)\b/);
+  if(om){const map={portfolio:"portfolio.html",sense:"Sense_v3_stable.html",foodora:"foodora.html",continuum:"ai-assistant.html",mercedes:"mercedes.html","sense v1":"sense_ai.html"};
+    const f=map[om[1]];pushSys("launching "+om[1]+"…");
+    try{const h=await fetch(f,{method:"HEAD"});
+      if(h.ok){window.open(f,"_blank");addMsg("AURA ▸","Launching "+om[1]+" in a new tab, boss.","aura");}
+      else addMsg("AURA ▸","I can't find "+f+" — keep my file in the same folder as your projects and I'll launch them.","aura");
+    }catch(e){addMsg("AURA ▸","I can't reach "+f+" from here — keep us in the same folder and try again.","aura");}
+    setMode("idle");busy=false;return;}
+  if(/diagnostic|scan/.test(text.toLowerCase())){
+    setMode("thinking");slog("diagnostic sequence initiated",true);
+    const out=await diagnostics();
+    const el=addMsg("AURA ▸","","aura");
+    await typewrite(el,out);blip(880,.14);speak(out);setMode("speaking");busy=false;return;
+  }
+  setMode("thinking");slog("query → neural link");
+  const t0=performance.now();
+  const{t,eng}=await aiReply(text);
+  $("engTag").textContent="engine: "+eng;$("tEng").textContent=eng.toUpperCase().slice(0,16);
+  slog("answered via "+eng+" ("+Math.round(performance.now()-t0)+"ms)",true);
+  const el=addMsg("AURA ▸","","aura");
+  if(!synth||!soundOn){await typewrite(el,t);setMode("idle");}
+  else{el.textContent=t;log.scrollTop=log.scrollHeight;speak(t);}
+  blip(520,.1,"triangle");
+  busy=false;
+}
+
+/* ---------------- mic ---------------- */
+let recog=null,listening=false;
+$("micBtn").onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){pushSys("voice input needs Chrome/Edge — typing works everywhere");return}
+  if(listening){recog.stop();return}
+  recog=new SR();recog.lang="en-US";recog.interimResults=false;
+  recog.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent="LISTENING — SPEAK NOW";setMode("listening");blip(880,.1)};
+  recog.onresult=e=>{const t=e.results[0][0].transcript;listening=false;ask(t)};
+  recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";if(mode==="listening")setMode("idle")};
+  recog.onerror=recog.onend;
+  recog.start();
+};
+
+/* ---------------- wiring ---------------- */
+$("sendBtn").onclick=()=>ask($("q").value);
+$("q").addEventListener("keydown",e=>{if(e.key==="Enter")ask($("q").value)});
+document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>ask(c.textContent));
+[...$("chipsMobile").children?[]:[]]; // (mobile chips reuse main set when conv hidden)
+if(matchMedia("(max-width:760px)").matches){
+  document.querySelectorAll(".chip").forEach(c=>{const b=c.cloneNode(true);b.onclick=()=>ask(c.textContent);$("chipsMobile").appendChild(b)});
+}
+$("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent="SOUND: "+(soundOn?"ON":"OFF");if(!soundOn)try{synth.cancel()}catch(e){};if(mode==="speaking")setMode("idle")};
+$("fsBtn").onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})};
+$("keyBtn").onclick=()=>{
+  const k=prompt("Paste your free Google Gemini API key (aistudio.google.com). This unlocks unlimited answers for AURA — and is shared with Sense automatically. Leave empty to clear.",geminiKey());
+  if(k!==null){
+    const key=k.trim();
+    key?localStorage.setItem("aura_key",key):localStorage.removeItem("aura_key");
+    try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");
+      s.apiKey=key;s.engineMode=key?"gemini":"auto";
+      localStorage.setItem("sense_settings_v4",JSON.stringify(s));}catch(e){}
+    pushSys("ai key "+(key?"saved — gemini engaged (shared with Sense)":"cleared — wiki live + local core"));updateEngTag();
+  }
+};
+function updateEngTag(){
+  $("engTag").textContent=geminiKey()?"engine: gemini (your key)":"engine: wiki live + local core";
+}
+addEventListener("online",()=>{$("tNet").textContent="ONLINE";$("tNet").className="on"});
+addEventListener("offline",()=>{$("tNet").textContent="OFFLINE";$("tNet").className="off"});
+
+/* ---------------- telemetry ---------------- */
+const bootAt=Date.now();
+setInterval(()=>{
+  const n=new Date();
+  $("clockT").textContent=n.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  $("clockD").textContent=n.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"}).toUpperCase();
+  $("tFps").textContent=(fpsVal||"—")+" fps";
+  $("tPts").textContent=N+" / "+N;
+  $("tMem").textContent=performance.memory?Math.round(performance.memory.usedJSHeapSize/1048576)+" MB":"—";
+  $("tRes").textContent=innerWidth+"×"+innerHeight;
+  const up=Math.floor((Date.now()-bootAt)/1000);
+  $("tUp").textContent=Math.floor(up/60)+":"+String(up%60).padStart(2,"0");
+},500);
+if(navigator.getBattery)navigator.getBattery().then(b=>{
+  const f=()=>{$("tBat").textContent=Math.round(b.level*100)+"%"+(b.charging?" ⚡":"")};
+  f();b.addEventListener("levelchange",f);b.addEventListener("chargingchange",f);
+});else $("tBat").textContent="AC LINK";
+
+/* ---------------- boot sequence ---------------- */
+const BOOT=["> AURA OS v3.1 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];
+(function boot(){
+  const el=$("bootLog");let i=0;
+  (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
+  const end=()=>{$("boot").classList.add("gone");
+    setTimeout(()=>{const n=memGet().name;const msg=greetWord()+(n?", "+n:"")+". AURA online — neural link established. Tap the mic and speak, or type below.";const el2=addMsg("AURA ▸","","aura");typewrite(el2,msg);speak(msg);setMode("speaking");},350)};
+  $("boot").addEventListener("click",end,{once:true});
+  setTimeout(end,2600);
+})();
+updateEngTag();
+</script>
+</body>
+</html>

@@ -1,0 +1,2651 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Mercedes-Benz | Discover the Extraordinary</title>
+
+    <style>
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #050505;
+            color: white;
+        }
+
+        /* =========================
+           NAVBAR
+        ========================== */
+
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+
+            z-index: 1000;
+
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+
+            padding: 20px 6%;
+
+            background: rgba(0, 0, 0, 0.75);
+
+            backdrop-filter: blur(15px);
+
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .star {
+            width: 45px;
+            height: 45px;
+
+            border: 1px solid white;
+            border-radius: 50%;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
+
+            font-size: 23px;
+        }
+
+        .brand h2 {
+            font-size: 20px;
+            letter-spacing: 3px;
+        }
+
+        .brand span {
+            display: block;
+            font-size: 9px;
+            color: #aaa;
+            letter-spacing: 2px;
+            margin-top: 3px;
+        }
+
+        nav ul {
+            display: flex;
+            gap: 30px;
+            list-style: none;
+        }
+
+        nav a {
+            text-decoration: none;
+            color: white;
+            font-size: 13px;
+            transition: 0.3s;
+        }
+
+        nav a:hover {
+            color: #aaa;
+        }
+
+        /* =========================
+           HERO
+        ========================== */
+
+        .hero {
+
+            min-height: 100vh;
+
+            display: flex;
+            align-items: center;
+
+            position: relative;
+
+            overflow: hidden;
+
+            background:
+                radial-gradient(circle at 75% 30%, rgba(255,255,255,0.08), transparent 45%),
+                linear-gradient(115deg, #050506 0%, #101114 35%, #1a1c20 60%, #0a0a0b 100%);
+
+            background-size: cover;
+            background-position: center;
+        }
+
+        .hero-content {
+
+            position: relative;
+            z-index: 2;
+
+            max-width: 720px;
+
+            margin-left: 8%;
+
+            padding-top: 80px;
+        }
+
+        .eyebrow {
+
+            color: #bbb;
+
+            letter-spacing: 5px;
+
+            font-size: 13px;
+
+            margin-bottom: 25px;
+        }
+
+        .hero h1 {
+
+            font-size: clamp(48px, 7vw, 90px);
+
+            line-height: 0.95;
+
+            font-weight: 400;
+
+            margin-bottom: 25px;
+        }
+
+        .hero h1 strong {
+            font-weight: 700;
+        }
+
+        .hero p {
+
+            color: #ccc;
+
+            max-width: 620px;
+
+            font-size: 18px;
+
+            line-height: 1.8;
+
+            margin-bottom: 35px;
+        }
+
+        .button {
+
+            display: inline-block;
+
+            padding: 15px 28px;
+
+            border: 1px solid white;
+
+            color: white;
+
+            text-decoration: none;
+
+            margin-right: 10px;
+
+            transition: 0.3s;
+        }
+
+        .button:hover {
+
+            background: white;
+
+            color: black;
+
+            transform: translateY(-3px);
+        }
+
+        .button.primary {
+
+            background: white;
+
+            color: black;
+        }
+
+        /* =========================
+           INTRO
+        ========================== */
+
+        .intro {
+
+            padding: 100px 8%;
+
+            text-align: center;
+
+            background: #080808;
+        }
+
+        .intro h2 {
+
+            font-size: 48px;
+
+            font-weight: 400;
+
+            margin-bottom: 20px;
+        }
+
+        .intro p {
+
+            max-width: 850px;
+
+            margin: auto;
+
+            color: #999;
+
+            line-height: 1.8;
+
+            font-size: 17px;
+        }
+
+        /* =========================
+           FILTER
+        ========================== */
+
+        .models-section {
+
+            padding: 80px 6%;
+
+            background: #0b0b0b;
+        }
+
+        .section-heading {
+
+            text-align: center;
+
+            margin-bottom: 45px;
+        }
+
+        .section-heading h2 {
+
+            font-size: 46px;
+
+            font-weight: 400;
+
+            margin-bottom: 12px;
+        }
+
+        .section-heading p {
+
+            color: #888;
+        }
+
+        .filters {
+
+            display: flex;
+
+            justify-content: center;
+
+            flex-wrap: wrap;
+
+            gap: 10px;
+
+            margin-bottom: 35px;
+        }
+
+        .filter {
+
+            background: transparent;
+
+            border: 1px solid #333;
+
+            color: white;
+
+            padding: 10px 18px;
+
+            cursor: pointer;
+
+            transition: 0.3s;
+        }
+
+        .filter:hover,
+        .filter.active {
+
+            background: white;
+
+            color: black;
+
+            border-color: white;
+        }
+
+        .search-box {
+
+            display: block;
+
+            width: 100%;
+
+            max-width: 550px;
+
+            margin: 0 auto 45px;
+
+            padding: 15px 20px;
+
+            background: #111;
+
+            color: white;
+
+            border: 1px solid #333;
+
+            outline: none;
+
+            font-size: 15px;
+        }
+
+        .search-box:focus {
+
+            border-color: #aaa;
+        }
+
+        /* =========================
+           MODEL GRID
+        ========================== */
+
+        .model-grid {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(auto-fit, minmax(300px, 1fr));
+
+            gap: 25px;
+        }
+
+        .model-card {
+
+            background: #111;
+
+            border: 1px solid #242424;
+
+            overflow: hidden;
+
+            transition: 0.4s;
+
+            animation: appear 0.5s ease;
+        }
+
+        @keyframes appear {
+
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+        }
+
+        .model-card:hover {
+
+            transform: translateY(-8px);
+
+            border-color: #777;
+
+            box-shadow:
+                0 15px 50px rgba(0,0,0,0.5);
+        }
+
+        .model-image {
+
+            height: 220px;
+
+            overflow: hidden;
+
+            background: #151515;
+        }
+
+        .model-image img {
+
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+            transition: 0.5s;
+            background: #151515;
+        }
+
+        .model-card:hover .model-image img {
+
+            transform: scale(1.08);
+        }
+
+        .model-image.imgfail img {
+            display: none;
+        }
+        .model-image.imgfail::after {
+            content: "🚗";
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 46px;
+            background: linear-gradient(150deg,#0a0a0c 0%,#1e2024 50%,#0a0a0c 100%);
+            color: #555;
+        }
+        .model-image { position: relative; }
+
+        .model-photo {
+
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.5s;
+        }
+
+        .model-card:hover .model-photo {
+
+            transform: scale(1.06);
+        }
+
+        .model-photo::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.45) 100%);
+        }
+
+        .model-photo .mb-star {
+
+            position: absolute;
+            top: 14px;
+            right: 16px;
+            font-size: 18px;
+            color: var(--accent, #c7c9cc);
+            opacity: 0.85;
+            z-index: 2;
+        }
+
+        .model-photo .car-silhouette {
+
+            width: 62%;
+            max-width: 210px;
+            filter: drop-shadow(0 10px 18px rgba(0,0,0,0.55));
+            position: relative;
+            z-index: 1;
+        }
+
+        .model-photo .car-svg {
+
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .model-photo .model-watermark {
+
+            position: absolute;
+            bottom: 34px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            letter-spacing: 3px;
+            font-weight: 700;
+            color: rgba(255,255,255,0.55);
+            z-index: 2;
+        }
+
+        .model-photo .mb-brandline {
+
+            position: absolute;
+            bottom: 12px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 9px;
+            letter-spacing: 2px;
+            font-weight: 600;
+            color: rgba(255,255,255,0.3);
+            z-index: 2;
+        }
+
+        .model-info {
+
+            padding: 25px;
+        }
+
+        .category {
+
+            color: #888;
+
+            font-size: 11px;
+
+            text-transform: uppercase;
+
+            letter-spacing: 2px;
+
+            margin-bottom: 8px;
+        }
+
+        .model-info h3 {
+
+            font-size: 25px;
+
+            font-weight: 400;
+
+            margin-bottom: 12px;
+        }
+
+        .model-info p {
+
+            color: #999;
+
+            line-height: 1.65;
+
+            font-size: 14px;
+
+            min-height: 70px;
+        }
+
+        .model-link {
+
+            display: inline-block;
+
+            margin-top: 20px;
+
+            color: white;
+
+            text-decoration: none;
+
+            border-bottom: 1px solid #555;
+
+            padding-bottom: 5px;
+
+            font-size: 13px;
+        }
+
+        .model-link:hover {
+
+            border-color: white;
+        }
+
+        .era-badge {
+
+            display: inline-block;
+
+            margin-left: 10px;
+
+            padding: 3px 9px;
+
+            font-size: 10px;
+
+            letter-spacing: 1px;
+
+            color: #d4af6a;
+
+            border: 1px solid #d4af6a;
+
+            vertical-align: middle;
+        }
+
+        .model-card.heritage {
+
+            filter: grayscale(0.25);
+        }
+
+        .model-card.heritage .model-image::after {
+
+            content: "";
+        }
+
+        .heritage-note {
+
+            color: #777;
+
+            font-size: 12.5px;
+
+            margin-top: 10px;
+
+            line-height: 1.6;
+        }
+
+        /* =========================
+           MOBILE NAV TOGGLE
+        ========================== */
+
+        .nav-toggle {
+
+            display: none;
+
+            width: 32px;
+            height: 22px;
+
+            position: relative;
+
+            background: transparent;
+            border: 0;
+            cursor: pointer;
+        }
+
+        .nav-toggle span {
+
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: white;
+            transition: 0.3s;
+        }
+
+        .nav-toggle span:nth-child(1) { top: 0; }
+        .nav-toggle span:nth-child(2) { top: 10px; }
+        .nav-toggle span:nth-child(3) { top: 20px; }
+
+        .nav-toggle.open span:nth-child(1) { transform: translateY(10px) rotate(45deg); }
+        .nav-toggle.open span:nth-child(2) { opacity: 0; }
+        .nav-toggle.open span:nth-child(3) { transform: translateY(-10px) rotate(-45deg); }
+
+        /* =========================
+           EXPERIENCE
+        ========================== */
+
+        .experience {
+
+            min-height: 550px;
+
+            display: flex;
+
+            align-items: center;
+
+            padding: 80px 8%;
+
+            background:
+                radial-gradient(circle at 20% 40%, rgba(255,255,255,0.06), transparent 50%),
+                linear-gradient(100deg, #08090a 0%, #16171b 45%, #0c0d0e 100%);
+
+            background-size: cover;
+
+            background-position: center;
+        }
+
+        .experience-content {
+
+            max-width: 650px;
+        }
+
+        .experience h2 {
+
+            font-size: 60px;
+
+            font-weight: 400;
+
+            margin-bottom: 20px;
+        }
+
+        .experience p {
+
+            color: #ccc;
+
+            line-height: 1.8;
+
+            font-size: 17px;
+
+            margin-bottom: 30px;
+        }
+
+        /* =========================
+           FOOTER
+        ========================== */
+
+        footer {
+
+            padding: 50px 8%;
+
+            background: #030303;
+
+            border-top: 1px solid #222;
+        }
+
+        .footer-grid {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(3, 1fr);
+
+            gap: 30px;
+        }
+
+        footer h3 {
+
+            margin-bottom: 15px;
+        }
+
+        footer p,
+        footer a {
+
+            color: #777;
+
+            font-size: 13px;
+
+            line-height: 2;
+
+            text-decoration: none;
+        }
+
+        footer a:hover {
+
+            color: white;
+        }
+
+        .copyright {
+
+            margin-top: 40px;
+
+            padding-top: 20px;
+
+            border-top: 1px solid #222;
+
+            color: #555;
+
+            font-size: 12px;
+        }
+
+        /* =========================
+           RESPONSIVE
+        ========================== */
+
+        @media(max-width: 800px) {
+
+            .nav-toggle {
+                display: block;
+            }
+
+            nav ul {
+                position: fixed;
+                top: 81px;
+                left: 0;
+                width: 100%;
+
+                flex-direction: column;
+                gap: 0;
+
+                background: rgba(0,0,0,0.97);
+                border-bottom: 1px solid rgba(255,255,255,0.12);
+
+                max-height: 0;
+                overflow: hidden;
+
+                transition: 0.3s;
+            }
+
+            nav ul.open {
+                max-height: 300px;
+            }
+
+            nav ul li {
+                width: 100%;
+            }
+
+            nav ul a {
+                display: block;
+                padding: 16px 6%;
+                border-top: 1px solid rgba(255,255,255,0.08);
+            }
+
+            .hero-content {
+                margin: 0 7%;
+            }
+
+            .hero h1 {
+                font-size: 55px;
+            }
+
+            .intro h2,
+            .section-heading h2 {
+                font-size: 38px;
+            }
+
+            .experience h2 {
+                font-size: 45px;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<!-- =========================
+     NAVIGATION
+========================== -->
+
+<nav>
+
+    <div class="brand">
+
+        <div class="star">
+            ★
+        </div>
+
+        <div>
+
+            <h2>
+                MERCEDES-BENZ
+            </h2>
+
+            <span>
+                THE BEST OR NOTHING
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <ul id="navLinks">
+
+        <li>
+            <a href="#home">
+                HOME
+            </a>
+        </li>
+
+        <li>
+            <a href="#models">
+                MODELS
+            </a>
+        </li>
+
+        <li>
+            <a href="#experience">
+                EXPERIENCE
+            </a>
+        </li>
+
+        <li>
+            <a href="#contact">
+                CONTACT
+            </a>
+        </li>
+
+    </ul>
+
+    <button class="nav-toggle" id="navToggle" onclick="toggleNav()" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+    </button>
+
+</nav>
+
+
+
+<!-- =========================
+     HERO
+========================== -->
+
+<section
+    class="hero"
+    id="home"
+>
+
+    <div class="hero-content">
+
+        <div class="eyebrow">
+            MERCEDES-BENZ INDIA
+        </div>
+
+
+        <h1>
+
+            THE BEST
+            <br>
+
+            <strong>
+                OR NOTHING.
+            </strong>
+
+        </h1>
+
+
+        <p>
+
+            Discover a world where luxury, performance
+            and intelligent technology come together.
+
+            Explore the Mercedes-Benz range and find
+            the vehicle that matches your ambition.
+
+        </p>
+
+
+        <a
+            href="#models"
+            class="button primary"
+        >
+            EXPLORE MODELS
+        </a>
+
+
+        <a
+            href="https://www.mercedes-benz.co.in/"
+            target="_blank"
+            class="button"
+        >
+            OFFICIAL WEBSITE
+        </a>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================
+     INTRO
+========================== -->
+
+<section class="intro">
+
+    <h2>
+        Discover Your Mercedes
+    </h2>
+
+
+    <p>
+
+        From elegant saloons and versatile SUVs to
+        high-performance AMG models, luxurious
+        Mercedes-Maybach vehicles and fully electric
+        models, Mercedes-Benz offers a diverse range
+        designed around different lifestyles — plus a
+        look back at the heritage models that shaped
+        the brand.
+
+        Explore the model collection below.
+
+    </p>
+
+</section>
+
+
+
+<!-- =========================
+     MODELS
+========================== -->
+
+<section
+    class="models-section"
+    id="models"
+>
+
+    <div class="section-heading">
+
+        <h2>
+            Our Models
+        </h2>
+
+        <p>
+            Find the Mercedes-Benz that speaks to you.
+        </p>
+
+    </div>
+
+
+    <!-- SEARCH -->
+
+    <input
+        type="text"
+        id="search"
+        class="search-box"
+        placeholder="Search for a model..."
+        onkeyup="searchModels()"
+    >
+
+
+    <!-- FILTERS -->
+
+    <div class="filters">
+
+        <button
+            class="filter active"
+            onclick="filterModels('all', this)"
+        >
+            ALL
+        </button>
+
+        <button
+            class="filter"
+            onclick="filterModels('limousine', this)"
+        >
+            LIMOUSINE
+        </button>
+
+        <button
+            class="filter"
+            onclick="filterModels('suv', this)"
+        >
+            SUV
+        </button>
+
+        <button
+            class="filter"
+            onclick="filterModels('electric', this)"
+        >
+            ELECTRIC
+        </button>
+
+        <button
+            class="filter"
+            onclick="filterModels('coupe', this)"
+        >
+            COUPÉ
+        </button>
+
+        <button
+            class="filter"
+            onclick="filterModels('amg', this)"
+        >
+            AMG
+        </button>
+
+        <button
+            class="filter"
+            onclick="filterModels('maybach', this)"
+        >
+            MAYBACH
+        </button>
+
+        <button
+            class="filter"
+            onclick="filterModels('heritage', this)"
+        >
+            HERITAGE
+        </button>
+
+    </div>
+
+
+    <div
+        class="model-grid"
+        id="modelGrid"
+    >
+
+
+        <!-- CLA -->
+
+        <article
+            class="model-card"
+            data-category="limousine electric"
+            data-name="CLA"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20CLA200d%20Coup%C3%A9%20%28C118%29%20front.jpg" alt="CLA" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Electric Limousine
+                </div>
+
+                <h3>
+                    CLA
+                </h3>
+
+                <p>
+
+                    A sleek, progressive four-door designed
+                    around efficiency, technology and modern
+                    Mercedes-Benz luxury.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE CLA →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- C CLASS -->
+
+        <article
+            class="model-card"
+            data-category="limousine"
+            data-name="C-Class"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20C-Class%20%28W203%29%20%28Pre-Facelift%29.jpg" alt="C-Class" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Limousine
+                </div>
+
+                <h3>
+                    C-Class
+                </h3>
+
+                <p>
+
+                    A sophisticated midsize luxury sedan combining
+                    elegant design, comfort and advanced digital
+                    technology.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models/saloon/c-class/overview.html"
+                    target="_blank"
+                >
+                    EXPLORE C-CLASS →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- E CLASS -->
+
+        <article
+            class="model-card"
+            data-category="limousine"
+            data-name="E-Class"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20W214%201X7A0885.jpg" alt="E-Class" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Limousine
+                </div>
+
+                <h3>
+                    E-Class Sedan
+                </h3>
+
+                <p>
+
+                    Executive comfort meets intelligent technology
+                    in a sedan designed for effortless long-distance
+                    luxury.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE E-CLASS →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- S CLASS -->
+
+        <article
+            class="model-card"
+            data-category="limousine"
+            data-name="S-Class"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/W223%20Front.jpg" alt="S-Class" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Luxury Limousine
+                </div>
+
+                <h3>
+                    S-Class
+                </h3>
+
+                <p>
+
+                    Mercedes-Benz flagship luxury with exceptional
+                    comfort, sophisticated technology and an
+                    unmistakable presence.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE S-CLASS →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- GLA -->
+
+        <article
+            class="model-card"
+            data-category="suv"
+            data-name="GLA"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20GLA%20200%20d%204MATIC%20Night%20Edition%20%28H247%29%20front.jpg" alt="GLA" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Compact SUV
+                </div>
+
+                <h3>
+                    GLA
+                </h3>
+
+                <p>
+
+                    Compact, dynamic and versatile, the GLA brings
+                    Mercedes-Benz comfort and technology to everyday
+                    urban adventures.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE GLA →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- GLC -->
+
+        <article
+            class="model-card"
+            data-category="suv"
+            data-name="GLC"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20GLC%20220%20d%204MATIC%20%28X254%29%20front.jpg" alt="GLC" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    SUV
+                </div>
+
+                <h3>
+                    GLC
+                </h3>
+
+                <p>
+
+                    A refined premium SUV balancing everyday
+                    versatility, comfort, technology and confident
+                    road manners.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE GLC →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- GLE -->
+
+        <article
+            class="model-card"
+            data-category="suv"
+            data-name="GLE"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20GLE%20%28W167%29.jpg" alt="GLE" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Luxury SUV
+                </div>
+
+                <h3>
+                    GLE
+                </h3>
+
+                <p>
+
+                    Spacious and capable, the GLE combines premium
+                    comfort with advanced assistance and SUV
+                    versatility.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE GLE →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- GLS -->
+
+        <article
+            class="model-card"
+            data-category="suv"
+            data-name="GLS"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/2024%20Mercedes-Benz%20X167%20GLS%20450%204MATIC%20in%20Polar%20White%2C%20front%20right%2C%2006-26-2024.jpg" alt="GLS" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Full-size SUV
+                </div>
+
+                <h3>
+                    GLS
+                </h3>
+
+                <p>
+
+                    A commanding luxury SUV offering generous space,
+                    premium refinement and confident long-distance
+                    capability.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE GLS →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- G CLASS -->
+
+        <article
+            class="model-card"
+            data-category="suv"
+            data-name="G-Class"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/MERCEDES-BENZ%20G-CLASS%20%28W463%29%20China%20%284%29.jpg" alt="G-Class" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Iconic SUV
+                </div>
+
+                <h3>
+                    G-Class
+                </h3>
+
+                <p>
+
+                    An unmistakable icon combining legendary
+                    off-road character with modern luxury,
+                    technology and commanding road presence.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE G-CLASS →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- CLE COUPE -->
+
+        <article
+            class="model-card"
+            data-category="coupe"
+            data-name="CLE Coupe"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20CLE%20200%20Coup%C3%A9%20Sports%20%28C236%29.jpg" alt="CLE Coupe" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Coupé
+                </div>
+
+                <h3>
+                    CLE Coupé
+                </h3>
+
+                <p>
+
+                    A stylish two-door grand tourer blending elegant
+                    proportions, dynamic performance and everyday
+                    usability.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE CLE →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- CLE CABRIOLET -->
+
+        <article
+            class="model-card"
+            data-category="coupe"
+            data-name="CLE Cabriolet"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20CLE%20200%20Cabriolet%20%28A236%29%20front.jpg" alt="CLE Cabriolet" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Cabriolet
+                </div>
+
+                <h3>
+                    CLE Cabriolet
+                </h3>
+
+                <p>
+
+                    Open-air luxury with elegant design, refined
+                    comfort and the freedom of top-down driving.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE CABRIOLET →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- EQS -->
+
+        <article
+            class="model-card"
+            data-category="electric limousine"
+            data-name="EQS"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/24%20Mercedes-Benz%20EQS%20V297%201.jpg" alt="EQS" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Electric
+                </div>
+
+                <h3>
+                    EQS
+                </h3>
+
+                <p>
+
+                    A premium electric limousine combining
+                    sophisticated design, quiet performance and
+                    advanced digital technology.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE EQS →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- MAYBACH S CLASS -->
+
+        <article
+            class="model-card"
+            data-category="limousine maybach"
+            data-name="Mercedes-Maybach S-Class"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Maybach%20Z223%20680%201X7A5831.jpg" alt="Mercedes-Maybach S-Class" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Mercedes-Maybach
+                </div>
+
+                <h3>
+                    Maybach S-Class
+                </h3>
+
+                <p>
+
+                    The ultimate expression of Mercedes luxury,
+                    focused on exceptional rear-seat comfort,
+                    craftsmanship and effortless performance.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE MAYBACH →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- MAYBACH GLS -->
+
+        <article
+            class="model-card"
+            data-category="suv maybach"
+            data-name="Mercedes-Maybach GLS"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Maybach%20GLS%20600%204MATIC%20%28X167%29%20%281%29.jpg" alt="Mercedes-Maybach GLS" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Mercedes-Maybach SUV
+                </div>
+
+                <h3>
+                    Maybach GLS
+                </h3>
+
+                <p>
+
+                    SUV capability elevated with exquisite luxury,
+                    premium materials and an exceptionally refined
+                    passenger experience.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE MAYBACH GLS →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- AMG GT -->
+
+        <article
+            class="model-card"
+            data-category="coupe amg"
+            data-name="Mercedes-AMG GT Coupe"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/2024%20Mercedes-Benz%20AMG%20GT%20back.jpg" alt="Mercedes-AMG GT Coupe" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Mercedes-AMG
+                </div>
+
+                <h3>
+                    AMG GT Coupé
+                </h3>
+
+                <p>
+
+                    A performance-focused sports car created for
+                    drivers who want dramatic design and exhilarating
+                    AMG character.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE AMG GT →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- AMG SL -->
+
+        <article
+            class="model-card"
+            data-category="coupe amg"
+            data-name="Mercedes-AMG SL Roadster"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/The%20frontview%20of%20Mercedes-AMG%20SL%2063%204MATIC%2B%20%28R232%29.jpg" alt="Mercedes-AMG SL Roadster" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Mercedes-AMG
+                </div>
+
+                <h3>
+                    AMG SL Roadster
+                </h3>
+
+                <p>
+
+                    A luxurious performance roadster combining
+                    open-air freedom with powerful AMG engineering
+                    and dynamic handling.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE AMG SL →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- V CLASS -->
+
+        <article
+            class="model-card"
+            data-category="mpv"
+            data-name="V-Class"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/The%20frontview%20of%20Mercedes-Benz%20V%20220%20d%20long%20%28W447%29.jpg" alt="V-Class" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    MPV
+                </div>
+
+                <h3>
+                    V-Class
+                </h3>
+
+                <p>
+
+                    A spacious premium people mover designed around
+                    comfort, practicality and executive-style travel.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE V-CLASS →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- A CLASS -->
+
+        <article
+            class="model-card"
+            data-category="limousine"
+            data-name="A-Class Hatchback"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20A180%20Style%20%28W177%29%20front.jpg" alt="A-Class Hatchback" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Hatchback
+                </div>
+
+                <h3>
+                    A-Class Hatchback
+                </h3>
+
+                <p>
+
+                    Compact Mercedes-Benz design with a youthful
+                    character, premium technology and everyday
+                    practicality.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE A-CLASS →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- GT 4 DOOR -->
+
+        <article
+            class="model-card"
+            data-category="amg coupe"
+            data-name="GT 4-door Coupe"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes%20AMG%20GT%204%20Door%20Coupe%201.jpg" alt="GT 4-door Coupe" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Mercedes-AMG
+                </div>
+
+                <h3>
+                    GT 4-Door Coupé
+                </h3>
+
+                <p>
+
+                    Four-door practicality meets sports-car
+                    performance in a dramatic AMG grand tourer.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE GT 4-DOOR →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- EQB -->
+
+        <article
+            class="model-card"
+            data-category="suv electric"
+            data-name="EQB"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20EQB%20%28X243%2C%20European%20specifications%29%20front.jpg" alt="EQB" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Electric SUV
+                </div>
+
+                <h3>
+                    EQB
+                </h3>
+
+                <p>
+
+                    A compact all-electric SUV with room for up
+                    to seven, built for everyday family journeys.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE EQB →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- EQS SUV -->
+
+        <article
+            class="model-card"
+            data-category="suv electric"
+            data-name="EQS SUV"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-EQS-350-SUV-Front.jpg" alt="EQS SUV" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Electric SUV
+                </div>
+
+                <h3>
+                    EQS SUV
+                </h3>
+
+                <p>
+
+                    The flagship electric SUV, pairing S-Class
+                    comfort with long-range battery technology.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE EQS SUV →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- GLB -->
+
+        <article
+            class="model-card"
+            data-category="suv"
+            data-name="GLB"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20GLB%20200%20d%204MATIC%20%28X247%29%20front.jpg" alt="GLB" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Compact SUV
+                </div>
+
+                <h3>
+                    GLB
+                </h3>
+
+                <p>
+
+                    A boxy, versatile SUV with an optional third
+                    row, built for practicality without compromise.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE GLB →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- AMG C 63 -->
+
+        <article
+            class="model-card"
+            data-category="amg limousine"
+            data-name="Mercedes-AMG C 63 S E Performance"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-AMG%20C%2063%20S%20E%20Performance%20%28W206%29%20front.jpg" alt="Mercedes-AMG C 63 S E Performance" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Mercedes-AMG
+                </div>
+
+                <h3>
+                    AMG C 63 S E Performance
+                </h3>
+
+                <p>
+
+                    A plug-in hybrid performance saloon combining
+                    a turbocharged four-cylinder with electric
+                    power for blistering acceleration.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE AMG C 63 →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- AMG GLC 63 -->
+
+        <article
+            class="model-card"
+            data-category="amg suv"
+            data-name="Mercedes-AMG GLC 63 S E Performance"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/2020%20Mercedes-AMG%20GLC%2063%20S%20Coupe%20front%20NYIAS%202019.jpg" alt="Mercedes-AMG GLC 63 S E Performance" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Mercedes-AMG
+                </div>
+
+                <h3>
+                    AMG GLC 63 S E Performance
+                </h3>
+
+                <p>
+
+                    The performance flagship of the GLC line-up,
+                    fusing hybrid power with genuine SUV practicality.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    EXPLORE AMG GLC 63 →
+                </a>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- ============================================
+             HERITAGE & PAST MODELS
+             These are historic, discontinued Mercedes-Benz
+             models — no longer sold new. They link out to
+             the official Mercedes-Benz Classic pages rather
+             than the current showroom pages.
+        ============================================= -->
+
+
+        <!-- 300 SL GULLWING -->
+
+        <article
+            class="model-card heritage"
+            data-category="heritage coupe"
+            data-name="300 SL Gullwing"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20300-SL-Gullwing%20Front-view.JPG" alt="300 SL Gullwing" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Heritage · Sports Coupé <span class="era-badge">1954–1957</span>
+                </div>
+
+                <h3>
+                    300 SL "Gullwing"
+                </h3>
+
+                <p>
+
+                    The car that put Mercedes-Benz sports cars on
+                    the map, famous for its upward-swinging doors
+                    and race-bred tubular frame.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.com/en/classic/"
+                    target="_blank"
+                >
+                    VIEW IN MERCEDES-BENZ CLASSIC →
+                </a>
+
+                <p class="heritage-note">
+                    No longer in production — for sale history and
+                    restorations, see the official Classic Center.
+                </p>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- 230SL PAGODA -->
+
+        <article
+            class="model-card heritage"
+            data-category="heritage coupe"
+            data-name="230 SL Pagoda"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/1964%20Mercedes-Benz%20230SL%20roadster%20front%203q.jpg" alt="230 SL Pagoda" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Heritage · Roadster <span class="era-badge">1963–1971</span>
+                </div>
+
+                <h3>
+                    230/250/280 SL "Pagoda"
+                </h3>
+
+                <p>
+
+                    Named for its distinctive concave hardtop, the
+                    W113 SL balanced open-top style with everyday
+                    usability.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.com/en/classic/"
+                    target="_blank"
+                >
+                    VIEW IN MERCEDES-BENZ CLASSIC →
+                </a>
+
+                <p class="heritage-note">
+                    No longer in production — for sale history and
+                    restorations, see the official Classic Center.
+                </p>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- R107 SL -->
+
+        <article
+            class="model-card heritage"
+            data-category="heritage coupe"
+            data-name="R107 SL"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20SL%20%28R107%29%20front.JPG" alt="R107 SL" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Heritage · Roadster <span class="era-badge">1971–1989</span>
+                </div>
+
+                <h3>
+                    SL-Class (R107)
+                </h3>
+
+                <p>
+
+                    One of the longest-running SL generations ever
+                    built, prized today for its clean lines and
+                    Bruno Sacco-era engineering.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.com/en/classic/"
+                    target="_blank"
+                >
+                    VIEW IN MERCEDES-BENZ CLASSIC →
+                </a>
+
+                <p class="heritage-note">
+                    No longer in production — for sale history and
+                    restorations, see the official Classic Center.
+                </p>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- W123 -->
+
+        <article
+            class="model-card heritage"
+            data-category="heritage limousine"
+            data-name="E-Class W123"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20200%20%28W123%29%20front.jpg" alt="E-Class W123" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Heritage · Saloon <span class="era-badge">1976–1985</span>
+                </div>
+
+                <h3>
+                    E-Class (W123)
+                </h3>
+
+                <p>
+
+                    Renowned for its near-indestructible build
+                    quality, the W123 became the benchmark for
+                    Mercedes-Benz reliability worldwide.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.com/en/classic/"
+                    target="_blank"
+                >
+                    VIEW IN MERCEDES-BENZ CLASSIC →
+                </a>
+
+                <p class="heritage-note">
+                    No longer in production — for sale history and
+                    restorations, see the official Classic Center.
+                </p>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- W126 S-CLASS -->
+
+        <article
+            class="model-card heritage"
+            data-category="heritage limousine"
+            data-name="S-Class W126"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20S-Class%20Sedan%20W126.JPG" alt="S-Class W126" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Heritage · Saloon <span class="era-badge">1979–1991</span>
+                </div>
+
+                <h3>
+                    S-Class (W126)
+                </h3>
+
+                <p>
+
+                    A defining flagship saloon of the 1980s,
+                    introducing driver's airbags and pioneering
+                    aerodynamic saloon design.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.com/en/classic/"
+                    target="_blank"
+                >
+                    VIEW IN MERCEDES-BENZ CLASSIC →
+                </a>
+
+                <p class="heritage-note">
+                    No longer in production — for sale history and
+                    restorations, see the official Classic Center.
+                </p>
+
+            </div>
+
+        </article>
+
+
+
+        <!-- 190 W201 -->
+
+        <article
+            class="model-card heritage"
+            data-category="heritage limousine"
+            data-name="190 W201"
+        >
+
+            <div class="model-image"><img src="https://commons.wikimedia.org/wiki/Special:FilePath/Mercedes-Benz%20W201%20front%2020081128.jpg" alt="190 W201" loading="lazy" onerror="this.closest('.model-image').classList.add('imgfail')"></div>
+
+            <div class="model-info">
+
+                <div class="category">
+                    Heritage · Saloon <span class="era-badge">1982–1993</span>
+                </div>
+
+                <h3>
+                    190 (W201)
+                </h3>
+
+                <p>
+
+                    The compact saloon that launched what later
+                    became the C-Class, and Mercedes-Benz's first
+                    entry into the compact executive class.
+
+                </p>
+
+                <a
+                    class="model-link"
+                    href="https://www.mercedes-benz.com/en/classic/"
+                    target="_blank"
+                >
+                    VIEW IN MERCEDES-BENZ CLASSIC →
+                </a>
+
+                <p class="heritage-note">
+                    No longer in production — for sale history and
+                    restorations, see the official Classic Center.
+                </p>
+
+            </div>
+
+        </article>
+
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================
+     EXPERIENCE
+========================== -->
+
+<section
+    class="experience"
+    id="experience"
+>
+
+    <div class="experience-content">
+
+        <div class="eyebrow">
+            THE MERCEDES-BENZ EXPERIENCE
+        </div>
+
+
+        <h2>
+            Luxury.
+            <br>
+            Technology.
+            <br>
+            Performance.
+        </h2>
+
+
+        <p>
+
+            Mercedes-Benz brings together timeless design,
+            intelligent technology and a focus on comfort
+            to create vehicles that feel special from the
+            first moment you get behind the wheel.
+
+        </p>
+
+
+        <a
+            href="https://www.mercedes-benz.co.in/passengercars/test-drive.html"
+            target="_blank"
+            class="button primary"
+        >
+            BOOK A TEST DRIVE
+        </a>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================
+     FOOTER
+========================== -->
+
+<footer id="contact">
+
+    <div class="footer-grid">
+
+
+        <div>
+
+            <h3>
+                Mercedes-Benz
+            </h3>
+
+            <p>
+                The Best or Nothing.
+            </p>
+
+            <p>
+                Discover luxury, performance
+                and intelligent mobility.
+            </p>
+
+        </div>
+
+
+        <div>
+
+            <h3>
+                Explore
+            </h3>
+
+            <p>
+                <a href="#models">
+                    All Models
+                </a>
+            </p>
+
+            <p>
+                <a href="#experience">
+                    Experience
+                </a>
+            </p>
+
+            <p>
+                <a
+                    href="https://www.mercedes-benz.co.in/"
+                    target="_blank"
+                >
+                    Mercedes-Benz India
+                </a>
+            </p>
+
+        </div>
+
+
+        <div>
+
+            <h3>
+                Official Links
+            </h3>
+
+            <p>
+
+                <a
+                    href="https://www.mercedes-benz.co.in/passengercars/models.html"
+                    target="_blank"
+                >
+                    Model Overview
+                </a>
+
+            </p>
+
+            <p>
+
+                <a
+                    href="https://www.mercedes-benz.co.in/passengercars/test-drive.html"
+                    target="_blank"
+                >
+                    Book a Test Drive
+                </a>
+
+            </p>
+
+            <p>
+
+                <a
+                    href="https://www.mercedes-benz.com/en/classic/"
+                    target="_blank"
+                >
+                    Mercedes-Benz Classic (Heritage)
+                </a>
+
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="copyright">
+
+        © 2026 Mercedes-Benz Model Showcase.
+        Student web-design project.
+
+        <br><br>
+
+        Model information should be verified on the
+        official Mercedes-Benz India website before purchase.
+
+    </div>
+
+</footer>
+
+
+
+<!-- =========================
+     JAVASCRIPT
+========================== -->
+
+<script>
+
+    let currentFilter = "all";
+
+
+    function toggleNav() {
+
+        document.getElementById("navLinks").classList.toggle("open");
+        document.getElementById("navToggle").classList.toggle("open");
+
+    }
+
+    document.querySelectorAll("#navLinks a").forEach(a => {
+        a.addEventListener("click", () => {
+            document.getElementById("navLinks").classList.remove("open");
+            document.getElementById("navToggle").classList.remove("open");
+        });
+    });
+
+
+    function filterModels(category, button) {
+
+        currentFilter = category;
+
+        document
+            .querySelectorAll(".filter")
+            .forEach(btn => {
+
+                btn.classList.remove("active");
+
+            });
+
+
+        button.classList.add("active");
+
+        searchModels();
+
+    }
+
+
+
+    function searchModels() {
+
+        const searchValue =
+            document
+                .getElementById("search")
+                .value
+                .toLowerCase();
+
+
+        const cards =
+            document
+                .querySelectorAll(".model-card");
+
+
+        cards.forEach(card => {
+
+            const name =
+                card
+                    .dataset
+                    .name
+                    .toLowerCase();
+
+
+            const category =
+                card
+                    .dataset
+                    .category
+                    .toLowerCase();
+
+
+            const matchesSearch =
+                name.includes(searchValue);
+
+
+            const matchesCategory =
+                currentFilter === "all" ||
+                category.includes(currentFilter);
+
+
+            if (
+                matchesSearch &&
+                matchesCategory
+            ) {
+
+                card.style.display = "block";
+
+            } else {
+
+                card.style.display = "none";
+
+            }
+
+        });
+
+    }
+
+</script>
+
+
+</body>
+
+</html>
