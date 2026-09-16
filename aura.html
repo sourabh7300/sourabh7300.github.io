@@ -784,8 +784,8 @@ async function ask(text){
   if(busy||!text.trim())return;
   busy=true;$("q").value="";
   addMsg("YOU ▸",text,"user");blip(740,.08);
-  const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|sense|foodora|continuum|mercedes|lucid|photo editor|sense v1)\b/);
-  if(om){const map={portfolio:"portfolio.html",sense:"sense.html",foodora:"foodora.html",continuum:"ai-assistant.html",mercedes:"mercedes.html",lucid:"lucid.html","photo editor":"lucid.html","sense v1":"sense_ai.html"};
+  const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|sense|foodora|continuum|mercedes|lucid|photo editor)\b/);
+  if(om){const map={portfolio:"portfolio.html",sense:"sense.html",foodora:"foodora.html",continuum:"ai-assistant.html",mercedes:"mercedes.html",lucid:"lucid.html","photo editor":"lucid.html"};
     const f=map[om[1]];pushSys("launching "+om[1]+"…");
     try{const h=await fetch(f,{method:"HEAD"});
       if(h.ok){window.open(f,"_blank");addMsg("AURA ▸","Launching "+om[1]+" in a new tab, boss.","aura");}
