@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="SENSE — an AI perception lab. Real-time computer vision hand-coded in vanilla JavaScript: edge detection, motion tracking, ASCII camera. No libraries.">
+<title>SENSE — AI Perception Lab · Sourabh Singh</title>
+<style>
+:root{
+  --bg:#020604;--panel:rgba(6,20,12,.82);--line:#123a24;--line2:#0b2617;
+  --ph:#22c55e;--ph2:#4ade80;--dim:#3f6b52;--amber:#fbbf24;--red:#f87171;--ice:#d1fae5;
+  --mono:'Share Tech Mono','Courier New',ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ice);font-family:var(--mono);overflow:hidden;-webkit-font-smoothing:antialiased}
+button{font-family:var(--mono);cursor:pointer}
+
+/* backdrop */
+#grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.5;
+  background-image:repeating-linear-gradient(0deg,rgba(34,197,94,.045) 0 1px,transparent 1px 3px)}
+#glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 70% 50% at 50% 38%,rgba(34,197,94,.07),transparent 65%)}
+
+/* top bar */
+#bar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:14px;
+  padding:10px 16px;background:linear-gradient(180deg,rgba(2,8,5,.95),rgba(2,8,5,.7));border-bottom:1px solid var(--line)}
+#bar .mark{font-size:17px;letter-spacing:4px;color:var(--ph2);white-space:nowrap}
+#bar .mark small{display:block;font-size:8px;letter-spacing:3px;color:var(--dim)}
+#bar .dot{width:8px;height:8px;border-radius:50%;background:var(--ph);box-shadow:0 0 10px var(--ph);animation:blink 2.2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+#bar .stat{font-size:10px;color:var(--dim);letter-spacing:1px;white-space:nowrap}
+#bar .stat b{color:var(--ph2);font-weight:400}
+#bar .grow{flex:1}
+.tbtn{font-size:10px;letter-spacing:1.5px;color:var(--dim);background:rgba(6,20,12,.7);
+  border:1px solid var(--line);border-radius:7px;padding:7px 11px;transition:.2s}
+.tbtn:hover{color:var(--ph2);border-color:var(--ph);box-shadow:0 0 12px rgba(34,197,94,.25)}
+.tbtn.hot{color:#052e16;background:var(--ph);border-color:var(--ph);font-weight:bold}
+
+/* tabs */
+#tabs{position:fixed;top:54px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:6px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:5px;backdrop-filter:blur(6px)}
+.tab{font-size:10.5px;letter-spacing:1.5px;color:var(--dim);background:transparent;border:1px solid transparent;
+  border-radius:8px;padding:8px 13px;transition:.2s}
+.tab:hover{color:var(--ph2)}
+.tab.on{color:#052e16;background:var(--ph);box-shadow:0 0 18px rgba(34,197,94,.4)}
+
+/* viewport */
+#stage{position:fixed;inset:96px 16px 58px;display:flex;align-items:center;justify-content:center;z-index:5}
+#frame{position:relative;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  box-shadow:0 0 0 1px rgba(34,197,94,.08),0 24px 80px rgba(0,0,0,.7),0 0 60px rgba(34,197,94,.07) inset;
+  background:#010302;max-width:100%;max-height:100%}
+#view{display:block;max-width:100%;max-height:100%}
+#frame .cross{position:absolute;pointer-events:none;color:rgba(74,222,128,.35);font-size:14px}
+#frame .cross.tl{top:8px;left:10px}#frame .cross.tr{top:8px;right:10px}
+#frame .cross.bl{bottom:8px;left:10px}#frame .cross.br{bottom:8px;right:10px}
+#recDot{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:9px;letter-spacing:2px;
+  color:var(--red);display:none;align-items:center;gap:6px}
+#recDot i{width:7px;height:7px;border-radius:50%;background:var(--red);animation:blink 1s infinite}
+#senseTag{position:absolute;bottom:10px;right:12px;font-size:9px;letter-spacing:2px;color:rgba(74,222,128,.6)}
+
+/* side panel */
+#panel{position:fixed;left:16px;top:96px;bottom:58px;width:212px;z-index:15;display:flex;flex-direction:column;gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 12px;backdrop-filter:blur(6px)}
+.card h4{font-size:9px;letter-spacing:2.5px;color:var(--dim);font-weight:400;margin-bottom:8px}
+.kv{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);padding:3px 0}
+.kv b{color:var(--ph2);font-weight:400}
+#histo{width:100%;height:56px;display:block}
+#motionBar{height:6px;border-radius:3px;background:var(--line2);overflow:hidden;margin-top:6px}
+#motionFill{height:100%;width:0%;background:linear-gradient(90deg,var(--ph),var(--amber));transition:width .12s}
+#logCard{flex:1;overflow:hidden;display:flex;flex-direction:column}
+#logLines{flex:1;overflow:hidden;font-size:9.5px;line-height:1.9;color:#2e5c41}
+#logLines .hot{color:var(--ph2)}
+
+/* gate */
+#gate{position:fixed;inset:0;z-index:40;background:radial-gradient(ellipse at 50% 40%,rgba(6,30,16,.97),#010402 75%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;text-align:center;padding:24px;transition:opacity .6s,visibility .6s}
+#gate.gone{opacity:0;visibility:hidden}
+#gate .eye{width:96px;height:96px;border-radius:50%;border:2px solid var(--line);position:relative;animation:eye 3.5s infinite}
+#gate .eye::before{content:"";position:absolute;inset:26px;border-radius:50%;border:2px solid var(--ph);box-shadow:0 0 24px rgba(34,197,94,.5)}
+#gate .eye::after{content:"";position:absolute;inset:42px;border-radius:50%;background:var(--ph);box-shadow:0 0 18px var(--ph)}
+@keyframes eye{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+#gate h1{font-size:clamp(22px,5vw,34px);letter-spacing:6px;color:var(--ph2)}
+#gate p{color:var(--dim);font-size:12px;max-width:420px;line-height:1.8}
+#gate .row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+#gate .big{font-size:12px;letter-spacing:2px;padding:14px 26px;border-radius:10px;border:1px solid var(--ph);
+  background:rgba(34,197,94,.12);color:var(--ph2);transition:.2s}
+#gate .big:hover{background:rgba(34,197,94,.25);box-shadow:0 0 26px rgba(34,197,94,.35)}
+#gate .ghost{border-color:var(--line);color:var(--dim);background:transparent}
+#gate .ghost:hover{color:var(--ph2);box-shadow:none}
+#gate .fine{font-size:9.5px;color:#28543d;max-width:460px;line-height:1.7}
+
+/* ticker */
+#ticker{position:fixed;bottom:0;left:0;right:0;z-index:20;padding:8px 16px;font-size:10px;letter-spacing:1px;
+  color:var(--dim);background:rgba(2,8,5,.9);border-top:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ticker b{color:var(--ph2);font-weight:400}
+
+#snapA{display:none}
+
+@media(max-width:960px){#panel{display:none}}
+@media(max-width:760px){
+  #bar{gap:8px;padding:8px 10px}#bar .mark{font-size:14px;letter-spacing:3px}#bar .stat.hidem{display:none}
+  #tabs{top:50px;max-width:calc(100vw - 16px);overflow-x:auto}#tabs::-webkit-scrollbar{display:none}
+  .tab{padding:7px 10px;font-size:9.5px;white-space:nowrap}
+  #stage{inset:92px 8px 54px}
+  .tbtn{padding:6px 8px;font-size:9px}
+  #gate h1{letter-spacing:3px}
+}
+</style>
+</head>
+<body>
+<div id="glow"></div><div id="grain"></div>
+
+<div id="bar">
+  <span class="dot"></span>
+  <div class="mark">SENSE<small>AI PERCEPTION LAB</small></div>
+  <span class="stat hidem">FPS <b id="sFps">—</b></span>
+  <span class="stat hidem">RES <b id="sRes">—</b></span>
+  <span class="stat">CAM <b id="sCam">OFF</b></span>
+  <div class="grow"></div>
+  <button class="tbtn" id="flipBtn" title="Switch camera">⟲ FLIP</button>
+  <button class="tbtn" id="lucidBtn" title="Send this frame to LUCID photo studio">◉→ LUCID</button>
+  <button class="tbtn hot" id="snapBtn" title="Save a frame">◉ SNAPSHOT</button>
+</div>
+
+<div id="tabs">
+  <button class="tab on" data-m="live">👁 LIVE</button>
+  <button class="tab" data-m="edges">⌗ EDGE SCAN</button>
+  <button class="tab" data-m="ascii">Aa ASCII</button>
+  <button class="tab" data-m="track">🎯 MOTION TRACK</button>
+  <button class="tab" data-m="follow">🛸 FOLLOWER</button>
+</div>
+
+<div id="panel">
+  <div class="card"><h4>BRIGHTNESS HISTOGRAM</h4><canvas id="histo" width="188" height="56"></canvas></div>
+  <div class="card"><h4>MOTION LEVEL</h4><div id="motionBar"><div id="motionFill"></div></div>
+    <div class="kv" style="margin-top:6px"><span>SIGNAL</span><b id="sMotion">0%</b></div></div>
+  <div class="card"><h4>READOUT</h4>
+    <div class="kv"><span>TARGET</span><b id="sTarget">—</b></div>
+    <div class="kv"><span>EDGES</span><b id="sEdge">—</b></div>
+    <div class="kv"><span>LIGHT</span><b id="sLight">—</b></div>
+    <div class="kv"><span>MODE</span><b id="sMode">LIVE</b></div>
+  </div>
+  <div class="card" id="logCard"><h4>PERCEPTION LOG</h4><div id="logLines"></div></div>
+</div>
+
+<div id="stage">
+  <div id="frame">
+    <canvas id="view" width="800" height="600"></canvas>
+    <span class="cross tl">┌</span><span class="cross tr">┐</span>
+    <span class="cross bl">└</span><span class="cross br">┘</span>
+    <div id="recDot"><i></i>SENSOR ACTIVE</div>
+    <div id="senseTag">SENSE v1.0 · hand-coded CV</div>
+  </div>
+</div>
+
+<div id="gate">
+  <div class="eye"></div>
+  <h1>SENSE</h1>
+  <p>Give this page your camera and watch code <b style="color:var(--ph2)">see</b> — edges, motion, and a creature that follows you. Every algorithm runs on raw pixels, hand-written in JavaScript. Nothing leaves this device; no library, no server, no tracking.</p>
+  <div class="row">
+    <button class="big" id="grantBtn">◉ GRANT CAMERA</button>
+    <button class="big ghost" id="simBtn">▣ NO CAMERA — RUN SIMULATION</button>
+  </div>
+  <div class="fine">Camera stays 100% local — frames are processed in your browser and never uploaded. Works best in Chrome / Edge. On phones, allow the camera when asked.</div>
+</div>
+
+<div id="ticker">▸ initializing sensors…</div>
+<a id="snapA" download="sense-snapshot.png"></a>
+<video id="vid" playsinline muted style="display:none"></video>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const vid=$("vid"),view=$("view"),vx=view.getContext("2d");
+const PW=160,PH=120;
+const proc=document.createElement("canvas");proc.width=PW;proc.height=PH;
+const px=proc.getContext("2d",{willReadFrequently:true});
+let mode="live",stream=null,running=false,useSim=false,simT=0;
+let prev=null,luma=new Float32Array(PW*PH),motion=new Float32Array(PW*PH);
+let trail=[],fps=0,fpsN=0,fpsT=performance.now();
+const follower={x:400,y:300,blink:0,vx:0,vy:0};
+
+/* ---------- log & ticker ---------- */
+function slog(m,hot){const el=$("logLines"),d=document.createElement("div");
+  d.textContent="▸ "+m;if(hot)d.className="hot";el.appendChild(d);
+  while(el.children.length>26)el.firstChild.remove();el.scrollTop=el.scrollHeight;
+  $("ticker").innerHTML="▸ <b>"+m+"</b>";}
+
+/* ---------- input source ---------- */
+async function startCam(facing){
+  try{
+    if(stream)stream.getTracks().forEach(t=>t.stop());
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:1280},height:{ideal:720}},audio:false});
+    vid.srcObject=stream;await vid.play();
+    useSim=false;$("sCam").textContent="LIVE";$("recDot").style.display="flex";
+    slog("camera online — "+vid.videoWidth+"×"+vid.videoHeight,true);
+    slog("perception pipeline engaged");
+  }catch(e){
+    slog("camera unavailable — starting simulation");
+    startSim();
+  }
+}
+function startSim(){
+  useSim=true;stream=null;$("sCam").textContent="SIM";$("recDot").style.display="flex";
+  slog("simulation scene online — same algorithms, synthetic world",true);
+}
+
+/* ---------- sim scene: bouncing glow blobs ---------- */
+const blobs=Array.from({length:5},(_,i)=>({x:30+i*22,y:20+i*18,r:9+i*2,dx:.8+i*.37,dy:1.1-i*.23}));
+function drawSim(){
+  simT+=.016;
+  px.fillStyle="#02120a";px.fillRect(0,0,PW,PH);
+  px.fillStyle="#0a3d22";
+  for(let g=0;g<3;g++){px.fillRect(0,PH*(.25+.25*g)-1+Math.sin(simT+g)*3,PW,2);}
+  for(const b of blobs){
+    b.x+=b.dx;b.y+=b.dy;
+    if(b.x<b.r||b.x>PW-b.r)b.dx*=-1;
+    if(b.y<b.r||b.y>PH-b.r)b.dy*=-1;
+    const g2=px.createRadialGradient(b.x,b.y,1,b.x,b.y,b.r*2.2);
+    g2.addColorStop(0,"#eafff2");g2.addColorStop(1,"rgba(34,197,94,0)");
+    px.fillStyle=g2;px.beginPath();px.arc(b.x,b.y,b.r*2.2,0,7);px.fill();
+  }
+}
+
+/* ---------- per-frame analysis ---------- */
+function analyze(){
+  if(useSim)drawSim();else px.drawImage(vid,0,0,PW,PH);
+  const d=px.getImageData(0,0,PW,PH).data;
+  let motSum=0,lumSum=0,edgeN=0;
+  for(let i=0,p=0;i<d.length;i+=4,p++){
+    const l=.299*d[i]+.587*d[i+1]+.114*d[i+2];
+    luma[p]=l;lumSum+=l;
+    if(prev)motion[p]=Math.abs(l-prev[p]);else motion[p]=0;
+    motSum+=motion[p];
+  }
+  prev=luma.slice();
+  return{d,motSum:motSum/(PW*PH),lumAvg:lumSum/(PW*PH)};
+}
+
+/* ---------- renderers ---------- */
+function rLive(a){
+  vx.drawImage(useSim?proc:vid,0,0,view.width,view.height);
+  const cs=20,cells={};
+  for(let y=0;y<PH;y+=4)for(let x=0;x<PW;x+=4){
+    let m=0;for(let dy=0;dy<4;dy++)for(let dx=0;dx<4;dx++)m+=motion[(y+dy)*PW+x+dx];
+    if(m>90){const k=(x/cs|0)+","+(y/cs|0);cells[k]=(cells[k]||0)+m;}
+  }
+  vx.lineWidth=2;
+  for(const k in cells){
+    const[cx2,cy2]=k.split(",").map(Number);
+    const sx=cx2*cs*(view.width/PW),sy=cy2*cs*(view.height/PH);
+    const w=cs*(view.width/PW),h=cs*(view.height/PH);
+    vx.strokeStyle=cells[k]>260?"rgba(251,191,36,.9)":"rgba(74,222,128,.75)";
+    vx.strokeRect(sx+2,sy+2,w-4,h-4);
+  }
+  vx.fillStyle="rgba(74,222,128,.9)";vx.font="12px monospace";
+  vx.fillText("OBJ "+Object.keys(cells).length,10,20);
+}
+function rEdges(a){
+  const img=vx.createImageData(view.width,view.height),od=img.data;
+  const sx=view.width/PW,sy=view.height/PH;
+  for(let y=1;y<PH-1;y++)for(let x=1;x<PW-1;x++){
+    const i=y*PW+x;
+    const gx=-luma[i-PW-1]-2*luma[i-1]-luma[i+PW-1]+luma[i-PW+1]+2*luma[i+1]+luma[i+PW+1];
+    const gy=-luma[i-PW-1]-2*luma[i-PW]-luma[i-PW+1]+luma[i+PW-1]+2*luma[i+PW]+luma[i+PW+1];
+    const m=Math.sqrt(gx*gx+gy*gy);
+    if(m>60){
+      for(let oy=0;oy<sy;oy++)for(let ox=0;ox<sx;ox++){
+        const p=((y*sy|0)+oy)*view.width+((x*sx|0)+ox);
+        const g=Math.min(255,m*.7);od[p*4]=g*.35;od[p*4+1]=g;od[p*4+2]=g*.5;od[p*4+3]=255;
+      }
+    }
+  }
+  vx.putImageData(img,0,0);
+  vx.fillStyle="rgba(74,222,128,.8)";vx.font="12px monospace";
+  vx.fillText("SOBEL OPERATOR · 3×3 GRADIENT",10,20);
+}
+const CHARS=" .:-=+*#%@";
+function rAscii(){
+  const cols=110,rows=Math.round(cols*PH/PW*.5);
+  const cw=view.width/cols,ch=view.height/rows;
+  vx.fillStyle="#010302";vx.fillRect(0,0,view.width,view.height);
+  vx.font=Math.floor(ch*1.35)+"px monospace";vx.fillStyle="#4ade80";
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){
+    const x=Math.min(PW-1,c*PW/cols|0),y=Math.min(PH-1,r*PH/rows|0);
+    const l=luma[y*PW+x],ch2=CHARS[Math.min(9,l/25.6|0)];
+    if(ch2!==" ")vx.fillText(ch2,c*cw,(r+1)*ch);
+  }
+  vx.fillStyle="rgba(74,222,128,.8)";vx.font="12px monospace";
+  vx.fillText("ASCII RENDER · "+cols+"×"+rows+" GLYPHS",10,20);
+}
+function rTrack(a){
+  vx.drawImage(useSim?proc:vid,0,0,view.width,view.height);
+  vx.fillStyle="rgba(1,3,2,.72)";vx.fillRect(0,0,view.width,view.height);
+  let sx2=0,sy2=0,w2=0;
+  for(let y=0;y<PH;y++)for(let x=0;x<PW;x++){const m=motion[y*PW+x];if(m>34){sx2+=x*m;sy2+=y*m;w2+=m;}}
+  vx.globalAlpha=.35;vx.drawImage(useSim?proc:vid,0,0,view.width,view.height);vx.globalAlpha=1;
+  if(w2>10){
+    const tx=sx2/w2/PW*view.width,ty=sy2/w2/PH*view.height;
+    trail.push({x:tx,y:ty});if(trail.length>46)trail.shift();
+    vx.strokeStyle="rgba(251,191,36,.8)";vx.lineWidth=2;vx.beginPath();
+    trail.forEach((p,i)=>i?vx.lineTo(p.x,p.y):vx.moveTo(p.x,p.y));vx.stroke();
+    const rr=34+Math.sin(performance.now()/140)*4;
+    vx.strokeStyle="#fbbf24";vx.lineWidth=2.5;
+    vx.beginPath();vx.arc(tx,ty,rr,0,7);vx.stroke();
+    vx.beginPath();vx.moveTo(tx-rr-12,ty);vx.lineTo(tx-rr+4,ty);vx.moveTo(tx+rr-4,ty);vx.lineTo(tx+rr+12,ty);
+    vx.moveTo(tx,ty-rr-12);vx.lineTo(tx,ty-rr+4);vx.moveTo(tx,ty+rr-4);vx.lineTo(tx,ty+rr+12);vx.stroke();
+    vx.fillStyle="#fbbf24";vx.font="12px monospace";
+    vx.fillText("LOCK "+(tx/view.width*100|0)+"%,"+(ty/view.height*100|0)+"%",tx+rr+8,ty+4);
+    $("sTarget").textContent=(tx/view.width*100|0)+"% , "+(ty/view.height*100|0)+"%";
+  }else{
+    trail.length=0;$("sTarget").textContent="searching…";
+    vx.fillStyle="rgba(74,222,128,.7)";vx.font="12px monospace";
+    vx.fillText("SCANNING FOR MOTION…",10,20);
+  }
+}
+function rFollow(a){
+  vx.drawImage(useSim?proc:vid,0,0,view.width,view.height);
+  vx.fillStyle="rgba(1,3,2,.55)";vx.fillRect(0,0,view.width,view.height);
+  let sx2=0,sy2=0,w2=0;
+  for(let y=0;y<PH;y++)for(let x=0;x<PW;x++){const m=motion[y*PW+x];if(m>34){sx2+=x*m;sy2+=y*m;w2+=m;}}
+  const tx=w2>10?sx2/w2/PW*view.width:view.width/2+Math.sin(performance.now()/900)*80;
+  const ty=w2>10?sy2/w2/PH*view.height:view.height/2+Math.cos(performance.now()/1100)*50;
+  follower.vx+=(tx-follower.x)*.012;follower.vy+=(ty-follower.y)*.012;
+  follower.vx*=.92;follower.vy*=.92;
+  follower.x+=follower.vx;follower.y+=follower.vy;
+  const ang=Math.atan2(follower.vy,follower.vx);
+  vx.strokeStyle="rgba(74,222,128,.35)";vx.lineWidth=1;vx.setLineDash([5,7]);
+  vx.beginPath();vx.moveTo(follower.x,follower.y);vx.lineTo(tx,ty);vx.stroke();vx.setLineDash([]);
+  const f=follower;
+  vx.save();vx.translate(f.x,f.y);vx.rotate(ang);
+  vx.fillStyle="rgba(34,197,94,.16)";vx.strokeStyle="#22c55e";vx.lineWidth=2;
+  vx.beginPath();vx.ellipse(0,0,40,24,0,0,7);vx.fill();vx.stroke();
+  vx.beginPath();vx.moveTo(40,0);vx.lineTo(58,0);vx.stroke();
+  const blink=f.blink>performance.now();
+  vx.fillStyle=blink?"#064e3b":"#eafff2";
+  vx.beginPath();vx.arc(6,0,blink?3:10,0,7);vx.fill();
+  if(!blink){vx.fillStyle="#052e16";vx.beginPath();vx.arc(9,0,4,0,7);vx.fill();}
+  if(Math.random()<.004)f.blink=performance.now()+160;
+  vx.restore();
+  vx.fillStyle="rgba(74,222,128,.85)";vx.font="12px monospace";
+  vx.fillText("SPECIMEN TRACKING · DIST "+Math.hypot(tx-f.x,ty-f.y)|0,10,20);
+  $("sTarget").textContent="acquired";
+}
+
+/* ---------- histogram ---------- */
+const hc=$("histo").getContext("2d");
+function drawHisto(){
+  const bins=new Float32Array(24);
+  for(let i=0;i<luma.length;i++)bins[Math.min(23,luma[i]/10.7|0)]++;
+  const mx=Math.max(...bins,1);
+  hc.clearRect(0,0,188,56);
+  bins.forEach((b,i)=>{
+    const h=b/mx*48;
+    hc.fillStyle=i>18?"#fbbf24":"#22c55e";
+    hc.globalAlpha=.4+.6*b/mx;
+    hc.fillRect(i*7.8,56-h,6,h);
+  });hc.globalAlpha=1;
+}
+
+/* ---------- main loop ---------- */
+let lastData=null;
+function frame(){
+  if(!running)return;
+  requestAnimationFrame(frame);
+  fpsN++;const now=performance.now();
+  if(now-fpsT>500){fps=Math.round(fpsN*1000/(now-fpsT));fpsN=0;fpsT=now;
+    $("sFps").textContent=fps;$("sRes").textContent=vid.videoWidth?vid.videoWidth+"×"+vid.videoHeight:"800×600";}
+  lastData=analyze();
+  if(mode==="live")rLive(lastData);
+  else if(mode==="edges")rEdges(lastData);
+  else if(mode==="ascii")rAscii();
+  else if(mode==="track")rTrack(lastData);
+  else if(mode==="follow")rFollow(lastData);
+  if(fpsN%6===0){
+    drawHisto();
+    const mPct=Math.min(100,lastData.motSum*2.2|0);
+    $("motionFill").style.width=mPct+"%";
+    $("sMotion").textContent=mPct+"%";
+    $("sLight").textContent=lastData.lumAvg<60?"DIM":lastData.lumAvg>170?"BRIGHT":"OK";
+  }
+}
+
+/* ---------- wiring ---------- */
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+  t.classList.add("on");mode=t.dataset.m;
+  $("sMode").textContent=t.textContent.trim().split(" ").pop().toUpperCase();
+  slog("mode → "+mode,true);
+});
+let facing="user";
+$("flipBtn").onclick=()=>{if(useSim||!stream){slog("flip needs a live camera");return}
+  facing=facing==="user"?"environment":"user";slog("camera → "+facing);startCam(facing);};
+$("snapBtn").onclick=()=>{
+  try{const a=$("snapA");a.href=view.toDataURL("image/png");a.click();
+    slog("snapshot saved → sense-snapshot.png",true);}catch(e){slog("snapshot blocked by browser");}
+};
+$("lucidBtn").onclick=()=>{
+  try{
+    const data=view.toDataURL("image/png");
+    const w=window.open("lucid.html","_blank");
+    if(!w){slog("popup blocked — allow popups to use the LUCID pipeline");return}
+    const go=()=>{try{w.lucidReceive(data,{name:"sense-capture.png",note:"Frame received from SENSE — enhance it now"});slog("frame piped → LUCID studio",true);}catch(e){setTimeout(go,250)}};
+    setTimeout(go,600);
+  }catch(e){slog("capture failed: "+e.message);}
+};
+$("grantBtn").onclick=()=>{$("gate").classList.add("gone");running=true;frame();startCam("user");};
+$("simBtn").onclick=()=>{$("gate").classList.add("gone");running=true;frame();startSim();};
+addEventListener("resize",fit);
+function fit(){
+  const st=$("stage").getBoundingClientRect();
+  const ar=4/3;let w=st.width-4,h=st.height-4;
+  if(w/h>ar)w=h*ar;else h=w/ar;
+  view.style.width=Math.max(200,w)+"px";view.style.height=Math.max(150,h)+"px";
+}
+
+/* ---------- boot ---------- */
+slog("SENSE v1.0 — perception core loaded");
+slog("algorithms: sobel · frame-diff · ascii · centroid");
+fit();
+</script>
+</body>
+</html>
