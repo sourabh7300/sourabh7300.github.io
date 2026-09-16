@@ -65,6 +65,9 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 .msg{font-size:14.5px;line-height:1.5;letter-spacing:.2px}
 .msg .who{font-family:'Orbitron';font-size:9px;letter-spacing:2.5px;display:block;margin-bottom:3px}
 .msg.aura .who{color:var(--cy)}
+.msg-actions{display:inline-flex;gap:5px;margin-left:9px;vertical-align:middle}
+.msg-actions button,.msg-actions a{font-size:10px;background:rgba(34,211,238,.08);border:1px solid var(--line);color:var(--cy2);border-radius:6px;padding:2px 6px;cursor:pointer;text-decoration:none;transition:.15s}
+.msg-actions button:hover,.msg-actions a:hover{background:rgba(34,211,238,.22)}
 .msg.user{color:#f3f6f6}
 .msg.user .who{color:var(--amber)}
 .msg.sys{color:#5f8f9e;font-family:var(--mono);font-size:11px}
@@ -180,9 +183,11 @@ canvas#fx{position:fixed;inset:0;z-index:0}
     <button id="sendBtn">▸</button>
   </div>
   <div class="iconrow">
-    <button class="ibtn" id="soundBtn">SOUND: ON</button>
-    <button class="ibtn" id="fsBtn">FULLSCREEN</button>
-    <button class="ibtn" id="keyBtn">SET AI KEY</button>
+  <button class="ibtn" id="soundBtn">SOUND: ON</button>
+  <button class="ibtn" id="wakeBtn">WAKE: OFF</button>
+  <button class="ibtn" id="langBtn">LANG: ENG</button>
+  <button class="ibtn" id="fsBtn">FULLSCREEN</button>
+  <button class="ibtn" id="keyBtn">SET AI KEY</button>
   </div>
 </div>
 
@@ -224,6 +229,14 @@ for(let i=0;i<N;i++){
   pts.push({x:Math.cos(phi)*r,y,z:Math.sin(phi)*r});
 }
 let rot=0,wavePhase=0,amp=0,ampTarget=0,heart=0;
+let spinBoost=0,spinTarget=0;
+function setHue(name){
+  const map={red:0,orange:25,gold:50,yellow:55,lime:90,green:130,blue:217,indigo:245,purple:270,violet:275,pink:330,magenta:320,cyan:187};
+  const fx=document.getElementById("fx");if(!fx)return false;
+  if(name==="white"){fx.style.filter="saturate(.15) brightness(1.9)";return true;}
+  const h=map[name];if(h===undefined)return false;
+  fx.style.filter="hue-rotate("+Math.round(h-187)+"deg)";return true;
+}
 const PERSP=3.2;
 
 /* ---------------- ambient grid horizon ---------------- */
@@ -273,10 +286,11 @@ function drawRings(t,s){
 /* ---------------- the core ---------------- */
 function drawCore(dt){
   const s=STATES[mode];
-  rot+=dt*(mode==="thinking"?5:mode==="listening"?2.2:1)*s.rot*60;
+  rot+=dt*(mode==="thinking"?5:mode==="listening"?2.2:1)*s.rot*60*(1+spinBoost);
   wavePhase+=dt*(mode==="speaking"?9:2);
   heart+=dt*(mode==="listening"?5.2:1.6);
   amp+=(ampTarget-amp)*.08;
+  spinBoost+=(spinTarget-spinBoost)*.06;
   const breathe=1+Math.sin(heart)*0.03*s.pulse;
   cx.save();cx.translate(CX,CY);
   // inner glow
@@ -374,19 +388,24 @@ let voices=[];function loadV(){voices=synth?synth.getVoices():[]}loadV();if(synt
 function speak(t){
   if(!synth||!soundOn){return}
   try{synth.cancel();
-    const clean=t.replace(/[#*_▸►`]/g,"");
+    if(typeof wake!=="undefined"&&wake&&typeof listening!=="undefined"&&listening){window.__wakeRestart=true;try{recog.abort()}catch(e){}}
+    const clean=t.replace(/[#*_▸►`_]/g,"");
     const parts=[];let rest=clean;
     while(rest.length){
       if(rest.length<=190){parts.push(rest);break}
       let cut=rest.lastIndexOf(". ",180);if(cut<80)cut=rest.lastIndexOf(" ",180);if(cut<80)cut=180;
       parts.push(rest.slice(0,cut+1));rest=rest.slice(cut+1).replace(/^\s+/,"");
     }
-    const v=voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang));
+    const hi=window.__auraLang==="hi";
+    const v=hi?(voices.find(v=>/hi-IN|^hi/.test(v.lang))||null):(voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang)));
+    if(v)u.voice=v;u.lang=hi?"hi-IN":"en-US";u.rate=1.02;u.pitch=1;
     let i=0;
     const next=()=>{
-      if(i>=parts.length){ampTarget=0;setMode("idle");return}
+      if(i>=parts.length){ampTarget=0;setMode("idle");
+        if(window.__wakeRestart){window.__wakeRestart=false;setTimeout(()=>{try{recog.start()}catch(e){}},450);}
+        return}
       const u=new SpeechSynthesisUtterance(parts[i++]);
-      if(v)u.voice=v;u.rate=1.02;u.pitch=1;
+      if(v)u.voice=v;u.lang=hi?"hi-IN":"en-US";u.rate=1.02;u.pitch=1;
       u.onstart=()=>{ampTarget=1;setMode("speaking")};
       u.onend=next;
       u.onerror=next;
@@ -412,9 +431,7 @@ const KB={
   "jecrc":"JECRC University is in Jaipur, Rajasthan — where my creator Sourabh Singh studies B.Tech CSE.",
   "b.tech":"B.Tech is a four-year engineering degree. My creator studies the Computer Science track with AI, DevOps and Cloud Automation.",
   "portfolio":"Sourabh's portfolio is a single page that live-embeds six of his web apps — including me. Say 'open portfolio' and I'll launch it.",
-  "sense":"SENSE is Sourabh's AI Perception Lab — it sees through your camera with hand-coded computer vision: Sobel edge detection, motion tracking, an ASCII camera, and a creature that follows you. Say 'open sense' to launch it. (Sense v3 is the classic chat assistant.)",
   "foodora":"FOODORA is a full food-delivery platform: 12 restaurants, 48 dishes, live GPS maps, cart and checkout, and recipes in English, Hindi and Spanish.",
-  "continuum":"Continuum is a second AI-assistant design by Sourabh — an editorial-typography take with a completely different visual identity.",
   "mercedes":"The Mercedes-Benz showcase is a cinematic luxury automotive landing page — premium design and scroll animations.",
   "aura":"That's me — a holographic AI with a 560-particle 3D core, voice interface, live telemetry and a three-layer brain, all in one hand-written file.",
   "lucid":"Lucid is Sourabh's AI Pro Photo Studio — 50+ hand-coded pixel engines: tone curves, HSL mixer, bloom, bokeh, grain. It connects to SENSE: capture a frame there, one click sends it to Lucid for editing. Say 'open lucid' and I'll launch it.",
@@ -697,27 +714,47 @@ function topicOf(q){
     .replace(/\s+/g," ").trim().slice(0,140);
   return t;
 }
-/* ---- source 1: Wikipedia — search, then pull the FULL article ---- */
+/* ---- source 1: Wikipedia — search top candidates, pick best keyword match, REST summary ---- */
+async function wikiCandidates(term){
+  const s=await fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(term)+"&format=json&origin=*&srlimit=3",{signal:AbortSignal.timeout(8000)});
+  if(!s.ok)throw 0;
+  const sd=await s.json();
+  const hits=(sd.query&&sd.query.search)||[];
+  if(!hits.length)throw 0;
+  const words=term.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+  const score=t=>{const lt=(t.title+" "+(t.snippet||"")).toLowerCase();let sc=0;words.forEach(w=>{if(lt.includes(w))sc+=2});if(t.title.toLowerCase()===term.toLowerCase())sc+=6;return sc;};
+  return hits.sort((a,b)=>score(b)-score(a));
+}
+async function wikiSummary(title){
+  const r=await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(title),{signal:AbortSignal.timeout(9000)});
+  if(!r.ok)throw 0;
+  const d=await r.json();
+  const ex=(d.extract||"").trim();
+  if(ex.length<60)throw 0;
+  return{title:d.title,extract:ex,url:d.content_urls&&d.content_urls.desktop&&d.content_urls.desktop.page};
+}
 async function wikiAnswer(q,deep){
   try{
     const term=topicOf(q);if(!term)return null;
-    const s=await fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(term)+"&format=json&origin=*&srlimit=1",{signal:AbortSignal.timeout(8000)});
-    if(!s.ok)throw 0;
-    const sd=await s.json();const title=sd.query&&sd.query.search&&sd.query.search[0]&&sd.query.search[0].title;
-    if(!title)throw 0;
-    const chars=deep?12000:4000;
-    const r=await fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars="+chars+"&redirects=1&format=json&origin=*&titles="+encodeURIComponent(title),{signal:AbortSignal.timeout(9000)});
-    if(!r.ok)throw 0;
-    const rd=await r.json();const page=rd.query&&Object.values(rd.query.pages)[0];
-    let t=((page&&page.extract)||"").replace(/==+[^=]*==+/g," ").replace(/\s+\n\s*/g,"\n").trim();
-    if(t.length<80)throw 0;
-    const paras=t.split(/\n+/).map(p=>p.trim()).filter(p=>p.length>40);
-    if(!paras.length)throw 0;
-    let out=paras.slice(0,deep?6:2).join("\n\n");
-    if(!deep){const sents=out.replace(/\n/g," ").split(/(?<=[.!?])\s+/).slice(0,6);out=sents.join(" ");}
-    if(out.split(/\s+/).length<30)throw 0;
-    if(out.length>deep?4200:1400)out=out.slice(0,deep?4200:1400).replace(/\s\S*$/,"")+"…";
-    return{t:out+(out.endsWith(".")?"":".")+"\n\n— live from Wikipedia · "+title+(deep?" · deep read":""),eng:"wikipedia live"};
+    const hits=await wikiCandidates(term);
+    for(const h of hits.slice(0,2)){
+      try{
+        const sum=await wikiSummary(h.title);
+        let out=sum.extract;
+        if(deep){
+          const chars=9000;
+          const r=await fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars="+chars+"&redirects=1&format=json&origin=*&titles="+encodeURIComponent(sum.title),{signal:AbortSignal.timeout(9000)});
+          if(r.ok){const rd=await r.json();const page=rd.query&&Object.values(rd.query.pages)[0];
+            const raw=((page&&page.extract)||"").replace(/==+[^=]*==+/g," ").replace(/\s+\n\s*/g,"\n").trim();
+            const paras=raw.split(/\n+/).map(p=>p.trim()).filter(p=>p.length>40);
+            if(paras.length>=3)out=paras.slice(0,6).join("\n\n");}
+        }
+        if(!deep){const sents=out.replace(/\n/g," ").split(/(?<=[.!?])\s+/).slice(0,6);out=sents.join(" ");}
+        if(out.length>(deep?4200:1200))out=out.slice(0,deep?4200:1200).replace(/\s\S*$/,"")+"…";
+        return{t:out+(out.endsWith(".")?"":".")+(sum.url?"\n\n— live from Wikipedia · "+sum.title+(sum.url?" · "+sum.url.replace(/^https?:""/,""):""):""),eng:"wikipedia live",src:sum.url||("https://en.wikipedia.org/wiki/"+encodeURIComponent(sum.title))};
+      }catch(e){}
+    }
+    throw 0;
   }catch(e){}
   return null;
 }
@@ -736,45 +773,147 @@ async function ddgAnswer(q){
   }catch(e){}
   return null;
 }
-/* ---- deep research: fuse multiple live sources into one layered answer ---- */
+/* ---- deep research: query ALL sources in parallel, score by keyword coverage, build a structured digest ---- */
 async function webResearch(q){
   const term=topicOf(q)||q;
   slog("web research: \""+term.slice(0,40)+"\" — querying sources…",true);
-  let wiki=null,ddg=null;
-  try{const r=await fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(term)+"&format=json&origin=*&srlimit=1",{signal:AbortSignal.timeout(8000)});
-    if(r.ok){const sd=await r.json();const title=sd.query&&sd.query.search&&sd.query.search[0]&&sd.query.search[0].title;
-      if(title){const er=await fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars=12000&redirects=1&format=json&origin=*&titles="+encodeURIComponent(title),{signal:AbortSignal.timeout(9000)});
-        if(er.ok){const rd=await er.json();const page=rd.query&&Object.values(rd.query.pages)[0];
-          const raw=((page&&page.extract)||"").replace(/==+[^=]*==+/g," ").replace(/\s+\n\s*/g,"\n").trim();
-          if(raw.length>120){const paras=raw.split(/\n+/).map(p=>p.trim()).filter(p=>p.length>40);
-            if(paras.length)wiki={title,paras};}}}}}catch(e){}
-  try{const r=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(term)+"&format=json&no_html=1&skip_disambig=1&t=aura",{signal:AbortSignal.timeout(7000)});
-    if(r.ok){const d=await r.json();const t=(d.AbstractText||"").trim();
-      if(t&&t.length>60)ddg={t,src:d.AbstractSource||"DuckDuckGo"};}}catch(e){}
-  if(!wiki&&!ddg)return null;
-  let out="";const used=[];
-  if(wiki){out+=""+wiki.paras.slice(0,3).join("\n\n");used.push("Wikipedia");}
-  if(ddg){
-    const norm=s=>s.toLowerCase().replace(/[^a-z0-9 ]/g,"");const overlap=wiki?norm(ddg.t).split(/\s+/).filter(w=>w.length>5&&norm(out).includes(w)).length:0;
-    if(!wiki||overlap<6){out+=(out?"\n\n":"")+ddg.t;used.push(ddg.src);}
-    else if(wiki&&wiki.paras.length>3)out+="\n\n"+wiki.paras.slice(3,5).join("\n\n");
-  }else if(wiki&&wiki.paras.length>3)out+="\n\n"+wiki.paras.slice(3,5).join("\n\n");
-  if(!out.trim())return null;
-  if(out.length>4200)out=out.slice(0,4200).replace(/\s\S*$/,"")+"…";
-  return{t:out+(out.endsWith(".")?"":".")+"\n\n— deep research · "+used.join(" + ")+" · "+out.split(/\s+/).length+" words",eng:"deep research ("+used.length+" sources)"};
+  const words=term.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+  const covers=t=>{const lt=t.toLowerCase();return words.filter(w=>lt.includes(w)).length/(words.length||1)};
+  const results=await Promise.allSettled([
+    (async()=>{const hits=await wikiCandidates(term);for(const h of hits.slice(0,2)){try{return{k:"Wikipedia",...(await wikiSummary(h.title))}}catch(e){}}throw 0})(),
+    (async()=>{const r=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(term)+"&format=json&no_html=1&skip_disambig=1&t=aura",{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;const d=await r.json();const t=(d.AbstractText||"").trim();if(t.length<60)throw 0;return{k:d.AbstractSource||"DuckDuckGo",extract:t,url:d.AbstractURL}})(),
+    (async()=>{const d=+(new Date().toISOString().slice(0,10).replace(/-/g,""));const r=await fetch("https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/selected/"+new Date().getMonth().toString().padStart(2,"0")+"/"+new Date().getDate().toString().padStart(2,"0"),{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;return{k:"OTD"}})()
+  ]);
+  const found=results.filter(x=>x.status==="fulfilled"&&x.value&&x.value.extract).map(x=>x.value).filter(v=>v.k!="OTD");
+  if(!found.length)return null;
+  found.sort((a,b)=>covers(b.extract)-covers(a.extract));
+  const best=found[0];
+  const norm=s=>s.toLowerCase().replace(/[^a-z0-9 ]/g,"");
+  let out=best.extract;const used=[best.k];
+  for(const other of found.slice(1)){
+    const overlap=norm(other.extract).split(/\s+/).filter(w=>w.length>5&&norm(out).includes(w)).length;
+    if(overlap<8){out+="\n\n"+other.extract;used.push(other.k);}
+  }
+  if(out.length>3800)out=out.slice(0,3800).replace(/\s\S*$/,"")+"…";
+  const agree=found.length>1&&covers(best.extract)>.6?" · cross-checked":"";
+  return{t:out+(out.endsWith(".")?"":".")+"\n\n— deep research · "+used.join(" + ")+agree,eng:"deep research ("+used.length+" source"+(used.length>1?"s":"")+")",src:best.url};
+}
+/* ---------------- conversation context (follow-up memory) ---------------- */
+let lastTopic="",lastAnswer="",lastSrc="";
+const FOLLOWUP=/^(tell me more|more|elaborate|expand|continue|go on|why|how|what about (him|her|it|that|this)|and (him|her|it|that)|what else|details?|explain( more)?|summarize|shorter|in hindi|translate( it)?|who is he|who is she|when was (he|she|it) born|how old is (he|she|it))\b/i;
+function resolveContext(q){
+  const l=q.toLowerCase().trim();
+  if(FOLLOWUP.test(l)&&lastTopic){
+    let nq=q;
+    if(/^(tell me more|more|elaborate|expand|continue|go on|details?|explain( more)?|what else)\b/i.test(l))nq=lastTopic+" in detail";
+    else if(/^why\b/i.test(l))nq=lastTopic+" — why";
+    else if(/^how\b/i.test(l))nq=lastTopic+" — how";
+    else if(/^summarize|shorter/i.test(l))nq=lastTopic+" — summary";
+    else if(/in hindi|translate/i.test(l))nq=lastTopic;
+    else nq=lastTopic+" "+q.replace(/^(what about|and)\s+/i,"");
+    slog("follow-up → context: \""+lastTopic.slice(0,40)+"\"",true);
+    return nq;
+  }
+  return q;
+}
+/* ---------------- self-visualization commands ---------------- */
+function vizCommand(q){
+  const l=q.toLowerCase();
+  const mColor=l.match(/(?:change|turn|make|go)\s+(?:your(?:self)?\s+)?(?:color|colour|glow|core)?\s*(?:to|into)?\s*(red|orange|gold|yellow|lime|green|blue|indigo|purple|violet|pink|magenta|cyan|white)\b/);
+  if(mColor){if(setHue(mColor[1])){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "Holo-emitter retuned — "+mColor[1]+" mode engaged.";}return null;}
+  if(/(?:color|colour|glow).*(back|normal|default|original)|reset.*(?:color|colour|glow)/.test(l)){const fx=document.getElementById("fx");if(fx)fx.style.filter="";setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "Holo-emiter reset — standard cyan spectrum.";}
+  const mSpin=l.match(/spin (faster|slower|normal)|(?:spin|rotation)\s*(?:speed)?\s*(?:to|at)?\s*(max|fast|slow|normal)/);
+  if(mSpin||/spin (faster|slower|normal)/.test(l)){const w=mSpin?(mSpin[1]||mSpin[2]):(l.includes("faster")?"faster":l.includes("slower")?"slower":"normal");spinTarget=w==="faster"||w==="max"||w==="fast"?8:w==="slower"||w==="slow"?.15:0;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return w==="normal"?"Rotation normalized." :"Gyro spun "+(w==="slow"||w==="slower"?"down":w==="faster"||w==="max"||w==="fast"?"to maximum":"up")+" — feel the hum.";}
+  if(/(?:pulse|breathe|heartbeat)\s*(mode|faster)?/.test(l)&&/core|hologram|yourself|pulse|breathe/.test(l)){heart+=6;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "Core pulse amplified.";}
+  return null;
+}
+/* ---------------- weather (free, no key) ---------------- */
+async function weatherReply(q){
+  const m=q.toLowerCase().match(/weather(?:\s+(?:in|at|for))?\s+([a-z\s]+?)(?:\?|today|now|$)/);
+  if(!m||!/weather|temperature|forecast/.test(q.toLowerCase()))return null;
+  let city=m[1].trim();
+  if(!city||/^(today|now|outside|there)$/.test(city))city="Jaipur";
+  try{
+    const g=await fetch("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(city)+"&count=1&language=en&format=json",{signal:AbortSignal.timeout(7000)});
+    const gd=await g.json();const loc=gd.results&&gd.results[0];if(!loc)throw 0;
+    const w=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+loc.latitude+"&longitude="+loc.longitude+"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1",{signal:AbortSignal.timeout(7000)});
+    const wd=await w.json();const c=wd.current;if(!c)throw 0;
+    const WC={0:"clear sky",1:"mostly clear",2:"partly cloudy",3:"overcast",45:"foggy",48:"rime fog",51:"light drizzle",53:"drizzle",55:"heavy drizzle",61:"light rain",63:"rain",65:"heavy rain",71:"light snow",73:"snow",75:"heavy snow",80:"rain showers",81:"showers",82:"violent showers",95:"thunderstorm",96:"storm with hail",99:"severe storm"};
+    return "Weather in "+loc.name+" right now: "+Math.round(c.temperature_2m)+"°C, "+(WC[c.weather_code]||"conditions changing")+", humidity "+c.relative_humidity_2m+"%, wind "+Math.round(c.wind_speed_10m)+" km/h. Today's range: "+Math.round(wd.daily.temperature_2m_min[0])+"° to "+Math.round(wd.daily.temperature_2m_max[0])+"°.";
+  }catch(e){}
+  return null;
+}
+/* ---------------- on this day ---------------- */
+async function onThisDayReply(q){
+  if(!/on this day|what happened today|today in history|this day in history/.test(q.toLowerCase()))return null;
+  try{
+    const d=new Date();const mm=String(d.getMonth()+1).padStart(2,"0"),dd=String(d.getDate()).padStart(2,"0");
+    const r=await fetch("https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/selected/"+mm+"/"+dd,{signal:AbortSignal.timeout(8000)});
+    if(!r.ok)throw 0;
+    const j=await r.json();const ev=(j.selected||[]).slice(0,3);
+    if(!ev.length)throw 0;
+    return "On "+d.toLocaleDateString(undefined,{month:"long",day:"numeric"})+" in history:\n\n"+ev.map(e=>"• "+e.year+" — "+e.text).join("\n")+"\n\n— live from Wikipedia's On This Day archive";
+  }catch(e){}
+  return null;
+}
+/* ---------------- quiz mode ---------------- */
+let quiz=null,quizScore=0;
+const QUIZBANK=[
+  ["What does CPU stand for?",["central processing unit"],"Central Processing Unit — the chip that executes instructions."],
+  ["Who is known as the father of computers?",["alan turing","charles babbage"],"Alan Turing (theory) and Charles Babbage (hardware) share the crown."],
+  ["What does 'HTTP' stand for?",["hypertext transfer protocol"],"HyperText Transfer Protocol — the web's request language."],
+  ["Which planet is known as the Red Planet?",["mars"],"Mars — iron oxide dust gives it the rust color."],
+  ["What does RAM stand for?",["random access memory"],"Random Access Memory — fast, volatile working memory."],
+  ["In what year did India launch Chandrayaan-3?",["2023"],"2023 — first ever landing near the lunar south pole."],
+  ["What gas do plants absorb for photosynthesis?",["carbon dioxide","co2"],"Carbon dioxide — combined with light and water to make glucose."],
+  ["Who founded Microsoft with Paul Allen?",["bill gates","gates"],"Bill Gates, in 1975."],
+  ["What does 'AI' stand for?",["artificial intelligence"],"Artificial Intelligence."],
+  ["Which language runs natively in web browsers?",["javascript"],"JavaScript — the only language browsers execute natively."],
+  ["What is the capital of Japan?",["tokyo"],"Tokyo."],
+  ["Speed of light approximately?",["300000","3x10","299792","3 lakh","186000"],"~299,792 km per second — the universe's speed limit."]
+];
+function quizReply(q){
+  const l=q.toLowerCase().trim();
+  if(/quiz me|start quiz|ask me questions|test me/.test(l)){quiz=QUIZBANK.slice().sort(()=>Math.random()-.5).slice(0,5);quizScore=0;
+    return "Quiz mode engaged — 5 questions, answer in plain words. Question 1: "+quiz[0][0];}
+  if(quiz&&quiz.length){
+    const cur=quiz.shift();
+    const ok=cur[1].some(a=>l.includes(a));
+    if(ok)quizScore++;
+    const feedback=(ok?"✅ Correct! ":"❌ Not quite — "+cur[2]+" ");
+    if(quiz.length)return feedback+"Score: "+quizScore+". Question "+(5-quiz.length)+": "+quiz[0][0];
+    const fin=feedback+"\n\nQuiz complete! Final score: "+quizScore+"/5."+(quizScore>=4?" Impressive — ask 'quiz me' for a fresh set.":quizScore>=2?" Solid — 'quiz me' to go again.":" Keep exploring — ask me about any topic, then 'quiz me' again.");
+    quiz=null;return fin;
+  }
+  if(/^(yes|ok|sure|okay)\b/.test(l)&&/quiz/.test((window.__lastQ||""))){quiz=QUIZBANK.slice().sort(()=>Math.random()-.5).slice(0,5);quizScore=0;return "Great — Question 1: "+quiz[0][0];}
+  return null;
 }
 async function aiReply(q){
   const deep=/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/i.test(q);
-  const loc=localReply(q);
-  if(loc!==undefined)return{t:loc,eng:"local core"};
-  if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:"gemini 2.0 flash"};}catch(e){slog("gemini uplink failed — falling back");}}
-  slog("local core has no entry — going live to the internet");
-  const w=deep?await webResearch(q):await wikiAnswer(q,deep);
-  if(w)return w;
-  const d2=await ddgAnswer(q);if(d2)return d2;
-  if(deep){const w2=await wikiAnswer(q,false);if(w2)return w2;}
+  const wr=await weatherReply(q);if(wr)return{t:wr,eng:"open-meteo live"};
+  const otd=await onThisDayReply(q);if(otd)return{t:otd,eng:"wikipedia otd live"};
+  const viz=vizCommand(q);if(viz)return{t:viz,eng:"holo-emitter control"};
+  const qr=quizReply(q);if(qr)return{t:qr,eng:"quiz mode"};
+  /* knowledge questions go LIVE first — local core is the offline fallback, not the first answer */
+  const personal=/(who|what) (are|r) (you|u)\b|who (built|made|created|designed) you|your name|what can you do|who (is|made) sourabh|about sourabh|tell me about yourself|introduce yourself|open \w+|diagnostic|\bscan\b|joke|flip|roll|what time|time is it|today'?s date|my name|who am i/i;
+  const knowledge=!personal&&(/^(what|who|when|where|which|why|how)\b|^explain\b|^describe\b|^define\b|^tell me about\b/i.test(q.trim())||deep);
+  const rc=resolveContext(q);if(rc!==q)q=rc;
+  if(knowledge){
+    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:"gemini 2.0 flash"};}catch(e){slog("gemini uplink failed — trying live web");}}
+    const w=deep?await webResearch(q):await wikiAnswer(q,deep);
+    if(w)return w;
+    const d2=await ddgAnswer(q);if(d2)return d2;
+    const loc1=localReply(q);
+    if(loc1!==undefined)return{t:loc1+(navigator.onLine?"":"\n\n(live uplink unreachable — answered from my offline core)"),eng:"local core (offline fallback)"};
+  }else{
+    const loc0=localReply(q);
+    if(loc0!==undefined)return{t:loc0,eng:"local core"};
+    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:"gemini 2.0 flash"};}catch(e){slog("gemini uplink failed — trying live web");}}
+  }
+  slog("going live to the internet");
+  const w2b=deep?await webResearch(q):await wikiAnswer(q,false);
+  if(w2b)return w2b;
   setMode("alert");setTimeout(()=>{if(mode==="alert")setMode("idle")},5000);
-  const topic=q.trim().slice(0,70);
   return{t:"I reached for the live internet but every uplink timed out just now — check the connection and ask me again. My offline core still handles math, conversions, tech, science and 'who built you'. And a free Gemini key (SET AI KEY) unlocks unlimited frontier-grade answers.",eng:"offline core"};
 }
 
@@ -784,8 +923,8 @@ async function ask(text){
   if(busy||!text.trim())return;
   busy=true;$("q").value="";
   addMsg("YOU ▸",text,"user");blip(740,.08);
-  const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|sense|foodora|continuum|mercedes|lucid|photo editor)\b/);
-  if(om){const map={portfolio:"portfolio.html",sense:"sense.html",foodora:"foodora.html",continuum:"ai-assistant.html",mercedes:"mercedes.html",lucid:"lucid.html","photo editor":"lucid.html"};
+  const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|foodora|mercedes|lucid|photo editor)\b/);
+  if(om){const map={portfolio:"portfolio.html",foodora:"foodora.html",mercedes:"mercedes.html",lucid:"lucid.html","photo editor":"lucid.html"};
     const f=map[om[1]];pushSys("launching "+om[1]+"…");
     try{const h=await fetch(f,{method:"HEAD"});
       if(h.ok){window.open(f,"_blank");addMsg("AURA ▸","Launching "+om[1]+" in a new tab, boss.","aura");}
@@ -799,19 +938,29 @@ async function ask(text){
     await typewrite(el,out);blip(880,.14);speak(out);setMode("speaking");busy=false;return;
   }
   setMode("thinking");slog("query → neural link");
+  const resolved=resolveContext(text);
   const t0=performance.now();
-  const{t,eng}=await aiReply(text);
+  const{t,eng,src}=await aiReply(resolved);
+  if(!FOLLOWUP.test(text.toLowerCase())&&!/^(tell me more|more|elaborate)/i.test(text)){
+    const tp=topicOf(resolved);if(tp&&eng!=="local core"&&eng!=="holo-emitter control"&&eng!=="quiz mode")lastTopic=tp;
+  }
+  lastAnswer=t;lastSrc=src||"";window.__lastQ=text;
   $("engTag").textContent="engine: "+eng;$("tEng").textContent=eng.toUpperCase().slice(0,16);
   slog("answered via "+eng+" ("+Math.round(performance.now()-t0)+"ms)",true);
   const el=addMsg("AURA ▸","","aura");
+  const acts=document.createElement("span");acts.className="msg-actions";
+  acts.innerHTML='<button title="Copy answer">📋</button>'+(lastSrc?'<a href="'+lastSrc+'" target="_blank" rel="noopener" title="Open source">🔗</a>':'')+'<button title="Ask for more detail">➕</button>';
+  el.appendChild(acts);
+  acts.children[0].onclick=()=>{navigator.clipboard?navigator.clipboard.writeText(t).then(()=>pushSys("answer copied")):pushSys("copy unsupported here")};
+  const plus=acts.querySelector('button[title="Ask for more detail"]');if(plus)plus.onclick=()=>{if(lastTopic)ask(lastTopic+" in detail");else ask("tell me more")};
   if(!synth||!soundOn){await typewrite(el,t);setMode("idle");}
-  else{el.textContent=t;log.scrollTop=log.scrollHeight;speak(t);}
+  else{el.textContent=t;el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);}
   blip(520,.1,"triangle");
   busy=false;
 }
 
 /* ---------------- mic ---------------- */
-let recog=null,listening=false;
+let recog=null,listening=false,wake=false;
 function cleanTranscript(t){
   let s=(t||"").toLowerCase().trim();
   s=s.replace(/\b(hello aura|hey aura|ok aura|okay aura|hi aura)\b/g,"");
@@ -850,12 +999,31 @@ $("micBtn").onclick=()=>{
     else if(e.error==="network")pushSys("speech service unreachable — type instead");
   };
   recog.onend=()=>{
-    listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";
+    listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent=wake?"WAKE WORD: 'HEY AURA'":"TAP TO SPEAK";
     if(mode==="listening")setMode("idle");
     const t=cleanTranscript(finalText);
     if(t&&t.split(/\s+/).length>=1){slog("heard: \""+t.slice(0,50)+"\"",true);ask(t)}
+    if(wake)setTimeout(()=>{if(wake&&!listening&&!busy){try{recog.start()}catch(e){}}},600);
   };
   try{recog.start()}catch(e){}
+};
+$("wakeBtn").onclick=()=>{
+  wake=!wake;
+  $("wakeBtn").textContent="WAKE: "+(wake?"ON":"OFF");
+  if(wake&&!listening&&!busy){try{recog=new (window.SpeechRecognition||window.webkitSpeechRecognition)();recog.lang=window.__auraLang==="hi"?"hi-IN":"en-IN";recog.interimResults=true;recog.maxAlternatives=3;
+    recog.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent='SAY "HEY AURA…"';setMode("listening")};
+    recog.onresult=e=>{let ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript;}if(ft){const c=cleanTranscript(ft);if(/(hey |ok |hi )?aura\b/.test(c)||c.split(/\s+/).length>2){listening=false;try{recog.stop()}catch(e2){}ask(c.replace(/^\s*(hey |ok |hi )?aura\b\s*/i,""));}}};
+    recog.onerror=()=>{listening=false;if(mode==="listening")setMode("idle")};
+    recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");if(mode==="listening")setMode("idle");if(wake&&!busy)setTimeout(()=>{if(wake&&!listening&&!busy)try{recog.start()}catch(e){}},700)};
+    recog.start();}catch(e){}}
+  pushSys("wake word "+(wake?"armed — say 'Hey Aura'":"off"));
+};
+$("langBtn").onclick=()=>{
+  window.__auraLang=window.__auraLang==="hi"?"en":"hi";
+  $("langBtn").textContent="LANG: "+(window.__auraLang==="hi"?"हिंदी":"ENG");
+  if(recog)recog.lang=window.__auraLang==="hi"?"hi-IN":"en-IN";
+  pushSys("voice language → "+(window.__auraLang==="hi"?"hindi / hinglish":"english"));
+  if(window.__auraLang==="hi"&&!localStorage.getItem("aura_hi_tip")){localStorage.setItem("aura_hi_tip","1");addMsg("AURA ▸","हिंदी मोड तैयार! अब मुझसे हिंदी या Hinglish में पूछो — जैसे 'भारत के प्रधानमंत्री कौन हैं?' — मैं हिंदी में जवाब दूँगा।","aura");}
 };
 
 /* ---------------- wiring ---------------- */
