@@ -119,6 +119,7 @@ button{font-family:var(--mono);cursor:pointer}
   <span class="stat">CAM <b id="sCam">OFF</b></span>
   <div class="grow"></div>
   <button class="tbtn" id="flipBtn" title="Switch camera">⟲ FLIP</button>
+  <button class="tbtn" id="lucidBtn" title="Send this frame to LUCID photo studio">◉→ LUCID</button>
   <button class="tbtn hot" id="snapBtn" title="Save a frame">◉ SNAPSHOT</button>
 </div>
 
@@ -394,6 +395,15 @@ $("flipBtn").onclick=()=>{if(useSim||!stream){slog("flip needs a live camera");r
 $("snapBtn").onclick=()=>{
   try{const a=$("snapA");a.href=view.toDataURL("image/png");a.click();
     slog("snapshot saved → sense-snapshot.png",true);}catch(e){slog("snapshot blocked by browser");}
+};
+$("lucidBtn").onclick=()=>{
+  try{
+    const data=view.toDataURL("image/png");
+    const w=window.open("lucid.html","_blank");
+    if(!w){slog("popup blocked — allow popups to use the LUCID pipeline");return}
+    const go=()=>{try{w.lucidReceive(data,{name:"sense-capture.png",note:"Frame received from SENSE — enhance it now"});slog("frame piped → LUCID studio",true);}catch(e){setTimeout(go,250)}};
+    setTimeout(go,600);
+  }catch(e){slog("capture failed: "+e.message);}
 };
 $("grantBtn").onclick=()=>{$("gate").classList.add("gone");running=true;frame();startCam("user");};
 $("simBtn").onclick=()=>{$("gate").classList.add("gone");running=true;frame();startSim();};

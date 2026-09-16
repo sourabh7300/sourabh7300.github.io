@@ -412,11 +412,12 @@ const KB={
   "jecrc":"JECRC University is in Jaipur, Rajasthan — where my creator Sourabh Singh studies B.Tech CSE.",
   "b.tech":"B.Tech is a four-year engineering degree. My creator studies the Computer Science track with AI, DevOps and Cloud Automation.",
   "portfolio":"Sourabh's portfolio is a single page that live-embeds six of his web apps — including me. Say 'open portfolio' and I'll launch it.",
-  "sense":"Sense is Sourabh's AI assistant — real AI chat with Gemini or free engines, streaming answers, voice input and live web knowledge. There are two versions; v3 is the flagship.",
+  "sense":"SENSE is Sourabh's AI Perception Lab — it sees through your camera with hand-coded computer vision: Sobel edge detection, motion tracking, an ASCII camera, and a creature that follows you. Say 'open sense' to launch it. (Sense v3 is the classic chat assistant.)",
   "foodora":"FOODORA is a full food-delivery platform: 12 restaurants, 48 dishes, live GPS maps, cart and checkout, and recipes in English, Hindi and Spanish.",
   "continuum":"Continuum is a second AI-assistant design by Sourabh — an editorial-typography take with a completely different visual identity.",
   "mercedes":"The Mercedes-Benz showcase is a cinematic luxury automotive landing page — premium design and scroll animations.",
   "aura":"That's me — a holographic AI with a 560-particle 3D core, voice interface, live telemetry and a three-layer brain, all in one hand-written file.",
+  "lucid":"Lucid is Sourabh's AI Pro Photo Studio — 50+ hand-coded pixel engines: tone curves, HSL mixer, bloom, bokeh, grain. It connects to SENSE: capture a frame there, one click sends it to Lucid for editing. Say 'open lucid' and I'll launch it.",
   "api key":"An API key is a secret token that identifies you to an API. My creator uses a free Gemini key from aistudio.google.com — press SET AI KEY to give me one and my answers become frontier-grade.",
   "api":"An API (Application Programming Interface) is a contract that lets two programs talk — you send a request, it sends structured data back.",
   "javascript":"JavaScript is the programming language of the web — it runs in every browser. My entire brain, core and voice are written in it.",
@@ -783,8 +784,8 @@ async function ask(text){
   if(busy||!text.trim())return;
   busy=true;$("q").value="";
   addMsg("YOU ▸",text,"user");blip(740,.08);
-  const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|sense|foodora|continuum|mercedes|sense v1)\b/);
-  if(om){const map={portfolio:"portfolio.html",sense:"Sense_v3_stable.html",foodora:"foodora.html",continuum:"ai-assistant.html",mercedes:"mercedes.html","sense v1":"sense_ai.html"};
+  const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|sense|foodora|continuum|mercedes|lucid|photo editor|sense v1)\b/);
+  if(om){const map={portfolio:"portfolio.html",sense:"sense.html",foodora:"foodora.html",continuum:"ai-assistant.html",mercedes:"mercedes.html",lucid:"lucid.html","photo editor":"lucid.html","sense v1":"sense_ai.html"};
     const f=map[om[1]];pushSys("launching "+om[1]+"…");
     try{const h=await fetch(f,{method:"HEAD"});
       if(h.ok){window.open(f,"_blank");addMsg("AURA ▸","Launching "+om[1]+" in a new tab, boss.","aura");}
