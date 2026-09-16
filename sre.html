@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Autonomous SRE — multi-agent incident responder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0B0D12;
+    --panel: #12151C;
+    --panel-2: #171B24;
+    --border: #232733;
+    --text: #E5E8ED;
+    --text-soft: #8992A3;
+    --text-faint: #545C6B;
+    --cyan: #38BDF8; --cyan-soft: rgba(56,189,248,0.14); --cyan-line: rgba(56,189,248,0.4);
+    --violet: #C084FC; --violet-soft: rgba(192,132,252,0.14); --violet-line: rgba(192,132,252,0.4);
+    --emerald: #34D399; --emerald-soft: rgba(52,211,153,0.14); --emerald-line: rgba(52,211,153,0.4);
+    --amber: #FBBF24; --amber-soft: rgba(251,191,36,0.14); --amber-line: rgba(251,191,36,0.4);
+    --red: #F87171; --red-soft: rgba(248,113,113,0.13);
+    --radius: 12px;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; min-height:100%; background:
+    radial-gradient(900px 500px at 10% -10%, #141a24 0%, var(--bg) 55%);
+    color: var(--text); font-family:'Inter', sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width: 1140px; margin:0 auto; padding: 26px 20px 70px; }
+
+  header.top{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:20px; }
+  .brand{ display:flex; gap:12px; align-items:flex-start; }
+  .brand .dot{ width:10px; height:10px; border-radius:50%; margin-top:6px; background: var(--cyan); box-shadow: 0 0 0 4px var(--cyan-soft); animation: pulse 1.8s ease-in-out infinite; flex-shrink:0; }
+  .brand h1{ font-family:'Outfit', sans-serif; font-weight:800; font-size:21px; margin:0; letter-spacing:-0.01em; }
+  .brand .sub{ font-family:'IBM Plex Mono', monospace; font-size:12px; color: var(--text-faint); margin-top:3px; }
+  .header-right{ text-align:right; }
+  .stat-label{ font-size:11px; color: var(--text-faint); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px; }
+  .stat-value{ font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:22px; color: var(--emerald); }
+  .controls{ display:flex; gap:8px; margin-top:10px; justify-content:flex-end; }
+  button.btn{ font-family:'Inter', sans-serif; font-size:12.5px; font-weight:600; padding:7px 13px; border-radius:999px; border:1px solid var(--border); background: var(--panel); color: var(--text); cursor:pointer; transition: border-color .15s, background .15s; }
+  button.btn:hover{ border-color: var(--cyan); background: var(--panel-2); }
+  button.btn:focus-visible{ outline:2px solid var(--cyan); outline-offset:2px; }
+  button.btn.primary{ background: var(--cyan-soft); border-color: var(--cyan-line); color:#bfe8ff; }
+
+  .track-panel{ background: var(--panel); border:1px solid var(--border); border-radius: var(--radius); padding: 30px 26px 22px; margin-bottom: 18px; }
+  .track-meta{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; flex-wrap:wrap; gap:8px; }
+  .track-meta .run-id{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; color: var(--text-soft); }
+  .track-meta .run-id b{ color: var(--text); font-weight:600; }
+  .track-meta .elapsed{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; color: var(--text-faint); }
+  .sev-row{ margin-bottom:16px; display:flex; gap:8px; align-items:center; }
+  .sev-chip{ font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:600; padding:3px 10px; border-radius:999px; }
+  .sev-chip.sev1{ background: var(--red-soft); color: var(--red); }
+  .sev-chip.sev2{ background: var(--amber-soft); color: var(--amber); }
+  .sev-chip.sev3{ background: var(--cyan-soft); color: var(--cyan); }
+  .service-name{ font-family:'IBM Plex Mono', monospace; font-size:12px; color: var(--text-soft); }
+  svg.track{ width:100%; display:block; height:126px; overflow:visible; }
+  .stage-label{ font-family:'Outfit', sans-serif; font-size:12.5px; font-weight:700; fill: var(--text); }
+  .stage-sub{ font-family:'IBM Plex Mono', monospace; font-size:10px; fill: var(--text-faint); }
+
+  .agents-panel{ background: var(--panel); border:1px solid var(--border); border-radius: var(--radius); padding:20px 22px; margin-bottom:18px; }
+  .agents-panel h2{ font-family:'Outfit', sans-serif; font-weight:700; font-size:14.5px; margin:0 0 4px; }
+  .agents-sub{ font-size:12px; color: var(--text-faint); margin-bottom:16px; }
+  .agent-row{ display:grid; grid-template-columns: repeat(4,1fr); gap:12px; }
+  @media (max-width:760px){ .agent-row{ grid-template-columns: repeat(2,1fr); } }
+  .agent-card{ background: var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:13px 14px; transition: border-color .3s, box-shadow .3s; }
+  .agent-card.active{ box-shadow: 0 0 0 1px var(--agent-line, transparent), 0 0 14px var(--agent-glow, transparent); }
+  .agent-top{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+  .agent-icon{ font-size:16px; }
+  .agent-name{ font-family:'Outfit', sans-serif; font-weight:700; font-size:13px; flex:1; }
+  .agent-status-dot{ width:7px; height:7px; border-radius:50%; background: var(--text-faint); }
+  .agent-status-dot.active{ animation: dotPulse 1s ease-in-out infinite; }
+  .agent-role{ font-size:10.5px; color: var(--text-faint); margin-bottom:8px; }
+  .agent-task{ font-family:'IBM Plex Mono', monospace; font-size:11px; color: var(--text-soft); min-height: 28px; }
+
+  .grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .grid{ grid-template-columns:1fr; } }
+  .panel{ background: var(--panel); border:1px solid var(--border); border-radius: var(--radius); padding:18px 18px 8px; display:flex; flex-direction:column; min-height:300px; }
+  .panel h2{ font-family:'Outfit', sans-serif; font-weight:700; font-size:14px; margin:0 0 12px 2px; display:flex; justify-content:space-between; }
+  .panel h2 span.count{ font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:400; color: var(--text-faint); }
+
+  .history-list{ list-style:none; margin:0; padding:0; overflow-y:auto; flex:1; max-height:300px; }
+  .history-list li{ display:flex; align-items:center; gap:10px; padding:9px 6px; border-bottom:1px solid #1c2029; font-size:13px; }
+  .history-list li:last-child{ border-bottom:none; }
+  .status-chip{ width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .status-chip.pass{ background: var(--emerald); box-shadow:0 0 0 3px var(--emerald-soft); }
+  .status-chip.fail{ background: var(--red); box-shadow:0 0 0 3px var(--red-soft); }
+  .history-run{ font-family:'IBM Plex Mono', monospace; color: var(--text-soft); font-size:12px; min-width:52px; }
+  .history-desc{ color: var(--text); flex:1; }
+  .history-desc small{ display:block; color: var(--text-faint); font-size:11px; margin-top:1px; font-family:'IBM Plex Mono', monospace; }
+  .history-time{ font-family:'IBM Plex Mono', monospace; font-size:11px; color: var(--text-faint); white-space:nowrap; }
+
+  .log-stream{ flex:1; overflow-y:auto; max-height:300px; font-family:'IBM Plex Mono', monospace; font-size:12px; line-height:1.65; padding:4px 4px 8px; }
+  .log-line{ white-space:pre-wrap; word-break:break-word; }
+  .log-line .t{ color: var(--text-faint); margin-right:8px; }
+  .log-line .who{ color: var(--text-soft); margin-right:4px; }
+  .log-line.info{ color: var(--text-soft); }
+  .log-line.ok{ color: var(--emerald); }
+  .log-line.warn{ color: var(--amber); }
+  .log-line.err{ color: var(--red); }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+  ::-webkit-scrollbar-thumb{ background: var(--border); border-radius:8px; }
+
+  footer.note{ text-align:center; margin-top:20px; color: var(--text-faint); font-family:'IBM Plex Mono', monospace; font-size:11.5px; }
+
+  @keyframes pulse{ 0%,100%{ box-shadow: 0 0 0 4px var(--cyan-soft); } 50%{ box-shadow: 0 0 0 8px transparent; } }
+  @keyframes dotPulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.3; } }
+
+  @media (prefers-reduced-motion: reduce){ *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <span class="dot" id="brandDot"></span>
+      <div>
+        <h1>Autonomous SRE</h1>
+        <div class="sub">multi-agent incident responder · watching all services</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="stat-label">Auto-resolved</div>
+      <div class="stat-value" id="resolvedValue">0 / 0</div>
+      <div class="controls">
+        <button class="btn" id="toggleBtn">Pause</button>
+        <button class="btn primary" id="runNowBtn">Trigger incident</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="track-panel">
+    <div class="track-meta">
+      <div class="run-id">Incident <b id="runIdLabel">#1040</b> — <span id="runStageLabel">Detect</span></div>
+      <div class="elapsed" id="elapsedLabel">00:00</div>
+    </div>
+    <div class="sev-row">
+      <span class="sev-chip sev2" id="sevChip">sev2</span>
+      <span class="service-name" id="serviceLabel">checkout-service</span>
+    </div>
+    <svg class="track" id="trackSvg" viewBox="0 0 1000 126" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div class="agents-panel">
+    <h2>Agent roster</h2>
+    <div class="agents-sub">Four specialized agents hand the incident off in sequence — each only acts once the previous one finishes.</div>
+    <div class="agent-row" id="agentRow"></div>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2>Incident history <span class="count" id="historyCount">0 incidents</span></h2>
+      <ul class="history-list" id="historyList"></ul>
+    </section>
+    <section class="panel">
+      <h2>Agent chatter</h2>
+      <div class="log-stream" id="logStream"></div>
+    </section>
+  </div>
+
+  <footer class="note">simulated incidents and agents · no real services, alerts, or infrastructure are involved</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var AGENTS = [
+    { key:"detect",   name:"Detector",     icon:"📡", role:"Watches metrics & alerts",  color:"cyan" },
+    { key:"diagnose", name:"Diagnoser",    icon:"🧠", role:"Finds the root cause",       color:"violet" },
+    { key:"remediate",name:"Remediator",   icon:"🛠️", role:"Applies the fix",            color:"emerald" },
+    { key:"verify",   name:"Communicator", icon:"📣", role:"Verifies & notifies humans", color:"amber" }
+  ];
+  var COLOR_VARS = {
+    cyan:   { line:"--cyan-line",   glow:"rgba(56,189,248,0.28)",  hex:"#38BDF8" },
+    violet: { line:"--violet-line", glow:"rgba(192,132,252,0.28)", hex:"#C084FC" },
+    emerald:{ line:"--emerald-line",glow:"rgba(52,211,153,0.28)",  hex:"#34D399" },
+    amber:  { line:"--amber-line",  glow:"rgba(251,191,36,0.28)",  hex:"#FBBF24" }
+  };
+
+  var SERVICES = ["checkout-service","auth-service","payments-api","search-index","notification-worker","recommendation-engine"];
+  var INCIDENT_TITLES = {
+    "checkout-service":["High latency on checkout", "Elevated 5xx rate", "Cart submission timeouts"],
+    "auth-service":["Login failures spiking", "Token validation errors", "Session store lag"],
+    "payments-api":["Payment webhook delays", "Gateway timeout errors", "Retry queue backlog"],
+    "search-index":["Slow query response", "Index shard unhealthy", "Query error rate up"],
+    "notification-worker":["Delivery queue backlog", "Push notification failures", "Worker OOM restarts"],
+    "recommendation-engine":["Model serving latency spike", "Feature store cache miss surge", "Inference errors climbing"]
+  };
+  var REMEDIATIONS = ["restarted the affected pods", "scaled replicas from 3 to 8", "rolled back to the previous deploy", "cleared the stale cache layer", "failed over to the standby replica", "increased the connection pool limit"];
+  var SEVERITIES = ["sev1","sev2","sev2","sev3"];
+
+  var STAGES = [
+    { key:"detect",   label:"Detect",   sub:"anomaly found" },
+    { key:"diagnose", label:"Diagnose", sub:"root cause" },
+    { key:"remediate",label:"Remediate",sub:"apply fix" },
+    { key:"verify",   label:"Verify",   sub:"confirm + notify" }
+  ];
+  var STAGE_COLOR = ["cyan","violet","emerald","amber"];
+  var ESCALATE_CHANCE = { detect:0, diagnose:0.05, remediate:0.14, verify:0.03 };
+  var TICK_MS = 150;
+  var RUN_COOLDOWN_MS = 1600;
+
+  var svgNS = "http://www.w3.org/2000/svg";
+  var trackSvg = document.getElementById("trackSvg");
+  var runIdLabel = document.getElementById("runIdLabel");
+  var runStageLabel = document.getElementById("runStageLabel");
+  var elapsedLabel = document.getElementById("elapsedLabel");
+  var sevChip = document.getElementById("sevChip");
+  var serviceLabel = document.getElementById("serviceLabel");
+  var historyList = document.getElementById("historyList");
+  var historyCount = document.getElementById("historyCount");
+  var logStream = document.getElementById("logStream");
+  var toggleBtn = document.getElementById("toggleBtn");
+  var runNowBtn = document.getElementById("runNowBtn");
+  var resolvedValue = document.getElementById("resolvedValue");
+  var brandDot = document.getElementById("brandDot");
+  var agentRow = document.getElementById("agentRow");
+
+  var state = {
+    runId: 1040,
+    running: true,
+    stageIndex: 0,
+    stageProgress: 0,
+    startedAt: Date.now(),
+    history: [],
+    failedAt: undefined,
+    totalIncidents: 0,
+    resolvedIncidents: 0,
+    currentIncident: null
+  };
+
+  function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  function newIncident(){
+    var service = pick(SERVICES);
+    var title = pick(INCIDENT_TITLES[service]);
+    var severity = pick(SEVERITIES);
+    return { service: service, title: title, severity: severity };
+  }
+
+  // ---------- agent roster ----------
+  function buildAgentRow(){
+    agentRow.innerHTML = "";
+    AGENTS.forEach(function(a, i){
+      var card = document.createElement("div");
+      card.className = "agent-card";
+      card.id = "agent-"+i;
+
+      var top = document.createElement("div"); top.className="agent-top";
+      var icon = document.createElement("span"); icon.className="agent-icon"; icon.textContent = a.icon;
+      var name = document.createElement("span"); name.className="agent-name"; name.textContent = a.name;
+      var statusDot = document.createElement("span"); statusDot.className="agent-status-dot"; statusDot.id="agent-dot-"+i;
+      top.appendChild(icon); top.appendChild(name); top.appendChild(statusDot);
+
+      var role = document.createElement("div"); role.className="agent-role"; role.textContent = a.role;
+      var task = document.createElement("div"); task.className="agent-task"; task.id="agent-task-"+i; task.textContent = "Idle";
+
+      card.appendChild(top); card.appendChild(role); card.appendChild(task);
+      agentRow.appendChild(card);
+    });
+  }
+
+  function renderAgents(){
+    AGENTS.forEach(function(a, i){
+      var card = document.getElementById("agent-"+i);
+      var dot = document.getElementById("agent-dot-"+i);
+      var task = document.getElementById("agent-task-"+i);
+      var isActive = i === state.stageIndex && state.failedAt === undefined;
+      var isDone = i < state.stageIndex || (state.failedAt !== undefined && i < state.failedAt);
+      card.classList.toggle("active", isActive);
+      dot.classList.toggle("active", isActive);
+      dot.style.background = isActive ? COLOR_VARS[a.color].hex : (isDone ? "#34D399" : "#545C6B");
+      card.style.setProperty("--agent-line", isActive ? "var(" + COLOR_VARS[a.color].line + ")" : "transparent");
+      card.style.setProperty("--agent-glow", isActive ? COLOR_VARS[a.color].glow : "transparent");
+      if (isActive) task.textContent = agentTaskFor(a.key);
+      else if (isDone) task.textContent = "Done";
+      else task.textContent = "Idle";
+    });
+  }
+
+  function agentTaskFor(key){
+    var tasks = {
+      detect: ["Correlating alert signals…", "Checking anomaly thresholds…", "Confirming this isn't a false positive…"],
+      diagnose: ["Reading recent deploy history…", "Checking dependency health…", "Narrowing down the root cause…"],
+      remediate: ["Selecting the safest fix…", "Applying remediation…", "Watching metrics recover…"],
+      verify: ["Confirming metrics are back to baseline…", "Drafting incident summary…", "Notifying the on-call channel…"]
+    };
+    return pick(tasks[key]);
+  }
+
+  // ---------- stage track ----------
+  var NODE_X = [130, 390, 650, 900];
+  var NODE_Y = 62; var NODE_R = 19;
+
+  function buildTrack(){
+    while (trackSvg.firstChild) trackSvg.removeChild(trackSvg.firstChild);
+    for (var i=0;i<NODE_X.length-1;i++){
+      var line = document.createElementNS(svgNS,"line");
+      line.setAttribute("x1", NODE_X[i]+NODE_R); line.setAttribute("y1", NODE_Y);
+      line.setAttribute("x2", NODE_X[i+1]-NODE_R); line.setAttribute("y2", NODE_Y);
+      line.setAttribute("stroke", "#232733"); line.setAttribute("stroke-width","3");
+      trackSvg.appendChild(line);
+
+      var fillLine = document.createElementNS(svgNS,"line");
+      fillLine.setAttribute("id","edge-fill-"+i);
+      fillLine.setAttribute("x1", NODE_X[i]+NODE_R); fillLine.setAttribute("y1", NODE_Y);
+      fillLine.setAttribute("x2", NODE_X[i]+NODE_R); fillLine.setAttribute("y2", NODE_Y);
+      fillLine.setAttribute("stroke","#34D399"); fillLine.setAttribute("stroke-width","3"); fillLine.setAttribute("stroke-linecap","round");
+      trackSvg.appendChild(fillLine);
+    }
+    STAGES.forEach(function(s,i){
+      var glow = document.createElementNS(svgNS,"circle");
+      glow.setAttribute("id","glow-"+i); glow.setAttribute("cx",NODE_X[i]); glow.setAttribute("cy",NODE_Y);
+      glow.setAttribute("r", NODE_R+7); glow.setAttribute("fill","transparent");
+      trackSvg.appendChild(glow);
+
+      var circle = document.createElementNS(svgNS,"circle");
+      circle.setAttribute("id","circle-"+i); circle.setAttribute("cx",NODE_X[i]); circle.setAttribute("cy",NODE_Y);
+      circle.setAttribute("r", NODE_R); circle.setAttribute("fill","#12151C"); circle.setAttribute("stroke","#3a3f4d"); circle.setAttribute("stroke-width","2.5");
+      trackSvg.appendChild(circle);
+
+      var icon = document.createElementNS(svgNS,"text");
+      icon.setAttribute("id","icon-"+i); icon.setAttribute("x",NODE_X[i]); icon.setAttribute("y",NODE_Y+5);
+      icon.setAttribute("text-anchor","middle"); icon.setAttribute("font-size","12"); icon.setAttribute("fill","#8992A3");
+      icon.textContent = (i+1);
+      trackSvg.appendChild(icon);
+
+      var label = document.createElementNS(svgNS,"text");
+      label.setAttribute("x",NODE_X[i]); label.setAttribute("y",NODE_Y+40); label.setAttribute("text-anchor","middle"); label.setAttribute("class","stage-label");
+      label.textContent = s.label;
+      trackSvg.appendChild(label);
+
+      var sub = document.createElementNS(svgNS,"text");
+      sub.setAttribute("x",NODE_X[i]); sub.setAttribute("y",NODE_Y+55); sub.setAttribute("text-anchor","middle"); sub.setAttribute("class","stage-sub");
+      sub.textContent = s.sub;
+      trackSvg.appendChild(sub);
+    });
+  }
+
+  function renderTrack(){
+    var idx = state.stageIndex;
+    STAGES.forEach(function(s,i){
+      var circle = document.getElementById("circle-"+i);
+      var glow = document.getElementById("glow-"+i);
+      var icon = document.getElementById("icon-"+i);
+      var st = "idle";
+      if (i < idx) st = "pass";
+      if (i === idx) st = state.failedAt === i ? "fail" : "running";
+      if (state.failedAt !== undefined && i > state.failedAt) st = "idle";
+      var runColorHex = COLOR_VARS[STAGE_COLOR[i]].hex;
+      var c = st==="pass" ? "#34D399" : st==="fail" ? "#F87171" : st==="running" ? runColorHex : "#3a3f4d";
+      circle.setAttribute("stroke", c);
+      circle.setAttribute("fill", st==="idle" ? "#12151C" : (st==="running" ? COLOR_VARS[STAGE_COLOR[i]].glow.replace("0.28","0.14") : (st==="pass" ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)")));
+      glow.setAttribute("fill", st==="running" ? COLOR_VARS[STAGE_COLOR[i]].glow.replace("0.28","0.10") : "transparent");
+      icon.textContent = st==="pass" ? "✓" : (st==="fail" ? "✕" : (i+1));
+      icon.setAttribute("fill", c);
+    });
+    for (var i=0;i<NODE_X.length-1;i++){
+      var fillLine = document.getElementById("edge-fill-"+i);
+      var edgeDone = i < idx && (state.failedAt === undefined || i < state.failedAt);
+      var targetX = edgeDone ? NODE_X[i+1]-NODE_R : NODE_X[i]+NODE_R;
+      fillLine.setAttribute("x2", targetX);
+      fillLine.setAttribute("stroke", state.failedAt === i ? "#F87171" : "#34D399");
+    }
+  }
+
+  // ---------- logging ----------
+  function timeNow(){ var d=new Date(); return [d.getHours(),d.getMinutes(),d.getSeconds()].map(function(n){return String(n).padStart(2,"0");}).join(":"); }
+  function addLog(who, msg, level){
+    var line = document.createElement("div");
+    line.className = "log-line " + (level||"info");
+    var t = document.createElement("span"); t.className="t"; t.textContent = timeNow();
+    line.appendChild(t);
+    if (who){ var w = document.createElement("span"); w.className="who"; w.textContent = "["+who+"]"; line.appendChild(w); }
+    line.appendChild(document.createTextNode(msg));
+    logStream.appendChild(line);
+    logStream.scrollTop = logStream.scrollHeight;
+    while (logStream.children.length > 200){ logStream.removeChild(logStream.firstChild); }
+  }
+
+  function addHistory(run){
+    state.history.unshift(run);
+    if (state.history.length > 40) state.history.pop();
+    renderHistory();
+  }
+  function renderHistory(){
+    historyList.innerHTML = "";
+    historyCount.textContent = state.history.length + " incidents";
+    state.history.forEach(function(run){
+      var li = document.createElement("li");
+      var chip = document.createElement("span"); chip.className="status-chip " + (run.status==="pass"?"pass":"fail");
+      li.appendChild(chip);
+      var runNum = document.createElement("span"); runNum.className="history-run"; runNum.textContent = "#"+run.id;
+      li.appendChild(runNum);
+      var desc = document.createElement("span"); desc.className="history-desc";
+      var main = document.createElement("span");
+      main.textContent = run.status==="pass" ? ("Resolved — " + run.action) : ("Escalated to on-call at " + run.failedStageLabel);
+      desc.appendChild(main);
+      var small = document.createElement("small");
+      small.textContent = run.service + " · " + run.severity + " · MTTR " + run.duration + "s";
+      desc.appendChild(small);
+      li.appendChild(desc);
+      var time = document.createElement("span"); time.className="history-time"; time.textContent = run.ago;
+      li.appendChild(time);
+      historyList.appendChild(li);
+    });
+  }
+  function refreshAgo(){
+    state.history.forEach(function(run){
+      var mins = Math.floor((Date.now()-run.finishedAt)/60000);
+      run.ago = mins < 1 ? "just now" : (mins+"m ago");
+    });
+    renderHistory();
+  }
+
+  function startNewRun(){
+    state.runId += 1;
+    state.stageIndex = 0;
+    state.stageProgress = 0;
+    state.failedAt = undefined;
+    state.startedAt = Date.now();
+    state.currentIncident = newIncident();
+    state.totalIncidents += 1;
+
+    runIdLabel.textContent = "#"+state.runId;
+    sevChip.textContent = state.currentIncident.severity;
+    sevChip.className = "sev-chip " + state.currentIncident.severity;
+    serviceLabel.textContent = state.currentIncident.service;
+    resolvedValue.textContent = state.resolvedIncidents + " / " + state.totalIncidents;
+
+    addLog(null, "— new incident #"+state.runId+": " + state.currentIncident.title + " (" + state.currentIncident.service + ") —", "info");
+    renderTrack();
+    renderAgents();
+  }
+
+  function logLineFor(stageKey){
+    var lines = {
+      detect: ["threshold breached on error rate", "anomaly score above baseline", "alert correlated across 3 dashboards"],
+      diagnose: ["checked last deploy: 12m ago", "found matching pattern in past incidents", "isolated to a single dependency"],
+      remediate: ["remediation candidate selected", "applying change to production", "monitoring for recovery"],
+      verify: ["metrics returning to baseline", "posting summary to #incidents", "on-call notified of resolution"]
+    };
+    var arr = lines[stageKey] || ["working"];
+    return pick(arr);
+  }
+  function escalateReasonFor(stageKey){
+    var reasons = { diagnose:"couldn't isolate a clear root cause", remediate:"automated fix did not resolve the issue", verify:"metrics did not fully recover after fix" };
+    return reasons[stageKey] || "needs human judgment";
+  }
+
+  function tick(){
+    if (!state.running || state.failedAt !== undefined) return;
+
+    var stage = STAGES[state.stageIndex];
+    state.stageProgress += 4.6 + Math.random()*2.4;
+    runStageLabel.textContent = stage.label;
+    var secs = Math.floor((Date.now()-state.startedAt)/1000);
+    elapsedLabel.textContent = String(Math.floor(secs/60)).padStart(2,"0") + ":" + String(secs%60).padStart(2,"0");
+
+    if (Math.random() < 0.18){
+      addLog(AGENTS[state.stageIndex].name, logLineFor(stage.key), "info");
+    }
+
+    if (state.stageProgress >= 100){
+      var failRoll = Math.random();
+      if (failRoll < ESCALATE_CHANCE[stage.key]){
+        state.failedAt = state.stageIndex;
+        addLog(AGENTS[state.stageIndex].name, "escalating — " + escalateReasonFor(stage.key), "err");
+        renderTrack(); renderAgents();
+        finishRun("fail", stage.label);
+        return;
+      } else {
+        addLog(AGENTS[state.stageIndex].name, stage.label.toLowerCase() + " complete, handing off", "ok");
+        state.stageIndex += 1;
+        state.stageProgress = 0;
+        if (state.stageIndex >= STAGES.length){
+          finishRun("pass");
+          return;
+        }
+      }
+    }
+    renderTrack(); renderAgents();
+  }
+
+  function finishRun(status, failedStageLabel){
+    var duration = Math.max(1, Math.round((Date.now()-state.startedAt)/1000));
+    var action = pick(REMEDIATIONS);
+    if (status === "pass") state.resolvedIncidents += 1;
+    resolvedValue.textContent = state.resolvedIncidents + " / " + state.totalIncidents;
+
+    addHistory({
+      id: state.runId, status: status, failedStageLabel: failedStageLabel,
+      service: state.currentIncident.service, severity: state.currentIncident.severity,
+      action: action, duration: duration, finishedAt: Date.now(), ago: "just now"
+    });
+    addLog(null, status==="pass" ? ("— incident #"+state.runId+" resolved: "+action+" —") : ("— incident #"+state.runId+" escalated to human on-call —"), status==="pass"?"ok":"warn");
+    setTimeout(function(){ if (state.running) startNewRun(); }, RUN_COOLDOWN_MS);
+  }
+
+  function setRunning(val){
+    state.running = val;
+    toggleBtn.textContent = val ? "Pause" : "Resume";
+    brandDot.style.background = val ? "#38BDF8" : "#545C6B";
+    brandDot.style.animationPlayState = val ? "running" : "paused";
+  }
+
+  toggleBtn.addEventListener("click", function(){
+    setRunning(!state.running);
+    addLog(null, state.running ? "monitoring resumed" : "monitoring paused", "warn");
+  });
+  runNowBtn.addEventListener("click", function(){
+    if (!state.running) setRunning(true);
+    startNewRun();
+  });
+
+  buildTrack();
+  buildAgentRow();
+  addLog(null, "autonomous SRE online — watching all services", "info");
+  startNewRun();
+  renderHistory();
+
+  setInterval(tick, TICK_MS);
+  setInterval(refreshAgo, 15000);
+})();
+</script>
+</body>
+</html>

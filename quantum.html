@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Circuit Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#070b14;
+    --panel:#0e1626;
+    --panel-alt:#121d33;
+    --wire:#28374f;
+    --wire-dim:#1a2438;
+    --cyan:#67e8f9;
+    --cyan-dim:#1c4a54;
+    --violet:#b794f6;
+    --violet-dim:#3a2f5c;
+    --amber:#fbbf24;
+    --red:#f87171;
+    --text:#e7edf7;
+    --muted:#5f7089;
+    --muted-2:#8494ac;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 15% 0%, #0d1b2e 0%, transparent 45%),
+      radial-gradient(circle at 100% 30%, #1a1230 0%, transparent 40%),
+      var(--void);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding:28px 20px 60px;
+  }
+  .app{max-width:1180px;margin:0 auto;}
+
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    flex-wrap:wrap;
+    gap:16px;
+    margin-bottom:28px;
+    padding-bottom:18px;
+    border-bottom:1px solid var(--wire-dim);
+  }
+  .eyebrow{
+    font-family:'Space Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.22em;
+    color:var(--cyan);
+    text-transform:uppercase;
+    margin:0 0 8px;
+    opacity:0.85;
+  }
+  h1{
+    font-family:'Space Mono',monospace;
+    font-size:26px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  h1 span{color:var(--muted-2);font-weight:400;}
+  .qubit-select{display:flex;align-items:center;gap:10px;}
+  .qubit-select label{font-size:12px;color:var(--muted-2);font-family:'Space Mono',monospace;letter-spacing:0.05em;}
+  .qcount-btns{display:flex;gap:6px;}
+  .qcount-btn{
+    width:34px;height:34px;border-radius:8px;border:1px solid var(--wire);
+    background:var(--panel);color:var(--muted-2);font-family:'Space Mono',monospace;
+    font-size:14px;cursor:pointer;transition:all .15s;
+  }
+  .qcount-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+  .qcount-btn.active{background:var(--cyan-dim);border-color:var(--cyan);color:var(--cyan);}
+
+  .layout{display:flex;flex-direction:column;gap:22px;}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--wire-dim);
+    border-radius:14px;
+    padding:22px;
+  }
+  .panel-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px;}
+  .panel-title{font-family:'Space Mono',monospace;font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted-2);}
+
+  /* --- gate palette --- */
+  .palette{display:flex;flex-wrap:wrap;gap:8px;}
+  .gate-btn{
+    font-family:'Space Mono',monospace;
+    font-weight:700;
+    font-size:13px;
+    width:42px;height:42px;
+    border-radius:9px;
+    border:1px solid var(--wire);
+    background:var(--panel-alt);
+    color:var(--text);
+    cursor:pointer;
+    transition:all .15s;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .gate-btn:hover{border-color:var(--cyan);}
+  .gate-btn.selected{background:var(--cyan);color:#04222a;border-color:var(--cyan);box-shadow:0 0 0 3px var(--cyan-dim);}
+  .gate-btn.cnot{width:auto;padding:0 14px;font-size:12px;}
+  .gate-btn.cnot.selected{background:var(--violet);color:#1c0f36;box-shadow:0 0 0 3px var(--violet-dim);}
+  .divider-v{width:1px;background:var(--wire-dim);margin:0 4px;}
+  .action-btn{
+    font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600;
+    padding:0 14px;height:42px;border-radius:9px;border:1px solid var(--wire);
+    background:transparent;color:var(--muted-2);cursor:pointer;transition:all .15s;
+  }
+  .action-btn:hover{color:var(--text);border-color:var(--muted);}
+  .action-btn.danger:hover{color:var(--red);border-color:var(--red);}
+  .hint{font-size:12px;color:var(--muted);margin-top:12px;min-height:16px;font-family:'Space Mono',monospace;}
+  .hint.active{color:var(--violet);}
+
+  .presets{display:flex;gap:8px;flex-wrap:wrap;}
+  .preset-btn{
+    font-family:'Inter',sans-serif;font-size:12px;font-weight:500;
+    padding:7px 12px;border-radius:20px;border:1px solid var(--wire);
+    background:var(--panel-alt);color:var(--muted-2);cursor:pointer;transition:all .15s;
+  }
+  .preset-btn:hover{border-color:var(--cyan);color:var(--cyan);}
+
+  /* --- circuit grid --- */
+  .circuit-scroll{overflow-x:auto;padding-bottom:6px;}
+  .circuit-wrap{display:flex;align-items:stretch;min-width:max-content;}
+  .qlabels{display:flex;flex-direction:column;justify-content:space-between;padding-right:14px;flex-shrink:0;}
+  .qlabel{
+    height:60px;display:flex;align-items:center;
+    font-family:'Space Mono',monospace;font-size:13px;color:var(--cyan);
+  }
+  .grid-container{position:relative;flex-shrink:0;}
+
+  .cell{
+    position:absolute;
+    width:60px;height:60px;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+  }
+  .cell .glyph{
+    width:38px;height:38px;border-radius:9px;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Space Mono',monospace;font-weight:700;font-size:14px;
+    background:var(--panel-alt);border:1px solid var(--wire);
+    color:var(--text);
+    transition:transform .1s;
+    z-index:3;position:relative;
+  }
+  .cell:hover .glyph{transform:scale(1.08);border-color:var(--cyan);}
+  .cell.filled .glyph{background:var(--cyan-dim);border-color:var(--cyan);color:var(--cyan);}
+  .cell.ctrl .glyph{background:var(--violet);border-color:var(--violet);border-radius:50%;color:#1c0f36;width:16px;height:16px;}
+  .cell.pending .glyph{background:transparent;border:2px dashed var(--violet);border-radius:50%;width:16px;height:16px;}
+  .cell.target .glyph{background:var(--panel);border:2px solid var(--violet);border-radius:50%;color:var(--violet);width:32px;height:32px;font-size:16px;}
+
+  .wire-line{position:absolute;height:2px;background:var(--wire);z-index:1;}
+  .connector-line{position:absolute;width:2px;background:var(--violet);z-index:2;}
+
+  /* --- output --- */
+  .output-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:22px;}
+  @media (max-width:820px){.output-grid{grid-template-columns:1fr;}}
+
+  .bars{display:flex;align-items:flex-end;gap:4px;height:200px;padding:10px 6px 0;border-bottom:1px solid var(--wire-dim);overflow-x:auto;}
+  .bar-col{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:34px;flex:1;}
+  .bar{width:22px;border-radius:4px 4px 0 0;transition:height .3s ease, box-shadow .3s;min-height:2px;}
+  .bar-col.measured .bar{box-shadow:0 0 14px 2px currentColor;}
+  .bar-label{font-family:'Space Mono',monospace;font-size:9.5px;color:var(--muted);margin-top:8px;writing-mode:vertical-rl;transform:rotate(180deg);}
+
+  .ket-list{max-height:200px;overflow-y:auto;font-family:'Space Mono',monospace;font-size:12px;}
+  .ket-row{display:flex;justify-content:space-between;gap:8px;padding:6px 4px;border-bottom:1px solid var(--wire-dim);color:var(--muted-2);}
+  .ket-row .ket{color:var(--text);}
+  .ket-row .prob{color:var(--cyan);}
+
+  .phase-legend{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;}
+  .wheel{width:28px;height:28px;border-radius:50%;background:conic-gradient(from 90deg,
+    hsl(0,70%,60%), hsl(60,70%,60%), hsl(120,70%,60%), hsl(180,70%,60%),
+    hsl(240,70%,60%), hsl(300,70%,60%), hsl(360,70%,60%));
+    border:1px solid var(--wire);}
+
+  .sample-result{
+    margin-top:14px;padding:10px 14px;border-radius:9px;background:var(--panel-alt);
+    border:1px solid var(--wire);font-family:'Space Mono',monospace;font-size:13px;
+    color:var(--amber);min-height:20px;
+  }
+
+  ::-webkit-scrollbar{height:8px;width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--wire);border-radius:4px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div>
+      <p class="eyebrow">amplitude · phase · entanglement</p>
+      <h1>Quantum Circuit Simulator <span>// statevector engine</span></h1>
+    </div>
+    <div class="qubit-select">
+      <label>QUBITS</label>
+      <div class="qcount-btns" id="qcountBtns"></div>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Gate palette</span>
+        <div class="presets" id="presets"></div>
+      </div>
+      <div class="palette" id="palette"></div>
+      <p class="hint" id="hint">Select a gate, then click a wire to place it. Click a filled cell to remove it.</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><span class="panel-title">Circuit</span></div>
+      <div class="circuit-scroll">
+        <div class="circuit-wrap">
+          <div class="qlabels" id="qlabels"></div>
+          <div class="grid-container" id="gridContainer"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <span class="panel-title">Output statevector</span>
+        <button class="action-btn" id="sampleBtn">Sample measurement</button>
+      </div>
+      <div class="output-grid">
+        <div>
+          <div class="bars" id="bars"></div>
+          <div class="phase-legend">
+            <div class="wheel"></div>
+            <span>bar color = phase&nbsp; (0 → 2π around the wheel)</span>
+          </div>
+          <div class="sample-result" id="sampleResult">—</div>
+        </div>
+        <div class="ket-list" id="ketList"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ---------- complex helpers ----------
+const cx = (re, im=0) => ({re, im});
+const cadd = (a,b) => cx(a.re+b.re, a.im+b.im);
+const cmul = (a,b) => cx(a.re*b.re - a.im*b.im, a.re*b.im + a.im*b.re);
+const cabs2 = a => a.re*a.re + a.im*a.im;
+const cphase = a => Math.atan2(a.im, a.re);
+
+const s2 = 1/Math.SQRT2;
+const GATES = {
+  H: [[cx(s2),cx(s2)],[cx(s2),cx(-s2)]],
+  X: [[cx(0),cx(1)],[cx(1),cx(0)]],
+  Y: [[cx(0),cx(0,-1)],[cx(0,1),cx(0)]],
+  Z: [[cx(1),cx(0)],[cx(0),cx(-1)]],
+  S: [[cx(1),cx(0)],[cx(0),cx(0,1)]],
+  T: [[cx(1),cx(0)],[cx(0),cx(Math.cos(Math.PI/4),Math.sin(Math.PI/4))]],
+};
+
+// ---------- state ----------
+const STEPS = 8;
+const CELL = 60;
+let N = 3;
+let circuit = [];
+let selectedGate = 'H';
+let pendingCnot = null;
+
+function emptyCircuit(n){
+  return Array.from({length:STEPS}, () => Array.from({length:n}, () => ({type:null, link:null})));
+}
+circuit = emptyCircuit(N);
+
+// ---------- UI: qubit count ----------
+const qcountBtns = document.getElementById('qcountBtns');
+[2,3,4].forEach(n=>{
+  const b = document.createElement('button');
+  b.className = 'qcount-btn' + (n===N?' active':'');
+  b.textContent = n;
+  b.onclick = () => { N=n; circuit = emptyCircuit(N); pendingCnot=null;
+    [...qcountBtns.children].forEach(c=>c.classList.remove('active')); b.classList.add('active');
+    renderCircuit(); simulate(); };
+  qcountBtns.appendChild(b);
+});
+
+// ---------- UI: gate palette ----------
+const paletteEl = document.getElementById('palette');
+const singleGates = ['H','X','Y','Z','S','T'];
+function buildPalette(){
+  paletteEl.innerHTML = '';
+  singleGates.forEach(g=>{
+    const b = document.createElement('button');
+    b.className = 'gate-btn' + (selectedGate===g?' selected':'');
+    b.textContent = g;
+    b.onclick = () => { selectedGate = g; pendingCnot=null; buildPalette(); renderCircuit(); updateHint(); };
+    paletteEl.appendChild(b);
+  });
+  const div = document.createElement('div'); div.className='divider-v'; paletteEl.appendChild(div);
+  const cnotBtn = document.createElement('button');
+  cnotBtn.className = 'gate-btn cnot' + (selectedGate==='CNOT'?' selected':'');
+  cnotBtn.textContent = 'CNOT';
+  cnotBtn.onclick = () => { selectedGate='CNOT'; pendingCnot=null; buildPalette(); renderCircuit(); updateHint(); };
+  paletteEl.appendChild(cnotBtn);
+
+  const div2 = document.createElement('div'); div2.className='divider-v'; paletteEl.appendChild(div2);
+  const clearBtn = document.createElement('button');
+  clearBtn.className = 'action-btn danger';
+  clearBtn.style.height = '42px';
+  clearBtn.textContent = 'Clear circuit';
+  clearBtn.onclick = () => { circuit = emptyCircuit(N); pendingCnot=null; renderCircuit(); simulate(); };
+  paletteEl.appendChild(clearBtn);
+}
+function updateHint(){
+  const hint = document.getElementById('hint');
+  if(selectedGate==='CNOT'){
+    hint.textContent = pendingCnot
+      ? 'Now click the target qubit — same column, different wire.'
+      : 'Click a wire to set the control qubit for CNOT.';
+    hint.classList.add('active');
+  } else {
+    hint.textContent = 'Select a gate, then click a wire to place it. Click a filled cell to remove it.';
+    hint.classList.remove('active');
+  }
+}
+
+// ---------- presets ----------
+const presetsEl = document.getElementById('presets');
+const presets = [
+  {name:'Bell pair', build:(n)=>{ const c=emptyCircuit(Math.max(n,2)); c[0][0]={type:'H'}; c[1][0]={type:'CTRL',link:1}; c[1][1]={type:'TARGET',link:0}; return {n:Math.max(n,2), c}; }},
+  {name:'Superposition', build:(n)=>{ const c=emptyCircuit(n); for(let r=0;r<n;r++) c[0][r]={type:'H'}; return {n,c}; }},
+  {name:'GHZ state', build:(n)=>{ const nn=Math.max(n,3); const c=emptyCircuit(nn); c[0][0]={type:'H'};
+    for(let r=1;r<nn;r++){ c[r][r-1]={type:'CTRL',link:r}; c[r][r]={type:'TARGET',link:r-1}; } return {n:nn,c}; }},
+];
+presets.forEach(p=>{
+  const b = document.createElement('button');
+  b.className = 'preset-btn';
+  b.textContent = p.name;
+  b.onclick = () => {
+    const res = p.build(N);
+    N = res.n; circuit = res.c; pendingCnot=null;
+    [...qcountBtns.children].forEach(c=>c.classList.toggle('active', Number(c.textContent)===N));
+    renderCircuit(); simulate();
+  };
+  presetsEl.appendChild(b);
+});
+
+// ---------- circuit interaction ----------
+function clearCellFull(col,row){
+  const cell = circuit[col][row];
+  if(cell.type==='CTRL' || cell.type==='TARGET'){
+    const linkRow = cell.link;
+    circuit[col][linkRow] = {type:null,link:null};
+  }
+  circuit[col][row] = {type:null,link:null};
+}
+
+function handleCellClick(col,row){
+  const cell = circuit[col][row];
+
+  if(selectedGate !== 'CNOT'){
+    pendingCnot = null;
+    if(cell.type){ clearCellFull(col,row); }
+    else { circuit[col][row] = {type:selectedGate,link:null}; }
+    renderCircuit(); simulate(); updateHint();
+    return;
+  }
+
+  // CNOT flow
+  if(cell.type){
+    if(cell.type==='CTRL_PENDING'){ circuit[col][row]={type:null,link:null}; pendingCnot=null; }
+    else { clearCellFull(col,row); pendingCnot=null; }
+    renderCircuit(); simulate(); updateHint();
+    return;
+  }
+
+  if(!pendingCnot){
+    circuit[col][row] = {type:'CTRL_PENDING', link:null};
+    pendingCnot = {col,row};
+  } else if(pendingCnot.col !== col){
+    circuit[pendingCnot.col][pendingCnot.row] = {type:null,link:null};
+    circuit[col][row] = {type:'CTRL_PENDING', link:null};
+    pendingCnot = {col,row};
+  } else if(pendingCnot.row === row){
+    circuit[col][row] = {type:null,link:null};
+    pendingCnot = null;
+  } else {
+    circuit[col][pendingCnot.row] = {type:'CTRL', link:row};
+    circuit[col][row] = {type:'TARGET', link:pendingCnot.row};
+    pendingCnot = null;
+  }
+  renderCircuit(); simulate(); updateHint();
+}
+
+// ---------- render circuit ----------
+const qlabelsEl = document.getElementById('qlabels');
+const gridContainerEl = document.getElementById('gridContainer');
+
+function renderCircuit(){
+  qlabelsEl.innerHTML = '';
+  for(let r=0;r<N;r++){
+    const d = document.createElement('div');
+    d.className = 'qlabel';
+    d.textContent = `|q${r}⟩`;
+    qlabelsEl.appendChild(d);
+  }
+
+  gridContainerEl.style.width = (STEPS*CELL)+'px';
+  gridContainerEl.style.height = (N*CELL)+'px';
+  gridContainerEl.innerHTML = '';
+
+  for(let r=0;r<N;r++){
+    const w = document.createElement('div');
+    w.className = 'wire-line';
+    w.style.top = (r*CELL + CELL/2 -1)+'px';
+    w.style.left = '0px';
+    w.style.width = (STEPS*CELL)+'px';
+    gridContainerEl.appendChild(w);
+  }
+
+  for(let c=0;c<STEPS;c++){
+    for(let r=0;r<N;r++){
+      const cellData = circuit[c][r];
+      if(cellData.type==='CTRL'){
+        const top = Math.min(r, cellData.link)*CELL + CELL/2;
+        const bot = Math.max(r, cellData.link)*CELL + CELL/2;
+        const line = document.createElement('div');
+        line.className = 'connector-line';
+        line.style.left = (c*CELL + CELL/2 -1)+'px';
+        line.style.top = top+'px';
+        line.style.height = (bot-top)+'px';
+        gridContainerEl.appendChild(line);
+      }
+    }
+  }
+
+  for(let c=0;c<STEPS;c++){
+    for(let r=0;r<N;r++){
+      const cellData = circuit[c][r];
+      const cellEl = document.createElement('div');
+      cellEl.className = 'cell';
+      cellEl.style.left = (c*CELL)+'px';
+      cellEl.style.top = (r*CELL)+'px';
+      cellEl.onclick = () => handleCellClick(c,r);
+
+      const glyph = document.createElement('div');
+      glyph.className = 'glyph';
+
+      if(cellData.type==='CTRL'){ cellEl.classList.add('ctrl','filled'); }
+      else if(cellData.type==='TARGET'){ cellEl.classList.add('target','filled'); glyph.textContent='⊕'; }
+      else if(cellData.type==='CTRL_PENDING'){ cellEl.classList.add('pending'); }
+      else if(cellData.type){ cellEl.classList.add('filled'); glyph.textContent = cellData.type; }
+
+      cellEl.appendChild(glyph);
+      gridContainerEl.appendChild(cellEl);
+    }
+  }
+}
+
+// ---------- simulation ----------
+function applySingle(state,n,row,matrix){
+  const bit = n-1-row;
+  const size = state.length;
+  const out = new Array(size);
+  for(let i=0;i<size;i++){
+    if(((i>>bit)&1)===0){
+      const i1 = i | (1<<bit);
+      const a0=state[i], a1=state[i1];
+      out[i]  = cadd(cmul(matrix[0][0],a0), cmul(matrix[0][1],a1));
+      out[i1] = cadd(cmul(matrix[1][0],a0), cmul(matrix[1][1],a1));
+    }
+  }
+  return out;
+}
+function applyCNOT(state,n,ctrlRow,targetRow){
+  const bitC = n-1-ctrlRow, bitT = n-1-targetRow;
+  const size = state.length;
+  const out = new Array(size);
+  for(let i=0;i<size;i++){
+    out[i] = ((i>>bitC)&1)===1 ? state[i ^ (1<<bitT)] : state[i];
+  }
+  return out;
+}
+
+let lastProbs = [];
+
+function simulate(){
+  const size = 2**N;
+  let state = new Array(size).fill(0).map(()=>cx(0,0));
+  state[0] = cx(1,0);
+
+  for(let c=0;c<STEPS;c++){
+    for(let r=0;r<N;r++){
+      const cell = circuit[c][r];
+      if(cell.type==='CTRL'){
+        state = applyCNOT(state,N,r,cell.link);
+      } else if(cell.type && GATES[cell.type]){
+        state = applySingle(state,N,r,GATES[cell.type]);
+      }
+    }
+  }
+
+  renderOutput(state);
+}
+
+function phaseToColor(phase){
+  const deg = ((phase + Math.PI) / (2*Math.PI)) * 360;
+  return `hsl(${deg.toFixed(0)}, 70%, 60%)`;
+}
+function ketLabel(i,n){ return '|' + i.toString(2).padStart(n,'0') + '⟩'; }
+
+function renderOutput(state){
+  const size = state.length;
+  const barsEl = document.getElementById('bars');
+  const ketListEl = document.getElementById('ketList');
+  barsEl.innerHTML = ''; ketListEl.innerHTML = '';
+  lastProbs = [];
+
+  for(let i=0;i<size;i++){
+    const amp = state[i];
+    const prob = cabs2(amp);
+    const phase = cphase(amp);
+    lastProbs.push(prob);
+    const color = phaseToColor(phase);
+
+    const col = document.createElement('div');
+    col.className = 'bar-col';
+    col.id = 'barcol-'+i;
+    col.style.color = color;
+    const bar = document.createElement('div');
+    bar.className = 'bar';
+    bar.style.height = Math.max(prob*180,1)+'px';
+    bar.style.background = color;
+    const label = document.createElement('div');
+    label.className = 'bar-label';
+    label.textContent = ketLabel(i,N);
+    col.appendChild(bar); col.appendChild(label);
+    barsEl.appendChild(col);
+
+    const row = document.createElement('div');
+    row.className = 'ket-row';
+    const mag = Math.sqrt(prob);
+    const degText = ((phase*180/Math.PI)).toFixed(0);
+    row.innerHTML = `<span class="ket">${ketLabel(i,N)}</span><span>${mag.toFixed(3)}∠${degText}°</span><span class="prob">${(prob*100).toFixed(1)}%</span>`;
+    ketListEl.appendChild(row);
+  }
+}
+
+document.getElementById('sampleBtn').onclick = () => {
+  [...document.querySelectorAll('.bar-col')].forEach(c=>c.classList.remove('measured'));
+  const r = Math.random();
+  let acc = 0, chosen = lastProbs.length-1;
+  for(let i=0;i<lastProbs.length;i++){
+    acc += lastProbs[i];
+    if(r <= acc){ chosen = i; break; }
+  }
+  const col = document.getElementById('barcol-'+chosen);
+  if(col) col.classList.add('measured');
+  document.getElementById('sampleResult').textContent =
+    `Measured: ${ketLabel(chosen,N)}   (p = ${(lastProbs[chosen]*100).toFixed(1)}%)`;
+};
+
+// ---------- init ----------
+buildPalette();
+renderCircuit();
+simulate();
+</script>
+</body>
+</html>

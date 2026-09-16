@@ -364,6 +364,7 @@ body.retro .hero h1,body.retro .section-head h2{text-shadow:0 0 18px var(--accen
   <a class="logo" href="#top"><span class="dot"></span>Sourabh<span style="color:var(--accent-light)"> Singh</span></a>
   <div class="links">
     <a href="#projects">Projects</a>
+    <a href="#experiments">Lab</a>
     <a href="#skills">Skills</a>
     <a href="#journey">Journey</a>
     <a href="#github">GitHub</a>
@@ -381,8 +382,7 @@ body.retro .hero h1,body.retro .section-head h2{text-shadow:0 0 18px var(--accen
   <div class="badge"><span class="live"></span> All projects below are <b>live &amp; interactive</b> — click any preview</div>
   <h1>Hi, I'm <span class="grad">Sourabh Singh</span><br>I build real web apps from scratch.</h1>
   <div class="typeline"><span id="typed"></span><span class="caret"></span></div>
-  <div class="hero-id"><span>🎓 B.Tech CSE — AI, DevOps &amp; Cloud Automation</span><span>🏛️ JECRC University</span></div>
-  <p class="sub">Four complete, self-contained web applications — a Jarvis-style holographic AI, a food-delivery platform with live maps, a luxury brand showcase, and a pro photo studio. Every line written by hand: HTML, CSS &amp; JavaScript.</p>
+  <div class="hero-id"><span>🎓 B.Tech CSE — AI, DevOps &amp; Cloud Automation</span><span>🏛️ JECRC University</span></div>      <p class="sub">Four complete, self-contained web applications — a Jarvis-style holographic AI, a food-delivery platform with live maps, a luxury brand showcase, and a pro photo studio — plus a lab of DevOps, SRE and quantum experiments from my GitHub. Every line written by hand: HTML, CSS &amp; JavaScript.</p>
   <div class="hero-btns">
     <a class="btn primary" href="#projects">🚀 Explore Projects</a>
     <a class="btn ghost" href="#skills">What I learned</a>
@@ -494,6 +494,103 @@ body.retro .hero h1,body.retro .section-head h2{text-shadow:0 0 18px var(--accen
       </ul>
       <div class="chips"><span class="chip">Canvas 2D</span><span class="chip">Pixel Pipelines</span><span class="chip">Color Science</span><span class="chip green">Real-time preview</span></div>
       <div class="p-actions"><button class="btn primary" onclick="openDemo('lucid.html','Lucid — AI Pro Photo Studio','50+ real-time pixel engines, all hand-coded')">Try it now</button><a class="btn ghost" href="lucid.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MORE EXPERIMENTS (FROM GITHUB) ================= -->
+<section id="experiments">
+  <div class="section-head reveal">
+    <div class="eyebrow">// the lab</div>
+    <h2>More experiments — straight from GitHub</h2>
+    <p>Beyond the main four: DevOps, SRE and computing-science labs. Each one is a single-file app pulled live from my repositories — every experiment below is running right here.</p>
+  </div>
+
+  <!-- Quantum -->
+  <div class="proj reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">quantum.html — Quantum Circuit Simulator</span><a class="openlink" href="quantum.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="quantum.html" title="Quantum"></iframe><div class="veil" onclick="openDemo('quantum.html','Quantum Circuit Simulator','gates, superposition and entanglement simulated in the browser')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">Computing Science · Simulation</span> <span class="p-num">EX-01</span>
+      <h3>Quantum Circuit Simulator</h3>
+      <p class="desc">Design quantum circuits and watch superposition and entanglement play out live — state-vector math, gate placement, probabilistic measurement. Quantum computing, learned by touching it.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>Visual gate placement (H, X, Z, CNOT…) on a circuit board</li>
+        <li><span class="tick">✓</span>Real state-vector simulation with complex amplitudes</li>
+        <li><span class="tick">✓</span>Measurement with probabilistic collapse</li>
+      </ul>
+      <div class="chips"><span class="chip">State Vectors</span><span class="chip">Quantum Gates</span><span class="chip">Canvas</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('quantum.html','Quantum Circuit Simulator','gates, superposition and entanglement simulated in the browser')">Try it now</button><a class="btn ghost" href="quantum.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+
+  <!-- Autonomous SRE -->
+  <div class="proj flip reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">sre.html — Autonomous SRE</span><a class="openlink" href="sre.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="sre.html" title="Autonomous SRE"></iframe><div class="veil" onclick="openDemo('sre.html','Autonomous SRE — multi-agent incident responder','detection, triage and remediation by AI agents, visualized')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">Site Reliability · Multi-Agent AI</span> <span class="p-num">EX-02</span>
+      <h3>Autonomous SRE — incident responder</h3>
+      <p class="desc">What if incidents fixed themselves? A multi-agent system where detection, triage and remediation agents coordinate on live dashboards — my take on the future of reliability engineering.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>Agent pipeline: detect → triage → remediate → verify</li>
+        <li><span class="tick">✓</span>Live incident feed with severity and agent assignments</li>
+        <li><span class="tick">✓</span>Built from real SRE practice: SLOs, runbooks, blast radius</li>
+      </ul>
+      <div class="chips"><span class="chip">Multi-Agent</span><span class="chip">SRE</span><span class="chip">Incident Response</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('sre.html','Autonomous SRE — multi-agent incident responder','detection, triage and remediation by AI agents, visualized')">Try it now</button><a class="btn ghost" href="sre.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+
+  <!-- Groundwork -->
+  <div class="proj reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">groundwork.html — Groundwork: Learn AI from Zero</span><a class="openlink" href="groundwork.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="groundwork.html" title="Groundwork"></iframe><div class="veil" onclick="openDemo('groundwork.html','Groundwork — Learn AI from Zero','8 interactive lessons building real AI intuition')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">Education · Interactive Learning</span> <span class="p-num">EX-03</span>
+      <h3>Groundwork — learn AI from zero</h3>
+      <p class="desc">Eight progressive lessons that build genuine intuition for how AI works — interactive demos where you tweak parameters and watch behavior change. I built it to teach; it doubles as proof I understand the material.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>8 structured lessons, from models to neural networks</li>
+        <li><span class="tick">✓</span>Interactive parameter playgrounds in every lesson</li>
+        <li><span class="tick">✓</span>Progress tracking (0/8 → 8/8)</li>
+      </ul>
+      <div class="chips"><span class="chip">Machine Learning</span><span class="chip">Interactive</span><span class="chip">Teaching</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('groundwork.html','Groundwork — Learn AI from Zero','8 interactive lessons building real AI intuition')">Try it now</button><a class="btn ghost" href="groundwork.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+
+  <!-- CloudPilot -->
+  <div class="proj flip reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">cloudpilot.html — CloudPilot</span><a class="openlink" href="cloudpilot.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="cloudpilot.html" title="CloudPilot"></iframe><div class="veil" onclick="openDemo('cloudpilot.html','CloudPilot — infrastructure that ships itself','an IaC provisioning console')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">DevOps · Infrastructure as Code</span> <span class="p-num">EX-04</span>
+      <h3>CloudPilot — infrastructure that ships itself</h3>
+      <p class="desc">An infrastructure-as-code console: describe what you want deployed, watch the provisioning plan assemble and execute. My DevOps-track thinking, made interactive.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>Declarative infra descriptions → provisioning plans</li>
+        <li><span class="tick">✓</span>Visual execution pipeline with stage feedback</li>
+        <li><span class="tick">✓</span>The DevOps & Cloud Automation track, demonstrated live</li>
+      </ul>
+      <div class="chips"><span class="chip">IaC</span><span class="chip">Cloud</span><span class="chip">Automation</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('cloudpilot.html','CloudPilot — infrastructure that ships itself','an IaC provisioning console')">Try it now</button><a class="btn ghost" href="cloudpilot.html" target="_blank">Open in new tab</a></div>
     </div>
   </div>
 </section>
@@ -804,10 +901,14 @@ function greet(){
   CHIPS.forEach(c=>{const b=document.createElement('button');b.className='g-chip';b.textContent=c;b.onclick=()=>{document.getElementById('gText').value=c;askGia()};chips.appendChild(b)});
 }
 const KB=[
- {k:['what is this','portfolio','about this'],a:'This portfolio brings four complete web apps together on one page — FOODORA, a food-delivery platform; a Mercedes-Benz showcase; AURA, a holographic AI assistant; and Lucid, a pro photo studio. Every preview is the real app running live, all hand-written with zero frameworks.'},
+ {k:['what is this','portfolio','about this'],a:'This portfolio brings four complete web apps together on one page — FOODORA, a food-delivery platform; a Mercedes-Benz showcase; AURA, a holographic AI assistant; and Lucid, a pro photo studio — plus a lab section with four more experiments: a quantum circuit simulator, an autonomous SRE system, an AI-teaching app called Groundwork, and CloudPilot, an infrastructure-as-code console. Every preview is the real app running live, all hand-written with zero frameworks.'},
  {k:['lucid','photo','editor','photoshop','image editing'],a:'Lucid is an AI Pro Photo Studio — a desktop-class photo editor in a single file. 50+ real-time pixel engines hand-coded from scratch: tone curves, HSL mixer, clarity convolution, bloom, chromatic aberration, depth bokeh, film grain — plus an AI panel, live histogram, presets, crop and undo history.'},
  {k:['foodora','food','delivery'],a:'FOODORA is a food-delivery platform: 12 restaurants, 48 dishes with full recipes in English, Hindi and Spanish, a cart and checkout flow, plus live Leaflet maps that use the browser GPS to place you on the map.'},
  {k:['aura','holographic','jarvis','hologram'],a:'AURA is a Jarvis-style holographic AI assistant: a 3D core of 560 particles projected by hand-written math, voice input and spoken answers via the Web Speech API, real AI uplink with an offline fallback brain, live telemetry and a self-diagnostics sequence. All in one file, zero engines.'},
+ {k:['quantum','qubit','circuit'],a:'The Quantum Circuit Simulator lets you place quantum gates on a circuit board and watch superposition and entanglement play out — real state-vector math, in the browser.'},
+ {k:['sre','reliability','incident'],a:'Autonomous SRE is a multi-agent incident responder: detection, triage and remediation agents coordinate on a live dashboard — Sourabh\'s view of the future of reliability engineering.'},
+ {k:['groundwork','learn ai','teach'],a:'Groundwork teaches AI from zero: 8 progressive lessons with interactive demos where you tweak parameters and watch behavior change. Built to teach, and as proof of understanding.'},
+ {k:['cloudpilot','iac','infrastructure','terraform','cloud'],a:'CloudPilot is an infrastructure-as-code console: describe what to deploy, watch the provisioning plan assemble and execute. The DevOps & Cloud Automation track, demonstrated live.'},
  {k:['pipeline','connect','together','integrate'],a:'The projects share one philosophy — everything hand-coded, zero frameworks. AURA can launch any project by voice: just say open portfolio, open foodora, or open lucid.'},
  {k:['mercedes'],a:'The Mercedes-Benz showcase is a luxury automotive landing page with cinematic scroll sections and premium styling — mostly a design and animation challenge.'},
  {k:['tech','stack','use','technolog','language'],a:'Everything is plain HTML, CSS and modern JavaScript — no frameworks, no build tools. APIs used: Puter.js for AI, Leaflet + OpenStreetMap for maps, Geolocation, Web Speech for voice, Canvas for the hero animation, and IntersectionObserver for scroll effects.'},
@@ -857,6 +958,10 @@ const ACTIONS=[
  {i:'🍲',l:()=>'Open FOODORA — food delivery',run:()=>openTab('foodora.html')},
  {i:'🚗',l:()=>'Open Mercedes-Benz showcase',run:()=>openTab('mercedes.html')},
  {i:'🌐',l:()=>'Open AURA — holographic AI assistant',run:()=>openTab('aura.html')},
+ {i:'⚛️',l:()=>'Open Quantum Circuit Simulator',run:()=>openTab('quantum.html')},
+ {i:'🧪',l:()=>'Open Autonomous SRE — incident responder',run:()=>openTab('sre.html')},
+ {i:'🧱',l:()=>'Open Groundwork — learn AI from zero',run:()=>openTab('groundwork.html')},
+ {i:'☁️',l:()=>'Open CloudPilot — IaC console',run:()=>openTab('cloudpilot.html')},
  {i:'🎨',l:()=>'Open Lucid — AI pro photo studio',run:()=>openTab('lucid.html')},
  {i:'🌗',l:()=>'Toggle light / dark theme',run:toggleTheme},
  {i:voiceOn?'🔇':'🔊',l:()=>voiceOn?'Mute AI voice answers':'Enable AI voice answers',run:()=>{toggleGuide();toggleVoice()}},
@@ -890,6 +995,7 @@ const TOUR=[
  {s:'#projects .proj:nth-child(2)',t:'FOODORA — the big one',x:'A full delivery platform: live GPS maps, cart, checkout, and 48 recipes in three languages.'},
  {s:'#projects .proj:nth-child(6)',t:'AURA — the hologram 🌐',x:'A Jarvis-style assistant with a living 3D core. Tap the mic, ask who built it — it answers out loud, about me.'},
  {s:'#projects .proj:nth-child(5)',t:'Lucid — the photo studio 🎨',x:'50+ hand-coded pixel engines: curves, HSL mixer, bloom, bokeh — a desktop-class editor in one file.'},
+ {s:'#experiments',t:'The Lab — more experiments 🧪',x:'Beyond the main four: a quantum simulator, an autonomous SRE system, an AI-teaching app and an IaC console — pulled live from my GitHub.'},
  {s:'#skills',t:'Skills, mapped to proof',x:'Every bar corresponds to something real in the apps above — no empty claims.'},
  {s:'#journey',t:'How it was built',x:'From first HTML pages to streaming AI — the full iteration story.'},
  {s:'#github',t:'Live on GitHub 🐙',x:'This section fetches my real repositories straight from the GitHub API — stars, forks and languages, always current.'},
@@ -983,7 +1089,7 @@ ACTIONS.push(
 
 /* live lines-of-code — counts the REAL files when served over http */
 (async()=>{try{
-  const files=['foodora.html','mercedes.html','aura.html','lucid.html','portfolio.html','index.html'];
+  const files=['foodora.html','mercedes.html','aura.html','lucid.html','quantum.html','sre.html','groundwork.html','cloudpilot.html','portfolio.html','index.html'];
   let n=0;for(const f of files){const r=await fetch(f);if(!r.ok)continue;n+=(await r.text()).split('\n').length}
   if(n>5000){const el=document.querySelector('.stat:nth-child(2) .num');if(el){el.dataset.count=n;delete el.dataset.done;countUp(el)}}
 }catch(e){}})();
