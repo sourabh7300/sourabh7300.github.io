@@ -98,8 +98,34 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 #bootLog .ok{color:#34d399}
 #bootSkip{font-size:9px;color:#28505c;letter-spacing:2px}
 
-@media(max-width:1100px){#telemetry,#syslog{display:none}#conv{width:min(340px,44vw)}}
-@media(max-width:760px){#conv{display:none}.wordmark{font-size:16px;letter-spacing:3px}}
+@media(max-width:860px){
+  body{font-size:15px}
+  #topbar{padding:9px 12px;gap:8px;align-items:center}
+  .wordmark{font-size:12px;letter-spacing:2px;white-space:nowrap}
+  .wordmark small{display:none}
+  #stateBox{padding:5px 9px}
+  #stateText{font-size:8.5px;letter-spacing:1px;white-space:nowrap}
+  #clock b{font-size:14px}
+  #clock span{font-size:8px;white-space:nowrap}
+  #telemetry,#syslog{display:none}
+  #conv{display:flex;position:fixed;top:52px;right:8px;left:8px;width:auto;bottom:198px;z-index:9;border-radius:14px;background:rgba(2,10,14,.82);backdrop-filter:blur(8px);padding:12px}
+  #conv h3{font-size:10px;letter-spacing:1.5px}
+  #conv h3 span:last-child{font-size:8px}
+  .msg{font-size:13.5px}
+  #chips{display:none}
+  #chipsMobile{margin-bottom:2px}
+  #chipsMobile .chip{font-size:9.5px;padding:4px 9px}
+  #dock{bottom:12px;gap:8px;width:calc(100vw - 20px)}
+  #micWrap{position:absolute;right:6px;top:-64px;gap:3px}
+  #micBtn{width:52px;height:52px;font-size:19px}
+  #micHint{font-size:8px;letter-spacing:1px;max-width:150px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  #inputRow{width:100%}
+  #q{font-size:16px;padding:12px 60px 12px 16px}
+  #sendBtn{width:46px;flex:0 0 auto}
+  .iconrow{flex-wrap:wrap;gap:7px;justify-content:center}
+  .ibtn{font-size:9px;padding:6px 10px}
+}
+@media(max-width:400px){.wordmark{font-size:10.5px}#conv{bottom:190px}}
 </style>
 </head>
 <body>
@@ -191,7 +217,7 @@ function setMode(m){mode=m;modeT=0;$("stateText").textContent=STATES[m].label;}
 const cv=$("fx"),cx=cv.getContext("2d");
 let W,H,CX,CY,R;
 function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;CX=W/2;CY=H*.46;R=Math.min(W,H)*.21;}
-size();addEventListener("resize",size);
+size();addEventListener("resize",size);addEventListener("orientationchange",()=>setTimeout(size,120));
 const N=560,pts=[];
 for(let i=0;i<N;i++){
   const y=1-2*(i+.5)/N,r=Math.sqrt(1-y*y),phi=i*2.399963229728653;
@@ -348,12 +374,25 @@ let voices=[];function loadV(){voices=synth?synth.getVoices():[]}loadV();if(synt
 function speak(t){
   if(!synth||!soundOn){return}
   try{synth.cancel();
-    const u=new SpeechSynthesisUtterance(t.replace(/[#*_▸►`]/g,""));
+    const clean=t.replace(/[#*_▸►`]/g,"");
+    const parts=[];let rest=clean;
+    while(rest.length){
+      if(rest.length<=190){parts.push(rest);break}
+      let cut=rest.lastIndexOf(". ",180);if(cut<80)cut=rest.lastIndexOf(" ",180);if(cut<80)cut=180;
+      parts.push(rest.slice(0,cut+1));rest=rest.slice(cut+1).replace(/^\s+/,"");
+    }
     const v=voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang));
-    if(v)u.voice=v;u.rate=1.02;u.pitch=1;
-    u.onstart=()=>{ampTarget=1;setMode("speaking")};
-    u.onend=()=>{ampTarget=0;setMode("idle")};
-    synth.speak(u);
+    let i=0;
+    const next=()=>{
+      if(i>=parts.length){ampTarget=0;setMode("idle");return}
+      const u=new SpeechSynthesisUtterance(parts[i++]);
+      if(v)u.voice=v;u.rate=1.02;u.pitch=1;
+      u.onstart=()=>{ampTarget=1;setMode("speaking")};
+      u.onend=next;
+      u.onerror=next;
+      synth.speak(u);
+    };
+    next();
   }catch(e){}
 }
 
@@ -772,16 +811,50 @@ async function ask(text){
 
 /* ---------------- mic ---------------- */
 let recog=null,listening=false;
+function cleanTranscript(t){
+  let s=(t||"").toLowerCase().trim();
+  s=s.replace(/\b(hello aura|hey aura|ok aura|okay aura|hi aura)\b/g,"");
+  s=s.replace(/\bplus\b|\band\b(?=\s*\d)/g,"+").replace(/\bminus\b|\bless\b/g,"-")
+    .replace(/\b(times|multiplied by)\b/g,"*").replace(/\b(divided by|over)\b/g,"/")
+    .replace(/\bpercent of\b/g,"% of").replace(/\bto the power of\b/g,"^")
+    .replace(/\bsquare root of\b/g,"sqrt");
+  return s.replace(/\s+/g," ").trim();
+}
 $("micBtn").onclick=()=>{
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){pushSys("voice input needs Chrome/Edge — typing works everywhere");return}
-  if(listening){recog.stop();return}
-  recog=new SR();recog.lang="en-US";recog.interimResults=false;
-  recog.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent="LISTENING — SPEAK NOW";setMode("listening");blip(880,.1)};
-  recog.onresult=e=>{const t=e.results[0][0].transcript;listening=false;ask(t)};
-  recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";if(mode==="listening")setMode("idle")};
-  recog.onerror=recog.onend;
-  recog.start();
+  if(listening){try{recog.stop()}catch(e){};return}
+  recog=new SR();
+  recog.lang="en-IN";recog.interimResults=true;recog.continuous=false;recog.maxAlternatives=3;
+  let finalText="",interim="";
+  recog.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent="LISTENING…";setMode("listening");blip(880,.1);
+    pushSys("mic online — speak naturally");};
+  recog.onresult=e=>{
+    interim="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal){
+        let best="";for(let j=0;j<r.length;j++){if(r[j].transcript.trim().length>best.length)best=r[j].transcript;}
+        finalText+=(finalText?" ":"")+best;
+      }else interim+=r[i?0:i][0].transcript;
+    }
+    const live=(finalText+" "+interim).trim();
+    if(live)$("micHint").textContent='"'+live.slice(-42)+'"';
+  };
+  recog.onerror=e=>{
+    listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";
+    if(mode==="listening")setMode("idle");
+    if(e.error==="not-allowed"||e.error==="service-not-allowed")pushSys("mic blocked — allow microphone in browser settings");
+    else if(e.error==="no-speech")pushSys("didn't catch that — tap and speak a little louder");
+    else if(e.error==="network")pushSys("speech service unreachable — type instead");
+  };
+  recog.onend=()=>{
+    listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";
+    if(mode==="listening")setMode("idle");
+    const t=cleanTranscript(finalText);
+    if(t&&t.split(/\s+/).length>=1){slog("heard: \""+t.slice(0,50)+"\"",true);ask(t)}
+  };
+  try{recog.start()}catch(e){}
 };
 
 /* ---------------- wiring ---------------- */
@@ -789,7 +862,7 @@ $("sendBtn").onclick=()=>ask($("q").value);
 $("q").addEventListener("keydown",e=>{if(e.key==="Enter")ask($("q").value)});
 document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>ask(c.textContent));
 [...$("chipsMobile").children?[]:[]]; // (mobile chips reuse main set when conv hidden)
-if(matchMedia("(max-width:760px)").matches){
+if(matchMedia("(max-width:860px)").matches){
   document.querySelectorAll(".chip").forEach(c=>{const b=c.cloneNode(true);b.onclick=()=>ask(c.textContent);$("chipsMobile").appendChild(b)});
 }
 $("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent="SOUND: "+(soundOn?"ON":"OFF");if(!soundOn)try{synth.cancel()}catch(e){};if(mode==="speaking")setMode("idle")};
