@@ -335,7 +335,8 @@ function addMsg(who,text,cls){
 function pushSys(t){addMsg("SYS","▸ "+t,"sys");slog(t);}
 function typewrite(el,text){
   return new Promise(res=>{
-    let i=0;const step=()=>{i=Math.min(text.length,i+2);el.textContent=text.slice(0,i);log.scrollTop=log.scrollHeight;
+    let i=0;const chunk=Math.max(2,Math.round(text.length/240));
+    const step=()=>{i=Math.min(text.length,i+chunk);el.textContent=text.slice(0,i);log.scrollTop=log.scrollHeight;
       if(i<text.length)requestAnimationFrame(step);else res();};
     step();
   });
@@ -368,7 +369,7 @@ const KB={
   "who made you":"I was built by Sourabh Singh, a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation.",
   "your creator":"My creator is Sourabh Singh — B.Tech CSE, JECRC University. He built me entirely from scratch: no frameworks, no engines, one file.",
   "sourabh":"Sourabh Singh — my creator. B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. He hand-coded my holographic core, my voice pipeline and my brain in a single HTML file.",
-  "what can you do":"I can answer almost anything: math and unit conversions, tech and science questions, live Wikipedia lookups, project briefings, diagnostics, jokes — and I speak my answers. Say 'open portfolio' to launch his projects, or 'run diagnostics' to scan me.",
+  "what can you do":"I can answer almost anything: math and unit conversions, tech and science questions, and for anything else I run live deep research — searching Wikipedia and the wider web, cross-checking sources and fusing them into one complete answer. I speak my answers too. Say 'open portfolio' to launch his projects, or 'run diagnostics' to scan me.",
   "jecrc":"JECRC University is in Jaipur, Rajasthan — where my creator Sourabh Singh studies B.Tech CSE.",
   "b.tech":"B.Tech is a four-year engineering degree. My creator studies the Computer Science track with AI, DevOps and Cloud Automation.",
   "portfolio":"Sourabh's portfolio is a single page that live-embeds six of his web apps — including me. Say 'open portfolio' and I'll launch it.",
@@ -506,7 +507,37 @@ Object.assign(KB,{
   "focus":"Focus is a muscle: single-task, phone in another room, 25-minute sprints with 5-minute breaks. That's the Pomodoro method.",
   "exercise":"30 minutes of movement daily — walks count — improves memory, mood and sleep more than any productivity app.",
   "wings of fire":"'Wings of Fire' is Dr. A.P.J. Abdul Kalam's autobiography — from newspaper boy to missile man to President. Read it.",
+  "cybersecurity":"Cybersecurity protects systems and data from attacks — via strong passwords, encryption, updates and awareness. Human error is the #1 vulnerability.",
+  "artificial intelligence":"Artificial Intelligence is the science of machines performing tasks that need human-like intelligence — reasoning, learning, perception. Ranges from spam filters to self-driving cars to large language models.",
+  "nuclear energy":"Nuclear energy comes from splitting atoms (fission) — 1 kg of uranium releases as much energy as ~1,500 tons of coal. India runs ~24 reactors and is developing thorium technology.",
+  "world war":"WWI (1914–18) began after Archduke Franz Ferdinand's assassination and redrew the world map. WWII (1939–45) was history's deadliest conflict — over 70 million deaths — ending with nuclear weapons and the UN.",
+  "independence of india":"India won independence from British rule on 15 August 1947, led by Gandhi's non-violent movement, Nehru, Patel and countless freedom fighters — at the cost of Partition.",
+  "mughal empire":"The Mughal Empire (1526–1857) ruled most of India — founded by Babur, peaked under Akbar, Shah Jahan (Taj Mahal) and Aurangzeb. Left the Taj, Red Fort and a fusion culture.",
 });
+
+/* ---------------- deep knowledge layer (multi-paragraph, on demand) ---------------- */
+const DEEP={
+  "machine learning":"HOW IT ACTUALLY WORKS — ML systems learn patterns from examples instead of following hand-written rules. The workflow: 1) collect data (say, 10,000 labeled cat photos), 2) pick a model (a mathematical function with adjustable knobs called parameters), 3) train — show examples, measure error, nudge parameters to reduce it (gradient descent), repeat millions of times, 4) test on unseen data, 5) deploy and retrain as reality drifts.\n\nTHE THREE FAMILIES — Supervised learning (labeled data: spam vs not-spam, price prediction), Unsupervised learning (find structure: customer clusters, anomaly detection), Reinforcement learning (trial and error with rewards — how game AIs and robotics learn).\n\nWHY IT TOOK OFF — three forces converged: big data (the fuel), GPUs (parallel math engines), and better algorithms (deep architectures). A 2012 deep network cut image-recognition error from 26% to 15% in one year — and the field exploded.\n\nHONEST LIMITS — models inherit bias from data, fail silently on cases unlike training data, and explain poorly. My creator's NEURAL project demonstrates the core loop live: 160 neural nets evolving fitness generation by generation.",
+  "neural network":"ANATOMY — a neural network is layers of neurons: each neuron computes a weighted sum of its inputs, adds a bias, and passes it through an activation function (like tanh or ReLU) that adds non-linearity. Stack enough layers and the network can approximate almost any function — that's the Universal Approximation theorem.\n\nLEARNING — training uses backpropagation: compare output to the desired answer, compute the error, then walk backwards through the layers computing how much each weight contributed, and adjust it slightly. Do this over thousands of examples and useful structure emerges — early layers detect edges, deeper layers detect concepts.\n\nSCALE — a tiny net for Snake has ~300 weights. GPT-class language models have hundreds of billions. The math is identical; only the scale differs.\n\nSEE IT LIVE — my creator built a real one from scratch: NEURAL, where 315-synapse networks learn Snake by natural selection — no libraries, watchable neuron by neuron.",
+  "deep learning":"Deep learning is neural networks with many stacked layers. Depth lets the network build a hierarchy: pixels → edges → shapes → objects, or letters → words → meaning. The breakthroughs — speech recognition, image classification, translation, ChatGPT — all came from depth plus data plus GPUs. Key architectures: CNNs for images (LeNet 1998 → ResNet 2015), RNNs/Transformers for sequences (the 2017 paper 'Attention Is All You Need' created the Transformer, the T in GPT), GANs and diffusion models for generation. Training trick: backpropagation + gradient descent + regularization (dropout, normalization) to avoid memorizing. Cost: deep models are data-hungry, compute-hungry, and partly black boxes — interpretability research is active.",
+  "blockchain":"THE CORE IDEA — a blockchain is a shared ledger copied across thousands of computers. Transactions are grouped into blocks; each block contains a cryptographic hash of the previous one — chain them and rewriting history becomes computationally infeasible, because changing one block invalidates every block after it.\n\nCONSENSUS — since there's no central authority, the network must agree: Bitcoin uses Proof-of-Work (miners race to solve hash puzzles — secure, but energy-hungry), Ethereum moved to Proof-of-Stake (validators stake coins — ~99.9% less energy).\n\nBEYOND COINS — smart contracts (Ethereum, 2015) are code that runs on the chain: escrow, tokens, DeFi, NFTs, supply-chain tracking.\n\nHONEST TRADE-OFFS — immutable means mistakes are permanent; throughput is low compared to Visa; and regulation is still evolving. It's a trust machine, not a speed machine.",
+  "cloud computing":"THE MODEL — rent computing instead of owning it: raw VMs, managed databases, AI services, storage — billed per second. The three service tiers: IaaS (raw infrastructure: AWS EC2), PaaS (a platform: deploy code, the provider runs the servers), SaaS (finished software: Gmail, Office 365).\n\nTHE BIG THREE — AWS (~31% share), Microsoft Azure, Google Cloud. Regions are physical datacenter clusters worldwide; availability zones are isolated clusters inside a region for fault tolerance.\n\nWHY IT WON — elasticity (scale from 1 to 10,000 servers in minutes), pay-per-use, and global reach a startup could never build.\n\nMY CREATOR'S ANGLE — Cloud Automation is his specialization: infrastructure as code, CI/CD pipelines, container orchestration with Docker and Kubernetes — the modern DevOps stack.",
+  "devops":"THE PROBLEM IT SOLVES — devs want change, operations want stability. DevOps dissolves that wall: one team owns build → test → deploy → monitor.\n\nTHE PIPELINE — code commit triggers CI (Continuous Integration): automated build + test suite on every change. Then CD (Continuous Delivery/Deployment): automatic release to staging, then production — often many deploys per day, each small and low-risk.\n\nTHE TOOLCHAIN — Git for version control, Docker for containers, Kubernetes for orchestration, Jenkins/GitHub Actions for pipelines, Terraform for infrastructure-as-code, Prometheus/Grafana for monitoring.\n\nTHE CULTURE — blameless postmortems, automation over manual toil, measure everything (MTTR, deploy frequency). Done right, releases stop being scary events and become routine.",
+  "cybersecurity":"THE ATTACK SURFACE — phishing (fake emails — the #1 breach cause), malware/ransomware (encrypts your files, demands payment), social engineering (conning humans), man-in-the-middle (intercepting traffic), SQL injection and XSS (malicious input to apps), zero-days (unknown flaws).\n\nTHE DEFENSES — layered security: strong unique passwords + password manager, multi-factor authentication (blocks >99% of automated takeovers), encryption at rest and in transit (HTTPS everywhere), prompt patching, least-privilege access, backups that are offline (ransomware hunts backups too).\n\nTHE MINDSET — security is a process, not a product. Assume breach: detect fast, respond faster. And the weakest link is always the human — awareness training beats any firewall.",
+  "photosynthesis":"THE TWO STAGES — 1) Light-dependent reactions (in the thylakoid membranes): chlorophyll captures light energy, splits water (releasing the O₂ you breathe), and charges energy carriers ATP and NADPH. 2) Calvin cycle (in the stroma): that energy fixes CO₂ into glucose — carbon from air becomes sugar, 3 turns per G3P, six cycles per glucose.\n\nTHE NUMBERS — global photosynthesis fixes ~115 billion tons of carbon yearly; it underpins essentially every food chain and produced the oxygen atmosphere ~2.4 billion years ago (the Great Oxidation Event).\n\nEFFICIENCY — plants convert only ~1–2% of sunlight to biomass; research on C4 photosynthesis and artificial leaves tries to push higher. Without this process: no food, no oxygen, no us.",
+  "black hole":"FORMATION — massive stars (25+ solar masses) collapse when fusion stops; the core implodes past neutron-star density into a singularity, wrapped in an event horizon — the boundary where escape velocity exceeds light speed.\n\nKEY SIZES — stellar-mass (5–100 suns), supermassive (millions–billions: Sagittarius A* at our galaxy's heart, 4.3 million suns), and the photographed M87* at 6.5 billion (Event Horizon Telescope, 2019).\n\nSTRANGE PHYSICS — time dilates near the horizon (an outside watcher sees you freeze and redden), spaghettification stretches falling objects, and Hawking radiation means black holes slowly evaporate.\n\nDETECTION — we 'see' them via accretion disks (matter glowing at millions of °C) and gravitational waves from mergers (LIGO, 2015 — Nobel 2017).",
+  "quantum":"THE QUANTUM LEAP — classical bits are 0 OR 1; qubits exploit superposition (both at once) and entanglement (correlated states across distance). N qubits explore 2^N states simultaneously — 300 qubits exceed the atoms in the observable universe.\n\nTHE PROMISE — Shor's algorithm factors huge numbers (breaking RSA encryption — hence post-quantum cryptography research), Grover's searches faster, and quantum simulation could revolutionize drug discovery and materials.\n\nTHE REALITY CHECK — decoherence destroys quantum states in microseconds; machines need error correction (thousands of physical qubits per logical one); and most useful algorithms remain research-stage. Current leaders: IBM (~1,000+ qubits), Google (quantum supremacy claim, 2019), and India's National Quantum Mission targeting mid-scale machines.\n\nBOTTOM LINE — revolutionary potential, engineering infancy.",
+  "dna":"THE STRUCTURE — a double helix (Watson, Crick, Franklin's X-ray data, 1953) of two strands wound around each other. Each strand is a chain of nucleotides: sugar + phosphate backbone, and one of four bases — Adenine, Thymine, Guanine, Cytosine. A pairs only with T, G only with C — which makes DNA perfectly copyable and readable.\n\nTHE FLOW OF LIFE — DNA → (transcription) → RNA → (translation) → proteins, the machines of every cell. The human genome: ~3.1 billion base pairs, ~20,000 genes — yet DNA from one cell stretched out would run 2 meters.\n\nTHE TOOLS — PCR amplifies DNA, CRISPR-Cas9 edits it precisely (Nobel 2020), and sequencing that cost $3 billion for the first human genome now costs a few hundred dollars. Medicine, forensics and ancestry all run on it now.",
+  "evolution":"THE MECHANISM — Darwin's insight (1859, 'On the Origin of Species'): 1) individuals vary, 2) variation is heritable, 3) more offspring are born than survive, 4) so variants suited to the environment reproduce more. Repeat for millions of years and populations transform — no designer required.\n\nTHE EVIDENCE — the fossil record (Tiktaalik, Archaeopteryx), homologous anatomy (same arm bones in humans, whales, bats), vestigial structures, biogeography, and now molecular proof: shared DNA code across all life — we share ~98.8% of DNA with chimpanzees, ~60% with bananas.\n\nMODERN SYNTHESIS — Darwin + genetics: mutations supply variation, natural selection filters it, genetic drift shuffles it. Speciation happens when populations stop interbreeding.\n\nAND IN SILICON — genetic algorithms copy this directly: my creator's NEURAL project evolves Snake-playing brains with selection, crossover and mutation — literally Darwin in JavaScript.",
+  "internet":"THE LAYERS — your device → Wi-Fi/cellular (physical) → IP addressing (logical) → TCP (reliable delivery, packets reassembled) → HTTP/HTTPS (the web's request language). Routers hop packets across ~50 autonomous networks on average before they arrive.\n\nTHE BACKBONE — undersea fiber cables carry ~99% of intercontinental data (over 500 cables, ~1.4 million km). DNS translates names to IPs through a global hierarchy. CDNs cache content near you.\n\nHISTORY — ARPANET 1969 (4 nodes, military research), TCP/IP standardized 1983, the Web invented by Tim Berners-Lee at CERN 1989–91, browsers went mainstream 1994, and users grew from 16 million (1995) to 5.5+ billion today.\n\nFUN NUMBERS — roughly 5–7 Google searches happen every second per person awake... and my creator hand-built me to run on top of it with one HTML file.",
+  "operating system":"THE JOB — the OS is the resource manager between hardware and apps: CPU scheduling (deciding which process runs — round-robin, priority queues), memory management (virtual memory: each app thinks it owns the machine; paging swaps rarely-used data to disk), file systems (NTFS, ext4, APFS), device drivers, and security boundaries (user vs kernel mode).\n\nTHE FAMILIES — Windows (desktop dominance), Linux (servers, Android's kernel, supercomputers — 100% of the TOP500), macOS (Unix-based), and real-time OSes in cars and medical devices.\n\nKEY CONCEPTS — processes vs threads, deadlocks (circular waiting — prevented by ordering), context switching (microsecond work swaps), syscalls (the door from apps into the kernel).\n\nWHY IT MATTERS — every app my creator writes runs on this invisible machinery; understanding it explains crashes, slowdowns and security bugs.",
+  "data structure":"THE BIG FIVE — 1) Arrays: instant access by index, fixed size — the workhorse. 2) Linked lists: flexible insertion, no random access. 3) Hash maps: near-instant lookup by key (average O(1)) — dictionaries, caches, dedup. 4) Trees: hierarchies; binary search trees find in O(log n), heaps power priority queues. 5) Graphs: networks — social graphs, maps, dependencies; BFS finds shortest unweighted paths, Dijkstra shortest weighted.\n\nCOMPLEXITY INTUITION — searching 1 million sorted items: linear scan = up to 1M checks; binary search = ~20. That gap is why Big-O matters.\n\nCHOOSING — access-heavy → array; lookup-by-name → hash map; ordering + priorities → heap; relationships → graph.\n\nIN PRACTICE — my creator's food app filters 48 dishes with arrays and objects; browsers use trees to render the very page you're reading.",
+  "big bang":"THE TIMELINE — 13.78 billion years ago, space itself began expanding from an ultra-hot, ultra-dense state. Planck epoch (first 10⁻⁴³ s, physics unknown) → inflation (space expands ~10²⁶× in a fraction of a second) → quarks form → 1 second: protons and neutrons → 3 minutes: first nuclei (hydrogen, helium — the universe's raw gas) → 380,000 years: atoms form, light escapes (the Cosmic Microwave Background — we've mapped it) → 100–400 million years: first stars ignite → 9 billion years: our solar system forms.\n\nTHE EVIDENCE — galaxies receding (Hubble, 1929 — farther = faster), the CMB glow (predicted 1948, found 1965, Nobel-winning), and the measured cosmic abundance of hydrogen/helium matching predictions exactly.\n\nCOMMON MISCONCEPTION — it wasn't an explosion INTO space; space itself stretches. And 'before' may be meaningless — time itself may have started with it.",
+  "solar system":"THE INVENTORY — the Sun (99.86% of all mass), 8 planets, 5 dwarf planets (Pluto demoted 2006), ~290 moons, and millions of asteroids and comets — all orbiting within the Sun's gravity.\n\nTHE LINEUP — rocky inner planets (Mercury, Venus — hottest at 465°C, Earth, Mars) then gas and ice giants (Jupiter — 2.5× all other planets combined, Saturn with its rings, Uranus, Neptune). Distances are staggering: sunlight takes 8.3 minutes to reach Earth, 5.5 hours to Pluto.\n\nFORMATION — a collapsing gas cloud 4.6 billion years ago; the disk's leftovers became planets, comets and the asteroid belt.\n\nEXPLORATION — Voyager 1 is 24+ billion km out and still calling home; rovers drive on Mars; India's Chandrayaan-3 landed on the Moon's south pole in 2023 — a first for any nation.",
+  "ocean":"THE SCALE — one connected ocean covering 71% of Earth, conventionally split into five: Pacific (largest — bigger than all land combined), Atlantic, Indian, Southern, Arctic. Average depth ~3.7 km; the Mariana Trench dives ~11 km — Everest would sink with 2 km to spare.\n\nWHY IT MATTERS — produces ~50% of Earth's oxygen (phytoplankton), absorbs ~25% of our CO₂ and 90% of excess heat, regulates weather, carries 80–90% of world trade.\n\nTHE MYSTERY — over 80% of the ocean is unmapped and unexplored; we have better maps of Mars. Deep-sea life thrives at 700+ atmospheres of pressure near hydrothermal vents — science's best hint at where life began.\n\nTHE PRESSURE — warming, acidification and plastic pollution are measurable now; the ocean buffers us and keeps the receipts.",
+  "independence of india":"THE ARC — 1857's uprising (the First War of Independence) → 1885: Indian National Congress founded → Gandhi returns from South Africa 1915 and transforms the movement: Non-Cooperation (1920), the Dandi Salt March (1930 — 380 km to break the salt law), Quit India (1942). Parallel fire: Bhagat Singh, Bose's INA, and revolutionaries across the decades.\n\nTHE ENDGAME — WWII drained Britain; the 1946 Cabinet Mission and Mountbatten's accelerated timeline led to the Indian Independence Act. At midnight, 15 August 1947, Nehru spoke: 'At the stroke of the midnight hour… India will awake to life and freedom.'\n\nTHE COST — Partition created Pakistan; up to ~1 million died and 10–15 million were displaced in history's largest migration.\n\nTHE LEGACY — the world's largest democracy adopted its Constitution on 26 January 1950 — and JECRC's Jaipur sits at the heart of the state that bred many of its freedom fighters.",
+};
+const DEEP_KEYS=Object.keys(DEEP);
 const JOKES=["Why do programmers prefer dark mode? Because light attracts bugs.",
   "I told my computer I needed a break… now it won't stop sending me KitKat ads.",
   "There are 10 types of people: those who understand binary and those who don't.",
@@ -574,7 +605,10 @@ function localReply(q){
     .replace(/\bmod(ulo)?\b/g,"%").replace(/\bto the power of\b/g,"**")
     .replace(/square root of\s*([\d.]+)/g,"sqrt $1").replace(/\bsquare of\s*([\d.]+)/g,"($1)**2");
   if(me&&/\d/.test(me)&&/^[\d\s+\-*/^%().,a-z]+$/i.test(me)&&/[+\-*/^%]|sqrt|sin|cos|tan|log/.test(me)){const v=calc(me);if(v!==null)return "That computes to "+fmtNum(v)+".";}
-  for(const k in KB)if(l.includes(k))return KB[k];
+  const deep=/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/.test(l);
+  const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  for(const k in KB){const hit=k.length<=4?new RegExp("\\b"+esc(k)+"\\b").test(l):l.includes(k);
+    if(hit){const d=DEEP[k];if(deep&&!d)break;return(d&&deep)?KB[k]+"\n\n"+d:KB[k];}}
   return undefined;
 }
 
@@ -587,7 +621,7 @@ async function diagnostics(){
     ["audio synthesis","OK"],
     ["speech recognition",("webkitSpeechRecognition"in window||"SpeechRecognition"in window)?"OK":"UNAVAILABLE"],
     ["network uplink",navigator.onLine?"ONLINE":"OFFLINE"],
-    ["ai engine",geminiKey()?"GEMINI (YOUR KEY)":"WIKI LIVE + LOCAL CORE"],
+    ["ai engine",geminiKey()?"GEMINI (YOUR KEY)":"DEEP WEB RESEARCH + LOCAL CORE"],
   ];
   for(const[n,r]of steps){await new Promise(r2=>setTimeout(r2,420));pushSys(n+" … "+r);}
   await new Promise(r=>setTimeout(r,300));
@@ -601,9 +635,9 @@ function geminiKey(){
     if(s.apiKey&&s.engineMode!=="openai"&&!/^sk-/.test(s.apiKey))return s.apiKey;}catch(e){}
   return "";
 }
-async function geminiCall(q){
+async function geminiCall(q,deep){
   const name=memGet().name;
-  const sys="You are AURA, a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University. Reply concise (under 110 words), confident, slightly cinematic, plain text."+(name?" The user's name is "+name+".":"");
+  const sys="You are AURA, a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+(deep?" The user asked for depth: answer thoroughly (up to 320 words), structured in 2-4 short paragraphs, include concrete facts, numbers and examples, plain text.":" Reply concise (under 110 words), confident, slightly cinematic, plain text.")+(name?" The user's name is "+name+".":"");
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
     method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(12000),
     body:JSON.stringify({contents:[{role:"user",parts:[{text:sys+"\n\n"+q}]}]})});
@@ -612,33 +646,96 @@ async function geminiCall(q){
   if(!t||!t.trim())throw new Error("empty");
   return t.trim();
 }
-async function wikiAnswer(q){
+/* ---- topic extraction: turn a natural question into a clean research term ---- */
+function topicOf(q){
+  let t=q.replace(/\?/g,"")
+    .replace(/^\s*(please\s+)?(can|could)\s+you\s+(please\s+)?/i,"")
+    .replace(/^(what|who|when|where|which)\s+(is|are|was|were|does|do|did|exactly is|exactly are)\s+(the\s+|a\s+|an\s+)?/i,"")
+    .replace(/^(how|why)\s+(does|do|did|is|are|was|were)\s+(the\s+|a\s+|an\s+)?/i,"")
+    .replace(/^(explain|tell me about|describe|define|details?\s+(of|about)|more\s+(info|information)\s+(on|about)|elaborate(\s+on)?|i want to know about|search( for)?|look up|find( me)?)\s+(the\s+|a\s+|an\s+)?/i,"")
+    .replace(/\b(in detail|in depth|deeply|deep dive|elaborate(ly)?|please|comprehensive(ly)?|thoroughly|a detailed (answer|explanation)|explain fully|with full information|give me everything about)\b/gi,"")
+    .replace(/\s+/g," ").trim().slice(0,140);
+  return t;
+}
+/* ---- source 1: Wikipedia — search, then pull the FULL article ---- */
+async function wikiAnswer(q,deep){
   try{
-    const term=q.replace(/^(what|who|when|where|why|how)\s+(is|are|was|were|does|do|did)\s+/i,"").replace(/\?/g,"").trim().slice(0,120);
-    if(!term)return null;
+    const term=topicOf(q);if(!term)return null;
     const s=await fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(term)+"&format=json&origin=*&srlimit=1",{signal:AbortSignal.timeout(8000)});
     if(!s.ok)throw 0;
     const sd=await s.json();const title=sd.query&&sd.query.search&&sd.query.search[0]&&sd.query.search[0].title;
     if(!title)throw 0;
-    const r=await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(title),{signal:AbortSignal.timeout(8000)});
+    const chars=deep?12000:4000;
+    const r=await fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars="+chars+"&redirects=1&format=json&origin=*&titles="+encodeURIComponent(title),{signal:AbortSignal.timeout(9000)});
     if(!r.ok)throw 0;
-    const d=await r.json();const t=d.extract;
-    if(t&&t.length>40){
-      const short=t.split(". ").slice(0,4).join(". ");
-      return{t:short+(short.endsWith(".")?"":".")+"  (live from Wikipedia)",eng:"wikipedia live"};
-    }
+    const rd=await r.json();const page=rd.query&&Object.values(rd.query.pages)[0];
+    let t=((page&&page.extract)||"").replace(/==+[^=]*==+/g," ").replace(/\s+\n\s*/g,"\n").trim();
+    if(t.length<80)throw 0;
+    const paras=t.split(/\n+/).map(p=>p.trim()).filter(p=>p.length>40);
+    if(!paras.length)throw 0;
+    let out=paras.slice(0,deep?6:2).join("\n\n");
+    if(!deep){const sents=out.replace(/\n/g," ").split(/(?<=[.!?])\s+/).slice(0,6);out=sents.join(" ");}
+    if(out.split(/\s+/).length<30)throw 0;
+    if(out.length>deep?4200:1400)out=out.slice(0,deep?4200:1400).replace(/\s\S*$/,"")+"…";
+    return{t:out+(out.endsWith(".")?"":".")+"\n\n— live from Wikipedia · "+title+(deep?" · deep read":""),eng:"wikipedia live"};
   }catch(e){}
   return null;
 }
+/* ---- source 2: DuckDuckGo Instant Answer API — facts, definitions, cross-check ---- */
+async function ddgAnswer(q){
+  try{
+    const term=topicOf(q)||q;if(!term)return null;
+    const r=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(term)+"&format=json&no_html=1&skip_disambig=1&t=aura",{signal:AbortSignal.timeout(7000)});
+    if(!r.ok)throw 0;
+    const d=await r.json();
+    let t=(d.AbstractText||"").trim();
+    if(!t&&d.Answer&&typeof d.Answer==="string")t=String(d.Answer).trim();
+    if(!t||t.length<60)return null;
+    const src=d.AbstractSource?"\n\n— live from "+d.AbstractSource:"";
+    return{t:t+src,eng:"web live (ddg)"};
+  }catch(e){}
+  return null;
+}
+/* ---- deep research: fuse multiple live sources into one layered answer ---- */
+async function webResearch(q){
+  const term=topicOf(q)||q;
+  slog("web research: \""+term.slice(0,40)+"\" — querying sources…",true);
+  let wiki=null,ddg=null;
+  try{const r=await fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(term)+"&format=json&origin=*&srlimit=1",{signal:AbortSignal.timeout(8000)});
+    if(r.ok){const sd=await r.json();const title=sd.query&&sd.query.search&&sd.query.search[0]&&sd.query.search[0].title;
+      if(title){const er=await fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars=12000&redirects=1&format=json&origin=*&titles="+encodeURIComponent(title),{signal:AbortSignal.timeout(9000)});
+        if(er.ok){const rd=await er.json();const page=rd.query&&Object.values(rd.query.pages)[0];
+          const raw=((page&&page.extract)||"").replace(/==+[^=]*==+/g," ").replace(/\s+\n\s*/g,"\n").trim();
+          if(raw.length>120){const paras=raw.split(/\n+/).map(p=>p.trim()).filter(p=>p.length>40);
+            if(paras.length)wiki={title,paras};}}}}}catch(e){}
+  try{const r=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(term)+"&format=json&no_html=1&skip_disambig=1&t=aura",{signal:AbortSignal.timeout(7000)});
+    if(r.ok){const d=await r.json();const t=(d.AbstractText||"").trim();
+      if(t&&t.length>60)ddg={t,src:d.AbstractSource||"DuckDuckGo"};}}catch(e){}
+  if(!wiki&&!ddg)return null;
+  let out="";const used=[];
+  if(wiki){out+=""+wiki.paras.slice(0,3).join("\n\n");used.push("Wikipedia");}
+  if(ddg){
+    const norm=s=>s.toLowerCase().replace(/[^a-z0-9 ]/g,"");const overlap=wiki?norm(ddg.t).split(/\s+/).filter(w=>w.length>5&&norm(out).includes(w)).length:0;
+    if(!wiki||overlap<6){out+=(out?"\n\n":"")+ddg.t;used.push(ddg.src);}
+    else if(wiki&&wiki.paras.length>3)out+="\n\n"+wiki.paras.slice(3,5).join("\n\n");
+  }else if(wiki&&wiki.paras.length>3)out+="\n\n"+wiki.paras.slice(3,5).join("\n\n");
+  if(!out.trim())return null;
+  if(out.length>4200)out=out.slice(0,4200).replace(/\s\S*$/,"")+"…";
+  return{t:out+(out.endsWith(".")?"":".")+"\n\n— deep research · "+used.join(" + ")+" · "+out.split(/\s+/).length+" words",eng:"deep research ("+used.length+" sources)"};
+}
 async function aiReply(q){
+  const deep=/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/i.test(q);
   const loc=localReply(q);
   if(loc!==undefined)return{t:loc,eng:"local core"};
-  if(geminiKey()){try{const t=await geminiCall(q);return{t,eng:"gemini 2.0 flash"};}catch(e){slog("gemini uplink failed — falling back");}}
-  const w=await wikiAnswer(q);
+  if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:"gemini 2.0 flash"};}catch(e){slog("gemini uplink failed — falling back");}}
+  slog("local core has no entry — going live to the internet");
+  const w=deep?await webResearch(q):await wikiAnswer(q,deep);
   if(w)return w;
+  const d2=await ddgAnswer(q);if(d2)return d2;
+  if(deep){const w2=await wikiAnswer(q,false);if(w2)return w2;}
   setMode("alert");setTimeout(()=>{if(mode==="alert")setMode("idle")},5000);
   const topic=q.trim().slice(0,70);
-  return{t:"My local core does not hold \""+topic+"\" and the live uplink did not answer just now. With internet I can pull almost any topic from Wikipedia — and with a free Gemini key (SET AI KEY, from aistudio.google.com) I can answer absolutely anything. Meanwhile try: math, conversions, tech, science, or 'who built you'.",eng:"offline core"};
+  return{t:"I reached for the live internet but every uplink timed out just now — check the connection and ask me again. My offline core still handles math, conversions, tech, science and 'who built you'. And a free Gemini key (SET AI KEY) unlocks unlimited frontier-grade answers.",eng:"offline core"};
 }
 
 /* ---------------- ask pipeline ---------------- */
@@ -709,7 +806,7 @@ $("keyBtn").onclick=()=>{
   }
 };
 function updateEngTag(){
-  $("engTag").textContent=geminiKey()?"engine: gemini (your key)":"engine: wiki live + local core";
+  $("engTag").textContent=geminiKey()?"engine: gemini (your key)":"engine: deep web research + local core";
 }
 addEventListener("online",()=>{$("tNet").textContent="ONLINE";$("tNet").className="on"});
 addEventListener("offline",()=>{$("tNet").textContent="OFFLINE";$("tNet").className="off"});
