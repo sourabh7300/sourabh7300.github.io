@@ -130,6 +130,7 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 }
 @media(max-width:400px){.wordmark{font-size:10.5px}#conv{bottom:190px}}
 </style>
+<script src="https://js.puter.com/v2/"></script>
 </head>
 <body>
 
@@ -376,10 +377,10 @@ function addMsg(who,text,cls){
 function pushSys(t){addMsg("SYS","▸ "+t,"sys");slog(t);}
 function typewrite(el,text){
   return new Promise(res=>{
-    if(document.hidden){el.textContent=text;res();return} /* hidden tab: rAF is frozen — finish instantly so busy never sticks */
+    if(document.hidden){el.textContent=text;res();return} /* hidden tab: finish instantly so busy never sticks */
     let i=0;const chunk=Math.max(2,Math.round(text.length/240));
     const step=()=>{i=Math.min(text.length,i+chunk);el.textContent=text.slice(0,i);log.scrollTop=log.scrollHeight;
-      if(i<text.length){document.hidden?(el.textContent=text,res()):requestAnimationFrame(step)}else res();};
+      if(i<text.length){document.hidden?(el.textContent=text,res()):setTimeout(step,16)}else res();};
     step();
   });
 }
@@ -1051,6 +1052,113 @@ function isHinglish(q){
 function isKnowledgeEN(q){
   return /^(what|who|when|where|which|why|how)\b|^explain\b|^describe\b|^define\b|^tell me about\b/i.test(q.trim());
 }
+/* ---------------- THE THINKING BRAIN ----------------
+   Instead of reciting one encyclopedia entry, AURA now works like a person:
+   1. GATHER — pull evidence from several corners of the internet in parallel
+   2. REASON — hand that evidence to a language model (your Gemini key, or free Puter AI)
+              with a strict THINK protocol: analyze what's asked, connect the facts, weigh
+              them, then answer in its own words — never quote a paragraph
+   3. FALL BACK — if no model is reachable, a structured digest of the evidence itself */
+function puterReady(){return typeof window.puter!=="undefined"&&window.puter.ai&&window.puter.ai.chat}
+/* causal-question map: common why/how questions deserve the article that EXPLAINS, not just defines */
+const WHY_MAP={"why is the sky blue":"Rayleigh scattering","why is the sea blue":"Rayleigh scattering","why is the ocean blue":"Rayleigh scattering","why do stars twinkle":"twinkling","why does the sun shine":"solar luminosity","why is the ocean salty":"seawater","why do we yawn":"yawn","why do we dream":"dream","why does it rain":"precipitation","why do leaves change color":"autumn leaf color","why do we sneeze":"sneeze","why do we sleep":"sleep","why is grass green":"chlorophyll","why do we hiccup":"hiccup","how does a plane fly":"lift (force)","how do airplanes fly":"lift (force)","how do vaccines work":"vaccination","how do computers work":"computer","how does the internet work":"internet","how do guns work":"firearm","how does a car engine work":"car engine","why do cats purr":"purr","why do dogs bark":"bark (sound)","why do we blink":"blink","why is blood red":"hemoglobin","why do we sweat":"perspiration","why do volcanoes erupt":"volcano","why do earthquakes happen":"earthquake","why is fire hot":"flame"};
+async function gatherEvidence(term){
+  const jobs=[
+    (async()=>{try{const hits=await wikiCandidates(term);for(const h of hits.slice(0,2)){try{return{k:"Wikipedia",title:h.title,extract:(await wikiSummary(h.title)).extract,url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(h.title.replace(/ /g,"_"))}}catch(e){}}}catch(e){}return null})(),
+    (async()=>{try{const r=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(term)+"&format=json&no_html=1&skip_disambig=1&t=aura",{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;const d=await r.json();const t=(d.AbstractText||"").trim();if(t.length<60)throw 0;return{k:d.AbstractSource||"DuckDuckGo",title:term,extract:t,url:d.AbstractURL}}catch(e){}return null})(),
+    (async()=>{try{const r=await fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=1&exchars=2200&redirects=1&format=json&origin=*&titles="+encodeURIComponent(term),{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;const d=await r.json();const p=Object.values(d.query.pages)[0];const ex=(p.extract||"").trim();if(ex.length<80)throw 0;return{k:"Wikipedia (expanded)",title:p.title,extract:ex,url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title.replace(/ /g,"_"))}}catch(e){}return null})(),
+    (async()=>{try{const r=await fetch("https://api.wiktionary.org/api/rest_v1/page/definition/"+encodeURIComponent(term.split(/\s+/).pop()),{signal:AbortSignal.timeout(7000)});if(!r.ok)throw 0;const d=await r.json();const en=d.en&&d.en[0];const def=en&&((en.definitions||[])[0]||{}).definition;if(!def)throw 0;return{k:"Wiktionary",title:term,extract:def.replace(/<[^>]+>/g,"")}}catch(e){}return null})()
+  ];
+  const res=await Promise.allSettled(jobs);
+  /* dedupe: sources that repeat each other add nothing to the reasoning */
+  const all=res.filter(x=>x.status==="fulfilled"&&x.value).map(x=>x.value);
+  const uniq=[];
+  for(const e of all){
+    const ws=e.extract.toLowerCase().replace(/[^a-z0-9 ]/g,"").split(/\s+/);
+    const dup=uniq.some(u=>{const uw=u.extract.toLowerCase().replace(/[^a-z0-9 ]/g,"").split(/\s+/);const common=ws.filter(w=>uw.includes(w)&&w.length>4).length;return common/ws.length>.6});
+    if(!dup)uniq.push(e);
+  }
+  return uniq;
+}
+async function causalParagraphs(term){ /* for WHY/HOW: dig the explanation out of the full article */
+  try{
+    const r=await fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars=9000&redirects=1&format=json&origin=*&titles="+encodeURIComponent(term),{signal:AbortSignal.timeout(9000)});
+    if(!r.ok)throw 0;
+    const d=await r.json();const p=Object.values(d.query.pages)[0];
+    const raw=((p&&p.extract)||"").replace(/==+[^=]*==+/g," ");
+    const paras=raw.split(/\n+/).map(s=>s.trim()).filter(s=>s.length>180);
+    const keys=["because","due to","caused by","results from","as a result","leads to","which is why","the reason","explains why","why the sky","scatter"];
+    const scored=paras.map(s=>({s,sc:keys.filter(k=>s.toLowerCase().includes(k)).length})).filter(x=>x.sc>0);
+    scored.sort((a,b)=>b.sc-a.sc);
+    return scored.slice(0,2).map(x=>x.s);
+  }catch(e){}
+  return [];
+}
+function buildThinkPrompt(q,term,evs,deep,hi){
+  const ev=evs.map((e,i)=>"[SOURCE "+(i+1)+": "+e.k+"]\n"+e.extract.slice(0,deep?2600:1400)).join("\n\n");
+  return "You are AURA, a thinking AI with a warm, slightly cinematic personality, built by Sourabh Singh (B.Tech CSE, JECRC University)."+
+    (hi?" The user asked in Hindi/Hinglish — REPLY ENTIRELY IN HINDI (देवनागरी).":" Reply in the user's language.")+
+  "\n\nA real assistant thinks before answering. Follow this protocol:\n"+
+  "1. UNDERSTAND — What is the user really asking? Notice intent, not just keywords.\n"+
+  "2. CONNECT — Read the live sources below. Decide which facts actually answer the question. Connect them; notice cause and effect, context, and what matters to a curious human.\n"+
+  "3. JUDGE — If sources disagree or are thin, say so honestly in one line.\n"+
+  "4. ANSWER — In your OWN words, like explaining to a smart friend. Never say 'according to Wikipedia'. Give the direct answer first, then the interesting reasoning behind it."+
+  (deep?" Depth requested: 3-4 short paragraphs, include numbers, examples and the 'why it matters'.":" Under 130 words. Lead with the answer.")+
+  " Plain text only — no markdown, no headings, no bullet lists."+
+  "\n\nUSER QUESTION: "+q+
+  "\nEXTRACTED TOPIC: "+term+
+  "\n\nLIVE SOURCES GATHERED SECONDS AGO:\n"+ev+
+  "\n\nNow think and answer.";
+}
+async function thinkAnswer(q,deep,hi){
+  const isWhy0=/^(why|how come)\b/i.test(q)||/क्यों/i.test(q);
+  const isHow0=/^how\b/i.test(q)||/कैसे/i.test(q);
+  let term=topicOf(q)||q;
+  if(isWhy0||isHow0){
+    const lq=q.toLowerCase().replace(/\?/g,"");
+    const hit=Object.keys(WHY_MAP).find(k=>lq.includes(k));
+    if(hit){term=WHY_MAP[hit];slog("causal question → reasoning over: "+term,true)}
+  }
+  slog("thinking: gathering evidence for \""+term.slice(0,40)+"\"…",true);
+  const evs=await gatherEvidence(term);
+  slog(evs.length?"evidence from "+evs.length+' source'+(evs.length>1?"s":"")+" — reasoning…":"no evidence yet — reasoning from my own knowledge…",true);
+  const prompt=buildThinkPrompt(q,term,evs,deep,hi);
+  if(geminiKey()){
+    try{
+      const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
+        method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(20000),
+        body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}]})});
+      if(r.ok){const d=await r.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text;
+        if(t&&t.trim()){const src=evs.find(e=>e.url);return{t:t.trim()+(src?"\n\n🔗 "+src.url:""),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + live evidence ("+evs.length+" sources)",src:src&&src.url}}}
+    }catch(e){slog("gemini thinking failed — trying puter",true)}
+  }
+  if(puterReady()){
+    try{
+      const rr=await Promise.race([
+        window.puter.ai.chat(prompt),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error("puter timeout")),16000))
+      ]);
+      const t=typeof rr==="string"?rr:(rr&&rr.message&&rr.message.content||rr&&rr.text||"");
+      if(t&&t.trim()){const src=evs.find(e=>e.url);return{t:t.trim()+(src?"\n\n🔗 "+src.url:""),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + puter free AI ("+evs.length+" sources)",src:src&&src.url}}
+    }catch(e){slog("puter thinking unavailable — structural reasoning engaged",true)}
+  }
+  /* No model reachable — still THINK structurally: lead answer + causal reasoning for why/how + added context */
+  if(evs.length){
+    const isWhy=/^(why|how come)\b/i.test(q)||/kỹo|क्यों/i.test(q);
+    const isHow=/^how\b/i.test(q)||/कैसे/i.test(q);
+    const lead=evs[0];let out=lead.extract;
+    if(isWhy||isHow){
+      const causal=await causalParagraphs(term);
+      if(causal.length){out+="\n\n"+(isWhy?"WHY IT HAPPENS — ":"HOW IT WORKS — ")+causal.join("\n\n");}
+      else if(/^(why|how)\b/i.test(q)){out="Here's what my sources give me, honestly: "+out+"\n\n(I couldn't reach a reasoning model for the deeper 'why' — a free Gemini key via SET AI KEY unlocks my full thinking brain.)";}
+    }
+    for(const o of evs.slice(1,3)){const words=o.extract.toLowerCase().split(/\s+/).filter(w=>w.length>6);const fresh=words.filter(w=>!out.toLowerCase().includes(w)).length; if(fresh>12)out+="\n\n"+o.extract;}
+    if(out.length>2800)out=out.slice(0,2800).replace(/\s\S*$/,"")+"…";
+    const src=evs.find(e=>e.url);
+    return{t:out+(src?"\n\n— gathered from "+evs.length+" live source"+(evs.length>1?"s":"")+"\n🔗 "+src.url:""),eng:"live evidence + structural reasoning",src:src&&src.url};
+  }
+  return null;
+}
 async function aiReply(q){
   const deep=/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/i.test(q);
   detectedLang=detectLang(q)==="hi"?"hi":"en";
@@ -1065,8 +1173,10 @@ async function aiReply(q){
   const hiMode=detectedLang==="hi";
   const rc=resolveContext(q);if(rc!==q)q=rc;
   if(knowledge){
+    /* THE THINKING BRAIN FIRST — gather live evidence, then reason over it in human fashion */
+    const th=await thinkAnswer(q,deep,hiMode);if(th)return th;
     if(hiMode){const hw=await hiWikiAnswer(q,deep);if(hw)return hw;}
-    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:"gemini 2.0 flash"};}catch(e){slog("gemini uplink failed — trying live web");}}
+    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:"gemini 2.0 flash (direct)"};}catch(e){slog("gemini uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
     const d2=await ddgAnswer(q);if(d2)return d2;
