@@ -403,7 +403,7 @@ function speak(t){
     const gen=++speakGen; /* any new speak() kills every older chain — no ghost speech */
     ttsActive=true;lastSpoken=t;lastSpokeAt=Date.now();
     if(typeof wake!=="undefined"&&wake&&typeof listening!=="undefined"&&listening){try{recog.abort()}catch(e){}}
-    const clean=t.replace(/[#*_▸►`_]/g,"");
+    const clean=t.replace(/SOURCES:[\s\S]*$/,"").replace(/\[\d+\]/g,"").replace(/🔗 ?https?:\S+/g,"").replace(/[#*_▸►`_]/g,"");
     const parts=[];const keep=[];let rest=clean;
     while(rest.length){
       if(rest.length<=190){parts.push(rest);break}
@@ -1104,11 +1104,22 @@ function buildThinkPrompt(q,term,evs,deep,hi){
   "3. JUDGE — If sources disagree or are thin, say so honestly in one line.\n"+
   "4. ANSWER — In your OWN words, like explaining to a smart friend. Never say 'according to Wikipedia'. Give the direct answer first, then the interesting reasoning behind it."+
   (deep?" Depth requested: 3-4 short paragraphs, include numbers, examples and the 'why it matters'.":" Under 130 words. Lead with the answer.")+
+  "5. CITE — put the marker [1], [2] or [3] immediately after any fact you took from SOURCE 1, SOURCE 2 or SOURCE 3. Use the same numbers as the sources. Do not add any source list yourself — I attach it."+
   " Plain text only — no markdown, no headings, no bullet lists."+
   "\n\nUSER QUESTION: "+q+
   "\nEXTRACTED TOPIC: "+term+
   "\n\nLIVE SOURCES GATHERED SECONDS AGO:\n"+ev+
   "\n\nNow think and answer.";
+}
+/* attach a SOURCES block listing the sources actually cited with [n] markers (or the top sources if none cited) */
+function attachCitations(t,evs){
+  if(!evs||!evs.length)return t;
+  let out=String(t).replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,"$1 ($2)"); /* flatten any markdown links */
+  const used=new Set();
+  (out.match(/\[(\d+)\]/g)||[]).forEach(m=>{const n=+m.slice(1,-1);if(n>=1&&n<=evs.length)used.add(n)});
+  const idx=used.size?[...used].sort((a,b)=>a-b):evs.slice(0,Math.min(evs.length,3)).map((_,i)=>i+1);
+  const lines=idx.map(n=>{const e=evs[n-1];return "["+n+"] "+e.k+(e.title?" — "+e.title:"")+(e.url?"\n    "+e.url:"")});
+  return out+"\n\nSOURCES:\n"+lines.join("\n");
 }
 async function thinkAnswer(q,deep,hi){
   const isWhy0=/^(why|how come)\b/i.test(q)||/क्यों/i.test(q);
@@ -1129,7 +1140,7 @@ async function thinkAnswer(q,deep,hi){
         method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(20000),
         body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}]})});
       if(r.ok){const d=await r.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text;
-        if(t&&t.trim()){const src=evs.find(e=>e.url);return{t:t.trim()+(src?"\n\n🔗 "+src.url:""),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + live evidence ("+evs.length+" sources)",src:src&&src.url}}}
+        if(t&&t.trim()){const src=evs.find(e=>e.url);return{t:attachCitations(t.trim(),evs),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + live evidence ("+evs.length+" sources)",src:src&&src.url}}}
     }catch(e){slog("gemini thinking failed — trying puter",true)}
   }
   if(puterReady()){
@@ -1139,7 +1150,7 @@ async function thinkAnswer(q,deep,hi){
         new Promise((_,rej)=>setTimeout(()=>rej(new Error("puter timeout")),16000))
       ]);
       const t=typeof rr==="string"?rr:(rr&&rr.message&&rr.message.content||rr&&rr.text||"");
-      if(t&&t.trim()){const src=evs.find(e=>e.url);return{t:t.trim()+(src?"\n\n🔗 "+src.url:""),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + puter free AI ("+evs.length+" sources)",src:src&&src.url}}
+      if(t&&t.trim()){const src=evs.find(e=>e.url);return{t:attachCitations(t.trim(),evs),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + puter free AI ("+evs.length+" sources)",src:src&&src.url}}
     }catch(e){slog("puter thinking unavailable — structural reasoning engaged",true)}
   }
   /* No model reachable — still THINK structurally: lead answer + causal reasoning for why/how + added context */
@@ -1152,10 +1163,10 @@ async function thinkAnswer(q,deep,hi){
       if(causal.length){out+="\n\n"+(isWhy?"WHY IT HAPPENS — ":"HOW IT WORKS — ")+causal.join("\n\n");}
       else if(/^(why|how)\b/i.test(q)){out="Here's what my sources give me, honestly: "+out+"\n\n(I couldn't reach a reasoning model for the deeper 'why' — a free Gemini key via SET AI KEY unlocks my full thinking brain.)";}
     }
-    for(const o of evs.slice(1,3)){const words=o.extract.toLowerCase().split(/\s+/).filter(w=>w.length>6);const fresh=words.filter(w=>!out.toLowerCase().includes(w)).length; if(fresh>12)out+="\n\n"+o.extract;}
+    evs.slice(1,3).forEach((o,j)=>{const words=o.extract.toLowerCase().split(/\s+/).filter(w=>w.length>6);const fresh=words.filter(w=>!out.toLowerCase().includes(w)).length; if(fresh>12)out+="\n\n["+(j+2)+"] "+o.extract;});
     if(out.length>2800)out=out.slice(0,2800).replace(/\s\S*$/,"")+"…";
     const src=evs.find(e=>e.url);
-    return{t:out+(src?"\n\n— gathered from "+evs.length+" live source"+(evs.length>1?"s":"")+"\n🔗 "+src.url:""),eng:"live evidence + structural reasoning",src:src&&src.url};
+    return{t:attachCitations(out,evs),eng:"live evidence + structural reasoning",src:src&&src.url};
   }
   return null;
 }
