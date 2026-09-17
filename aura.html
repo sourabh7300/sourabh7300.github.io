@@ -1242,8 +1242,8 @@ async function aiReply(q){
 }
 
 /* ---------------- ask pipeline ---------------- */
-let busy=false,askAt=0;
-async function ask(text){
+let busy=false,askAt=0,qQueue=[];
+async function askCore(text){
   /* instant-silence is an INTERRUPT — it must work even while AURA is busy/speaking */
   if(/^(?:shut up|stop talking|be quiet|silence|silent mode|chup|chup ho jao|चुप\s*हो\s*जाओ|चुप|रुक\s*जाओ|रुको)\b/i.test((text||'').trim())){
     stopSpeech();voiceSessionUntil=0;
@@ -1304,6 +1304,27 @@ async function ask(text){
   blip(520,.1,"triangle");
   busy=false;
   if(wake)armWake(400);
+}
+/* QUEUE WRAPPER — no command is ever silently dropped. While she's thinking,
+   new commands line up and run the moment she's free. "Shut up" still jumps the line. */
+async function askRunner(t){
+  try{await askCore(t)}catch(e){setMode("idle")}
+  busy=false;
+  if(qQueue.length){const n=qQueue.shift();setTimeout(()=>ask(n),150)}
+}
+function ask(text){
+  const t=(text||"").trim();if(!t)return;
+  try{$("q").value=""}catch(e){} /* always clear the input box on submit, any path */
+  if(/^(?:shut up|stop talking|be quiet|silence|silent mode|chup|chup ho jao|चुप\s*हो\s*जाओ|चुप|रुक\s*जाओ|रुको)\b/i.test(t)){
+    stopSpeech();voiceSessionUntil=0;qQueue=[];
+    addMsg("AURA ▸","Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey Aura'.","aura");
+    pushSys("voice muted by command");
+    setMode("idle");busy=false;return;}
+  if(busy){
+    if(qQueue[qQueue.length-1]!==t){qQueue.push(t);pushSys("queued, boss — I'll take it the moment I'm done thinking")}
+    return;
+  }
+  askRunner(t);
 }
 
 /* ---------------- mic ---------------- */
@@ -1481,7 +1502,8 @@ const TASKS={
   open:{re:/^(?:hey aura[, ]*)?(?:open|launch|start)\s+(.+?)[.?!]?$/i,
     go:m=>{const t=m[1].toLowerCase().trim();const map={portfolio:"portfolio.html",foodora:"foodora.html",mercedes:"mercedes.html",lucid:"lucid.html","photo studio":"lucid.html","photo editor":"lucid.html",quantum:"quantum.html",sre:"sre.html",groundwork:"groundwork.html",cloudpilot:"cloudpilot.html"};
       const f=map[t];
-      if(f){try{const x=new XMLHttpRequest();x.open("HEAD",f,false);x.send();if(x.status!==200)return"I can't find "+f+" — keep it in my folder."}catch(e){return"I can't reach "+f+" from here."}
+      if(f){
+        if(location.protocol!=="file:"){try{const x=new XMLHttpRequest();x.open("HEAD",f,false);x.send();if(x.status!==200)return"I can't find "+f+" — keep it in my folder."}catch(e){return"I can't reach "+f+" from here."}}
         window.open(f,"_blank");return"Opening "+t+" in a new tab, boss."}
       const site=/^(?:www\.)?[a-z0-9-]+\.[a-z]{2,}$/.test(t)?"https://"+t:"";
       if(site){window.open(site,"_blank");return"Opening "+t+" in a new tab, boss."}
@@ -1531,6 +1553,7 @@ function taskCommand(raw){
   if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")){setTimeout(show,3200)}
   document.getElementById("keyBtn").addEventListener("click",()=>{try{sessionStorage.removeItem("wiz_dismissed")}catch(e){}setTimeout(show,150)});
 })();
+if(location.protocol==="file:"){setTimeout(()=>pushSys("local-file mode — mic & voice need the live site (sourabh7300.github.io) or a local server"),3500)}
 updateEngTag();
 </script>
 </body>
