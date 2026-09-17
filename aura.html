@@ -129,10 +129,45 @@ canvas#fx{position:fixed;inset:0;z-index:0}
   .ibtn{font-size:9px;padding:6px 10px}
 }
 @media(max-width:400px){.wordmark{font-size:10.5px}#conv{bottom:190px}}
+/* ---------------- jarvis setup wizard ---------------- */
+.wiz{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;background:rgba(2,8,14,.82);backdrop-filter:blur(6px)}
+.wiz.show{display:flex}
+.wiz-card{width:min(560px,92vw);max-height:88vh;overflow:auto;background:linear-gradient(160deg,#0b1520,#071018);border:1px solid #1e3a4d;border-radius:14px;padding:26px 26px 20px;box-shadow:0 0 60px rgba(34,211,238,.16);font-family:inherit}
+.wiz-tag{font-size:10px;letter-spacing:.28em;color:#22d3ee;text-transform:uppercase}
+.wiz-h{font-size:21px;font-weight:700;color:#e8fbff;margin:8px 0 4px}
+.wiz-p{font-size:12.5px;color:#9fc3d2;line-height:1.55;margin:0 0 14px}
+.wiz-step{display:flex;gap:10px;align-items:flex-start;margin:9px 0;font-size:12.5px;color:#cfe9f3;line-height:1.45}
+.wiz-step b{color:#22d3ee}
+.wiz-n{flex:0 0 20px;height:20px;border-radius:50%;border:1px solid #1e4a5d;color:#22d3ee;display:flex;align-items:center;justify-content:center;font-size:11px;margin-top:1px}
+.wiz-in{width:100%;box-sizing:border-box;margin:12px 0 4px;background:#06121b;border:1px solid #1e4a5d;border-radius:9px;color:#e8fbff;padding:11px 13px;font-size:13px;font-family:'JetBrains Mono',monospace}
+.wiz-in:focus{outline:none;border-color:#22d3ee}
+.wiz-row{display:flex;gap:10px;margin-top:12px}
+.wiz-btn{flex:1;padding:11px;border-radius:9px;border:0;cursor:pointer;font-weight:700;font-size:13px;letter-spacing:.04em;background:linear-gradient(135deg,#22d3ee,#0ea5b7);color:#03212a}
+.wiz-btn.ghost{flex:0 0 auto;background:transparent;border:1px solid #24505f;color:#8fb7c6;font-weight:500}
+.wiz-why{font-size:11px;color:#6f9aab;margin-top:12px;line-height:1.5}
+.wiz-x{position:absolute;top:10px;right:14px;background:none;border:0;color:#5f8b9c;font-size:18px;cursor:pointer}
+.wiz-wrap{position:relative}
 </style>
 <script src="https://js.puter.com/v2/"></script>
 </head>
 <body>
+<div class="wiz" id="wiz">
+  <div class="wiz-card wiz-wrap">
+    <button class="wiz-x" id="wizX" title="Later">✕</button>
+    <div class="wiz-tag">system requisition · clearance granted</div>
+    <div class="wiz-h">Unlock full JARVIS mode 🧠</div>
+    <p class="wiz-p">One free key gives me a real reasoning brain — I'll <b>think, plan and speak</b> with full knowledge instead of short web summaries. Takes 60 seconds, no card, no signup beyond your Google account.</p>
+    <div class="wiz-step"><span class="wiz-n">1</span><span>Open <b>aistudio.google.com/app/apikey</b> in a new tab (sign in with Google)</span></div>
+    <div class="wiz-step"><span class="wiz-n">2</span><span>Click <b>“Create API key”</b> → copy it (starts with <b>AIza…</b>)</span></div>
+    <div class="wiz-step"><span class="wiz-n">3</span><span>Paste it below and hit <b>ACTIVATE</b> — I'll do the rest, boss.</span></div>
+    <input class="wiz-in" id="wizKey" type="password" placeholder="AIza…" autocomplete="off">
+    <div class="wiz-row">
+      <button class="wiz-btn" id="wizGo">⚡ ACTIVATE JARVIS MODE</button>
+      <button class="wiz-btn ghost" id="wizLater">Later</button>
+    </div>
+    <div class="wiz-why">Why I need this: without it I can still research the web, but the reasoning model sometimes needs a sign-in popup your browser blocks — with your own key I think instantly, every time. The key stays in this browser only.</div>
+  </div>
+</div>
 
 <canvas id="fx"></canvas>
 <div id="scan"></div><div id="vig"></div>
@@ -466,7 +501,7 @@ const KB={
   "who made you":"I was built by Sourabh Singh, a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation.",
   "your creator":"My creator is Sourabh Singh — B.Tech CSE, JECRC University. He built me entirely from scratch: no frameworks, no engines, one file.",
   "sourabh":"Sourabh Singh — my creator. B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. He hand-coded my holographic core, my voice pipeline and my brain in a single HTML file.",
-  "what can you do":"I can answer almost anything: math and unit conversions, tech and science questions, and for anything else I run live deep research — searching Wikipedia and the wider web, cross-checking sources and fusing them into one complete answer. I speak my answers too. Say 'open portfolio' to launch his projects, or 'run diagnostics' to scan me.",
+  "what can you do":"I'm Jarvis-grade, boss. COMMANDS I execute: 'google quantum computing' or 'youtube iron man trailer' — I search the web for you · 'set a timer for 10 minutes' · 'note: project due friday' and 'read my notes' · 'open lucid' or 'open portfolio' · 'go to github.com' · math and unit conversions · 'weather in Jaipur' · 'run diagnostics'. KNOWLEDGE: ask me anything and I gather live evidence from the internet, think it through and answer with cited sources. Tap SET AI KEY for my full reasoning brain.",
   "jecrc":"JECRC University is in Jaipur, Rajasthan — where my creator Sourabh Singh studies B.Tech CSE.",
   "b.tech":"B.Tech is a four-year engineering degree. My creator studies the Computer Science track with AI, DevOps and Cloud Automation.",
   "portfolio":"Sourabh's portfolio is a single page that live-embeds six of his web apps — including me. Say 'open portfolio' and I'll launch it.",
@@ -1215,6 +1250,11 @@ async function ask(text){
     addMsg("AURA ▸","Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey Aura'.","aura");
     pushSys("voice muted by command");
     setMode("idle");busy=false;return;}
+  /* JARVIS TASK ENGINE — do things, not just say things */
+  const tk=taskCommand(text);
+  if(tk){pushSys("task executed · "+tk.eng.split("· ")[1]);$("engTag").textContent="engine: "+tk.eng;$("tEng").textContent="TASK";
+    addMsg("AURA ▸",tk.t,"aura");if(voiceAllowed())speak(tk.t);blip(660,.09);
+    setMode("idle");busy=false;if(wake)armWake(400);return;}
   if(busy||!text.trim())return;
   busy=true;askAt=Date.now();$("q").value="";
   addMsg("YOU ▸",text,"user");blip(740,.08);
@@ -1385,17 +1425,7 @@ if(matchMedia("(max-width:860px)").matches){
 }
 $("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent="SOUND: "+(soundOn?"ON":"OFF");if(!soundOn)stopSpeech();if(mode==="speaking")setMode("idle")};
 $("fsBtn").onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})};
-$("keyBtn").onclick=()=>{
-  const k=prompt("Paste your free Google Gemini API key (aistudio.google.com). This unlocks unlimited answers for AURA — and is shared with Sense automatically. Leave empty to clear.",geminiKey());
-  if(k!==null){
-    const key=k.trim();
-    key?localStorage.setItem("aura_key",key):localStorage.removeItem("aura_key");
-    try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");
-      s.apiKey=key;s.engineMode=key?"gemini":"auto";
-      localStorage.setItem("sense_settings_v4",JSON.stringify(s));}catch(e){}
-    pushSys("ai key "+(key?"saved — gemini engaged (shared with Sense)":"cleared — wiki live + local core"));updateEngTag();
-  }
-};
+/* SET AI KEY now opens the Jarvis setup wizard (handler registered with the wizard below) */
 function updateEngTag(){
   $("engTag").textContent=geminiKey()?"engine: gemini (your key)":"engine: deep web research + local core";
 }
@@ -1431,6 +1461,75 @@ const BOOT=["> AURA OS v3.1 — initializing neural core","> personality matrix 
     setTimeout(()=>{const n=memGet().name;const msg=greetWord()+(n?", "+n:"")+". AURA online — neural link established. Tap the mic and speak, or type below.";const el2=addMsg("AURA ▸","","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
   $("boot").addEventListener("click",end,{once:true});
   setTimeout(end,2600);
+})();
+/* ================= JARVIS TASK ENGINE ================= */
+/* "Do things, don't just say things." — searches, clocks, notes, timers, pages, app launches, unit/math one-shots. */
+const TASKS={
+  search:{re:/^(?:hey aura[, ]*)?(?:please )?(?:google|search(?: for| the web for)?|look up|youtube|yt)\s+(?:for\s+)?(.+?)(?:\s+(?:for me|on youtube|on google|in google))?[.?!]?$/i,
+    go:m=>{const q=m[1].trim();const yt=/^(?:youtube|yt)\b/i.test(m.input);const url=yt?"https://www.youtube.com/results?search_query="+encodeURIComponent(q):"https://www.google.com/search?q="+encodeURIComponent(q);
+      window.open(url,"_blank");return"Opening "+(yt?"YouTube":"Google")+" results for “"+q+"”, boss."}},
+  clock:{re:/^(?:hey aura[, ]*)?set (?:an? )?(?:alarm|timer) (?:for )?(\d{1,3})\s*(min(?:ute)?s?|m|h(?:our)?s?)(?:\s+(?:for|titled)\s+(.+))?[.?!]?$/i,
+    go:m=>{const n=+m[1];const unit=m[2][0].toLowerCase();const ms=unit==="h"?n*3600000:n*60000;const label=m[3]||"timer";
+      setTimeout(()=>{blip(880,.35);setTimeout(()=>blip(1175,.35),450);pushSys("⏰ "+label+" done");const t="Time's up, boss — "+label+".";addMsg("AURA ▸",t,"aura");if(voiceAllowed())speak(t)},ms);
+      return"Timer set — "+n+(unit==="h"?" hour(s)":" minute(s)")+(m[3]?" for "+m[3]:"")+". I'll ping you when it's done."}},
+  note:{re:/^(?:hey aura[, ]*)?(?:note|remember|save)(?: (?:this|that|it))?(?: down)?:?\s*(.+)$/i,
+    go:m=>{try{const n=JSON.parse(localStorage.getItem("aura_notes")||"[]");n.push({t:m[1].trim(),d:Date.now()});localStorage.setItem("aura_notes",JSON.stringify(n));return"Noted, boss: “"+m[1].trim().slice(0,80)+"” — kept in this browser."}catch(e){return"I couldn't store the note (storage blocked)."}}},
+  recap:{re:/^(?:hey aura[, ]*)?(?:what are my notes|read (?:my )?notes|recap notes|show notes)\??$/i,
+    go:()=>{try{const n=JSON.parse(localStorage.getItem("aura_notes")||"[]");if(!n.length)return"No notes yet — say 'note: buy milk' and I'll remember it.";return"Your notes, boss:\n"+n.slice(-8).map((x,i)=>(i+1)+". "+x.t).join("\n")}catch(e){return"No notes yet."}}},
+  clearNotes:{re:/^(?:hey aura[, ]*)?(?:clear|delete) (?:my )?notes$/i,
+    go:()=>{localStorage.removeItem("aura_notes");return"Notes cleared, boss."}},
+  open:{re:/^(?:hey aura[, ]*)?(?:open|launch|start)\s+(.+?)[.?!]?$/i,
+    go:m=>{const t=m[1].toLowerCase().trim();const map={portfolio:"portfolio.html",foodora:"foodora.html",mercedes:"mercedes.html",lucid:"lucid.html","photo studio":"lucid.html","photo editor":"lucid.html",quantum:"quantum.html",sre:"sre.html",groundwork:"groundwork.html",cloudpilot:"cloudpilot.html"};
+      const f=map[t];
+      if(f){try{const x=new XMLHttpRequest();x.open("HEAD",f,false);x.send();if(x.status!==200)return"I can't find "+f+" — keep it in my folder."}catch(e){return"I can't reach "+f+" from here."}
+        window.open(f,"_blank");return"Opening "+t+" in a new tab, boss."}
+      const site=/^(?:www\.)?[a-z0-9-]+\.[a-z]{2,}$/.test(t)?"https://"+t:"";
+      if(site){window.open(site,"_blank");return"Opening "+t+" in a new tab, boss."}
+      return null}},
+  site:{re:/^(?:hey aura[, ]*)?(?:go to|visit|open site)\s+((?:www\.)?[a-z0-9-]+\.[a-z]{2,})(?:\s+(?:for me|please))?[.?!]?$/i,
+    go:m=>{window.open("https://"+m[1].replace(/^www\./,""),"_blank");return"Opening "+m[1]+", boss."}},
+  time:{re:/^(?:hey aura[, ]*)?what(?:'s| is) the time(?: right now)?\??[.?!]?$/i,
+    go:()=>"It's "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+" right now."},
+  date:{re:/^(?:hey aura[, ]*)?what(?:'s| is) (?:the |today'?s )?date(?: today)?\??$/i,
+    go:()=>"Today is "+new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"})+"."},
+  math:{re:/^(?:hey aura[, ]*)?what(?:'s| is)\s+([\d\s+.\-*/%^()]+)\??$/,
+    go:m=>{try{const val=Function('"use strict";return('+m[1].replace(/\^/g,"**")+')')();if(!isFinite(val))return null;return m[1].trim()+" = "+val}catch(e){return null}}},
+  convert:{re:/^(?:hey aura[, ]*)?convert\s+([\d.]+)\s*(km|miles?|kg|lb|lbs|c|°c|f|°f)\s*(?:to|in|into)\s*(km|miles?|kmh|km\/h|mph|kg|lb|lbs|c|f)\??$/i,
+    go:m=>{const v=+m[1];const a=m[2].toLowerCase().replace("°",""),b=m[3].toLowerCase().replace("°","");const km2mi=x=>x*.621371,mi2km=x=>x/0.621371,kg2lb=x=>x*2.20462,lb2kg=x=>x/2.20462,c2f=x=>x*9/5+32,f2c=x=>(x-32)*5/9,kmh2mph=x=>x*0.621371,mph2kmh=x=>x/0.621371;
+      const map={"km>miles":km2mi,"miles>km":mi2km,"kg>lb":kg2lb,"kg>lbs":kg2lb,"lbs>kg":lb2kg,"lb>kg":lb2kg,"c>f":c2f,"f>c":f2c,"kmh>mph":kmh2mph,"mph>kmh":mph2kmh};
+      const fn=map[a+">"+b];if(!fn)return null;return v+" "+m[2]+" = "+(Math.round(fn(v)*100)/100)+" "+m[3]}},
+  quit:{re:/^(?:hey aura[, ]*)?(?:quit|close|cancel|forget it|nevermind|never mind)\??$/i,
+    go:()=>"Standing down, boss. Ask me anything else."}
+};
+function taskCommand(raw){
+  const text=(raw||"").trim();
+  if(!text)return null;
+  for(const k of Object.keys(TASKS)){
+    const t=TASKS[k];const m=text.match(t.re);
+    if(m){const r=t.go(m);if(r!==null&&r!==undefined)return{t:r,eng:"task engine · "+k}}
+  }
+  return null;
+}
+/* ================= JARVIS SETUP WIZARD ================= */
+(function(){
+  const wiz=document.getElementById("wiz"),inp=document.getElementById("wizKey");
+  if(!wiz||!inp)return;
+  const show=()=>{wiz.classList.add("show");setTimeout(()=>inp.focus(),150)};
+  const hide=()=>wiz.classList.remove("show");
+  document.getElementById("wizGo").onclick=()=>{
+    const k=inp.value.trim();
+    if(!k){inp.focus();return}
+    localStorage.setItem("aura_key",k);
+    try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");s.apiKey=k;s.engineMode="gemini";localStorage.setItem("sense_settings_v4",JSON.stringify(s))}catch(e){}
+    hide();updateEngTag();pushSys("⚡ full jarvis mode engaged — reasoning brain online");
+    addMsg("AURA ▸","Full power, boss 🧠 — reasoning brain online. Ask me anything, or command me: 'google quantum computing', 'set a timer for 10 minutes', 'note: project due friday', 'open lucid'.","aura");
+  };
+  document.getElementById("wizLater").onclick=hide;
+  document.getElementById("wizX").onclick=hide;
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("wizGo").click()});
+  ["wizLater","wizX"].forEach(id=>document.getElementById(id).addEventListener("click",()=>{try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}}));
+  if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")){setTimeout(show,3200)}
+  document.getElementById("keyBtn").addEventListener("click",()=>{try{sessionStorage.removeItem("wiz_dismissed")}catch(e){}setTimeout(show,150)});
 })();
 updateEngTag();
 </script>
