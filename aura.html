@@ -368,6 +368,7 @@ const log=$("log");
 function addMsg(who,text,cls){
   const d=document.createElement("div");d.className="msg "+cls;
   d.innerHTML='<span class="who">'+who+'</span><span class="tx"></span>';
+  if(text)d.querySelector(".tx").textContent=text; /* fill immediately — launch/batch replies have no typewriter */
   log.appendChild(d);while(log.children.length>40)log.firstChild.remove();
   log.scrollTop=log.scrollHeight;
   return d.querySelector(".tx");
@@ -466,7 +467,7 @@ const KB={
   "foodora":"FOODORA is a full food-delivery platform: 12 restaurants, 48 dishes, live GPS maps, cart and checkout, and recipes in English, Hindi and Spanish.",
   "mercedes":"The Mercedes-Benz showcase is a cinematic luxury automotive landing page — premium design and scroll animations.",
   "aura":"That's me — a holographic AI with a 560-particle 3D core, voice interface, live telemetry and a three-layer brain, all in one hand-written file.",
-  "lucid":"Lucid is Sourabh's Photo Studio — a desktop-class editor with layer compositing, batch processing (resize + watermark + export in bulk), real-time pixel engines like curves, clarity and bloom, a live histogram, and a built-in SENSE camera bridge. Say 'open lucid' or 'open photo studio' and I'll launch it.",
+  "lucid":"Lucid is Sourabh's Photo Studio — a desktop-class editor with layer compositing, batch processing (resize + watermark + export in bulk), real-time pixel engines like curves, clarity and bloom, a live histogram, and a built-in SENSE camera bridge. Say 'open lucid' to launch it, or 'batch resize my photos' and I'll open the batch processor directly.",
   "api key":"An API key is a secret token that identifies you to an API. My creator uses a free Gemini key from aistudio.google.com — press SET AI KEY to give me one and my answers become frontier-grade.",
   "api":"An API (Application Programming Interface) is a contract that lets two programs talk — you send a request, it sends structured data back.",
   "javascript":"JavaScript is the programming language of the web — it runs in every browser. My entire brain, core and voice are written in it.",
@@ -1085,13 +1086,24 @@ async function ask(text){
   if(busy||!text.trim())return;
   busy=true;$("q").value="";
   addMsg("YOU ▸",text,"user");blip(740,.08);
+  /* batch-processing intent → open Lucid's batch processor with a deep-link */
+  if(/\b(batch|bulk)\b[\s\S]{0,30}?\b(resize|process|photos?|images?|pictures?|edit)\b|\b(resize|process)\b\s+(my|all|the|these)\s+(photos?|images?|pictures?)/i.test(text)){
+    pushSys("launching lucid batch processor…");
+    const say=t=>{addMsg("AURA ▸",t,"aura");speak(t)};
+    try{const h=await fetch("lucid.html",{method:"HEAD"});
+      if(h.ok){window.open("lucid.html#batch","_blank");say("Batch processor ready in Lucid 📸 — pick your photos there. It applies your current look, auto-resizes for web and downloads every photo as JPEG. Say 'open lucid' any time to edit one at a time.");}
+      else say("I can't find lucid.html — keep it in my folder and try again.");
+    }catch(e){say("I can't reach lucid.html from here — keep us in the same folder.");}
+    setMode("idle");busy=false;if(wake)armWake(400);return;}
   const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|foodora|mercedes|lucid|photo studio|photo editor)\b/);
   if(om){const map={portfolio:"portfolio.html",foodora:"foodora.html",mercedes:"mercedes.html",lucid:"lucid.html","photo studio":"lucid.html","photo editor":"lucid.html"};
     const f=map[om[1]];pushSys("launching "+om[1]+"…");
+    const deep=/batch/i.test(text)&&om[1]==="lucid"?"#batch":"";
+    const say=t=>{addMsg("AURA ▸",t,"aura");speak(t)};
     try{const h=await fetch(f,{method:"HEAD"});
-      if(h.ok){window.open(f,"_blank");addMsg("AURA ▸","Launching "+om[1]+" in a new tab, boss.","aura");}
-      else addMsg("AURA ▸","I can't find "+f+" — keep my file in the same folder as your projects and I'll launch them.","aura");
-    }catch(e){addMsg("AURA ▸","I can't reach "+f+" from here — keep us in the same folder and try again.","aura");}
+      if(h.ok){window.open(f+deep,"_blank");say("Launching "+om[1]+(deep?"'s batch processor":" in a new tab")+", boss.");}
+      else say("I can't find "+f+" — keep my file in the same folder as your projects and I'll launch them.");
+    }catch(e){say("I can't reach "+f+" from here — keep us in the same folder and try again.");}
     setMode("idle");busy=false;if(wake)armWake(400);return;}
   if(/diagnostic|scan/.test(text.toLowerCase())){
     setMode("thinking");slog("diagnostic sequence initiated",true);
