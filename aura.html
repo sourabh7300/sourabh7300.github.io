@@ -385,40 +385,69 @@ function typewrite(el,text){
 /* ---------------- voice ---------------- */
 const synth=window.speechSynthesis;
 let voices=[];function loadV(){voices=synth?synth.getVoices():[]}loadV();if(synth)synth.onvoiceschanged=loadV;
+let speakGen=0,ttsActive=false,lastSpoken="",lastSpokeAt=0;
+function stopSpeech(){speakGen++;ttsActive=false;try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
 function speak(t){
   if(!synth||!soundOn){return}
-  try{synth.cancel();
-    if(typeof wake!=="undefined"&&wake&&typeof listening!=="undefined"&&listening){window.__wakeRestart=true;try{recog.abort()}catch(e){}}
+  try{
+    const gen=++speakGen; /* any new speak() kills every older chain — no ghost speech */
+    ttsActive=true;lastSpoken=t;lastSpokeAt=Date.now();
+    if(typeof wake!=="undefined"&&wake&&typeof listening!=="undefined"&&listening){try{recog.abort()}catch(e){}}
     const clean=t.replace(/[#*_▸►`_]/g,"");
-    const parts=[];let rest=clean;
+    const parts=[];const keep=[];let rest=clean;
     while(rest.length){
       if(rest.length<=190){parts.push(rest);break}
       let cut=rest.lastIndexOf(". ",180);if(cut<80)cut=rest.lastIndexOf(" ",180);if(cut<80)cut=180;
       parts.push(rest.slice(0,cut+1));rest=rest.slice(cut+1).replace(/^\s+/,"");
     }
     const hi=window.__auraLang==="hi";
-    const v=hi?(voices.find(v=>/hi-IN|^hi/.test(v.lang))||null):(voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang)));
-    if(v)u.voice=v;u.lang=hi?"hi-IN":"en-US";u.rate=1.02;u.pitch=1;
     let i=0;
+    const pickVoice=()=>hi?(voices.find(v=>/hi-IN|^hi/i.test(v.lang))||voices.find(v=>/^hi/i.test(v.name))||null):(voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang)));
+    const v=pickVoice();
     const next=()=>{
-      if(i>=parts.length){ampTarget=0;setMode("idle");
-        if(window.__wakeRestart){window.__wakeRestart=false;setTimeout(()=>{try{recog.start()}catch(e){}},450);}
-        return}
-      const u=new SpeechSynthesisUtterance(parts[i++]);
-      if(v)u.voice=v;u.lang=hi?"hi-IN":"en-US";u.rate=1.02;u.pitch=1;
-      u.onstart=()=>{ampTarget=1;setMode("speaking")};
+      if(gen!==speakGen)return; /* stale onend from a cancelled utterance → ignore, never resurrect */
+      if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);return}
+      const u=new SpeechSynthesisUtterance(parts[i++]);keep.push(u);
+      const vu=pickVoice();
+      if(vu)u.voice=vu;u.lang=hi?"hi-IN":"en-US";u.rate=1.02;u.pitch=1;
+      u.onstart=()=>{if(gen===speakGen){ampTarget=1;setMode("speaking")}};
       u.onend=next;
       u.onerror=next;
       synth.speak(u);
     };
     next();
-  }catch(e){}
+    setTimeout(()=>{if(gen===speakGen&&ttsActive){try{if(!synth.speaking&&!synth.pending){ttsActive=false;ampTarget=0;setMode("idle");armWake(400)}}catch(e){}}},9000);
+  }catch(e){ttsActive=false}
 }
 
 /* ---------------- local intelligence (big offline core) ---------------- */
 function memGet(){try{return JSON.parse(localStorage.getItem("aura_memory")||"{}")}catch(e){return{}}}
 function memSet(m){try{localStorage.setItem("aura_memory",JSON.stringify(m))}catch(e){}}
-function greetWord(){const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":h<21?"Good evening":"Working late";}
+/* ---- Hindi identity & small-talk (used when the question is in Hindi/Hinglish) ---- */
+const HI_REPLIES={
+  "तुम कौन हो":"मैं AURA हूँ — Adaptive Universal Reasoning Assistant — जिसे Sourabh Singh ने खुद डिज़ाइन और बनाया है। B.Tech CSE, JECRC University। मेरा 3D कोर, आवाज़ और दिमाग़ — सब शुद्ध JavaScript, बिना किसी framework के।",
+  "तुम्हें किसने बनाया":"मुझे Sourabh Singh ने बनाया है — B.Tech CSE (AI, DevOps & Cloud Automation), JECRC University। मेरी हर लाइन कोड — पार्टिकल कोर से आवाज़ तक — हाथ से लिखी गई है।",
+  "आपका नाम":"मैं AURA हूँ — Adaptive Universal Reasoning Assistant। आप मुझे बस AURA कह सकते हैं।",
+  "तुम क्या कर सकती हो":"मैं इंटरनेट से लाइव जवाब दे सकती हूँ, मौसम बता सकती हूँ, आपसे हिंदी में बात कर सकती हूँ, क्विज़ खेल सकती हूँ, और अपना रंग-रूप बदल भी सकती हूँ — 'अपना रंग सुनहरा करो' बोलकर देखो।",
+  "अपना परिचय":"मैं AURA — एक होलोग्राफ़िक AI — हूँ, जिसे Sourabh Singh ने एक ही HTML फ़ाइल में शुरू से बनाया है। तीन-स्तरीय दिमाग़: लोकल कोर, Gemini अपलिंक और लाइव विकिपीडिया।",
+  "नमस्ते":"नमस्ते! मैं AURA हूँ — बताइए, आज क्या जानना चाहेंगे?",
+  "hello":"नमस्ते! मैं AURA हूँ — बताइए, क्या जानना चाहेंगे?",
+  "hi":"नमस्ते! AURA यहाँ है — क्या पूछना है?"
+};
+function hiPersonalReply(q){
+  const t=q.toLowerCase().replace(/[\u0964?]/g,"").replace(/\s+/g," ").trim();
+  const exact=Object.keys(HI_REPLIES).find(k=>t===k.toLowerCase());
+  if(exact)return HI_REPLIES[exact];
+  if(/^(?:तुम|आप)\s*(?:कौन|क्या)/.test(t)||/तुम्हारा|आपका\s+नाम/.test(t))return HI_REPLIES["तुम कौन हो"];
+  if(/किसने\s+बनाया|कौन\s+बनाया|निर्माता/.test(t))return HI_REPLIES["तुम्हें किसने बनाया"];
+  if(/^(?:तुम|आप)\s+क्या\s+कर/.test(t)||/क्या कर सकत/.test(t))return HI_REPLIES["तुम क्या कर सकती हो"];
+  if(/^(?:नमस्ते|नमस्कार|हेलो|हाय)$/.test(t))return HI_REPLIES["नमस्ते"];
+  return null;
+}
+function greetWord(){
+  if(window.__auraLang==="hi"){const h=new Date().getHours();return h<12?"सुप्रभात":h<17?"नमस्ते":"नमस्ते";}
+  const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":h<21?"Good evening":"Working late";
+}
 const KB={
   "who are you":"I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks.",
   "introduce yourself":"I am AURA — Adaptive Universal Reasoning Assistant — built by Sourabh Singh. A 560-particle holographic core, voice in and voice out, and a three-layer brain: local core, Gemini uplink, and live Wikipedia.",
@@ -705,7 +734,10 @@ async function geminiCall(q,deep){
 }
 /* ---- topic extraction: turn a natural question into a clean research term ---- */
 function topicOf(q){
-  let t=q.replace(/\?/g,"")
+  let t=q.replace(/[\u0964\u0965]/g,"").replace(/\?/g,"")
+    .replace(/^\s*(?:क्या|कौन|कब|कहाँ|कहां|क्यों|कैसे)(?:\s+(?:है|हैं|था|थी|थे|का|की|के))?\s+(?=\S)/,"")
+    .replace(/\s+(?:क्या है|कौन है|कौन हैं|क्यों प्रसिद्ध है|के बारे में|का परिचय|की जानकारी)\s*$/i,"")
+    .replace(/^\s*(?:मुझे\s+)?(?:हिंदी\s+में\s+)?(?:बताओ|बताइए|बताएं)(?:\s+कि)?\s*/i,"")
     .replace(/^\s*(please\s+)?(can|could)\s+you\s+(please\s+)?/i,"")
     .replace(/^(what|who|when|where|which)\s+(is|are|was|were|does|do|did|exactly is|exactly are)\s+(the\s+|a\s+|an\s+)?/i,"")
     .replace(/^(how|why)\s+(does|do|did|is|are|was|were)\s+(the\s+|a\s+|an\s+)?/i,"")
@@ -732,6 +764,77 @@ async function wikiSummary(title){
   const ex=(d.extract||"").trim();
   if(ex.length<60)throw 0;
   return{title:d.title,extract:ex,url:d.content_urls&&d.content_urls.desktop&&d.content_urls.desktop.page};
+}
+/* ---- Hindi Wikipedia: search hi.wiki, fall back to en.wiki, translate lead ---- */
+const HI_MAP={"elon musk":"एलन मस्क","elonmusk":"एलन मस्क","narendra modi":"नरेन्द्र मोदी","modi":"नरेन्द्र मोदी","cricket":"क्रिकेट","india":"भारत","bitcoin":"बिटकॉइन","photosynthesis":"प्रकाश संश्लेषण","gravity":"गुरुत्वाकर्षण","earth":"पृथ्वी","sun":"सूर्य","moon":"चंद्रमा","mars":"मंगल","black hole":"ब्लैक होल","ai":"कृत्रिम बुद्धिमत्ता","artificial intelligence":"कृत्रिम बुद्धिमत्ता","computer":"कंप्यूटर","internet":"इंटरनेट","mobile phone":"मोबाइल फोन","taj mahal":"ताज महल","delhi":"दिल्ली","jaipur":"जयपुर","rajasthan":"राजस्थान","mumbai":"मुंबई","mahatma gandhi":"महात्मा गांधी","gandhi":"महात्मा गांधी","albert einstein":"अल्बर्ट आइंस्टीन","einstein":"अल्बर्ट आइंस्टीन","nikola tesla":"निकोला टेस्ला","tesla":"निकोला टेस्ला","apj abdul kalam":"ए. पी. जे. अब्दुल कलाम","abdul kalam":"ए. पी. जे. अब्दुल कलाम","virat kohli":"विराट कोहली","kohli":"विराट कोहली","sachin tendulkar":"सचिन तेंदुलकर","sachin":"सचिन तेंदुलकर","science":"विज्ञान","mathematics":"गणित","physics":"भौतिकी","chemistry":"रसायन विज्ञान","biology":"जीव विज्ञान","solar system":"सौर मंडल","computer science":"कंप्यूटर विज्ञान","machine learning":"मशीन लर्निंग","quantum computer":"क्वांटम कंप्यूटर","quantum computing":"क्वांटम कंप्यूटर","meditation":"ध्यान","yoga":"योग","holi":"होली","diwali":"दिवाली","everest":"माउंट एवरेस्ट","mount everest":"माउंट एवरेस्ट","ganga":"गंगा","ganges":"गंगा","himalaya":"हिमालय","himalayas":"हिमालय","peacock":"मोर","tiger":"बाघ"," football":" फुटबॉल","olympic":"ओलंपिक खेल","facebook":"फेसबुक","google":"गूगल","youtube":"यूट्यूब","wikipedia":"विकिपीडिया","electricity":"विद्युत","telescope":"दूरबीन","vaccine":"टीका","robot":"रोबोट","drone":"ड्रोन"};
+const HI_HINTS=/क्या|कौन|कहाँ|कहां|क्यों|कैसे|कब|है|हैं|था|थी|मुझे|बताओ|बताइए|प्रसिद्ध|बारे|परिचय|जानकारी|हिंदी|[\u0900-\u097F]/;
+function hiTopic(term){
+  const k=term.toLowerCase().replace(/^(the|a|an)\s+/,"").trim();
+  if(HI_MAP[k])return HI_MAP[k];
+  const hit=Object.keys(HI_MAP).find(key=>k===key||k===key.trim());
+  if(hit)return HI_MAP[hit];
+  return null;
+}
+async function hiWikiAnswer(q,deep){
+  try{
+    const raw=topicOf(q);if(!raw)return null;
+    let term=raw.replace(/(के बारे में|की जानकारी|का परिचय|क्या है|क्या हैं|कौन है|कौन हैं|कौन थे|कौन था|कौन थी|क्यों प्रसिद्ध है|विस्तार से|संक्षेप में)$/," ").replace(/\s+(है|हैं|था|थी|थे|का|की|के|में|पर|से|और)$/," ").trim();
+    if(!term)term=raw;
+    term=term.replace(/\b(what|who|is|are|of|the|about|tell|me|kya|hai|kaun|konsa|konsi|he|in|hindi|mein|par|ke|baare|me|tha|the|thi)\b/gi," ").replace(/\s+/g," ").trim();
+    if(!term)term=raw.replace(/(के बारे में|की जानकारी|का परिचय|क्या है|क्या हैं|कौन है|कौन हैं|कौन थे|कौन था|कौन थी|विस्तार से)$/," ").trim();
+    if(!term)return null;
+    const hiTitle=hiTopic(term)||(/[\u0900-\u097F]/.test(term)?term:null)||term;
+    const s=await fetch("https://hi.wikipedia.org/w/api.php?action=query&list=search&srsearch="+encodeURIComponent(hiTitle)+"&format=json&origin=*&srlimit=3",{signal:AbortSignal.timeout(8000)});
+    if(!s.ok)throw 0;
+    const sd=await s.json();
+    const hits=(sd.query&&sd.query.search)||[];
+    if(!hits.length)throw 0;
+    const words=hiTitle.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+    const score=t=>{const lt=(t.title+" "+(t.snippet||"")).toLowerCase();let sc=0;words.forEach(w=>{if(lt.includes(w))sc+=2});if(t.title.toLowerCase()===hiTitle.toLowerCase())sc+=6;return sc;};
+    const best=hits.sort((a,b)=>score(b)-score(a))[0];
+    const r=await fetch("https://hi.wikipedia.org/api/rest_v1/page/summary/"+encodeURIComponent(best.title),{signal:AbortSignal.timeout(9000)});
+    if(!r.ok)throw 0;
+    const d=await r.json();
+    let ex=(d.extract||"").trim();
+    const url=d.content_urls&&d.content_urls.desktop&&d.content_urls.desktop.page;
+    if(!ex||ex.length<50){
+      const en=await (async()=>{try{const e=await wikiCandidates(term);for(const h of e.slice(0,2)){try{return await wikiSummary(h.title)}catch(er){}}}catch(e2){}return null})();
+      if(!en)return null;
+      ex="(अंग्रेज़ी विकिपीडिया से) "+en.extract; 
+      const tail="\n\n— लाइव विकिपीडिया · "+en.title+(en.url?" · "+en.url.replace(/^https?:""/,""):"");
+      if(deep){const sents=ex.split(/(?<=[.!?])\s+/);if(sents.length>12)ex=sents.slice(0,12).join(" ")+"…";}
+      else{const sents=ex.split(/(?<=[.!?])\s+/).slice(0,5);ex=sents.join(" ");}
+      return{t:ex+(ex.endsWith(".")?"":"")+tail,eng:"wikipedia live (hi→en fallback)",src:en.url};
+    }
+    if(deep){
+      try{
+        const r2=await fetch("https://hi.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exchars=9000&redirects=1&format=json&origin=*&titles="+encodeURIComponent(d.title),{signal:AbortSignal.timeout(9000)});
+        if(r2.ok){const rd=await r2.json();const page=rd.query&&Object.values(rd.query.pages)[0];
+          const rawX=((page&&page.extract)||"").replace(/==+[^=]*==+/g," ").replace(/\s+\n\s*/g,"\n").trim();
+          const paras=rawX.split(/\n+/).map(p=>p.trim()).filter(p=>p.length>40);
+          if(paras.length>=3)ex=paras.slice(0,6).join("\n\n");}
+      }catch(e){}
+    }else{
+      const sents=ex.split(/(?<=[।.!?])\s+/).slice(0,6);ex=sents.join(" ");
+    }
+    if(ex.length>(deep?4200:1200))ex=ex.slice(0,deep?4200:1200).replace(/\s\S*$/,"")+"…";
+    return{t:ex+(ex.endsWith("।")||ex.endsWith(".")?"":".")+"\n\n— लाइव विकिपीडिया · "+d.title+(url?" · "+url.replace(/^https?:""/,""):""),eng:"hindi wikipedia live",src:url||"https://hi.wikipedia.org/wiki/"+encodeURIComponent(d.title)};
+  }catch(e){}
+  /* Hindi path failed (rate-limit/offline) — answer from English Wikipedia so the user still gets a real answer, labeled honestly */
+  try{
+    const raw=topicOf(q);if(!raw)return null;
+    const cleanHi=raw.replace(/(के बारे में|की जानकारी|का परिचय|क्या है|क्या हैं|कौन है|कौन हैं|कौन थे|कौन था|कौन थी|क्यों प्रसिद्ध है|विस्तार से)$/," ").replace(/\s+(है|हैं|था|थी|थे|का|की|के|में|पर|से|और)$/," ").trim();
+    let term=cleanHi.replace(/\b(what|who|is|are|of|the|about|tell|me|kya|hai|kaun|konsa|konsi|he|in|hindi|mein|par|ke|baare|me|tha|the|thi)\b/gi," ").replace(/\s+/g," ").trim();
+    if(!term)term=cleanHi;
+    if(!term)return null;
+    const en=await (async()=>{try{const e=await wikiCandidates(term);for(const h of e.slice(0,2)){try{return await wikiSummary(h.title)}catch(er){}}}catch(e2){}return null})();
+    if(!en)return null;
+    let out="(अंग्रेज़ी विकिपीडिया से) "+en.extract;
+    if(deep){const s2=out.split(/(?<=[.!?])\s+/);if(s2.length>12)out=s2.slice(0,12).join(" ")+"…";}
+    else{const s2=out.split(/(?<=[.!?])\s+/).slice(0,5);out=s2.join(" ");}
+    return{t:out+(out.endsWith(".")?"":".")+"\n\n— लाइव विकिपीडिया · "+en.title+(en.url?" · "+en.url.replace(/^https?:""/,""):""),eng:"wikipedia live (hi→en fallback)",src:en.url};
+  }catch(e2b){}
+  return null;
 }
 async function wikiAnswer(q,deep){
   try{
@@ -819,6 +922,19 @@ function resolveContext(q){
 /* ---------------- self-visualization commands ---------------- */
 function vizCommand(q){
   const l=q.toLowerCase();
+  /* Hindi / Hinglish visualization commands — Hindi runs before the English patterns */
+  const hiColor=l.match(/(?:रंग|रंगत)\s*(?:को\s*)?(सुनहरा|सुनहरी|स्वर्ण|लाल|हरा|हरी|नीला|नीली|काला|सफ़ेद|सफेद|गुलाबी|बैंगनी|पीला|नारंगी|नीली)/);
+  const hiColorEn=l.match(/\b(?:aura)?\s*(?:ka|का)?\s*(?:color|colour|रंग)\s*(?:gold|golden|red|green|blue|purple|pink|white|black|sunset)?\s*(?:karo|करो|kardo|कर दो|change|बदलो)?/);
+  const HI_COLN={"सुनहरा":"gold","सुनहरी":"gold","स्वर्ण":"gold","लाल":"red","हरा":"green","हरी":"green","नीला":"blue","नीली":"blue","काला":"black","सफ़ेद":"white","सफेद":"white","गुलाबी":"pink","बैंगनी":"purple","पीला":"yellow","नारंगी":"orange"};
+  const HI_WORDS=/करो|कर दो|बदलो|तेज़|धीमा|घुमाओ|रंग|सुनहरा|स्वर्ण|लाल|हरा|नीला|काला|सफ़ेद|गुलाबी|बैंगनी|पीला|नारंगी|\bkaro\b|\bkardo\b|\bbadlo\b/;
+  if(HI_WORDS.test(l)){
+    if(hiColor&&HI_COLN[hiColor[1]]){const c=HI_COLN[hiColor[1]];
+      if(setHue(c)){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "होलो-एमिटर बदल गया — "+({gold:"सुनहरा",red:"लाल",green:"हरा",blue:"नीला",black:"काला",white:"सफ़ेद",pink:"गुलाबी",purple:"बैंगनी",yellow:"पीला",orange:"नारंगी"})[c]+" मोड चालू।";}return null;}
+    if(/\bgold(en)?\b/.test(l)&&/करो|कर दो|बदलो|karo|kardo|kar do|badlo|change/.test(l)){if(setHue("gold")){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "होलो-एमिटर बदल गया — सुनहरा मोड चालू।";}return null;}
+    if(/रंग\s*(वापस|पहले जैसा|सामान्य)|वापस पहले जैसा/.test(l)){const fx=document.getElementById("fx");if(fx)fx.style.filter="";setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "होलो-एमिटर रीसेट — मानक सियान स्पेक्ट्रम।";}
+    if(/तेज़|तेज|घुमाओ/.test(l)&&/घुमा|स्पिन|घूम/.test(l)){spinTarget=8;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "गायरो तेज़ हो गया — हम सुन सकते हैं।";}
+    if(/धीमा|धीमी/.test(l)&&/घुमा|स्पिन|घूम/.test(l)){spinTarget=.15;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "गायरो धीमा हो गया।";}
+  }
   const mColor=l.match(/(?:change|turn|make|go)\s+(?:your(?:self)?\s+)?(?:color|colour|glow|core)?\s*(?:to|into)?\s*(red|orange|gold|yellow|lime|green|blue|indigo|purple|violet|pink|magenta|cyan|white)\b/);
   if(mColor){if(setHue(mColor[1])){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "Holo-emitter retuned — "+mColor[1]+" mode engaged.";}return null;}
   if(/(?:color|colour|glow).*(back|normal|default|original)|reset.*(?:color|colour|glow)/.test(l)){const fx=document.getElementById("fx");if(fx)fx.style.filter="";setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "Holo-emiter reset — standard cyan spectrum.";}
@@ -829,16 +945,21 @@ function vizCommand(q){
 }
 /* ---------------- weather (free, no key) ---------------- */
 async function weatherReply(q){
-  const m=q.toLowerCase().match(/weather(?:\s+(?:in|at|for))?\s+([a-z\s]+?)(?:\?|today|now|$)/);
-  if(!m||!/weather|temperature|forecast/.test(q.toLowerCase()))return null;
-  let city=m[1].trim();
+  const hi=window.__auraLang==="hi"||/[\u0900-\u097F]/.test(q)||/\b(mausam|hindi)\b/i.test(q.toLowerCase());
+  const m=q.toLowerCase().match(/(?:weather|mausam|temperature|तापमान|मौसम)(?:\s+(?:in|at|for|mein|me|में))?\s+([a-z\u0900-\u097F\s]+?)(?:\?|today|now|अभी|$)/)
+    ||q.toLowerCase().match(/([a-z\u0900-\u097F]+?)(?:\s+(?:ka|ki|का|की))?\s+(?:ka\s+)?(?:mausam|मौसम|तापमान)(?:\s+(?:kaisa|hai|abhi|अभी))?/);
+  if(!m||!/weather|temperature|forecast|mausam|मौसम|तापमान/.test(q.toLowerCase()))return null;
+  const m2=!m&&/[\u0900-\u097F]/.test(q)?q.match(/([\u0900-\u097F]+)(?:\s+में|\s+का)?\s*(?:मौसम|तापमान)/):null;
+  if(!m&&!m2)return null;
+  let city=(m?m[1]:(m2?m2[1]:"")).trim().replace(/^(in|at|for|mein|me|में)\s+/i,"");
   if(!city||/^(today|now|outside|there)$/.test(city))city="Jaipur";
   try{
     const g=await fetch("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(city)+"&count=1&language=en&format=json",{signal:AbortSignal.timeout(7000)});
     const gd=await g.json();const loc=gd.results&&gd.results[0];if(!loc)throw 0;
     const w=await fetch("https://api.open-meteo.com/v1/forecast?latitude="+loc.latitude+"&longitude="+loc.longitude+"&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=1",{signal:AbortSignal.timeout(7000)});
-    const wd=await w.json();const c=wd.current;if(!c)throw 0;
-    const WC={0:"clear sky",1:"mostly clear",2:"partly cloudy",3:"overcast",45:"foggy",48:"rime fog",51:"light drizzle",53:"drizzle",55:"heavy drizzle",61:"light rain",63:"rain",65:"heavy rain",71:"light snow",73:"snow",75:"heavy snow",80:"rain showers",81:"showers",82:"violent showers",95:"thunderstorm",96:"storm with hail",99:"severe storm"};
+    const wd=await w.json();const c=wd.current;if(!c)throw 0;    const WC={0:"clear sky",1:"mostly clear",2:"partly cloudy",3:"overcast",45:"foggy",48:"rime fog",51:"light drizzle",53:"drizzle",55:"heavy drizzle",61:"light rain",63:"rain",65:"heavy rain",71:"light snow",73:"snow",75:"heavy snow",80:"rain showers",81:"showers",82:"violent showers",95:"thunderstorm",96:"storm with hail",99:"severe storm"};
+    const WCH={0:"साफ़ आसमान",1:"ज़्यादातर साफ़",2:"आंशिक बादल",3:"बादल छाए",45:"कोहरा",48:"घना कोहरा",51:"हल्की बूंदाबांदी",53:"बूंदाबांदी",55:"तेज़ बूंदाबांदी",61:"हल्की बारिश",63:"बारिश",65:"मुसलधार बारिश",71:"हल्की बर्फ़",73:"बर्फ़बारी",75:"भारी बर्फ़बारी",80:"बौछारें",81:"बौछारें",82:"तेज़ बौछारें",95:"आंधी-तूफ़ान",96:"ओलों के साथ तूफ़ान",99:"भीषण तूफ़ान"};
+    if(hi)return ""+loc.name+" का मौसम अभी: "+Math.round(c.temperature_2m)+"°C, "+(WCH[c.weather_code]||"मौसम बदल रहा है")+", नमी "+c.relative_humidity_2m+"%, हवा "+Math.round(c.wind_speed_10m)+" किमी/घंटा। आज का तापमान: "+Math.round(wd.daily.temperature_2m_min[0])+"° से "+Math.round(wd.daily.temperature_2m_max[0])+"°।";
     return "Weather in "+loc.name+" right now: "+Math.round(c.temperature_2m)+"°C, "+(WC[c.weather_code]||"conditions changing")+", humidity "+c.relative_humidity_2m+"%, wind "+Math.round(c.wind_speed_10m)+" km/h. Today's range: "+Math.round(wd.daily.temperature_2m_min[0])+"° to "+Math.round(wd.daily.temperature_2m_max[0])+"°.";
   }catch(e){}
   return null;
@@ -888,17 +1009,35 @@ function quizReply(q){
   if(/^(yes|ok|sure|okay)\b/.test(l)&&/quiz/.test((window.__lastQ||""))){quiz=QUIZBANK.slice().sort(()=>Math.random()-.5).slice(0,5);quizScore=0;return "Great — Question 1: "+quiz[0][0];}
   return null;
 }
+/* ---- language gate helpers (shared by aiReply + diagnostics) ---- */
+const HI_HINT_RE=/[\u0900-\u097F]/;
+function isKnowledgeHI(q){
+  if(HI_HINT_RE.test(q.trim()))return true;
+  const ql=q.toLowerCase();
+  return /(?:^|\s)(?:kya|kaun|kab|kahan|kyun|kyu|kaise|kaisa|batao|bataiye|bata|mujhe|hindi)(?:\s|$)/.test(ql);
+}
+function isHinglish(q){
+  if(HI_HINT_RE.test(q))return true;
+  const ql=q.toLowerCase();
+  return /\b(hindi mein|hindi me|in hindi|kya hai|kaun hai|kaun hai|kaise|kyun|kyu|kahan|kab|batao|bataiye|mujhe batao)\b/.test(ql);
+}
+function isKnowledgeEN(q){
+  return /^(what|who|when|where|which|why|how)\b|^explain\b|^describe\b|^define\b|^tell me about\b/i.test(q.trim());
+}
 async function aiReply(q){
   const deep=/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/i.test(q);
   const wr=await weatherReply(q);if(wr)return{t:wr,eng:"open-meteo live"};
   const otd=await onThisDayReply(q);if(otd)return{t:otd,eng:"wikipedia otd live"};
   const viz=vizCommand(q);if(viz)return{t:viz,eng:"holo-emitter control"};
   const qr=quizReply(q);if(qr)return{t:qr,eng:"quiz mode"};
+  if(/[\u0900-\u097F]/.test(q)||/\b(namaste|namaskar|hindi mein|hindi me)\b/i.test(q)){const hp=hiPersonalReply(q);if(hp)return{t:hp,eng:"हिंदी कोर"};}
   /* knowledge questions go LIVE first — local core is the offline fallback, not the first answer */
-  const personal=/(who|what) (are|r) (you|u)\b|who (built|made|created|designed) you|your name|what can you do|who (is|made) sourabh|about sourabh|tell me about yourself|introduce yourself|open \w+|diagnostic|\bscan\b|joke|flip|roll|what time|time is it|today'?s date|my name|who am i/i;
-  const knowledge=!personal&&(/^(what|who|when|where|which|why|how)\b|^explain\b|^describe\b|^define\b|^tell me about\b/i.test(q.trim())||deep);
+  const personal=/(who|what) (are|r) (you|u)\b|who (built|made|created|designed) you|your name|what can you do|who (is|made) sourabh|about sourabh|tell me about yourself|introduce yourself|open \w+|diagnostic|\bscan\b|joke|flip|roll|what time|time is it|today'?s date|my name|who am i|^(?:तुम|आप)\s+(?:कौन|क्या)|तुम्हें\s+किसने|आपको\s+किसने|तुम्हारा\s+नाम|आपका\s+नाम|किसने\s+बनाया|कौन\s+बनाया|तुम\s+क्या\s+कर\s+सकती|तुम\s+क्या\s+कर\s+सकते|अपने\s+बारे\s+में|अपना\s+परिचय/i;
+  const knowledge=!personal.test(q)&&(isKnowledgeEN(q)||deep||isKnowledgeHI(q));
+  const hiMode=window.__auraLang==="hi"||isHinglish(q);
   const rc=resolveContext(q);if(rc!==q)q=rc;
   if(knowledge){
+    if(hiMode){const hw=await hiWikiAnswer(q,deep);if(hw)return hw;}
     if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:"gemini 2.0 flash"};}catch(e){slog("gemini uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
@@ -913,6 +1052,7 @@ async function aiReply(q){
   slog("going live to the internet");
   const w2b=deep?await webResearch(q):await wikiAnswer(q,false);
   if(w2b)return w2b;
+  if(hiMode){const hw2=await hiWikiAnswer(q,deep);if(hw2)return hw2;}
   setMode("alert");setTimeout(()=>{if(mode==="alert")setMode("idle")},5000);
   return{t:"I reached for the live internet but every uplink timed out just now — check the connection and ask me again. My offline core still handles math, conversions, tech, science and 'who built you'. And a free Gemini key (SET AI KEY) unlocks unlimited frontier-grade answers.",eng:"offline core"};
 }
@@ -930,12 +1070,12 @@ async function ask(text){
       if(h.ok){window.open(f,"_blank");addMsg("AURA ▸","Launching "+om[1]+" in a new tab, boss.","aura");}
       else addMsg("AURA ▸","I can't find "+f+" — keep my file in the same folder as your projects and I'll launch them.","aura");
     }catch(e){addMsg("AURA ▸","I can't reach "+f+" from here — keep us in the same folder and try again.","aura");}
-    setMode("idle");busy=false;return;}
+    setMode("idle");busy=false;if(wake)armWake(400);return;}
   if(/diagnostic|scan/.test(text.toLowerCase())){
     setMode("thinking");slog("diagnostic sequence initiated",true);
     const out=await diagnostics();
     const el=addMsg("AURA ▸","","aura");
-    await typewrite(el,out);blip(880,.14);speak(out);setMode("speaking");busy=false;return;
+    await typewrite(el,out);blip(880,.14);speak(out);setMode("speaking");busy=false;if(wake)armWake(400);return;
   }
   setMode("thinking");slog("query → neural link");
   const resolved=resolveContext(text);
@@ -957,10 +1097,25 @@ async function ask(text){
   else{el.textContent=t;el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);}
   blip(520,.1,"triangle");
   busy=false;
+  if(wake)armWake(400);
 }
 
 /* ---------------- mic ---------------- */
 let recog=null,listening=false,wake=false;
+function normEcho(s){return (s||"").toLowerCase().replace(/[^a-z\u0900-\u097F\s]/g," ").replace(/\s+/g," ").trim()}
+function isEcho(c){ /* true if the mic just heard AURA's own voice — kills the self-talk loop */
+  if(!lastSpoken||Date.now()-lastSpokeAt>15000)return false;
+  const a=normEcho(c),b=normEcho(lastSpoken);
+  if(!a)return true;
+  if(a.length>8&&b.indexOf(a)>-1)return true;
+  if(b.length>8&&a.indexOf(b)>-1)return true;
+  const aw=a.split(" "),bw=b.split(" ");let common=0;for(let k=0;k<aw.length;k++){if(bw.indexOf(aw[k])>-1)common++}
+  return common>=5;
+}
+function armWake(delay){ /* single safe re-arm point — never while AURA is speaking */
+  if(!wake)return;
+  setTimeout(()=>{if(wake&&!listening&&!busy&&!ttsActive&&recog){try{recog.start()}catch(e){}}},delay||500);
+}
 function cleanTranscript(t){
   let s=(t||"").toLowerCase().trim();
   s=s.replace(/\b(hello aura|hey aura|ok aura|okay aura|hi aura)\b/g,"");
@@ -974,8 +1129,9 @@ $("micBtn").onclick=()=>{
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){pushSys("voice input needs Chrome/Edge — typing works everywhere");return}
   if(listening){try{recog.stop()}catch(e){};return}
+  stopSpeech(); /* barge-in: tapping the mic silences AURA immediately */
   recog=new SR();
-  recog.lang="en-IN";recog.interimResults=true;recog.continuous=false;recog.maxAlternatives=3;
+  recog.lang=window.__auraLang==="hi"?"hi-IN":"en-IN";recog.interimResults=true;recog.continuous=false;recog.maxAlternatives=3;
   let finalText="",interim="";
   recog.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent="LISTENING…";setMode("listening");blip(880,.1);
     pushSys("mic online — speak naturally");};
@@ -1003,18 +1159,19 @@ $("micBtn").onclick=()=>{
     if(mode==="listening")setMode("idle");
     const t=cleanTranscript(finalText);
     if(t&&t.split(/\s+/).length>=1){slog("heard: \""+t.slice(0,50)+"\"",true);ask(t)}
-    if(wake)setTimeout(()=>{if(wake&&!listening&&!busy){try{recog.start()}catch(e){}}},600);
+    if(wake)armWake(600);
   };
   try{recog.start()}catch(e){}
 };
 $("wakeBtn").onclick=()=>{
   wake=!wake;
   $("wakeBtn").textContent="WAKE: "+(wake?"ON":"OFF");
-  if(wake&&!listening&&!busy){try{recog=new (window.SpeechRecognition||window.webkitSpeechRecognition)();recog.lang=window.__auraLang==="hi"?"hi-IN":"en-IN";recog.interimResults=true;recog.maxAlternatives=3;
+  if(!wake&&listening){stopSpeech();try{recog.abort()}catch(e){}}
+  if(wake&&!listening&&!busy&&!ttsActive){try{recog=new (window.SpeechRecognition||window.webkitSpeechRecognition)();recog.lang=window.__auraLang==="hi"?"hi-IN":"en-IN";recog.interimResults=true;recog.maxAlternatives=3;
     recog.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent='SAY "HEY AURA…"';setMode("listening")};
-    recog.onresult=e=>{let ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript;}if(ft){const c=cleanTranscript(ft);if(/(hey |ok |hi )?aura\b/.test(c)||c.split(/\s+/).length>2){listening=false;try{recog.stop()}catch(e2){}ask(c.replace(/^\s*(hey |ok |hi )?aura\b\s*/i,""));}}};
+    recog.onresult=e=>{let ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript;}if(ft&&!ttsActive){const c=cleanTranscript(ft);if(!isEcho(c)&&/(\baura\b|ऑरा)/i.test(c)){listening=false;try{recog.stop()}catch(e2){}stopSpeech();ask(c.replace(/^\s*(hey |ok |hi )?(aura|ऑरा)\b[,.!]?\s*/i,""));}}};
     recog.onerror=()=>{listening=false;if(mode==="listening")setMode("idle")};
-    recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");if(mode==="listening")setMode("idle");if(wake&&!busy)setTimeout(()=>{if(wake&&!listening&&!busy)try{recog.start()}catch(e){}},700)};
+    recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");if(mode==="listening")setMode("idle");armWake(700)};
     recog.start();}catch(e){}}
   pushSys("wake word "+(wake?"armed — say 'Hey Aura'":"off"));
 };
@@ -1034,7 +1191,7 @@ document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>ask(c.textContent));
 if(matchMedia("(max-width:860px)").matches){
   document.querySelectorAll(".chip").forEach(c=>{const b=c.cloneNode(true);b.onclick=()=>ask(c.textContent);$("chipsMobile").appendChild(b)});
 }
-$("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent="SOUND: "+(soundOn?"ON":"OFF");if(!soundOn)try{synth.cancel()}catch(e){};if(mode==="speaking")setMode("idle")};
+$("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent="SOUND: "+(soundOn?"ON":"OFF");if(!soundOn)stopSpeech();if(mode==="speaking")setMode("idle")};
 $("fsBtn").onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})};
 $("keyBtn").onclick=()=>{
   const k=prompt("Paste your free Google Gemini API key (aistudio.google.com). This unlocks unlimited answers for AURA — and is shared with Sense automatically. Leave empty to clear.",geminiKey());
@@ -1076,7 +1233,7 @@ const BOOT=["> AURA OS v3.1 — initializing neural core","> personality matrix 
 (function boot(){
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
-  const end=()=>{$("boot").classList.add("gone");
+  let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;$("boot").classList.add("gone");
     setTimeout(()=>{const n=memGet().name;const msg=greetWord()+(n?", "+n:"")+". AURA online — neural link established. Tap the mic and speak, or type below.";const el2=addMsg("AURA ▸","","aura");typewrite(el2,msg);speak(msg);setMode("speaking");},350)};
   $("boot").addEventListener("click",end,{once:true});
   setTimeout(end,2600);
