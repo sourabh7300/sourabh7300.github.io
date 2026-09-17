@@ -376,9 +376,10 @@ function addMsg(who,text,cls){
 function pushSys(t){addMsg("SYS","▸ "+t,"sys");slog(t);}
 function typewrite(el,text){
   return new Promise(res=>{
+    if(document.hidden){el.textContent=text;res();return} /* hidden tab: rAF is frozen — finish instantly so busy never sticks */
     let i=0;const chunk=Math.max(2,Math.round(text.length/240));
     const step=()=>{i=Math.min(text.length,i+chunk);el.textContent=text.slice(0,i);log.scrollTop=log.scrollHeight;
-      if(i<text.length)requestAnimationFrame(step);else res();};
+      if(i<text.length){document.hidden?(el.textContent=text,res()):requestAnimationFrame(step)}else res();};
     step();
   });
 }
@@ -389,10 +390,14 @@ let voices=[];function loadV(){voices=synth?synth.getVoices():[]}loadV();if(synt
 let detectedLang="en";window.__auraLang=localStorage.getItem("aura_lang")||"auto";
 if(["auto","en","hi"].indexOf(window.__auraLang)<0)window.__auraLang="auto";
 (function(){const lb=document.getElementById("langBtn");if(lb)lb.textContent="LANG: "+(window.__auraLang==="hi"?"हिंदी":window.__auraLang==="en"?"ENG":"AUTO")})();
-let speakGen=0,ttsActive=false,lastSpoken="",lastSpokeAt=0;
+let speakGen=0,ttsActive=false,lastSpoken="",lastSpokeAt=0,voiceSessionUntil=0;
+/* VOICE POLICY: AURA is SILENT unless (a) wake mode is ON, or (b) you tapped the mic / said 'Hey Aura' in the last 45s.
+   speak() refuses to run otherwise — no boot chatter, no background voices, ever. */
+function voiceAllowed(){return wake===true||Date.now()<voiceSessionUntil}
 function stopSpeech(){speakGen++;ttsActive=false;try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
 function speak(t){
   if(!synth||!soundOn){return}
+  if(!voiceAllowed()){return} /* silent by default — voice only after wake/tap */
   try{
     const gen=++speakGen; /* any new speak() kills every older chain — no ghost speech */
     ttsActive=true;lastSpoken=t;lastSpokeAt=Date.now();
@@ -1081,10 +1086,16 @@ async function aiReply(q){
 }
 
 /* ---------------- ask pipeline ---------------- */
-let busy=false;
+let busy=false,askAt=0;
 async function ask(text){
+  /* instant-silence is an INTERRUPT — it must work even while AURA is busy/speaking */
+  if(/^(?:shut up|stop talking|be quiet|silence|silent mode|chup|chup ho jao|चुप\s*हो\s*जाओ|चुप|रुक\s*जाओ|रुको)\b/i.test((text||'').trim())){
+    stopSpeech();voiceSessionUntil=0;
+    addMsg("AURA ▸","Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey Aura'.","aura");
+    pushSys("voice muted by command");
+    setMode("idle");busy=false;return;}
   if(busy||!text.trim())return;
-  busy=true;$("q").value="";
+  busy=true;askAt=Date.now();$("q").value="";
   addMsg("YOU ▸",text,"user");blip(740,.08);
   /* batch-processing intent → open Lucid's batch processor with a deep-link */
   if(/\b(batch|bulk)\b[\s\S]{0,30}?\b(resize|process|photos?|images?|pictures?|edit)\b|\b(resize|process)\b\s+(my|all|the|these)\s+(photos?|images?|pictures?)/i.test(text)){
@@ -1127,7 +1138,7 @@ async function ask(text){
   el.appendChild(acts);
   acts.children[0].onclick=()=>{navigator.clipboard?navigator.clipboard.writeText(t).then(()=>pushSys("answer copied")):pushSys("copy unsupported here")};
   const plus=acts.querySelector('button[title="Ask for more detail"]');if(plus)plus.onclick=()=>{if(lastTopic)ask(lastTopic+" in detail");else ask("tell me more")};
-  if(!synth||!soundOn){await typewrite(el,t);setMode("idle");}
+  if(!synth||!soundOn||!voiceAllowed()){await typewrite(el,t);setMode("idle");}
   else{el.textContent=t;el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);}
   blip(520,.1,"triangle");
   busy=false;
@@ -1138,17 +1149,19 @@ async function ask(text){
 let recog=null,listening=false,wake=false;
 function normEcho(s){return (s||"").toLowerCase().replace(/[^a-z\u0900-\u097F\s]/g," ").replace(/\s+/g," ").trim()}
 function isEcho(c){ /* true if the mic just heard AURA's own voice — kills the self-talk loop */
-  if(!lastSpoken||Date.now()-lastSpokeAt>15000)return false;
+  if(!lastSpoken)return false;
+  if(Date.now()-lastSpokeAt<2500)return true; /* still in her voice's tail — ignore everything */
+  if(Date.now()-lastSpokeAt>15000)return false;
   const a=normEcho(c),b=normEcho(lastSpoken);
   if(!a)return true;
   if(a.length>8&&b.indexOf(a)>-1)return true;
   if(b.length>8&&a.indexOf(b)>-1)return true;
   const aw=a.split(" "),bw=b.split(" ");let common=0;for(let k=0;k<aw.length;k++){if(bw.indexOf(aw[k])>-1)common++}
-  return common>=5;
+  return common>=3;
 }
-function armWake(delay){ /* single safe re-arm point — never while AURA is speaking */
+function armWake(delay){ /* single safe re-arm point — never while AURA is speaking, never before her echo has faded */
   if(!wake)return;
-  setTimeout(()=>{if(wake&&!listening&&!busy&&!ttsActive&&recog){try{recog.start()}catch(e){}}},delay||500);
+  setTimeout(()=>{if(wake&&!listening&&!busy&&!ttsActive&&Date.now()-lastSpokeAt>2200&&recog){try{recog.start()}catch(e){}}},Math.max(delay||0,1200));
 }
 function cleanTranscript(t){
   let s=(t||"").toLowerCase().trim();
@@ -1207,6 +1220,7 @@ $("micBtn").onclick=()=>{
   if(!SR){pushSys("voice input needs Chrome/Edge — typing works everywhere");return}
   if(listening){try{recog.stop()}catch(e){};return}
   stopSpeech(); /* barge-in: tapping the mic silences AURA immediately */
+  voiceSessionUntil=Date.now()+45000; /* tap = explicit request → voice answers for 45s */
   hiTried=false;lastAlts=[];
   startListen(window.__auraLang==="hi");
 };
@@ -1214,13 +1228,22 @@ $("wakeBtn").onclick=()=>{
   wake=!wake;
   $("wakeBtn").textContent="WAKE: "+(wake?"ON":"OFF");
   if(!wake&&listening){stopSpeech();try{recog.abort()}catch(e){}}
+  if(wake){voiceSessionUntil=Date.now()+45000}
   if(wake&&!listening&&!busy&&!ttsActive){try{recog=new (window.SpeechRecognition||window.webkitSpeechRecognition)();recog.lang=window.__auraLang==="hi"?"hi-IN":"en-IN";recog.interimResults=true;recog.maxAlternatives=3;
     recog.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent='SAY "HEY AURA…"';setMode("listening")};
-    recog.onresult=e=>{let ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript;}if(ft&&!ttsActive){const c=cleanTranscript(ft);if(!isEcho(c)&&/(\baura\b|ऑरा)/i.test(c)){listening=false;try{recog.stop()}catch(e2){}stopSpeech();ask(c.replace(/^\s*(hey |ok |hi )?(aura|ऑरा)\b[,.!]?\s*/i,""));}}};
+    recog.onresult=e=>{let ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript;}if(ft&&!ttsActive){const c=cleanTranscript(ft);
+      /* STRICT GATE: must contain the wake word, must not be her own echo, must not be her voice's tail */
+      if(isEcho(c))return;
+      if(!/(\baura\b|ऑरा)/i.test(c))return;
+      listening=false;try{recog.stop()}catch(e2){}stopSpeech();
+      voiceSessionUntil=Date.now()+45000;
+      const cmd=c.replace(/^\s*(hey |ok |okay |hi |हे |हेय )?(aura|ऑरा)\b[,.!]?\s*/i,"");
+      if(cmd.replace(/[\s?!.]/g,"").length<2){addMsg("AURA ▸","Yes? 🎙️","aura");pushSys("wake word caught — no command followed");setTimeout(()=>{if(wake)armWake(600)},900);return;}
+      ask(cmd);}};
     recog.onerror=()=>{listening=false;if(mode==="listening")setMode("idle")};
-    recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");if(mode==="listening")setMode("idle");armWake(700)};
+    recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");if(mode==="listening")setMode("idle");armWake(1200)};
     recog.start();}catch(e){}}
-  pushSys("wake word "+(wake?"armed — say 'Hey Aura'":"off"));
+  pushSys(wake?"wake word armed — I stay silent until you say 'Hey Aura'":"wake word off — text and tap still work, voice is muted");
 };
 $("langBtn").onclick=()=>{
   window.__auraLang=window.__auraLang==="auto"?"en":window.__auraLang==="en"?"hi":"auto";
@@ -1261,6 +1284,8 @@ addEventListener("offline",()=>{$("tNet").textContent="OFFLINE";$("tNet").classN
 /* ---------------- telemetry ---------------- */
 const bootAt=Date.now();
 setInterval(()=>{
+  /* busy watchdog — a hung network call must never deadlock the conversation */
+  if(busy&&askAt&&Date.now()-askAt>45000){busy=false;setMode("idle");pushSys("recovered from a stalled query — try again")}
   const n=new Date();
   $("clockT").textContent=n.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   $("clockD").textContent=n.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"}).toUpperCase();
@@ -1282,7 +1307,7 @@ const BOOT=["> AURA OS v3.1 — initializing neural core","> personality matrix 
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
   let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;$("boot").classList.add("gone");
-    setTimeout(()=>{const n=memGet().name;const msg=greetWord()+(n?", "+n:"")+". AURA online — neural link established. Tap the mic and speak, or type below.";const el2=addMsg("AURA ▸","","aura");typewrite(el2,msg);speak(msg);setMode("speaking");},350)};
+    setTimeout(()=>{const n=memGet().name;const msg=greetWord()+(n?", "+n:"")+". AURA online — neural link established. Tap the mic and speak, or type below.";const el2=addMsg("AURA ▸","","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
   $("boot").addEventListener("click",end,{once:true});
   setTimeout(end,2600);
 })();
