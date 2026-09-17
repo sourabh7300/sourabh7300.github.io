@@ -385,6 +385,9 @@ function typewrite(el,text){
 /* ---------------- voice ---------------- */
 const synth=window.speechSynthesis;
 let voices=[];function loadV(){voices=synth?synth.getVoices():[]}loadV();if(synth)synth.onvoiceschanged=loadV;
+let detectedLang="en";window.__auraLang=localStorage.getItem("aura_lang")||"auto";
+if(["auto","en","hi"].indexOf(window.__auraLang)<0)window.__auraLang="auto";
+(function(){const lb=document.getElementById("langBtn");if(lb)lb.textContent="LANG: "+(window.__auraLang==="hi"?"हिंदी":window.__auraLang==="en"?"ENG":"AUTO")})();
 let speakGen=0,ttsActive=false,lastSpoken="",lastSpokeAt=0;
 function stopSpeech(){speakGen++;ttsActive=false;try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
 function speak(t){
@@ -400,7 +403,7 @@ function speak(t){
       let cut=rest.lastIndexOf(". ",180);if(cut<80)cut=rest.lastIndexOf(" ",180);if(cut<80)cut=180;
       parts.push(rest.slice(0,cut+1));rest=rest.slice(cut+1).replace(/^\s+/,"");
     }
-    const hi=window.__auraLang==="hi";
+    const hi=window.__auraLang==="hi"||(window.__auraLang!=="en"&&detectedLang==="hi");
     let i=0;
     const pickVoice=()=>hi?(voices.find(v=>/hi-IN|^hi/i.test(v.lang))||voices.find(v=>/^hi/i.test(v.name))||null):(voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang)));
     const v=pickVoice();
@@ -445,7 +448,7 @@ function hiPersonalReply(q){
   return null;
 }
 function greetWord(){
-  if(window.__auraLang==="hi"){const h=new Date().getHours();return h<12?"सुप्रभात":h<17?"नमस्ते":"नमस्ते";}
+  if(window.__auraLang==="hi"||(window.__auraLang!=="en"&&detectedLang==="hi")){const h=new Date().getHours();return h<12?"सुप्रभात":h<17?"नमस्ते":"नमस्ते";}
   const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":h<21?"Good evening":"Working late";
 }
 const KB={
@@ -920,32 +923,42 @@ function resolveContext(q){
   return q;
 }
 /* ---------------- self-visualization commands ---------------- */
+function vizReplyLang(l){return window.__auraLang==="hi"||(window.__auraLang!=="en"&&(detectedLang==="hi"||/\b(karo|kardo|kar do|badlo)\b/.test(l)))}
 function vizCommand(q){
   const l=q.toLowerCase();
+  const V=(en,hi)=>vizReplyLang(l)?hi:en;
   /* Hindi / Hinglish visualization commands — Hindi runs before the English patterns */
-  const hiColor=l.match(/(?:रंग|रंगत)\s*(?:को\s*)?(सुनहरा|सुनहरी|स्वर्ण|लाल|हरा|हरी|नीला|नीली|काला|सफ़ेद|सफेद|गुलाबी|बैंगनी|पीला|नारंगी|नीली)/);
-  const hiColorEn=l.match(/\b(?:aura)?\s*(?:ka|का)?\s*(?:color|colour|रंग)\s*(?:gold|golden|red|green|blue|purple|pink|white|black|sunset)?\s*(?:karo|करो|kardo|कर दो|change|बदलो)?/);
   const HI_COLN={"सुनहरा":"gold","सुनहरी":"gold","स्वर्ण":"gold","लाल":"red","हरा":"green","हरी":"green","नीला":"blue","नीली":"blue","काला":"black","सफ़ेद":"white","सफेद":"white","गुलाबी":"pink","बैंगनी":"purple","पीला":"yellow","नारंगी":"orange"};
   const HI_WORDS=/करो|कर दो|बदलो|तेज़|धीमा|घुमाओ|रंग|सुनहरा|स्वर्ण|लाल|हरा|नीला|काला|सफ़ेद|गुलाबी|बैंगनी|पीला|नारंगी|\bkaro\b|\bkardo\b|\bbadlo\b/;
   if(HI_WORDS.test(l)){
-    if(hiColor&&HI_COLN[hiColor[1]]){const c=HI_COLN[hiColor[1]];
-      if(setHue(c)){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "होलो-एमिटर बदल गया — "+({gold:"सुनहरा",red:"लाल",green:"हरा",blue:"नीला",black:"काला",white:"सफ़ेद",pink:"गुलाबी",purple:"बैंगनी",yellow:"पीला",orange:"नारंगी"})[c]+" मोड चालू।";}return null;}
-    if(/\bgold(en)?\b/.test(l)&&/करो|कर दो|बदलो|karo|kardo|kar do|badlo|change/.test(l)){if(setHue("gold")){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "होलो-एमिटर बदल गया — सुनहरा मोड चालू।";}return null;}
-    if(/रंग\s*(वापस|पहले जैसा|सामान्य)|वापस पहले जैसा/.test(l)){const fx=document.getElementById("fx");if(fx)fx.style.filter="";setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "होलो-एमिटर रीसेट — मानक सियान स्पेक्ट्रम।";}
+    /* color/glow handling — a named color with set-intent wins even over "वापस" ("वापस नीला करो" = back to blue) */
+    if(/रंग|\brang\b|\brangat\b|color|colour|glow/.test(l)){
+      const anyHi=l.match(/(सुनहरा|सुनहरी|स्वर्ण|लाल|हरा|हरी|नीला|नीली|काला|सफ़ेद|सफेद|गुलाबी|बैंगनी|पीला|नारंगी)/);
+      const anyEn=l.match(/\b(red|orange|gold|golden|yellow|lime|green|blue|indigo|purple|violet|pink|magenta|cyan|white)\b/);
+      const cWord=anyHi?HI_COLN[anyHi[1]]:(anyEn?anyEn[1].replace("golden","gold"):null);
+      if(cWord&&/करो|कर दो|बदलो|karo|kardo|kar do|badlo|change|set|to|make|turn/.test(l)){
+        if(setHue(cWord)){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return V("Holo-emitter retuned — "+cWord+" mode engaged.","होलो-एमिटर बदल गया — "+({gold:"सुनहरा",red:"लाल",green:"हरा",blue:"नीला",black:"काला",white:"सफ़ेद",pink:"गुलाबी",purple:"बैंगनी",yellow:"पीला",orange:"नारंगी",cyan:"सियान",indigo:"इंडिगो",violet:"बैंगनी",magenta:"मैजेंटा",lime:"लाइम"})[cWord]+" मोड चालू।");}return null;}
+      if(/back|normal|default|original|reset|वापस|पहले जैसा|सामान्य/.test(l)){const fx=document.getElementById("fx");if(fx)fx.style.filter="";setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return V("Holo-emitter reset — standard cyan spectrum.","होलो-एमिटर रीसेट — मानक सियान स्पेक्ट्रम।");}
+    }
     if(/तेज़|तेज|घुमाओ/.test(l)&&/घुमा|स्पिन|घूम/.test(l)){spinTarget=8;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "गायरो तेज़ हो गया — हम सुन सकते हैं।";}
     if(/धीमा|धीमी/.test(l)&&/घुमा|स्पिन|घूम/.test(l)){spinTarget=.15;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "गायरो धीमा हो गया।";}
   }
   const mColor=l.match(/(?:change|turn|make|go)\s+(?:your(?:self)?\s+)?(?:color|colour|glow|core)?\s*(?:to|into)?\s*(red|orange|gold|yellow|lime|green|blue|indigo|purple|violet|pink|magenta|cyan|white)\b/);
-  if(mColor){if(setHue(mColor[1])){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "Holo-emitter retuned — "+mColor[1]+" mode engaged.";}return null;}
-  if(/(?:color|colour|glow).*(back|normal|default|original)|reset.*(?:color|colour|glow)/.test(l)){const fx=document.getElementById("fx");if(fx)fx.style.filter="";setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "Holo-emiter reset — standard cyan spectrum.";}
+  if(mColor){if(setHue(mColor[1])){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return V("Holo-emitter retuned — "+mColor[1]+" mode engaged.","होलो-एमिटर बदल गया — "+({gold:"सुनहरा",red:"लाल",green:"हरा",blue:"नीला",black:"काला",white:"सफ़ेद",pink:"गुलाबी",purple:"बैंगनी",yellow:"पीला",orange:"नारंगी",cyan:"सियान",indigo:"इंडिगो",violet:"बैंगनी",magenta:"मैजेंटा",lime:"लाइम"})[mColor[1]]+" मोड चालू।");}return null;}
+  if(/(?:color|colour|glow).*(back|normal|default|original)|reset.*(?:color|colour|glow)/.test(l)){
+    /* "वापस नीला करो" / "back to blue" — a named color wins over plain reset */
+    const rc=l.match(/(red|orange|gold|yellow|lime|green|blue|indigo|purple|violet|pink|magenta|cyan|white)\b/)||(l.match(/(सुनहरा|सुनहरी|स्वर्ण|लाल|हरा|हरी|नीला|नीली|काला|सफ़ेद|सफेद|गुलाबी|बैंगनी|पीला|नारंगी)/)||[]);
+    const target=rc?(HI_COLN&&HI_COLN[rc[1]])||rc[1]:null;
+    if(target&&setHue(target)){setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return V("Holo-emitter retuned — "+target+" mode engaged.","होलो-एमिटर बदल गया — "+({gold:"सुनहरा",red:"लाल",green:"हरा",blue:"नीला",black:"काला",white:"सफ़ेद",pink:"गुलाबी",purple:"बैंगनी",yellow:"पीला",orange:"नारंगी",cyan:"सियान"})[target]+" मोड चालू।");}
+    const fx=document.getElementById("fx");if(fx)fx.style.filter="";setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return V("Holo-emitter reset — standard cyan spectrum.","होलो-एमिटर रीसेट — मानक सियान स्पेक्ट्रम।");
+  }
   const mSpin=l.match(/spin (faster|slower|normal)|(?:spin|rotation)\s*(?:speed)?\s*(?:to|at)?\s*(max|fast|slow|normal)/);
-  if(mSpin||/spin (faster|slower|normal)/.test(l)){const w=mSpin?(mSpin[1]||mSpin[2]):(l.includes("faster")?"faster":l.includes("slower")?"slower":"normal");spinTarget=w==="faster"||w==="max"||w==="fast"?8:w==="slower"||w==="slow"?.15:0;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return w==="normal"?"Rotation normalized." :"Gyro spun "+(w==="slow"||w==="slower"?"down":w==="faster"||w==="max"||w==="fast"?"to maximum":"up")+" — feel the hum.";}
-  if(/(?:pulse|breathe|heartbeat)\s*(mode|faster)?/.test(l)&&/core|hologram|yourself|pulse|breathe/.test(l)){heart+=6;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return "Core pulse amplified.";}
+  if(mSpin||/spin (faster|slower|normal)/.test(l)){const w=mSpin?(mSpin[1]||mSpin[2]):(l.includes("faster")?"faster":l.includes("slower")?"slower":"normal");spinTarget=w==="faster"||w==="max"||w==="fast"?8:w==="slower"||w==="slow"?.15:0;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return V(w==="normal"?"Rotation normalized.":"Gyro spun "+(w==="slow"||w==="slower"?"down":w==="faster"||w==="max"||w==="fast"?"to maximum":"up")+" — feel the hum.",w==="normal"?"गायरो सामान्य।":"गायरो "+(w==="slow"||w==="slower"?"धीमा":"तेज़")+" हो गया।");}
+  if(/(?:pulse|breathe|heartbeat)\s*(mode|faster)?/.test(l)&&/core|hologram|yourself|pulse|breathe/.test(l)){heart+=6;setMode("thinking");setTimeout(()=>{if(mode==="thinking")setMode("idle")},1200);return V("Core pulse amplified.","कोर पल्स बढ़ गया।");}
   return null;
 }
 /* ---------------- weather (free, no key) ---------------- */
-async function weatherReply(q){
-  const hi=window.__auraLang==="hi"||/[\u0900-\u097F]/.test(q)||/\b(mausam|hindi)\b/i.test(q.toLowerCase());
+async function weatherReply(q){    const hi=window.__auraLang==="hi"||(window.__auraLang!=="en"&&detectedLang==="hi");
   const m=q.toLowerCase().match(/(?:weather|mausam|temperature|तापमान|मौसम)(?:\s+(?:in|at|for|mein|me|में))?\s+([a-z\u0900-\u097F\s]+?)(?:\?|today|now|अभी|$)/)
     ||q.toLowerCase().match(/([a-z\u0900-\u097F]+?)(?:\s+(?:ka|ki|का|की))?\s+(?:ka\s+)?(?:mausam|मौसम|तापमान)(?:\s+(?:kaisa|hai|abhi|अभी))?/);
   if(!m||!/weather|temperature|forecast|mausam|मौसम|तापमान/.test(q.toLowerCase()))return null;
@@ -966,14 +979,16 @@ async function weatherReply(q){
 }
 /* ---------------- on this day ---------------- */
 async function onThisDayReply(q){
-  if(!/on this day|what happened today|today in history|this day in history/.test(q.toLowerCase()))return null;
+  const l0=q.toLowerCase();
+  if(!/on this day|what happened today|today in history|this day in history/.test(l0)&&!/आज\s*के\s*दिन|इस\s*दिन|आज\s*का\s*इतिहास|इतिहास\s*में\s*आज/.test(q))return null;
   try{
     const d=new Date();const mm=String(d.getMonth()+1).padStart(2,"0"),dd=String(d.getDate()).padStart(2,"0");
     const r=await fetch("https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/selected/"+mm+"/"+dd,{signal:AbortSignal.timeout(8000)});
     if(!r.ok)throw 0;
     const j=await r.json();const ev=(j.selected||[]).slice(0,3);
     if(!ev.length)throw 0;
-    return "On "+d.toLocaleDateString(undefined,{month:"long",day:"numeric"})+" in history:\n\n"+ev.map(e=>"• "+e.year+" — "+e.text).join("\n")+"\n\n— live from Wikipedia's On This Day archive";
+    const hi=window.__auraLang==="hi"||(window.__auraLang!=="en"&&detectedLang==="hi");
+    return hi?"आज "+d.toLocaleDateString("hi-IN",{month:"long",day:"numeric"})+" के दिन इतिहास में:\n\n"+ev.map(e=>"• "+e.year+" — "+e.text).join("\n")+"\n\n— विकिपीडिया के On This Day आर्काइव से":"On "+d.toLocaleDateString(undefined,{month:"long",day:"numeric"})+" in history:\n\n"+ev.map(e=>"• "+e.year+" — "+e.text).join("\n")+"\n\n— live from Wikipedia's On This Day archive";
   }catch(e){}
   return null;
 }
@@ -995,8 +1010,9 @@ const QUIZBANK=[
 ];
 function quizReply(q){
   const l=q.toLowerCase().trim();
-  if(/quiz me|start quiz|ask me questions|test me/.test(l)){quiz=QUIZBANK.slice().sort(()=>Math.random()-.5).slice(0,5);quizScore=0;
-    return "Quiz mode engaged — 5 questions, answer in plain words. Question 1: "+quiz[0][0];}
+  if(/quiz me|start quiz|ask me questions|test me/.test(l)||/क्विज़|क्विज|प्रश्नोत्तरी|प्रश्न\s*पूछो/.test(q)){quiz=QUIZBANK.slice().sort(()=>Math.random()-.5).slice(0,5);quizScore=0;
+    const hi=window.__auraLang==="hi"||(window.__auraLang!=="en"&&detectedLang==="hi");
+    return hi?"क्विज़ मोड चालू — 5 सवाल, आसान शब्दों में जवाब दो। पहला सवाल: "+quiz[0][0]:"Quiz mode engaged — 5 questions, answer in plain words. Question 1: "+quiz[0][0];}
   if(quiz&&quiz.length){
     const cur=quiz.shift();
     const ok=cur[1].some(a=>l.includes(a));
@@ -1016,16 +1032,22 @@ function isKnowledgeHI(q){
   const ql=q.toLowerCase();
   return /(?:^|\s)(?:kya|kaun|kab|kahan|kyun|kyu|kaise|kaisa|batao|bataiye|bata|mujhe|hindi)(?:\s|$)/.test(ql);
 }
+function detectLang(q){
+  if(window.__auraLang==="hi")return"hi";
+  if(window.__auraLang==="en")return"en";
+  return (HI_HINT_RE.test(q)||isHinglish(q))?"hi":"en";
+}
 function isHinglish(q){
   if(HI_HINT_RE.test(q))return true;
   const ql=q.toLowerCase();
-  return /\b(hindi mein|hindi me|in hindi|kya hai|kaun hai|kaun hai|kaise|kyun|kyu|kahan|kab|batao|bataiye|mujhe batao)\b/.test(ql);
+  return /\b(hindi mein|hindi me|in hindi|kya hai|kaun hai|kaise|kyun|kyu|kahan|kab|batao|bataiye|mujhe batao|kya|kaun|kaisa|kaisi|konsa|konsi|kisne|kitna|kitni|haan|nahi|achha|bata|mausam|karo|kardo|badlo)\b/.test(ql);
 }
 function isKnowledgeEN(q){
   return /^(what|who|when|where|which|why|how)\b|^explain\b|^describe\b|^define\b|^tell me about\b/i.test(q.trim());
 }
 async function aiReply(q){
   const deep=/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/i.test(q);
+  detectedLang=detectLang(q)==="hi"?"hi":"en";
   const wr=await weatherReply(q);if(wr)return{t:wr,eng:"open-meteo live"};
   const otd=await onThisDayReply(q);if(otd)return{t:otd,eng:"wikipedia otd live"};
   const viz=vizCommand(q);if(viz)return{t:viz,eng:"holo-emitter control"};
@@ -1034,7 +1056,7 @@ async function aiReply(q){
   /* knowledge questions go LIVE first — local core is the offline fallback, not the first answer */
   const personal=/(who|what) (are|r) (you|u)\b|who (built|made|created|designed) you|your name|what can you do|who (is|made) sourabh|about sourabh|tell me about yourself|introduce yourself|open \w+|diagnostic|\bscan\b|joke|flip|roll|what time|time is it|today'?s date|my name|who am i|^(?:तुम|आप)\s+(?:कौन|क्या)|तुम्हें\s+किसने|आपको\s+किसने|तुम्हारा\s+नाम|आपका\s+नाम|किसने\s+बनाया|कौन\s+बनाया|तुम\s+क्या\s+कर\s+सकती|तुम\s+क्या\s+कर\s+सकते|अपने\s+बारे\s+में|अपना\s+परिचय/i;
   const knowledge=!personal.test(q)&&(isKnowledgeEN(q)||deep||isKnowledgeHI(q));
-  const hiMode=window.__auraLang==="hi"||isHinglish(q);
+  const hiMode=detectedLang==="hi";
   const rc=resolveContext(q);if(rc!==q)q=rc;
   if(knowledge){
     if(hiMode){const hw=await hiWikiAnswer(q,deep);if(hw)return hw;}
@@ -1125,43 +1147,56 @@ function cleanTranscript(t){
     .replace(/\bsquare root of\b/g,"sqrt");
   return s.replace(/\s+/g," ").trim();
 }
-$("micBtn").onclick=()=>{
+let hiTried=false,lastAlts=[];
+function startListen(hiEar){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){pushSys("voice input needs Chrome/Edge — typing works everywhere");return}
-  if(listening){try{recog.stop()}catch(e){};return}
-  stopSpeech(); /* barge-in: tapping the mic silences AURA immediately */
-  recog=new SR();
-  recog.lang=window.__auraLang==="hi"?"hi-IN":"en-IN";recog.interimResults=true;recog.continuous=false;recog.maxAlternatives=3;
+  if(!SR)return;
+  const r=new SR();
+  r.lang=hiEar?"hi-IN":(window.__auraLang==="hi"?"hi-IN":"en-IN");
+  r.interimResults=true;r.continuous=false;r.maxAlternatives=3;
   let finalText="",interim="";
-  recog.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent="LISTENING…";setMode("listening");blip(880,.1);
-    pushSys("mic online — speak naturally");};
-  recog.onresult=e=>{
-    interim="";
+  r.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent=hiEar?"सुन रही हूँ… (हिंदी)":"LISTENING…";setMode("listening");blip(880,.1);
+    pushSys(hiEar?"hindi ear online — boliye":"mic online — speak naturally")};
+  r.onresult=e=>{lastAlts=[];interim="";
     for(let i=e.resultIndex;i<e.results.length;i++){
-      const r=e.results[i];
-      if(r.isFinal){
-        let best="";for(let j=0;j<r.length;j++){if(r[j].transcript.trim().length>best.length)best=r[j].transcript;}
+      const res=e.results[i];
+      for(let j=0;j<res.length;j++)lastAlts.push(res[j].transcript);
+      if(res.isFinal){
+        let best="";for(let j=0;j<res.length;j++){if(res[j].transcript.trim().length>best.length)best=res[j].transcript;}
         finalText+=(finalText?" ":"")+best;
-      }else interim+=r[i?0:i][0].transcript;
+      }else interim+=res[0]?res[0][0].transcript:"";
     }
     const live=(finalText+" "+interim).trim();
     if(live)$("micHint").textContent='"'+live.slice(-42)+'"';
   };
-  recog.onerror=e=>{
+  r.onerror=e=>{
     listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";
     if(mode==="listening")setMode("idle");
     if(e.error==="not-allowed"||e.error==="service-not-allowed")pushSys("mic blocked — allow microphone in browser settings");
     else if(e.error==="no-speech")pushSys("didn't catch that — tap and speak a little louder");
     else if(e.error==="network")pushSys("speech service unreachable — type instead");
   };
-  recog.onend=()=>{
+  r.onend=()=>{
     listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent=wake?"WAKE WORD: 'HEY AURA'":"TAP TO SPEAK";
     if(mode==="listening")setMode("idle");
     const t=cleanTranscript(finalText);
-    if(t&&t.split(/\s+/).length>=1){slog("heard: \""+t.slice(0,50)+"\"",true);ask(t)}
+    /* AUTO language: latin ear heard hindi sounds → one automatic retry with the hi-IN ear */
+    if(window.__auraLang==="auto"&&!hiEar&&hiTried===false&&!/[\u0900-\u097F]/.test(t)&&lastAlts.some(a=>/[\u0900-\u097F]/.test(a)||isHinglish(a))){
+      hiTried=true;slog("latin ear caught hindi sounds — retrying with the hi-IN ear",true);
+      setTimeout(()=>startListen(true),250);return;
+    }
+    if(t&&t.trim()){slog("heard: \""+t.slice(0,50)+"\"",true);ask(t)}
     if(wake)armWake(600);
   };
-  try{recog.start()}catch(e){}
+  try{r.start();recog=r}catch(e){}
+}
+$("micBtn").onclick=()=>{
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){pushSys("voice input needs Chrome/Edge — typing works everywhere");return}
+  if(listening){try{recog.stop()}catch(e){};return}
+  stopSpeech(); /* barge-in: tapping the mic silences AURA immediately */
+  hiTried=false;lastAlts=[];
+  startListen(window.__auraLang==="hi");
 };
 $("wakeBtn").onclick=()=>{
   wake=!wake;
@@ -1176,11 +1211,12 @@ $("wakeBtn").onclick=()=>{
   pushSys("wake word "+(wake?"armed — say 'Hey Aura'":"off"));
 };
 $("langBtn").onclick=()=>{
-  window.__auraLang=window.__auraLang==="hi"?"en":"hi";
-  $("langBtn").textContent="LANG: "+(window.__auraLang==="hi"?"हिंदी":"ENG");
+  window.__auraLang=window.__auraLang==="auto"?"en":window.__auraLang==="en"?"hi":"auto";
+  try{localStorage.setItem("aura_lang",window.__auraLang)}catch(e){}
+  $("langBtn").textContent="LANG: "+(window.__auraLang==="hi"?"हिंदी":window.__auraLang==="en"?"ENG":"AUTO");
   if(recog)recog.lang=window.__auraLang==="hi"?"hi-IN":"en-IN";
-  pushSys("voice language → "+(window.__auraLang==="hi"?"hindi / hinglish":"english"));
-  if(window.__auraLang==="hi"&&!localStorage.getItem("aura_hi_tip")){localStorage.setItem("aura_hi_tip","1");addMsg("AURA ▸","हिंदी मोड तैयार! अब मुझसे हिंदी या Hinglish में पूछो — जैसे 'भारत के प्रधानमंत्री कौन हैं?' — मैं हिंदी में जवाब दूँगा।","aura");}
+  pushSys("language → "+(window.__auraLang==="auto"?"AUTO — I detect hindi/english per question":window.__auraLang==="hi"?"हिंदी हमेशा":"english always"));
+  if(window.__auraLang==="auto"&&!localStorage.getItem("aura_auto_tip")){localStorage.setItem("aura_auto_tip","1");addMsg("AURA ▸","AUTO mode on 🌐 — अब मुझे जो भाषा में पूछोगे, उसी में जवाब दूँगी। 'Who is Tesla?' → English · 'टेस्ला कौन थे?' → हिंदी · 'Tesla kaun the?' → हिंदी। No toggle needed.","aura");}
 };
 
 /* ---------------- wiring ---------------- */
