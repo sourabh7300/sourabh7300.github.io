@@ -466,7 +466,7 @@ const KB={
   "foodora":"FOODORA is a full food-delivery platform: 12 restaurants, 48 dishes, live GPS maps, cart and checkout, and recipes in English, Hindi and Spanish.",
   "mercedes":"The Mercedes-Benz showcase is a cinematic luxury automotive landing page — premium design and scroll animations.",
   "aura":"That's me — a holographic AI with a 560-particle 3D core, voice interface, live telemetry and a three-layer brain, all in one hand-written file.",
-  "lucid":"Lucid is Sourabh's AI Pro Photo Studio — 50+ hand-coded pixel engines: tone curves, HSL mixer, bloom, bokeh, grain. It connects to SENSE: capture a frame there, one click sends it to Lucid for editing. Say 'open lucid' and I'll launch it.",
+  "lucid":"Lucid is Sourabh's Photo Studio — a desktop-class editor with layer compositing, batch processing (resize + watermark + export in bulk), real-time pixel engines like curves, clarity and bloom, a live histogram, and a built-in SENSE camera bridge. Say 'open lucid' or 'open photo studio' and I'll launch it.",
   "api key":"An API key is a secret token that identifies you to an API. My creator uses a free Gemini key from aistudio.google.com — press SET AI KEY to give me one and my answers become frontier-grade.",
   "api":"An API (Application Programming Interface) is a contract that lets two programs talk — you send a request, it sends structured data back.",
   "javascript":"JavaScript is the programming language of the web — it runs in every browser. My entire brain, core and voice are written in it.",
@@ -1085,8 +1085,8 @@ async function ask(text){
   if(busy||!text.trim())return;
   busy=true;$("q").value="";
   addMsg("YOU ▸",text,"user");blip(740,.08);
-  const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|foodora|mercedes|lucid|photo editor)\b/);
-  if(om){const map={portfolio:"portfolio.html",foodora:"foodora.html",mercedes:"mercedes.html",lucid:"lucid.html","photo editor":"lucid.html"};
+  const om=text.toLowerCase().match(/^(?:open|launch)\s+(portfolio|foodora|mercedes|lucid|photo studio|photo editor)\b/);
+  if(om){const map={portfolio:"portfolio.html",foodora:"foodora.html",mercedes:"mercedes.html",lucid:"lucid.html","photo studio":"lucid.html","photo editor":"lucid.html"};
     const f=map[om[1]];pushSys("launching "+om[1]+"…");
     try{const h=await fetch(f,{method:"HEAD"});
       if(h.ok){window.open(f,"_blank");addMsg("AURA ▸","Launching "+om[1]+" in a new tab, boss.","aura");}
