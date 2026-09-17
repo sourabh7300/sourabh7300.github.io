@@ -480,20 +480,20 @@ body.retro .hero h1,body.retro .section-head h2{text-shadow:0 0 18px var(--accen
     <div class="preview">
       <div class="frame-card tilt">
         <div class="frame-bar"><i></i><i></i><i></i><span class="url">lucid.html — Lucid Photo Studio</span><a class="openlink" href="lucid.html" target="_blank">open ↗</a></div>
-        <div class="frame-view"><iframe data-src="lucid.html" title="Lucid"></iframe><div class="veil" onclick="openDemo('lucid.html','Lucid — AI Pro Photo Studio','50+ real-time pixel engines: curves, HSL mixer, bloom, bokeh — all hand-coded')"><span class="hint">▶ Click to interact</span></div></div>
+        <div class="frame-view"><iframe data-src="lucid.html" title="Lucid"></iframe><div class="veil" onclick="openDemo('lucid.html','Lucid — Photo Studio','Layer compositing, batch processing and real-time pixel engines — all hand-coded')"><span class="hint">▶ Click to interact</span></div></div>
       </div>
     </div>
     <div>
       <span class="p-tag">Image Engineering · Pro Tools</span> <span class="p-num">04 / 04</span>
-      <h3>Lucid — AI Pro Photo Studio</h3>
-      <p class="desc">A desktop-class photo editor in one file: <b>50+ real-time pixel engines</b> — tone curves, HSL mixer, clarity convolution, bloom, chromatic aberration, depth bokeh, film grain — plus an AI panel, histogram, presets, crop, undo history and export. Drop in any photo and everything applies in real time.</p>
+      <h3>Lucid — Photo Studio</h3>
+      <p class="desc">A desktop-class photo editor in one file — now with <b>layer compositing</b> and <b>batch processing</b>. Real-time pixel engines (tone curves, clarity convolution, bloom, chromatic aberration, film grain), live histogram, presets, resize, watermark, undo history — plus a built-in SENSE camera bridge: capture a frame and edit it instantly.</p>
       <ul class="feat-list">
-        <li><span class="tick">✓</span>Hand-written HSL conversion, 2D convolution sharpening, per-pixel pipelines</li>
-        <li><span class="tick">✓</span>10 theme system, before/after compare, dominant-color palette extraction</li>
-        <li><span class="tick">✓</span>Live histogram, curve editor, non-destructive undo history</li>
+        <li><span class="tick">✓</span>Layer compositing — stack, order and blend edits like a pro editor</li>
+        <li><span class="tick">✓</span>Batch pipeline — resize, watermark and export an entire folder at once</li>
+        <li><span class="tick">✓</span>Live histogram, curve editor, presets and non-destructive undo history</li>
       </ul>
-      <div class="chips"><span class="chip">Canvas 2D</span><span class="chip">Pixel Pipelines</span><span class="chip">Color Science</span><span class="chip green">Real-time preview</span></div>
-      <div class="p-actions"><button class="btn primary" onclick="openDemo('lucid.html','Lucid — AI Pro Photo Studio','50+ real-time pixel engines, all hand-coded')">Try it now</button><a class="btn ghost" href="lucid.html" target="_blank">Open in new tab</a></div>
+      <div class="chips"><span class="chip">Canvas 2D</span><span class="chip">Layer Compositing</span><span class="chip">Batch Processing</span><span class="chip green">Real-time preview</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('lucid.html','Lucid — Photo Studio','Layer compositing, batch processing and real-time pixel engines, all hand-coded')">Try it now</button><a class="btn ghost" href="lucid.html" target="_blank">Open in new tab</a></div>
     </div>
   </div>
 </section>
@@ -894,7 +894,7 @@ const guide=document.getElementById('guide'),gMsgs=document.getElementById('gMsg
 let voiceOn=true,recog=null,listening=false;
 function toggleGuide(){guide.classList.toggle('show');if(guide.classList.contains('show')&&!gMsgs.children.length)greet()}
 function gAdd(text,who){const d=document.createElement('div');d.className='g-msg '+who;d.textContent=text;gMsgs.appendChild(d);gMsgs.scrollTop=gMsgs.scrollHeight;return d}
-const CHIPS=['What is this portfolio?','Explain the Sense AI project','Tell me about AURA','What tech did you use?','Which project was hardest?','What did you learn?'];
+const CHIPS=['What is this portfolio?','Tell me about Lucid','Tell me about AURA','What tech did you use?','Which project was hardest?','What did you learn?'];
 function greet(){
   gAdd("Hi! I'm Gia ✨ — Sourabh's AI guide. Ask me anything about him, his projects, or what went into building them!",'bot');
   const chips=document.getElementById('gChips');
@@ -902,7 +902,7 @@ function greet(){
 }
 const KB=[
  {k:['what is this','portfolio','about this'],a:'This portfolio brings four complete web apps together on one page — FOODORA, a food-delivery platform; a Mercedes-Benz showcase; AURA, a holographic AI assistant; and Lucid, a pro photo studio — plus a lab section with four more experiments: a quantum circuit simulator, an autonomous SRE system, an AI-teaching app called Groundwork, and CloudPilot, an infrastructure-as-code console. Every preview is the real app running live, all hand-written with zero frameworks.'},
- {k:['lucid','photo','editor','photoshop','image editing'],a:'Lucid is an AI Pro Photo Studio — a desktop-class photo editor in a single file. 50+ real-time pixel engines hand-coded from scratch: tone curves, HSL mixer, clarity convolution, bloom, chromatic aberration, depth bokeh, film grain — plus an AI panel, live histogram, presets, crop and undo history.'},
+ {k:['lucid','photo','editor','photoshop','image editing'],a:'Lucid is a Photo Studio — a desktop-class photo editor in a single file. Layer compositing, batch processing with resize and watermark, real-time pixel engines (curves, clarity, bloom, film grain), live histogram, presets and undo history — plus a SENSE camera bridge that sends a live camera frame straight into the editor. All hand-coded.'},
  {k:['foodora','food','delivery'],a:'FOODORA is a food-delivery platform: 12 restaurants, 48 dishes with full recipes in English, Hindi and Spanish, a cart and checkout flow, plus live Leaflet maps that use the browser GPS to place you on the map.'},
  {k:['aura','holographic','jarvis','hologram'],a:'AURA is a Jarvis-style holographic AI assistant: a 3D core of 560 particles projected by hand-written math, voice input and spoken answers via the Web Speech API, real AI uplink with an offline fallback brain, live telemetry and a self-diagnostics sequence. All in one file, zero engines.'},
  {k:['quantum','qubit','circuit'],a:'The Quantum Circuit Simulator lets you place quantum gates on a circuit board and watch superposition and entanglement play out — real state-vector math, in the browser.'},
@@ -925,7 +925,7 @@ async function askGia(){
   let answer=null;
   try{
     if(window.puter&&window.puter.ai&&window.puter.ai.chat){
-      const ctx="You are Gia, the friendly guide of Sourabh Singh's web-development portfolio shown to teachers. Sourabh is a B.Tech CSE student at JECRC University (AI, DevOps & Cloud Automation). Portfolio facts: four hand-coded apps (no frameworks): 1) FOODORA — food delivery platform, 12 restaurants, 48 dishes, cart+checkout, Leaflet maps with browser GPS, recipes in English/Hindi/Spanish; 2) Mercedes-Benz — cinematic luxury landing page; 3) AURA — holographic AI assistant with a 3D particle core, voice in/out, deep web research (Wikipedia + DuckDuckGo) and offline brain; 4) Lucid — pro photo studio, 50+ hand-coded pixel engines, histogram, curves, HSL mixer. Stack: HTML, CSS, JavaScript only, plus Leaflet and Web APIs (geolocation, speech, canvas, IntersectionObserver). Answer in under 90 words, warm and confident, plain text.";
+      const ctx="You are Gia, the friendly guide of Sourabh Singh's web-development portfolio shown to teachers. Sourabh is a B.Tech CSE student at JECRC University (AI, DevOps & Cloud Automation). Portfolio facts: four hand-coded apps (no frameworks): 1) FOODORA — food delivery platform, 12 restaurants, 48 dishes, cart+checkout, Leaflet maps with browser GPS, recipes in English/Hindi/Spanish; 2) Mercedes-Benz — cinematic luxury landing page; 3) AURA — holographic AI assistant with a 3D particle core, voice in/out, deep web research (Wikipedia + DuckDuckGo) and offline brain, plus Jarvis-style tasks: hologram screenshot capture, webpage summarizing by link, and driving Lucid's batch processor with a voice-chosen preset; 4) Lucid — pro photo studio with layer compositing, batch processing, live histogram and a camera bridge. Stack: HTML, CSS, JavaScript only, plus Leaflet and Web APIs (geolocation, speech, canvas, IntersectionObserver). Answer in under 90 words, warm and confident, plain text.";
       const r=await window.puter.ai.chat(ctx+'\n\nQuestion: '+q);
       answer=typeof r==='string'?r:(r&&r.message&&r.message.content||r&&r.text||null);
     }
@@ -962,7 +962,7 @@ const ACTIONS=[
  {i:'🧪',l:()=>'Open Autonomous SRE — incident responder',run:()=>openTab('sre.html')},
  {i:'🧱',l:()=>'Open Groundwork — learn AI from zero',run:()=>openTab('groundwork.html')},
  {i:'☁️',l:()=>'Open CloudPilot — IaC console',run:()=>openTab('cloudpilot.html')},
- {i:'🎨',l:()=>'Open Lucid — AI pro photo studio',run:()=>openTab('lucid.html')},
+ {i:'🎨',l:()=>'Open Lucid — photo studio',run:()=>openTab('lucid.html')},
  {i:'🌗',l:()=>'Toggle light / dark theme',run:toggleTheme},
  {i:voiceOn?'🔇':'🔊',l:()=>voiceOn?'Mute AI voice answers':'Enable AI voice answers',run:()=>{toggleGuide();toggleVoice()}},
  {i:'📍',l:()=>'Go to Projects',run:()=>go('#projects')},
@@ -994,7 +994,7 @@ const TOUR=[
  {s:'.stats',t:'The numbers',x:'Four apps, over 10,000 lines of hand-written code — the counter below is computed live from the real files!'},
  {s:'#projects .proj:nth-child(2)',t:'FOODORA — the big one',x:'A full delivery platform: live GPS maps, cart, checkout, and 48 recipes in three languages.'},
  {s:'#projects .proj:nth-child(6)',t:'AURA — the hologram 🌐',x:'A Jarvis-style assistant with a living 3D core. Tap the mic, ask who built it — it answers out loud, about me.'},
- {s:'#projects .proj:nth-child(5)',t:'Lucid — the photo studio 🎨',x:'50+ hand-coded pixel engines: curves, HSL mixer, bloom, bokeh — a desktop-class editor in one file.'},
+ {s:'#projects .proj:nth-child(5)',t:'Lucid — the photo studio 🎨',x:'Layers, batch processing, curves and a live histogram — a desktop-class editor in one file.'},
  {s:'#experiments',t:'The Lab — more experiments 🧪',x:'Beyond the main four: a quantum simulator, an autonomous SRE system, an AI-teaching app and an IaC console — pulled live from my GitHub.'},
  {s:'#skills',t:'Skills, mapped to proof',x:'Every bar corresponds to something real in the apps above — no empty claims.'},
  {s:'#journey',t:'How it was built',x:'From first HTML pages to streaming AI — the full iteration story.'},
