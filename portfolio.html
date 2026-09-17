@@ -1,0 +1,1139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sourabh Singh — Web Development Portfolio | JECRC University</title>
+<meta name="description" content="Portfolio of Sourabh Singh, B.Tech CSE student at JECRC University (AI, DevOps & Cloud Automation) — five hand-built web apps running live.">
+<script>try{if(localStorage.getItem('pf-theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070b16;
+  --bg2:#0a1020;
+  --card:#121a2e;
+  --card-border:#202e4d;
+  --accent:#7c5cff;
+  --accent-light:#9e87ff;
+  --accent-glow:rgba(124,92,255,.35);
+  --emerald:#10b981;
+  --amber:#f59e0b;
+  --text:#f1f5f9;
+  --muted:#94a3b8;
+  --faint:#64748b;
+  --font:'Inter',-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;
+  --mono:'JetBrains Mono',monospace;
+  --card2:#0d1526;
+  --chrome:#0d1526;
+  --glass:rgba(18,26,46,.62);
+  --nav-bg:rgba(7,11,22,.75);
+}
+[data-theme="light"]{
+  --bg:#eef1f8;--bg2:#e7ebf5;--card:#ffffff;--card2:#f3f5fc;--chrome:#f0f2fa;
+  --card-border:#d9e0f0;--accent:#6a48f0;--accent-light:#5b3be0;
+  --accent-glow:rgba(106,72,240,.2);
+  --text:#101828;--muted:#48566f;--faint:#7d8aa3;
+  --glass:rgba(255,255,255,.72);--nav-bg:rgba(255,255,255,.82);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6;overflow-x:hidden}
+button,input{font-family:inherit}
+::selection{background:var(--accent);color:#fff}
+::-webkit-scrollbar{width:10px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--card-border);border-radius:6px}
+::-webkit-scrollbar-thumb:hover{background:#33456f}
+
+/* ---------- scroll progress ---------- */
+#progress{position:fixed;top:0;left:0;height:3px;width:0%;background:linear-gradient(90deg,var(--accent),#38bdf8);z-index:10000;transition:width .1s linear;box-shadow:0 0 12px var(--accent-glow)}
+
+/* ---------- nav ---------- */
+nav{position:fixed;top:0;left:0;right:0;z-index:9000;display:flex;align-items:center;gap:26px;padding:16px 5%;background:var(--nav-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(124,92,255,.14);transition:padding .3s}
+nav.scrolled{padding:10px 5%;background:var(--nav-bg)}
+.logo{font-size:21px;font-weight:900;letter-spacing:-.5px;color:var(--text);text-decoration:none;display:flex;align-items:center;gap:9px}
+.logo .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 14px var(--accent-glow);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.4}}
+nav .links{display:flex;gap:22px;margin-left:auto}
+nav .links a{color:var(--muted);text-decoration:none;font-size:13.5px;font-weight:600;transition:.2s;position:relative}
+nav .links a::after{content:"";position:absolute;left:0;bottom:-5px;width:0;height:2px;background:var(--accent);transition:width .25s;border-radius:2px}
+nav .links a:hover{color:#fff}
+nav .links a:hover::after{width:100%}
+.nav-cta{background:var(--accent);color:#fff;text-decoration:none;font-size:13px;font-weight:700;padding:9px 18px;border-radius:20px;transition:.2s;box-shadow:0 4px 18px var(--accent-glow)}
+.nav-cta:hover{transform:translateY(-2px);box-shadow:0 8px 26px var(--accent-glow)}
+@media(max-width:820px){nav .links{display:none}}
+
+.icon-btn{background:var(--glass);border:1px solid var(--card-border);color:var(--text);border-radius:10px;padding:8px 11px;font-size:13.5px;cursor:pointer;transition:.2s;font-family:var(--mono);font-weight:700}
+.icon-btn:hover{border-color:var(--accent);transform:translateY(-2px)}
+
+/* ---------- hero ---------- */
+.hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;position:relative;padding:120px 6% 70px;overflow:hidden}
+#stars{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.hero>*{position:relative;z-index:1}
+.badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--card-border);background:var(--glass);border-radius:30px;padding:8px 18px;font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:26px;backdrop-filter:blur(8px)}
+.badge .live{width:8px;height:8px;border-radius:50%;background:var(--emerald);box-shadow:0 0 10px var(--emerald);animation:pulse 1.6s infinite}
+.badge b{color:var(--text)}
+.hero h1{font-size:clamp(40px,7vw,84px);font-weight:900;letter-spacing:-3px;line-height:1.02;max-width:1000px}
+.hero h1 .grad{background:linear-gradient(92deg,var(--accent-light),#38bdf8 55%,var(--emerald));-webkit-background-clip:text;background-clip:text;color:transparent}
+.typeline{font-family:var(--mono);font-size:clamp(14px,2vw,19px);color:var(--muted);margin-top:22px;min-height:30px}
+.typeline .caret{display:inline-block;width:9px;height:1.15em;background:var(--accent);vertical-align:text-bottom;margin-left:3px;animation:blink .9s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+.hero p.sub{max-width:640px;color:var(--muted);font-size:16px;margin-top:16px}
+.hero-btns{display:flex;gap:14px;margin-top:34px;flex-wrap:wrap;justify-content:center}
+.btn{padding:14px 30px;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none;transition:.22s;cursor:pointer;border:0;display:inline-flex;align-items:center;gap:9px}
+.btn.primary{background:var(--accent);color:#fff;box-shadow:0 10px 34px var(--accent-glow)}
+.btn.primary:hover{transform:translateY(-3px);box-shadow:0 16px 44px var(--accent-glow)}
+.btn.ghost{border:1px solid var(--card-border);color:var(--text);background:var(--glass)}
+.btn.ghost:hover{border-color:var(--accent);transform:translateY(-3px)}
+.hero-id{margin-top:16px;display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
+.hero-id span{border:1px solid var(--card-border);background:var(--glass);border-radius:20px;padding:6px 15px;font-size:12.5px;font-weight:600;color:var(--muted);backdrop-filter:blur(8px)}
+.kbd-hint{margin-top:22px;font-size:12.5px;color:var(--faint)}
+.kbd-hint b{font-family:var(--mono);color:var(--accent-light);border:1px solid var(--card-border);border-radius:6px;padding:2px 7px;font-weight:700}
+.scroll-hint{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);color:var(--faint);font-size:12px;display:flex;flex-direction:column;align-items:center;gap:7px;z-index:1}
+.scroll-hint .mouse{width:22px;height:36px;border:2px solid var(--faint);border-radius:12px;position:relative}
+.scroll-hint .mouse::after{content:"";position:absolute;top:6px;left:50%;width:3px;height:7px;background:var(--accent);border-radius:2px;transform:translateX(-50%);animation:wheel 1.6s infinite}
+@keyframes wheel{70%{transform:translate(-50%,12px);opacity:0}}
+
+/* ---------- stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1050px;margin:-40px auto 0;padding:0 5%;position:relative;z-index:2}
+.stat{background:linear-gradient(160deg,var(--card),var(--card2));border:1px solid var(--card-border);border-radius:16px;padding:24px 14px;text-align:center;transition:.25s}
+.stat:hover{transform:translateY(-5px);border-color:var(--accent);box-shadow:0 14px 38px rgba(124,92,255,.16)}
+.stat .num{font-size:clamp(26px,3.4vw,40px);font-weight:900;letter-spacing:-1px;background:linear-gradient(90deg,var(--text),var(--accent-light));-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat .lbl{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1.6px;margin-top:5px;font-weight:600}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+/* ---------- sections ---------- */
+section{padding:95px 5%}
+.section-head{text-align:center;max-width:700px;margin:0 auto 56px}
+.eyebrow{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--accent-light)}
+.section-head h2{font-size:clamp(30px,4.4vw,48px);font-weight:900;letter-spacing:-1.6px;margin:12px 0 14px}
+.section-head p{color:var(--muted);font-size:15.5px}
+
+/* reveal on scroll */
+.reveal{opacity:0;transform:translateY(36px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+
+/* ---------- project showcase ---------- */
+.proj{display:grid;grid-template-columns:1.25fr .9fr;gap:46px;align-items:center;max-width:1150px;margin:0 auto 90px}
+.proj:last-child{margin-bottom:0}
+.proj.flip .preview{order:2}
+.preview{position:relative}
+.frame-card{border:1px solid var(--card-border);border-radius:18px;overflow:hidden;background:var(--bg2);box-shadow:0 30px 80px rgba(0,0,0,.45),0 0 0 1px rgba(124,92,255,.08);transition:transform .25s,box-shadow .25s;transform-style:preserve-3d}
+.frame-card:hover{box-shadow:0 36px 96px rgba(124,92,255,.22)}
+.frame-bar{height:38px;background:var(--chrome);border-bottom:1px solid var(--card-border);display:flex;align-items:center;gap:7px;padding:0 14px}
+.frame-bar i{width:11px;height:11px;border-radius:50%}
+.frame-bar i:nth-child(1){background:#ff5f57}.frame-bar i:nth-child(2){background:#febc2e}.frame-bar i:nth-child(3){background:#28c840}
+.frame-bar .url{margin-left:10px;flex:1;background:var(--bg);border:1px solid var(--card-border);border-radius:7px;font-family:var(--mono);font-size:11px;color:var(--faint);padding:4px 11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.frame-bar .openlink{color:var(--accent-light);font-size:12px;text-decoration:none;font-weight:700;white-space:nowrap}
+.frame-bar .openlink:hover{text-decoration:underline}
+.frame-view{height:330px;overflow:hidden;position:relative}
+.frame-view iframe{width:200%;height:200%;border:0;transform:scale(.5);transform-origin:0 0;pointer-events:none;background:#0a1020;filter:saturate(1.05)}
+.frame-view .veil{position:absolute;inset:0;cursor:pointer;transition:.25s}
+.frame-view .veil:hover{background:rgba(124,92,255,.08)}
+.frame-view .hint{position:absolute;bottom:12px;right:12px;background:rgba(7,11,22,.85);border:1px solid var(--card-border);color:var(--text);font-size:12px;font-weight:700;padding:8px 14px;border-radius:9px;opacity:0;transition:.25s;pointer-events:none;backdrop-filter:blur(6px)}
+.frame-view .veil:hover .hint{opacity:1}
+.frame-view.loading::after{content:"";position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(124,92,255,.09),transparent);animation:sweep 1.3s infinite}
+@keyframes sweep{to{left:130%}}
+
+.p-tag{font-family:var(--mono);font-size:11.5px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent-light)}
+.p-num{font-family:var(--mono);font-size:12px;color:var(--faint)}
+.proj h3{font-size:clamp(26px,3.4vw,40px);font-weight:900;letter-spacing:-1.4px;margin:10px 0 14px;line-height:1.1}
+.proj .desc{color:var(--muted);font-size:15px}
+.feat-list{list-style:none;margin:20px 0;display:grid;gap:10px}
+.feat-list li{display:flex;gap:11px;font-size:14px;color:var(--muted)}
+.feat-list .tick{flex:none;width:20px;height:20px;border-radius:50%;background:rgba(16,185,129,.14);color:var(--emerald);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;margin-top:2px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.chip{font-family:var(--mono);font-size:11.5px;font-weight:600;color:var(--accent-light);background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.3);padding:5px 12px;border-radius:20px}
+.chip.green{color:#34d399;background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3)}
+.chip.amber{color:#fbbf24;background:rgba(245,158,11,.1);border-color:rgba(245,158,11,.3)}
+.p-actions{display:flex;gap:12px;flex-wrap:wrap}
+@media(max-width:900px){.proj{grid-template-columns:1fr;gap:26px}.proj.flip .preview{order:0}.frame-view{height:250px}}
+
+/* ---------- skills ---------- */
+.skills-wrap{max-width:1050px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.skill-bar{margin-bottom:20px}
+.skill-bar .top-row{display:flex;justify-content:space-between;font-size:13.5px;font-weight:600;margin-bottom:8px}
+.skill-bar .top-row span:last-child{font-family:var(--mono);color:var(--accent-light);font-size:12px}
+.track{height:9px;border-radius:6px;background:var(--chrome);border:1px solid var(--card-border);overflow:hidden}
+.fill{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--accent),#38bdf8);transition:width 1.4s cubic-bezier(.2,.7,.2,1);box-shadow:0 0 12px var(--accent-glow)}
+.about-card{background:linear-gradient(160deg,var(--card),var(--card2));border:1px solid var(--card-border);border-radius:20px;padding:34px}
+.about-card h3{font-size:22px;font-weight:800;margin-bottom:14px;letter-spacing:-.5px}
+.about-card p{color:var(--muted);font-size:14.5px;margin-bottom:14px}
+.about-card .hl{color:var(--accent-light);font-weight:600}
+.mini-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:22px}
+.mini{background:var(--glass);border:1px solid var(--card-border);border-radius:12px;padding:14px;text-align:center}
+.mini b{font-family:var(--mono);font-size:19px;color:var(--accent-light)}
+.mini span{display:block;font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:1px;margin-top:3px}
+@media(max-width:900px){.skills-wrap{grid-template-columns:1fr;gap:34px}}
+
+/* ---------- timeline ---------- */
+.timeline{max-width:760px;margin:0 auto;position:relative}
+.timeline::before{content:"";position:absolute;left:19px;top:6px;bottom:6px;width:2px;background:linear-gradient(var(--accent),#38bdf8,transparent)}
+.t-item{position:relative;padding:0 0 34px 62px}
+.t-item:last-child{padding-bottom:0}
+.t-item .node{position:absolute;left:8px;top:2px;width:24px;height:24px;border-radius:50%;background:var(--card);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 0 16px var(--accent-glow)}
+.t-item h4{font-size:17px;font-weight:800;letter-spacing:-.3px}
+.t-item .when{font-family:var(--mono);font-size:11.5px;color:var(--faint);margin:2px 0 7px}
+.t-item p{color:var(--muted);font-size:14px}
+
+/* ---------- share / QR ---------- */
+.share-wrap{max-width:900px;margin:0 auto}
+.qr-card{display:flex;gap:34px;align-items:center;background:var(--card);border:1px solid var(--card-border);border-radius:24px;padding:34px;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.qr-card img{width:200px;height:200px;border-radius:16px;background:#fff;padding:10px;flex:0 0 auto}
+.qr-side{flex:1;min-width:230px}
+.qr-side b{font-size:19px;display:block;margin-bottom:6px}
+.share-url{font-family:var(--mono);font-size:13.5px;color:var(--accent-light);background:rgba(124,58,237,.12);border:1px dashed var(--card-border);border-radius:10px;padding:10px 14px;margin:8px 0 16px;display:inline-block}
+.share-actions{display:flex;gap:12px;flex-wrap:wrap}
+.share-note{color:var(--muted);font-size:13px;margin-top:14px;line-height:1.6}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--card-border);padding:60px 5% 40px;text-align:center}
+footer h3{font-size:clamp(26px,4vw,42px);font-weight:900;letter-spacing:-1.4px;margin-bottom:12px}
+footer h3 .grad{background:linear-gradient(92deg,var(--accent-light),#38bdf8);-webkit-background-clip:text;background-clip:text;color:transparent}
+footer p{color:var(--muted);font-size:14.5px;max-width:560px;margin:0 auto 28px}
+.f-line{margin-top:46px;color:var(--faint);font-size:12.5px;font-family:var(--mono)}
+
+/* ---------- AI guide ---------- */
+.fab{position:fixed;right:22px;bottom:22px;width:60px;height:60px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--accent),#38bdf8);color:#fff;font-size:24px;cursor:pointer;z-index:9500;box-shadow:0 12px 36px var(--accent-glow);transition:.25s}
+.fab:hover{transform:scale(1.08) translateY(-2px)}
+.fab::after{content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--accent);opacity:.5;animation:ring 2.2s infinite}
+@keyframes ring{to{transform:scale(1.35);opacity:0}}
+.guide{position:fixed;right:22px;bottom:94px;width:min(370px,calc(100vw - 28px));height:min(520px,calc(100dvh - 130px));background:var(--card);border:1px solid var(--card-border);border-radius:18px;z-index:9600;display:none;flex-direction:column;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.guide.show{display:flex;animation:fade .25s}
+.g-head{display:flex;justify-content:space-between;align-items:center;padding:13px 14px;border-bottom:1px solid var(--card-border);background:var(--card2)}
+.g-id{display:flex;gap:10px;align-items:center}
+.g-avatar{width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#38bdf8);display:flex;align-items:center;justify-content:center;font-size:17px}
+.g-id b{font-size:14.5px;display:block;line-height:1.2}
+.g-id small{font-size:11px;color:var(--faint)}
+.g-tools{display:flex;gap:6px}
+.g-tool{background:transparent;border:1px solid var(--card-border);color:var(--muted);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:13px;transition:.2s}
+.g-tool:hover{color:var(--text);border-color:var(--accent)}
+.g-msgs{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.g-msg{max-width:85%;padding:10px 13px;border-radius:14px;font-size:13.5px;line-height:1.55;white-space:pre-wrap}
+.g-msg.bot{background:var(--card2);border:1px solid var(--card-border);border-bottom-left-radius:4px;align-self:flex-start}
+.g-msg.user{background:var(--accent);color:#fff;border-bottom-right-radius:4px;align-self:flex-end}
+.g-msg.typing span{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent-light);margin:0 1.5px;animation:tp 1s infinite}
+.g-msg.typing span:nth-child(2){animation-delay:.15s}.g-msg.typing span:nth-child(3){animation-delay:.3s}
+@keyframes tp{40%{transform:translateY(-4px);opacity:.5}}
+.g-chips{display:flex;gap:7px;padding:0 14px 10px;flex-wrap:wrap}
+.g-chip{font-size:11.5px;font-weight:600;color:var(--accent-light);background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.3);border-radius:16px;padding:5px 11px;cursor:pointer;transition:.2s}
+.g-chip:hover{background:rgba(124,92,255,.25)}
+.g-input{display:flex;gap:8px;padding:11px 14px;border-top:1px solid var(--card-border)}
+.g-input input{flex:1;background:var(--bg);border:1px solid var(--card-border);color:var(--text);border-radius:10px;padding:10px 12px;font-size:13.5px;outline:0;min-width:0}
+.g-input input:focus{border-color:var(--accent)}
+.g-mic,.g-send{width:40px;flex:none;border-radius:10px;border:0;cursor:pointer;font-size:15px;transition:.2s}
+.g-mic{background:var(--card2);border:1px solid var(--card-border)}
+.g-mic.rec{background:#ef4444;border-color:#ef4444;animation:pulse 1s infinite}
+.g-send{background:linear-gradient(135deg,var(--accent),#38bdf8);color:#fff}
+.g-foot{font-size:10.5px;color:var(--faint);text-align:center;padding:7px;border-top:1px solid var(--card-border);font-family:var(--mono)}
+
+/* ---------- command palette ---------- */
+.palette{position:fixed;inset:0;background:rgba(4,7,14,.6);backdrop-filter:blur(6px);z-index:10500;display:none;align-items:flex-start;justify-content:center;padding:14vh 16px 0}
+[data-theme="light"] .palette{background:rgba(30,40,70,.35)}
+.palette.show{display:flex;animation:fade .18s}
+.pal-box{width:min(560px,100%);background:var(--card);border:1px solid var(--card-border);border-radius:16px;overflow:hidden;box-shadow:0 40px 100px rgba(0,0,0,.55)}
+.pal-box input{width:100%;background:transparent;border:0;outline:0;color:var(--text);font-size:16px;padding:17px 18px;border-bottom:1px solid var(--card-border)}
+.pal-list{max-height:320px;overflow-y:auto;padding:7px}
+.pal-item{display:flex;align-items:center;gap:12px;padding:11px 13px;border-radius:10px;cursor:pointer;font-size:14px}
+.pal-item .pi{width:30px;height:30px;border-radius:8px;background:var(--card2);border:1px solid var(--card-border);display:flex;align-items:center;justify-content:center;font-size:14px;flex:none}
+.pal-item small{margin-left:auto;color:var(--faint);font-family:var(--mono);font-size:11px}
+.pal-item.sel,.pal-item:hover{background:rgba(124,92,255,.14)}
+.pal-foot{padding:9px 16px;border-top:1px solid var(--card-border);font-size:11px;color:var(--faint);font-family:var(--mono)}
+
+/* ---------- guided tour ---------- */
+.tourbar{position:fixed;left:50%;bottom:24px;transform:translate(-50%,140%);width:min(680px,calc(100vw - 24px));background:var(--card);border:1px solid var(--card-border);border-radius:16px;z-index:10400;display:flex;gap:14px;align-items:center;padding:14px 16px;box-shadow:0 24px 70px rgba(0,0,0,.5);transition:transform .4s cubic-bezier(.2,.8,.2,1)}
+.tourbar.show{transform:translate(-50%,0)}
+.t-step{font-family:var(--mono);font-size:12px;color:var(--accent-light);font-weight:700;background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.3);padding:7px 10px;border-radius:9px;white-space:nowrap}
+.t-body{flex:1;min-width:0}
+.t-body b{display:block;font-size:14.5px;letter-spacing:-.2px}
+.t-body span{font-size:12.5px;color:var(--muted);display:block;line-height:1.45}
+.t-btns{display:flex;gap:7px}
+.t-btns button{background:var(--card2);border:1px solid var(--card-border);color:var(--text);border-radius:9px;padding:9px 13px;font-weight:700;font-size:13px;cursor:pointer;transition:.2s}
+.t-btns .t-next{background:var(--accent);color:#fff;border-color:var(--accent)}
+.t-btns button:hover{transform:translateY(-2px)}
+@media(max-width:640px){.t-body span{display:none}.guide{right:12px;bottom:88px}
+  nav{padding:14px 18px}nav .logo{font-size:15px}
+  .hero{padding:110px 20px 70px}.hero h1{font-size:clamp(34px,10vw,46px);letter-spacing:-1.6px}.hero h1 br{display:none}
+  .hero .sub{font-size:15px}.hero-btns{flex-wrap:wrap;gap:12px}.hero-btns .btn{width:100%;max-width:300px;justify-content:center}
+  .stats{grid-template-columns:repeat(2,1fr);gap:10px;margin-top:-30px}.stat b{font-size:30px}.stat span{font-size:10.5px}
+  .frame-view{height:230px}.proj .chips{flex-wrap:wrap}.feat-list li{font-size:13.5px}
+  .timeline{padding-left:24px}.t-item{padding-left:26px}.t-body span{display:none}
+  footer{padding:50px 18px 34px}footer .hero-btns{flex-wrap:wrap}
+  .qr-card{flex-direction:column;text-align:center;padding:22px}.qr-card img{margin:0 auto}
+  .palette-panel{margin-top:8vh}.modal-card{width:calc(100vw - 24px)}
+  .share-actions .btn{width:100%;justify-content:center}.share-url{font-size:12px}
+  .gh-head{flex-direction:column;text-align:center;gap:10px}.gh-meta{margin-left:0}
+  section{padding:70px 18px}.skills-wrap{grid-template-columns:1fr!important}
+}
+@media(max-width:820px) and (min-width:641px){
+  .hero h1{font-size:clamp(38px,7.5vw,58px)}.hero-btns .btn{padding:12px 20px}
+  .stats{grid-template-columns:repeat(4,1fr)}.stat b{font-size:26px}
+  .qr-card{flex-wrap:wrap;justify-content:center;text-align:center}
+}
+
+/* ---------- lightbox ---------- */
+.lightbox{position:fixed;inset:0;background:rgba(4,7,14,.9);backdrop-filter:blur(10px);z-index:11000;display:none;align-items:center;justify-content:center;padding:22px}
+.lightbox.show{display:flex;animation:fade .25s}
+@keyframes fade{from{opacity:0}}
+.lb-box{width:min(1250px,100%);height:min(88vh,900px);background:var(--bg2);border:1px solid var(--card-border);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 40px 120px rgba(0,0,0,.6)}
+.lb-bar{height:50px;background:var(--chrome);border-bottom:1px solid var(--card-border);display:flex;align-items:center;gap:14px;padding:0 16px}
+.lb-bar .t{font-weight:800;font-size:14.5px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-bar .t small{color:var(--faint);font-family:var(--mono);font-weight:500;margin-left:10px}
+.lb-bar button{background:var(--card);border:1px solid var(--card-border);color:var(--text);border-radius:9px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;text-decoration:none;display:inline-flex;align-items:center;gap:7px}
+.lb-bar button:hover{border-color:var(--accent)}
+.lb-bar button.close-x{width:36px;padding:0;justify-content:center;font-size:16px}
+.lb-frame{flex:1;background:#0a1020}
+.lb-frame iframe{width:100%;height:100%;border:0}
+
+/* ---------- github (live) ---------- */
+.gh-head{max-width:1050px;margin:0 auto 22px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+#ghAvatar{width:64px;height:64px;border-radius:18px;border:1px solid var(--card-border);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.gh-id b{font-size:19px;display:block;letter-spacing:-.4px}
+.gh-handle{color:var(--accent-light);text-decoration:none;font-family:var(--mono);font-size:12.5px}
+.gh-handle:hover{text-decoration:underline}
+.gh-meta{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--muted);border:1px solid var(--card-border);background:var(--glass);border-radius:20px;padding:8px 15px}
+.gh-meta b{color:var(--accent-light)}
+.gh-filters{display:flex;gap:8px;flex-wrap:wrap;max-width:1050px;margin:0 auto 20px}
+.gh-filter{border:1px solid var(--card-border);background:var(--glass);color:var(--muted);border-radius:18px;padding:6px 13px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.2s}
+.gh-filter.active,.gh-filter:hover{color:#fff;background:var(--accent);border-color:var(--accent)}
+.gh-grid{max-width:1050px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:14px}
+.repo{background:var(--card);border:1px solid var(--card-border);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:8px;transition:.22s;text-decoration:none;color:var(--text)}
+.repo:hover{transform:translateY(-4px);border-color:var(--accent);box-shadow:0 14px 36px rgba(124,92,255,.15)}
+.repo h4{font-family:var(--mono);font-size:13.5px;font-weight:700;color:var(--accent-light);word-break:break-all;display:flex;gap:7px;align-items:center}
+.repo p{font-size:12.5px;color:var(--muted);line-height:1.55;flex:1;margin:0}
+.repo .r-meta{display:flex;gap:13px;font-size:11.5px;color:var(--faint);font-family:var(--mono);flex-wrap:wrap}
+.repo .r-meta .ld{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:4px}
+.repo .r-meta b{color:var(--muted);font-weight:600}
+.skel{height:150px;border-radius:14px;background:linear-gradient(100deg,var(--card) 40%,var(--card2) 50%,var(--card) 60%);background-size:200% 100%;animation:skel 1.2s infinite;border:1px solid var(--card-border)}
+@keyframes skel{to{background-position:-200% 0}}
+.gh-off{grid-column:1/-1;border:1px dashed var(--card-border);border-radius:14px;padding:26px;text-align:center;color:var(--muted);font-size:14px}
+@media(max-width:640px){.gh-meta{margin-left:0}}
+
+/* ---------- v2: boot ---------- */
+#boot{position:fixed;inset:0;background:#05070d;z-index:13000;display:flex;align-items:center;justify-content:center;transition:opacity .6s,visibility .6s;font-family:var(--mono)}
+#boot.gone{opacity:0;visibility:hidden}
+.b-inner{width:min(430px,88vw)}
+.b-logo{font-size:19px;font-weight:700;color:var(--accent-light);margin-bottom:18px;letter-spacing:.5px}
+.b-log{min-height:110px}
+.b-line{font-size:12.5px;color:#67e8a5;margin:4px 0;animation:fade .3s}
+.b-bar{height:3px;background:#141c30;border-radius:3px;overflow:hidden;margin-top:16px}
+.b-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#38bdf8);animation:bootbar 2.3s ease forwards}
+@keyframes bootbar{to{width:100%}}
+.b-inner small{display:block;margin-top:10px;font-size:10.5px;color:var(--faint)}
+
+/* ---------- v2: cursor glow / magnetic / confetti ---------- */
+#cursorGlow{position:fixed;top:0;left:0;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(124,92,255,.16),transparent 65%);pointer-events:none;z-index:8000;opacity:0;transition:opacity .4s}
+[data-theme="light"] #cursorGlow{background:radial-gradient(circle,rgba(106,72,240,.12),transparent 65%)}
+#confetti{position:fixed;inset:0;z-index:12000;pointer-events:none}
+
+/* ---------- v2: toasts ---------- */
+#toasts{position:fixed;left:20px;bottom:20px;z-index:11800;display:flex;flex-direction:column;gap:10px;max-width:min(360px,calc(100vw - 40px))}
+.toast{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--accent);border-radius:14px;padding:13px 15px;box-shadow:0 16px 44px rgba(0,0,0,.45),0 0 24px var(--accent-glow);transform:translateX(-120%);transition:transform .45s cubic-bezier(.2,.9,.25,1.2)}
+.toast.in{transform:none}
+.toast .t-ico{font-size:22px}
+.toast b{font-size:13.5px;display:block}
+.toast small{font-size:11.5px;color:var(--muted)}
+
+/* ---------- v2: achievements ---------- */
+.ach-modal{position:fixed;inset:0;background:rgba(4,7,14,.75);backdrop-filter:blur(8px);z-index:11500;display:none;align-items:center;justify-content:center;padding:20px}
+.ach-modal.show{display:flex;animation:fade .2s}
+.ach-box{width:min(600px,100%);background:var(--card);border:1px solid var(--card-border);border-radius:18px;overflow:hidden;box-shadow:0 40px 110px rgba(0,0,0,.55)}
+.ach-head{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--card-border);background:var(--card2)}
+.ach-head b{font-size:16px;flex:1}
+.ach-head span{font-family:var(--mono);font-size:12px;color:var(--accent-light);background:rgba(124,92,255,.12);border:1px solid rgba(124,92,255,.3);padding:5px 11px;border-radius:16px}
+.ach-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px}
+.ach{border:1px solid var(--card-border);background:var(--card2);border-radius:13px;padding:14px;opacity:.55}
+.ach.got{opacity:1;border-color:rgba(124,92,255,.45);background:rgba(124,92,255,.09)}
+.ach .a-ico{font-size:24px;display:block;margin-bottom:7px}
+.ach b{font-size:13.5px;display:block}
+.ach small{font-size:11.5px;color:var(--muted);line-height:1.4;display:block;margin-top:2px}
+@media(max-width:520px){.ach-grid{grid-template-columns:1fr}}
+
+/* ---------- v2: retro easter egg ---------- */
+body.retro{filter:saturate(1.45) contrast(1.1)}
+body.retro::before{content:"";position:fixed;inset:0;z-index:12500;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.16) 0 2px,transparent 2px 4px)}
+body.retro .hero h1,body.retro .section-head h2{text-shadow:0 0 18px var(--accent-glow),0 0 42px var(--accent-glow)}
+@media (prefers-reduced-motion: reduce){.fab::after,.badge .live,.logo .dot{animation:none}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<nav id="nav">
+  <a class="logo" href="#top"><span class="dot"></span>Sourabh<span style="color:var(--accent-light)"> Singh</span></a>
+  <div class="links">
+    <a href="#projects">Projects</a>
+    <a href="#experiments">Lab</a>
+    <a href="#skills">Skills</a>
+    <a href="#journey">Journey</a>
+    <a href="#github">GitHub</a>
+    <a href="#contact">Contact</a>
+  </div>
+  <a class="nav-cta" href="#projects">View Live Demos</a>
+  <button class="icon-btn" id="achBtn" onclick="openAch()" title="Achievements">🏆 <span id="achCount">0/8</span></button>
+  <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle light / dark">🌙</button>
+  <button class="icon-btn" onclick="openPalette()" title="Quick actions (Ctrl+K)">⌘K</button>
+</nav>
+
+<!-- ================= HERO ================= -->
+<header class="hero" id="top">
+  <canvas id="stars"></canvas>
+  <div class="badge"><span class="live"></span> All projects below are <b>live &amp; interactive</b> — click any preview</div>
+  <h1>Hi, I'm <span class="grad">Sourabh Singh</span><br>I build real web apps from scratch.</h1>
+  <div class="typeline"><span id="typed"></span><span class="caret"></span></div>
+  <div class="hero-id"><span>🎓 B.Tech CSE — AI, DevOps &amp; Cloud Automation</span><span>🏛️ JECRC University</span></div>      <p class="sub">Four complete, self-contained web applications — a Jarvis-style holographic AI, a food-delivery platform with live maps, a luxury brand showcase, and a pro photo studio — plus a lab of DevOps, SRE and quantum experiments from my GitHub. Every line written by hand: HTML, CSS &amp; JavaScript.</p>
+  <div class="hero-btns">
+    <a class="btn primary" href="#projects">🚀 Explore Projects</a>
+    <a class="btn ghost" href="#skills">What I learned</a>
+    <button class="btn ghost" onclick="startTour()">🎬 Guided Tour</button>
+  </div>
+  <div class="kbd-hint">⌨ Press <b>Ctrl + K</b> for quick actions</div>
+  <div class="scroll-hint"><div class="mouse"></div>scroll</div>
+</header>
+
+<!-- ================= STATS ================= -->
+<div class="stats reveal">
+  <div class="stat"><div class="num" data-count="4">0</div><div class="lbl">Complete Apps</div></div>
+  <div class="stat"><div class="num" data-count="7200" data-suffix="+">0</div><div class="lbl">Lines of Code</div></div>
+  <div class="stat"><div class="num" data-count="3" data-suffix=" lang">0</div><div class="lbl">Languages Supported</div></div>
+  <div class="stat"><div class="num" data-count="100" data-suffix="%">0</div><div class="lbl">Self-Contained</div></div>
+</div>
+
+<!-- ================= PROJECTS ================= -->
+<section id="projects">
+  <div class="section-head reveal">
+    <div class="eyebrow">// the work</div>
+    <h2>Projects — running live on this page</h2>
+    <p>These aren't screenshots. Each preview below is the actual application, embedded live. Click a preview to open it fullscreen and use it yourself.</p>
+  </div>
+
+  <!-- Foodora -->
+  <div class="proj flip reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">foodora.html — Food Delivery Platform</span><a class="openlink" href="foodora.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="foodora.html" title="Foodora"></iframe><div class="veil" onclick="openDemo('foodora.html','FOODORA — Food Delivery Platform','maps · cart · GPS · 3-language recipes')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">E-commerce · Geolocation</span> <span class="p-num">01 / 04</span>
+      <h3>FOODORA — Food Delivery</h3>
+      <p class="desc">An end-to-end food ordering platform: browse outlets, add to cart, use your real GPS location, and watch a delivery rider move along a map route.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>Interactive Leaflet maps with real browser geolocation</li>
+        <li><span class="tick">✓</span>Full cart + checkout flow (WhatsApp &amp; UPI)</li>
+        <li><span class="tick">✓</span>48 dishes with recipes in English, Hindi &amp; Spanish</li>
+      </ul>
+      <div class="chips"><span class="chip">Leaflet.js</span><span class="chip">Geolocation API</span><span class="chip">State Management</span><span class="chip amber">48 Dishes</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('foodora.html','FOODORA — Food Delivery Platform','maps · cart · GPS · 3-language recipes')">Try it now</button><a class="btn ghost" href="foodora.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+
+  <!-- Mercedes -->
+  <div class="proj flip reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">mercedes.html — Brand Showcase</span><a class="openlink" href="mercedes.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="mercedes.html" title="Mercedes-Benz Showcase"></iframe><div class="veil" onclick="openDemo('mercedes.html','Mercedes-Benz — Brand Showcase','luxury automotive landing experience')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">Landing Page · Brand Design</span> <span class="p-num">02 / 04</span>
+      <h3>Mercedes-Benz Showcase</h3>
+      <p class="desc">A luxury automotive landing experience with cinematic sections, smooth scroll animations and premium brand styling.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>Cinematic hero and scroll-driven sections</li>
+        <li><span class="tick">✓</span>Premium dark automotive design language</li>
+        <li><span class="tick">✓</span>Fully responsive across devices</li>
+      </ul>
+      <div class="chips"><span class="chip">Animation</span><span class="chip">Responsive</span><span class="chip">Brand UI</span><span class="chip green">Live Demo Below</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('mercedes.html','Mercedes-Benz — Brand Showcase','luxury automotive landing experience')">Try it now</button><a class="btn ghost" href="mercedes.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+
+  <!-- AURA -->
+  <div class="proj reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">aura.html — AURA Holographic AI</span><a class="openlink" href="aura.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="aura.html" title="AURA"></iframe><div class="veil" onclick="openDemo('aura.html','AURA — Holographic AI Assistant','a Jarvis-style holographic interface with voice and a 3D particle core')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">AI Interface · Sci-Fi HUD</span> <span class="p-num">03 / 04</span>
+      <h3>AURA — Holographic AI Assistant</h3>
+      <p class="desc">A Jarvis-style holographic interface: a 560-particle 3D core that reacts to its state, voice in and voice out, real AI answers — and a dramatic self-diagnostics sequence. Everything hand-coded, no engines.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>3D particle sphere with hand-written perspective projection — no Three.js</li>
+        <li><span class="tick">✓</span>Full voice loop: speech recognition in, spoken answers out (Web Speech API)</li>
+        <li><span class="tick">✓</span>Real AI uplink (Puter.js / Gemini key) with a built-in offline brain</li>
+        <li><span class="tick">✓</span>Live telemetry, system log and an animated boot sequence</li>
+      </ul>
+      <div class="chips"><span class="chip">Web Speech API</span><span class="chip">3D Projection</span><span class="chip">Puter.js AI</span><span class="chip amber">Zero engines</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('aura.html','AURA — Holographic AI Assistant','a Jarvis-style holographic interface with voice and a 3D particle core')">Try it now</button><a class="btn ghost" href="aura.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+
+  <!-- LUCID -->
+  <div class="proj flip reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">lucid.html — Lucid Photo Studio</span><a class="openlink" href="lucid.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="lucid.html" title="Lucid"></iframe><div class="veil" onclick="openDemo('lucid.html','Lucid — Photo Studio','Layer compositing, batch processing and real-time pixel engines — all hand-coded')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">Image Engineering · Pro Tools</span> <span class="p-num">04 / 04</span>
+      <h3>Lucid — Photo Studio</h3>
+      <p class="desc">A desktop-class photo editor in one file — now with <b>layer compositing</b> and <b>batch processing</b>. Real-time pixel engines (tone curves, clarity convolution, bloom, chromatic aberration, film grain), live histogram, presets, resize, watermark, undo history — plus a built-in SENSE camera bridge: capture a frame and edit it instantly.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>Layer compositing — stack, order and blend edits like a pro editor</li>
+        <li><span class="tick">✓</span>Batch pipeline — resize, watermark and export an entire folder at once</li>
+        <li><span class="tick">✓</span>Live histogram, curve editor, presets and non-destructive undo history</li>
+      </ul>
+      <div class="chips"><span class="chip">Canvas 2D</span><span class="chip">Layer Compositing</span><span class="chip">Batch Processing</span><span class="chip green">Real-time preview</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('lucid.html','Lucid — Photo Studio','Layer compositing, batch processing and real-time pixel engines, all hand-coded')">Try it now</button><a class="btn ghost" href="lucid.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MORE EXPERIMENTS (FROM GITHUB) ================= -->
+<section id="experiments">
+  <div class="section-head reveal">
+    <div class="eyebrow">// the lab</div>
+    <h2>More experiments — straight from GitHub</h2>
+    <p>Beyond the main four: DevOps, SRE and computing-science labs. Each one is a single-file app pulled live from my repositories — every experiment below is running right here.</p>
+  </div>
+
+  <!-- Quantum -->
+  <div class="proj reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">quantum.html — Quantum Circuit Simulator</span><a class="openlink" href="quantum.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="quantum.html" title="Quantum"></iframe><div class="veil" onclick="openDemo('quantum.html','Quantum Circuit Simulator','gates, superposition and entanglement simulated in the browser')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">Computing Science · Simulation</span> <span class="p-num">EX-01</span>
+      <h3>Quantum Circuit Simulator</h3>
+      <p class="desc">Design quantum circuits and watch superposition and entanglement play out live — state-vector math, gate placement, probabilistic measurement. Quantum computing, learned by touching it.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>Visual gate placement (H, X, Z, CNOT…) on a circuit board</li>
+        <li><span class="tick">✓</span>Real state-vector simulation with complex amplitudes</li>
+        <li><span class="tick">✓</span>Measurement with probabilistic collapse</li>
+      </ul>
+      <div class="chips"><span class="chip">State Vectors</span><span class="chip">Quantum Gates</span><span class="chip">Canvas</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('quantum.html','Quantum Circuit Simulator','gates, superposition and entanglement simulated in the browser')">Try it now</button><a class="btn ghost" href="quantum.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+
+  <!-- Autonomous SRE -->
+  <div class="proj flip reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">sre.html — Autonomous SRE</span><a class="openlink" href="sre.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="sre.html" title="Autonomous SRE"></iframe><div class="veil" onclick="openDemo('sre.html','Autonomous SRE — multi-agent incident responder','detection, triage and remediation by AI agents, visualized')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">Site Reliability · Multi-Agent AI</span> <span class="p-num">EX-02</span>
+      <h3>Autonomous SRE — incident responder</h3>
+      <p class="desc">What if incidents fixed themselves? A multi-agent system where detection, triage and remediation agents coordinate on live dashboards — my take on the future of reliability engineering.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>Agent pipeline: detect → triage → remediate → verify</li>
+        <li><span class="tick">✓</span>Live incident feed with severity and agent assignments</li>
+        <li><span class="tick">✓</span>Built from real SRE practice: SLOs, runbooks, blast radius</li>
+      </ul>
+      <div class="chips"><span class="chip">Multi-Agent</span><span class="chip">SRE</span><span class="chip">Incident Response</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('sre.html','Autonomous SRE — multi-agent incident responder','detection, triage and remediation by AI agents, visualized')">Try it now</button><a class="btn ghost" href="sre.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+
+  <!-- Groundwork -->
+  <div class="proj reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">groundwork.html — Groundwork: Learn AI from Zero</span><a class="openlink" href="groundwork.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="groundwork.html" title="Groundwork"></iframe><div class="veil" onclick="openDemo('groundwork.html','Groundwork — Learn AI from Zero','8 interactive lessons building real AI intuition')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">Education · Interactive Learning</span> <span class="p-num">EX-03</span>
+      <h3>Groundwork — learn AI from zero</h3>
+      <p class="desc">Eight progressive lessons that build genuine intuition for how AI works — interactive demos where you tweak parameters and watch behavior change. I built it to teach; it doubles as proof I understand the material.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>8 structured lessons, from models to neural networks</li>
+        <li><span class="tick">✓</span>Interactive parameter playgrounds in every lesson</li>
+        <li><span class="tick">✓</span>Progress tracking (0/8 → 8/8)</li>
+      </ul>
+      <div class="chips"><span class="chip">Machine Learning</span><span class="chip">Interactive</span><span class="chip">Teaching</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('groundwork.html','Groundwork — Learn AI from Zero','8 interactive lessons building real AI intuition')">Try it now</button><a class="btn ghost" href="groundwork.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+
+  <!-- CloudPilot -->
+  <div class="proj flip reveal">
+    <div class="preview">
+      <div class="frame-card tilt">
+        <div class="frame-bar"><i></i><i></i><i></i><span class="url">cloudpilot.html — CloudPilot</span><a class="openlink" href="cloudpilot.html" target="_blank">open ↗</a></div>
+        <div class="frame-view"><iframe data-src="cloudpilot.html" title="CloudPilot"></iframe><div class="veil" onclick="openDemo('cloudpilot.html','CloudPilot — infrastructure that ships itself','an IaC provisioning console')"><span class="hint">▶ Click to interact</span></div></div>
+      </div>
+    </div>
+    <div>
+      <span class="p-tag">DevOps · Infrastructure as Code</span> <span class="p-num">EX-04</span>
+      <h3>CloudPilot — infrastructure that ships itself</h3>
+      <p class="desc">An infrastructure-as-code console: describe what you want deployed, watch the provisioning plan assemble and execute. My DevOps-track thinking, made interactive.</p>
+      <ul class="feat-list">
+        <li><span class="tick">✓</span>Declarative infra descriptions → provisioning plans</li>
+        <li><span class="tick">✓</span>Visual execution pipeline with stage feedback</li>
+        <li><span class="tick">✓</span>The DevOps & Cloud Automation track, demonstrated live</li>
+      </ul>
+      <div class="chips"><span class="chip">IaC</span><span class="chip">Cloud</span><span class="chip">Automation</span></div>
+      <div class="p-actions"><button class="btn primary" onclick="openDemo('cloudpilot.html','CloudPilot — infrastructure that ships itself','an IaC provisioning console')">Try it now</button><a class="btn ghost" href="cloudpilot.html" target="_blank">Open in new tab</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SKILLS ================= -->
+<section id="skills" style="background:var(--bg2);border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border)">
+  <div class="section-head reveal">
+    <div class="eyebrow">// under the hood</div>
+    <h2>Skills these projects demonstrate</h2>
+    <p>Not claims — every bar below maps to something real in the apps above.</p>
+  </div>
+  <div class="skills-wrap">
+    <div class="reveal">
+      <div class="skill-bar"><div class="top-row"><span>HTML5 — semantic structure</span><span>95%</span></div><div class="track"><div class="fill" data-w="95"></div></div></div>
+      <div class="skill-bar"><div class="top-row"><span>CSS3 — grid, animations, variables</span><span>92%</span></div><div class="track"><div class="fill" data-w="92"></div></div></div>
+      <div class="skill-bar"><div class="top-row"><span>JavaScript — DOM, state, events</span><span>88%</span></div><div class="track"><div class="fill" data-w="88"></div></div></div>
+      <div class="skill-bar"><div class="top-row"><span>API integration — AI, maps, geolocation</span><span>82%</span></div><div class="track"><div class="fill" data-w="82"></div></div></div>
+      <div class="skill-bar"><div class="top-row"><span>Responsive &amp; accessible design</span><span>90%</span></div><div class="track"><div class="fill" data-w="90"></div></div></div>
+    </div>
+    <div class="about-card reveal">
+      <h3>Hi, I'm Sourabh 👋</h3>
+      <p>I'm <span class="hl">Sourabh Singh</span>, a B.Tech CSE student at <span class="hl">JECRC University</span> specializing in AI, DevOps &amp; Cloud Automation. I build complete web applications from scratch — from an AI assistant wired to real Gemini models to a full food-delivery platform with live maps — using nothing but HTML, CSS and JavaScript.</p>
+      <h3>How I built these 💡</h3>
+      <p>Every project here is a <span class="hl">single HTML file</span> — no frameworks, no build tools, no copied templates. That constraint forced me to understand exactly how the browser works: layout, events, state, and the DOM.</p>
+      <p>The AI assistants taught me <span class="hl">asynchronous programming</span> and API integration; the food platform taught me <span class="hl">complex application state</span> — carts, filters, maps and checkout flows all talking to each other.</p>
+      <div class="mini-stats">
+        <div class="mini"><b>0</b><span>Frameworks used</span></div>
+        <div class="mini"><b>4</b><span>Apps shipped</span></div>
+        <div class="mini"><b>3</b><span>Languages i18n</span></div>
+        <div class="mini"><b>1</b><span>Folder — just open it</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= JOURNEY ================= -->
+<section id="journey">
+  <div class="section-head reveal">
+    <div class="eyebrow">// the journey</div>
+    <h2>How each project came to life</h2>
+    <p>A short walkthrough of the process — useful context when presenting to a class.</p>
+  </div>
+  <div class="timeline">
+    <div class="t-item reveal"><div class="node">1</div><h4>Learning the fundamentals</h4><div class="when">foundation</div><p>Started with plain HTML &amp; CSS — no shortcuts. Built static pages first, then made them respond to users with JavaScript.</p></div>
+    <div class="t-item reveal"><div class="node">2</div><h4>First real app</h4><div class="when">assistant interfaces</div><p>Designed complete assistant interfaces — sidebar, chat area, states, theming with variables. Learned component thinking and design systems by building several.</p></div>
+    <div class="t-item reveal"><div class="node">3</div><h4>Real AI — AURA</h4><div class="when">the breakthrough</div><p>Connected interfaces to real AI models running client-side. Learned async/await, streaming responses, deep web research and handling API failures gracefully.</p></div>
+    <div class="t-item reveal"><div class="node">4</div><h4>FOODORA — complex state</h4><div class="when">biggest challenge</div><p>48 dishes, 12 restaurants, a live map, GPS, a cart, checkout, and multilingual recipes — all synchronized in one page. Learned to manage application state carefully.</p></div>
+    <div class="t-item reveal"><div class="node">5</div><h4>This portfolio</h4><div class="when">putting it together</div><p>Built the page you're on: embeds every app live, animates with the IntersectionObserver &amp; Canvas APIs, and loads nothing it doesn't need.</p></div>
+  </div>
+</section>
+
+<!-- ================= GITHUB (LIVE) ================= -->
+<section id="github" style="background:var(--bg2);border-top:1px solid var(--card-border);border-bottom:1px solid var(--card-border)">
+  <div class="section-head reveal">
+    <div class="eyebrow">// open source</div>
+    <h2>My GitHub — fetched live</h2>
+    <p>These cards come straight from the GitHub REST API at page load — real repositories, real stats, always up to date.</p>
+  </div>
+  <div class="gh-head reveal">
+    <img id="ghAvatar" src="https://avatars.githubusercontent.com/u/282454498?v=4" alt="GitHub avatar" onerror="this.style.visibility='hidden'">
+    <div class="gh-id"><b>Sourabh Singh</b><a class="gh-handle" href="https://github.com/sourabh7300" target="_blank" rel="noopener">github.com/sourabh7300 ↗</a></div>
+    <div class="gh-meta" id="ghMeta">connecting to GitHub…</div>
+  </div>
+  <div class="gh-filters reveal" id="ghFilters"></div>
+  <div class="gh-grid reveal" id="ghGrid">
+    <div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div>
+  </div>
+</section>
+
+<!-- ================= SHARE / CONTACT (QR) ================= -->
+<section id="share">
+  <div class="section-head reveal">
+    <div class="eyebrow">// take it with you</div>
+    <h2>Scan. Open. Share.</h2>
+    <p>The entire portfolio — every project, the AI hologram, all of it — lives at one link. Point a phone camera at this code and it opens instantly.</p>
+  </div>
+  <div class="share-wrap">
+    <div class="qr-card reveal">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&color=124a5e&bgcolor=ffffff&data=https%3A%2F%2Fsourabh7300.github.io" alt="QR code — https://sourabh7300.github.io" width="200" height="200" loading="lazy" onerror="this.style.display='none';document.getElementById('qrFall').style.display='flex'">
+      <div id="qrFall" style="display:none;width:200px;height:200px;border-radius:14px;border:1px solid var(--card-border);align-items:center;justify-content:center;font-size:44px">📱</div>
+      <div class="qr-side">
+        <b>The live link</b>
+        <div class="share-url" id="shareUrl">https://sourabh7300.github.io</div>
+        <div class="share-actions">
+          <button class="btn primary" id="copyLink">📋 Copy link</button>
+          <a class="btn ghost" href="https://github.com/sourabh7300/sourabh7300.github.io" target="_blank" rel="noopener">⭐ Star it on GitHub</a>
+        </div>
+        <p class="share-note">Works on any phone, tablet or laptop — no install, no download. Wi-Fi needed only for the live AI features; everything else runs offline.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FOOTER ================= -->
+<footer id="contact">
+  <h3>Thanks for watching.<br><span class="grad">Questions welcome.</span></h3>
+  <p>Everything on this page runs offline from a single folder — double-click any file and it just works. That's the whole stack: HTML, CSS, JavaScript, and curiosity.</p>
+  <div class="hero-btns" style="justify-content:center">
+    <a class="btn ghost" href="https://github.com/sourabh7300" target="_blank" rel="noopener">🐙 GitHub</a>
+    <button class="btn primary" onclick="document.getElementById('share').scrollIntoView({behavior:'smooth'})">📱 Show QR</button>
+  </div>
+  <div class="f-line">© 2026 Sourabh Singh · B.Tech CSE, JECRC University — built with HTML · CSS · JavaScript, no frameworks</div>
+</footer>
+
+<!-- ================= LIGHTBOX ================= -->
+<div class="lightbox" id="lightbox">
+  <div class="lb-box">
+    <div class="lb-bar">
+      <span class="t" id="lbTitle">Demo <small id="lbSub"></small></span>
+      <a id="lbTab" href="#" target="_blank"><button type="button">Open in tab ↗</button></a>
+      <button class="close-x" onclick="closeDemo()" title="Close (Esc)">✕</button>
+    </div>
+    <div class="lb-frame"><iframe id="lbFrame" title="Project demo"></iframe></div>
+  </div>
+</div>
+
+<!-- ================= v2 OVERLAYS ================= -->
+<div id="boot"><div class="b-inner"><div class="b-logo">⌘ Sourabh Singh — Portfolio v2.0</div><div class="b-log"></div><div class="b-bar"><i></i></div><small>click anywhere to skip</small></div></div>
+<div id="cursorGlow"></div>
+<canvas id="confetti"></canvas>
+<div id="toasts"></div>
+<div class="ach-modal" id="achModal" onclick="if(event.target===this)closeAch()">
+  <div class="ach-box">
+    <div class="ach-head"><b>🏆 Achievements</b><span id="achProg">0 / 8 unlocked</span><button class="close-x" onclick="closeAch()" style="width:34px;height:34px;border:1px solid var(--card-border);background:var(--card);color:var(--text);border-radius:50%;cursor:pointer">✕</button></div>
+    <div class="ach-grid" id="achGrid"></div>
+  </div>
+</div>
+
+<!-- ================= AI GUIDE ================= -->
+<button class="fab" id="fab" onclick="toggleGuide()" title="Ask Gia — AI Guide">✨</button>
+<div class="guide" id="guide">
+  <div class="g-head">
+    <div class="g-id"><span class="g-avatar">✨</span><div><b>Gia</b><small id="gStatus">AI Guide · online</small></div></div>
+    <div class="g-tools">
+      <button class="g-tool" id="voiceBtn" onclick="toggleVoice()" title="Speak answers aloud">🔊</button>
+      <button class="g-tool" onclick="toggleGuide()" title="Close">✕</button>
+    </div>
+  </div>
+  <div class="g-msgs" id="gMsgs"></div>
+  <div class="g-chips" id="gChips"></div>
+  <div class="g-input">
+    <input id="gText" placeholder="Ask about my projects..." onkeydown="if(event.key==='Enter')askGia()">
+    <button class="g-mic" id="gMic" onclick="startListening()" title="Speak your question">🎙️</button>
+    <button class="g-send" onclick="askGia()">➤</button>
+  </div>
+  <div class="g-foot">Powered by Puter.js AI · offline fallback built in</div>
+</div>
+
+<!-- ================= COMMAND PALETTE ================= -->
+<div class="palette" id="palette" onclick="if(event.target===this)closePalette()">
+  <div class="pal-box">
+    <input id="palInput" placeholder="Type a command or search..." oninput="renderPal()" onkeydown="palKeys(event)">
+    <div class="pal-list" id="palList"></div>
+    <div class="pal-foot">↑↓ navigate · Enter run · Esc close</div>
+  </div>
+</div>
+
+<!-- ================= GUIDED TOUR BAR ================= -->
+<div class="tourbar" id="tourbar">
+  <div class="t-step" id="tStep">1 / 7</div>
+  <div class="t-body"><b id="tTitle"></b><span id="tText"></span></div>
+  <div class="t-btns">
+    <button onclick="tourPrev()">◀</button>
+    <button class="t-next" onclick="tourNext()">Next ▶</button>
+    <button onclick="endTour()" title="End tour">✕</button>
+  </div>
+</div>
+
+<script>
+/* ---------- scroll progress + nav ---------- */
+const nav=document.getElementById('nav'),prog=document.getElementById('progress');
+addEventListener('scroll',()=>{
+  const h=document.documentElement;
+  prog.style.width=(h.scrollTop/(h.scrollHeight-h.clientHeight)*100)+'%';
+  nav.classList.toggle('scrolled',h.scrollTop>40);
+  if(h.scrollTop+h.clientHeight>=h.scrollHeight-40)unlock('scroll');
+},{passive:true});
+
+/* ---------- hero canvas: particle network ---------- */
+const c=document.getElementById('stars'),ctx=c.getContext('2d');
+let W,H,pts=[];
+function sizeCanvas(){W=c.width=c.offsetWidth;H=c.height=c.offsetHeight;
+  const n=Math.min(90,Math.floor(W*H/16000));
+  pts=Array.from({length:n},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35,r:Math.random()*1.6+.5}));
+}
+sizeCanvas();addEventListener('resize',sizeCanvas);
+const mouse={x:-999,y:-999};
+c.parentElement.addEventListener('mousemove',e=>{const r=c.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top});
+(function draw(){
+  ctx.clearRect(0,0,W,H);
+  for(const p of pts){
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+    const dm=Math.hypot(p.x-mouse.x,p.y-mouse.y);
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fillStyle=dm<140?'rgba(158,135,255,.9)':'rgba(124,92,255,.45)';ctx.fill();
+  }
+  for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+    const a=pts[i],b=pts[j],d=Math.hypot(a.x-b.x,a.y-b.y);
+    if(d<120){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.strokeStyle=`rgba(124,92,255,${.14*(1-d/120)})`;ctx.lineWidth=1;ctx.stroke();}
+  }
+  requestAnimationFrame(draw);
+})();
+
+/* ---------- typewriter ---------- */
+const phrases=["a food-delivery app with live GPS maps 🗺️","a Jarvis-style holographic AI 🌐","a pro photo studio in one file 🎨","interfaces in three languages 🌍","everything from one HTML file ⚡"];
+let pi=0,ci=0,del=false;
+const typed=document.getElementById('typed');
+(function type(){
+  const t=phrases[pi];
+  typed.textContent=t.slice(0,ci);
+  if(!del&&ci<t.length){ci++;setTimeout(type,55);}
+  else if(!del){del=true;setTimeout(type,1900);}
+  else if(ci>0){ci--;setTimeout(type,26);}
+  else{del=false;pi=(pi+1)%phrases.length;setTimeout(type,350);}
+})();
+
+/* ---------- reveal on scroll ---------- */
+const io=new IntersectionObserver(es=>es.forEach(e=>{
+  if(e.isIntersecting){
+    e.target.classList.add('in');
+    e.target.querySelectorAll('.fill').forEach(f=>f.style.width=f.dataset.w+'%');
+    e.target.querySelectorAll('.num[data-count]').forEach(countUp);
+    io.unobserve(e.target);
+  }
+}),{threshold:.15});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+
+/* ---------- count up ---------- */
+function countUp(el){
+  if(el.dataset.done)return;el.dataset.done=1;
+  const target=+el.dataset.count,suf=el.dataset.suffix||'',t0=performance.now(),dur=1400;
+  (function tick(t){
+    const p=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-p,3);
+    el.textContent=Math.round(target*e).toLocaleString()+suf;
+    if(p<1)requestAnimationFrame(tick);
+  })(t0);
+}
+
+/* ---------- lazy-load iframe previews ---------- */
+/* From disk (file://) sibling iframes just work. Over http we verify the file
+   exists first so a sandboxed copy shows a helpful note instead of an error. */
+function showFrameFallback(f){
+  const view=f.parentElement;
+  view.classList.remove('loading');
+  view.style.display='flex';view.style.alignItems='center';view.style.justifyContent='center';
+  view.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted);font-size:14px;max-width:420px">'+
+    '<div style="font-size:38px;margin-bottom:12px">📂</div>'+
+    '<b style="color:var(--text)">Live preview needs its project file</b><br><br>'+
+    'Keep this portfolio in the same folder as <code style="font-family:var(--mono);color:var(--accent-light)">'+f.dataset.src+'</code>, '+
+    'then open it from your computer — the demo will appear here and run fully.'+
+    '<br><br><a href="'+f.dataset.src+'" target="_blank" style="color:var(--accent-light);font-weight:700">Try opening it directly ↗</a></div>';
+}
+const fio=new IntersectionObserver(es=>es.forEach(e=>{
+  if(!e.isIntersecting)return;
+  const f=e.target;fio.unobserve(f);
+  if(location.protocol==='file:'){f.src=f.dataset.src;f.parentElement.classList.add('loading');
+    f.addEventListener('load',()=>f.parentElement.classList.remove('loading'),{once:true});return;}
+  fetch(f.dataset.src,{method:'HEAD'}).then(r=>{
+    if(r.ok){f.src=f.dataset.src;f.parentElement.classList.add('loading');
+      f.addEventListener('load',()=>f.parentElement.classList.remove('loading'),{once:true});}
+    else showFrameFallback(f);
+  }).catch(()=>showFrameFallback(f));
+}),{rootMargin:'300px'});
+document.querySelectorAll('iframe[data-src]').forEach(f=>fio.observe(f));
+
+/* ---------- 3D tilt ---------- */
+document.querySelectorAll('.tilt').forEach(card=>{
+  card.addEventListener('mousemove',e=>{
+    const r=card.getBoundingClientRect(),x=(e.clientX-r.left)/r.width-.5,y=(e.clientY-r.top)/r.height-.5;
+    card.style.transform=`perspective(900px) rotateY(${x*6}deg) rotateX(${-y*6}deg)`;
+  });
+  card.addEventListener('mouseleave',()=>card.style.transform='');
+});
+
+/* ---------- lightbox ---------- */
+const lb=document.getElementById('lightbox'),lbFrame=document.getElementById('lbFrame');
+function openDemo(src,title,sub){
+  document.getElementById('lbTitle').childNodes[0].textContent=title;
+  document.getElementById('lbSub').textContent=sub||'';
+  document.getElementById('lbTab').href=src;
+  lbFrame.src=src;
+  lb.classList.add('show');
+  document.body.style.overflow='hidden';
+  unlock('demo');
+}
+function closeDemo(){
+  lb.classList.remove('show');
+  lbFrame.src='about:blank';
+  document.body.style.overflow='';
+}
+lb.addEventListener('click',e=>{if(e.target===lb)closeDemo()});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&lb.classList.contains('show'))closeDemo()});
+
+/* ---------- theme ---------- */
+function applyTheme(t){document.documentElement.dataset.theme=t;const b=document.getElementById('themeBtn');if(b)b.textContent=t==='light'?'☀️':'🌙';try{localStorage.setItem('pf-theme',t)}catch(e){}}
+function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='light'?'dark':'light');unlock('theme')}
+applyTheme(document.documentElement.dataset.theme==='light'?'light':'dark');
+
+/* ---------- AI guide (Gia) ---------- */
+const guide=document.getElementById('guide'),gMsgs=document.getElementById('gMsgs');
+let voiceOn=true,recog=null,listening=false;
+function toggleGuide(){guide.classList.toggle('show');if(guide.classList.contains('show')&&!gMsgs.children.length)greet()}
+function gAdd(text,who){const d=document.createElement('div');d.className='g-msg '+who;d.textContent=text;gMsgs.appendChild(d);gMsgs.scrollTop=gMsgs.scrollHeight;return d}
+const CHIPS=['What is this portfolio?','Tell me about Lucid','Tell me about AURA','What tech did you use?','Which project was hardest?','What did you learn?'];
+function greet(){
+  gAdd("Hi! I'm Gia ✨ — Sourabh's AI guide. Ask me anything about him, his projects, or what went into building them!",'bot');
+  const chips=document.getElementById('gChips');
+  CHIPS.forEach(c=>{const b=document.createElement('button');b.className='g-chip';b.textContent=c;b.onclick=()=>{document.getElementById('gText').value=c;askGia()};chips.appendChild(b)});
+}
+const KB=[
+ {k:['what is this','portfolio','about this'],a:'This portfolio brings four complete web apps together on one page — FOODORA, a food-delivery platform; a Mercedes-Benz showcase; AURA, a holographic AI assistant; and Lucid, a pro photo studio — plus a lab section with four more experiments: a quantum circuit simulator, an autonomous SRE system, an AI-teaching app called Groundwork, and CloudPilot, an infrastructure-as-code console. Every preview is the real app running live, all hand-written with zero frameworks.'},
+ {k:['lucid','photo','editor','photoshop','image editing'],a:'Lucid is a Photo Studio — a desktop-class photo editor in a single file. Layer compositing, batch processing with resize and watermark, real-time pixel engines (curves, clarity, bloom, film grain), live histogram, presets and undo history — plus a SENSE camera bridge that sends a live camera frame straight into the editor. All hand-coded.'},
+ {k:['foodora','food','delivery'],a:'FOODORA is a food-delivery platform: 12 restaurants, 48 dishes with full recipes in English, Hindi and Spanish, a cart and checkout flow, plus live Leaflet maps that use the browser GPS to place you on the map.'},
+ {k:['aura','holographic','jarvis','hologram'],a:'AURA is a Jarvis-style holographic AI assistant: a 3D core of 560 particles projected by hand-written math, voice input and spoken answers via the Web Speech API, real AI uplink with an offline fallback brain, live telemetry and a self-diagnostics sequence. All in one file, zero engines.'},
+ {k:['quantum','qubit','circuit'],a:'The Quantum Circuit Simulator lets you place quantum gates on a circuit board and watch superposition and entanglement play out — real state-vector math, in the browser.'},
+ {k:['sre','reliability','incident'],a:'Autonomous SRE is a multi-agent incident responder: detection, triage and remediation agents coordinate on a live dashboard — Sourabh\'s view of the future of reliability engineering.'},
+ {k:['groundwork','learn ai','teach'],a:'Groundwork teaches AI from zero: 8 progressive lessons with interactive demos where you tweak parameters and watch behavior change. Built to teach, and as proof of understanding.'},
+ {k:['cloudpilot','iac','infrastructure','terraform','cloud'],a:'CloudPilot is an infrastructure-as-code console: describe what to deploy, watch the provisioning plan assemble and execute. The DevOps & Cloud Automation track, demonstrated live.'},
+ {k:['pipeline','connect','together','integrate'],a:'The projects share one philosophy — everything hand-coded, zero frameworks. AURA can launch any project by voice: just say open portfolio, open foodora, or open lucid.'},
+ {k:['mercedes'],a:'The Mercedes-Benz showcase is a luxury automotive landing page with cinematic scroll sections and premium styling — mostly a design and animation challenge.'},
+ {k:['tech','stack','use','technolog','language'],a:'Everything is plain HTML, CSS and modern JavaScript — no frameworks, no build tools. APIs used: Puter.js for AI, Leaflet + OpenStreetMap for maps, Geolocation, Web Speech for voice, Canvas for the hero animation, and IntersectionObserver for scroll effects.'},
+ {k:['hard','difficult','challenge'],a:'FOODORA was the hardest — cart, filters, GPS, a live map, checkout and trilingual recipes all share one state, so every feature has to stay in sync. AURA\'s deep web research engine was the most technically interesting.'},
+ {k:['learn'],a:'Three big lessons: async JavaScript and streaming from the AI work, large-scale state management from FOODORA, and design systems from building two completely different visual identities for the same kind of app.'},
+ {k:['github','repo','repositories','open source','source code'],a:'All of these projects are public on GitHub — github.com/sourabh7300. The GitHub section of this page fetches the repository list live from the GitHub REST API, showing stars, forks and languages for each one.'},
+ {k:['who','your name','built','made this'],a:'I am Sourabh Singh, a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation. Everything here is built by hand — one folder, five apps, thousands of lines of HTML, CSS and JavaScript, and zero templates.'},
+];
+function localAnswer(q){const l=q.toLowerCase();for(const e of KB){if(e.k.some(k=>l.includes(k)))return e.a}return "Great question! This portfolio has five hand-built web apps — try asking about Sense AI, FOODORA, the tech stack, or what I learned building them."}
+async function askGia(){
+  const inp=document.getElementById('gText');const q=inp.value.trim();if(!q)return;inp.value='';
+  gAdd(q,'user');unlock('gia');
+  const typing=gAdd('','bot typing');typing.innerHTML='<span></span><span></span><span></span>';
+  let answer=null;
+  try{
+    if(window.puter&&window.puter.ai&&window.puter.ai.chat){
+      const ctx="You are Gia, the friendly guide of Sourabh Singh's web-development portfolio shown to teachers. Sourabh is a B.Tech CSE student at JECRC University (AI, DevOps & Cloud Automation). Portfolio facts: four hand-coded apps (no frameworks): 1) FOODORA — food delivery platform, 12 restaurants, 48 dishes, cart+checkout, Leaflet maps with browser GPS, recipes in English/Hindi/Spanish; 2) Mercedes-Benz — cinematic luxury landing page; 3) AURA — holographic AI assistant with a 3D particle core, voice in/out, deep web research (Wikipedia + DuckDuckGo) and offline brain; 4) Lucid — pro photo studio with layer compositing, batch processing, live histogram and a camera bridge. Stack: HTML, CSS, JavaScript only, plus Leaflet and Web APIs (geolocation, speech, canvas, IntersectionObserver). Answer in under 90 words, warm and confident, plain text.";
+      const r=await window.puter.ai.chat(ctx+'\n\nQuestion: '+q);
+      answer=typeof r==='string'?r:(r&&r.message&&r.message.content||r&&r.text||null);
+    }
+  }catch(e){}
+  if(!answer)answer=localAnswer(q);
+  typing.className='g-msg bot';typing.textContent=answer;
+  gMsgs.scrollTop=gMsgs.scrollHeight;
+  if(voiceOn)speak(answer);
+}
+function toggleVoice(){voiceOn=!voiceOn;document.getElementById('voiceBtn').textContent=voiceOn?'🔊':'🔇';if(!voiceOn)try{speechSynthesis.cancel()}catch(e){}}
+function speak(t){try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t.replace(/[✨🤖🎬🗺️🌍⚡🧠🎙️📖📍🍽️🛵🙏👋]/g,''));u.rate=1.03;u.pitch=1.05;speechSynthesis.speak(u)}catch(e){}}
+function startListening(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Voice input needs Chrome or Edge — you can still type!');return}
+  if(listening){recog.stop();return}
+  recog=new SR();recog.lang='en-US';recog.interimResults=false;
+  recog.onstart=()=>{listening=true;document.getElementById('gMic').classList.add('rec');document.getElementById('gStatus').textContent='listening…'};
+  recog.onresult=e=>{document.getElementById('gText').value=e.results[0][0].transcript;askGia()};
+  recog.onend=()=>{listening=false;document.getElementById('gMic').classList.remove('rec');document.getElementById('gStatus').textContent='AI Guide · online'};
+  recog.onerror=recog.onend;
+  recog.start();
+}
+
+/* ---------- command palette ---------- */
+const pal=document.getElementById('palette'),palInput=document.getElementById('palInput'),palList=document.getElementById('palList');
+let palSel=0;
+const ACTIONS=[
+ {i:'🤖',l:()=>'Ask Gia — open the AI guide',run:()=>{closePalette();toggleGuide()}},
+ {i:'🎬',l:()=>'Start the guided tour',run:()=>{closePalette();startTour()}},
+ {i:'🍲',l:()=>'Open FOODORA — food delivery',run:()=>openTab('foodora.html')},
+ {i:'🚗',l:()=>'Open Mercedes-Benz showcase',run:()=>openTab('mercedes.html')},
+ {i:'🌐',l:()=>'Open AURA — holographic AI assistant',run:()=>openTab('aura.html')},
+ {i:'⚛️',l:()=>'Open Quantum Circuit Simulator',run:()=>openTab('quantum.html')},
+ {i:'🧪',l:()=>'Open Autonomous SRE — incident responder',run:()=>openTab('sre.html')},
+ {i:'🧱',l:()=>'Open Groundwork — learn AI from zero',run:()=>openTab('groundwork.html')},
+ {i:'☁️',l:()=>'Open CloudPilot — IaC console',run:()=>openTab('cloudpilot.html')},
+ {i:'🎨',l:()=>'Open Lucid — photo studio',run:()=>openTab('lucid.html')},
+ {i:'🌗',l:()=>'Toggle light / dark theme',run:toggleTheme},
+ {i:voiceOn?'🔇':'🔊',l:()=>voiceOn?'Mute AI voice answers':'Enable AI voice answers',run:()=>{toggleGuide();toggleVoice()}},
+ {i:'📍',l:()=>'Go to Projects',run:()=>go('#projects')},
+ {i:'🛠️',l:()=>'Go to Skills',run:()=>go('#skills')},
+ {i:'🧭',l:()=>'Go to Journey',run:()=>go('#journey')},
+ {i:'✉️',l:()=>'Go to Contact',run:()=>go('#contact')},
+];
+function openTab(h){closePalette();window.open(h,'_blank')}
+function go(s){closePalette();document.querySelector(s).scrollIntoView({behavior:'smooth'})}
+function openPalette(){pal.classList.add('show');palInput.value='';renderPal();palInput.focus();unlock('palette')}
+function closePalette(){pal.classList.remove('show')}
+function palItems(){const q=palInput.value.toLowerCase();return ACTIONS.filter(a=>a.l().toLowerCase().includes(q))}
+function renderPal(){palSel=0;const items=palItems();palList.innerHTML='';items.forEach((a,i)=>{const d=document.createElement('div');d.className='pal-item'+(i===palSel?' sel':'');d.innerHTML='<span class="pi">'+a.i+'</span><span>'+a.l()+'</span>';d.onclick=()=>a.run();palList.appendChild(d)})}
+function palKeys(e){
+  const items=palItems();
+  if(e.key==='ArrowDown'){e.preventDefault();palSel=Math.min(items.length-1,palSel+1);highlightPal()}
+  else if(e.key==='ArrowUp'){e.preventDefault();palSel=Math.max(0,palSel-1);highlightPal()}
+  else if(e.key==='Enter'&&items[palSel]){items[palSel].run()}
+}
+function highlightPal(){[...palList.children].forEach((el,i)=>el.classList.toggle('sel',i===palSel));const el=palList.children[palSel];if(el)el.scrollIntoView({block:'nearest'})}
+addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();pal.classList.contains('show')?closePalette():openPalette()}});
+
+/* ---------- guided tour ---------- */
+function copyLink(){const u='https://sourabh7300.github.io';
+  (navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('🔗 Link copied — paste it anywhere')).catch(()=>{const i=document.createElement('input');i.value=u;document.body.appendChild(i);i.select();try{document.execCommand('copy');toast('🔗 Link copied')}catch(e){}i.remove()});}
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='copyLink')copyLink();});
+const TOUR=[
+ {s:'#top',t:'Welcome 👋',x:'This page live-embeds four complete web apps. Let me walk you through in about a minute.'},
+ {s:'.stats',t:'The numbers',x:'Four apps, over 10,000 lines of hand-written code — the counter below is computed live from the real files!'},
+ {s:'#projects .proj:nth-child(2)',t:'FOODORA — the big one',x:'A full delivery platform: live GPS maps, cart, checkout, and 48 recipes in three languages.'},
+ {s:'#projects .proj:nth-child(6)',t:'AURA — the hologram 🌐',x:'A Jarvis-style assistant with a living 3D core. Tap the mic, ask who built it — it answers out loud, about me.'},
+ {s:'#projects .proj:nth-child(5)',t:'Lucid — the photo studio 🎨',x:'Layers, batch processing, curves and a live histogram — a desktop-class editor in one file.'},
+ {s:'#experiments',t:'The Lab — more experiments 🧪',x:'Beyond the main four: a quantum simulator, an autonomous SRE system, an AI-teaching app and an IaC console — pulled live from my GitHub.'},
+ {s:'#skills',t:'Skills, mapped to proof',x:'Every bar corresponds to something real in the apps above — no empty claims.'},
+ {s:'#journey',t:'How it was built',x:'From first HTML pages to streaming AI — the full iteration story.'},
+ {s:'#github',t:'Live on GitHub 🐙',x:'This section fetches my real repositories straight from the GitHub API — stars, forks and languages, always current.'},
+ {s:'#share',t:'Scan to keep it 📱',x:'Point any phone camera at this QR code — the whole portfolio opens on your device in one second.'},
+ {s:'#contact',t:'Thanks for watching 🙏',x:'You just earned the Storyteller badge — explore the page to find every achievement!'},
+];
+let tStep=0,tourOn=false;
+function startTour(){tourOn=true;tStep=0;document.getElementById('tourbar').classList.add('show');showTourStep()}
+function showTourStep(){
+  const st=TOUR[tStep];
+  document.getElementById('tStep').textContent=(tStep+1)+' / '+TOUR.length;
+  document.getElementById('tTitle').textContent=st.t;
+  document.getElementById('tText').textContent=st.x;
+  document.querySelector(st.s).scrollIntoView({behavior:'smooth',block:st.s==='#top'?'start':'center'});
+  if(voiceOn)speak(st.t+'. '+st.x);
+}
+function tourNext(){if(tStep<TOUR.length-1){tStep++;showTourStep()}else endTour()}
+function tourPrev(){if(tStep>0){tStep--;showTourStep()}}
+function endTour(){tourOn=false;document.getElementById('tourbar').classList.remove('show');try{speechSynthesis.cancel()}catch(e){}if(tStep===TOUR.length-1)unlock('tour')}
+addEventListener('keydown',e=>{if(e.key==='Escape'){if(pal.classList.contains('show'))closePalette();if(guide.classList.contains('show'))toggleGuide();if(tourOn)endTour();closeAch()}});
+
+/* ================= v2 — juice layer ================= */
+/* synthesized chime (WebAudio, zero assets) */
+let soundOn=true,AC=null;
+function chime(){if(!soundOn)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const t=AC.currentTime;[880,1318.5].forEach((f,i)=>{const o=AC.createOscillator(),g=AC.createGain();o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t+i*.09);g.gain.linearRampToValueAtTime(.12,t+i*.09+.02);g.gain.exponentialRampToValueAtTime(.001,t+i*.09+.35);o.connect(g);g.connect(AC.destination);o.start(t+i*.09);o.stop(t+i*.09+.4)})}catch(e){}}
+
+/* confetti engine */
+const cCan=document.getElementById('confetti'),cCtx=cCan.getContext('2d');let cParts=[],cAnim=null;
+function sizeConf(){cCan.width=innerWidth;cCan.height=innerHeight}sizeConf();addEventListener('resize',sizeConf);
+function confettiBurst(n){n=n||140;const colors=['#7c5cff','#38bdf8','#10b981','#f59e0b','#ef4444','#9e87ff'];
+  for(let i=0;i<n;i++)cParts.push({x:innerWidth/2+(Math.random()-.5)*220,y:innerHeight*.32,vx:(Math.random()-.5)*11,vy:Math.random()*-13-3,g:.32,s:Math.random()*7+4,c:colors[i%colors.length],r:Math.random()*6.28,vr:(Math.random()-.5)*.3,life:110+Math.random()*40});
+  if(!cAnim)confTick()}
+function confTick(){cCtx.clearRect(0,0,cCan.width,cCan.height);cParts=cParts.filter(p=>p.life>0&&p.y<cCan.height+20);
+  for(const p of cParts){p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.vx*=.985;p.r+=p.vr;p.life--;cCtx.save();cCtx.translate(p.x,p.y);cCtx.rotate(p.r);cCtx.fillStyle=p.c;cCtx.globalAlpha=Math.min(1,p.life/40);cCtx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);cCtx.restore()}
+  cAnim=cParts.length?requestAnimationFrame(confTick):null}
+
+/* achievements */
+const ACH=[
+ {id:'boot',i:'🚀',t:'Boot Camp',d:'Sat through the full boot sequence'},
+ {id:'gia',i:'🤖',t:'Curious Mind',d:'Asked Gia, the AI guide, a question'},
+ {id:'tour',i:'🎬',t:'Storyteller',d:'Completed the guided tour'},
+ {id:'palette',i:'⌨️',t:'Hacker Mode',d:'Opened the command palette (Ctrl+K)'},
+ {id:'theme',i:'🌗',t:'Day & Night',d:'Switched between light and dark'},
+ {id:'demo',i:'🖥️',t:'Deep Diver',d:'Opened a project fullscreen'},
+ {id:'scroll',i:'🏁',t:'Marathon Reader',d:'Reached the very end of the page'},
+ {id:'retro',i:'👾',t:'Secret Level',d:'Discovered the retro easter egg'},
+ {id:'github',i:'🐙',t:'Open Source Ready',d:'Explored the live GitHub section'},
+];
+let unlocked={};try{unlocked=JSON.parse(localStorage.getItem('pf-ach')||'{}')}catch(e){}
+function saveAch(){try{localStorage.setItem('pf-ach',JSON.stringify(unlocked))}catch(e){}}
+function achCount(){return ACH.filter(a=>unlocked[a.id]).length}
+function updateAchUI(){const c=document.getElementById('achCount');if(c)c.textContent=achCount()+'/'+ACH.length;renderAchModal()}
+function unlock(id){if(unlocked[id])return;unlocked[id]=1;saveAch();updateAchUI();const a=ACH.find(x=>x.id===id);toast('Achievement unlocked — '+a.t,a.d);confettiBurst(120);chime()}
+function toast(t,d){const w=document.getElementById('toasts'),el=document.createElement('div');el.className='toast';el.innerHTML='<span class="t-ico">🏆</span><div><b>'+t+'</b><small>'+d+'</small></div>';w.appendChild(el);requestAnimationFrame(()=>el.classList.add('in'));setTimeout(()=>{el.classList.remove('in');setTimeout(()=>el.remove(),350)},3800)}
+function openAch(){document.getElementById('achModal').classList.add('show');renderAchModal()}
+function closeAch(){document.getElementById('achModal').classList.remove('show')}
+function renderAchModal(){const m=document.getElementById('achModal');if(!m||!m.classList.contains('show'))return;document.getElementById('achProg').textContent=achCount()+' / '+ACH.length+' unlocked';const grid=document.getElementById('achGrid');grid.innerHTML='';ACH.forEach(a=>{const has=!!unlocked[a.id],d=document.createElement('div');d.className='ach'+(has?' got':'');d.innerHTML='<span class="a-ico">'+(has?a.i:'🔒')+'</span><b>'+(has?a.t:'Locked')+'</b><small>'+(has?a.d:'Keep exploring…')+'</small>';grid.appendChild(d)})}
+
+/* retro easter egg — Konami code */
+let konami=[];const KSEQ=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+function toggleRetro(){document.body.classList.toggle('retro');if(document.body.classList.contains('retro'))unlock('retro')}
+addEventListener('keydown',e=>{konami.push(e.key);if(konami.length>KSEQ.length)konami.shift();if(KSEQ.every((k,i)=>konami[i]===k)){konami=[];toggleRetro()}});
+
+/* boot sequence */
+const bootEl=document.getElementById('boot');let bootTimer=null;
+const BOOT_LINES=['> initializing Sourabh Singh — portfolio v2.0 …','> modules: canvas · speech · ai · maps … OK','> mounting 4 projects ………… 4/4','> waking AI guide (Gia) ……… ready','> compiling experience ………… done'];
+function playBoot(){let i=0;(function step(){if(i<BOOT_LINES.length){const el=document.createElement('div');el.className='b-line';el.textContent=BOOT_LINES[i++];bootEl.querySelector('.b-log').appendChild(el);bootTimer=setTimeout(step,i===BOOT_LINES.length?430:290)}else bootTimer=setTimeout(endBoot,650)})()}
+function endBoot(){clearTimeout(bootTimer);unlock('boot');bootEl.classList.add('gone');setTimeout(()=>bootEl.remove(),700)}
+bootEl.addEventListener('click',()=>{clearTimeout(bootTimer);bootEl.classList.add('gone');setTimeout(()=>bootEl.remove(),700)});
+playBoot();
+
+/* cursor glow (fine pointers only) */
+if(matchMedia('(pointer:fine)').matches){const gl=document.getElementById('cursorGlow');let gx=innerWidth/2,gy=innerHeight/2,tx=gx,ty=gy;
+  addEventListener('mousemove',e=>{tx=e.clientX;ty=e.clientY;gl.style.opacity=1});
+  (function gLoop(){gx+=(tx-gx)*.12;gy+=(ty-gy)*.12;gl.style.transform='translate('+(gx-160)+'px,'+(gy-160)+'px)';requestAnimationFrame(gLoop)})()}
+
+/* magnetic buttons */
+document.querySelectorAll('.btn.primary,.nav-cta,.fab').forEach(b=>{
+  b.addEventListener('mousemove',e=>{const r=b.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);b.style.transform='translate('+dx*.16+'px,'+dy*.16+'px)'});
+  b.addEventListener('mouseleave',()=>b.style.transform='');
+});
+
+/* extra palette commands */
+ACTIONS.push(
+ {i:'🐙',l:()=>'Open my GitHub profile',run:()=>{closePalette();window.open('https://github.com/sourabh7300','_blank')}},
+ {i:'🏆',l:()=>'View achievements',run:()=>{closePalette();openAch()}},
+ {i:'👾',l:()=>'Toggle retro mode (easter egg)',run:()=>{closePalette();toggleRetro()}},
+ {i:'🎉',l:()=>'Confetti party!',run:()=>{closePalette();confettiBurst(220)}},
+ {i:soundOn?'🔕':'🔔',l:()=>soundOn?'Mute achievement sounds':'Enable achievement sounds',run:()=>{soundOn=!soundOn;closePalette()}},
+);
+
+/* live lines-of-code — counts the REAL files when served over http */
+(async()=>{try{
+  const files=['foodora.html','mercedes.html','aura.html','lucid.html','quantum.html','sre.html','groundwork.html','cloudpilot.html','portfolio.html','index.html'];
+  let n=0;for(const f of files){const r=await fetch(f);if(!r.ok)continue;n+=(await r.text()).split('\n').length}
+  if(n>5000){const el=document.querySelector('.stat:nth-child(2) .num');if(el){el.dataset.count=n;delete el.dataset.done;countUp(el)}}
+}catch(e){}})();
+
+/* ---------- live GitHub repositories ---------- */
+const GH_USER='sourabh7300';
+const LCOLORS={JavaScript:'#f1e05a',TypeScript:'#3178c6',HTML:'#e34c26',CSS:'#563d7c',Python:'#3572A5',Java:'#b07219','C++':'#f34b7d',C:'#8b8b8b','Jupyter Notebook':'#DA5B0B',Shell:'#89e051',Vue:'#41b883'};
+let ghRepos=[],ghLang='All';
+const ghGrid=document.getElementById('ghGrid');
+function fmtDate(s){try{return new Date(s).toLocaleDateString(undefined,{month:'short',day:'numeric'})}catch(e){return ''}}
+function repoCard(r){
+  const a=document.createElement('a');a.className='repo';a.href=r.html_url;a.target='_blank';a.rel='noopener';
+  const h=document.createElement('h4');h.textContent='📦 '+r.name;
+  const p=document.createElement('p');p.textContent=r.description||'No description yet — the code speaks for itself.';
+  const m=document.createElement('div');m.className='r-meta';
+  if(r.language){const s=document.createElement('span'),ld=document.createElement('span');ld.className='ld';ld.style.background=LCOLORS[r.language]||'#8b949e';s.appendChild(ld);s.appendChild(document.createTextNode(r.language));m.appendChild(s)}
+  m.insertAdjacentHTML('beforeend','<span>★ <b>'+r.stargazers_count+'</b></span><span>⑂ <b>'+r.forks_count+'</b></span><span>upd '+fmtDate(r.pushed_at)+'</span>');
+  a.append(h,p,m);return a;
+}
+function renderGh(){
+  ghGrid.innerHTML='';
+  const list=ghRepos.filter(r=>ghLang==='All'||r.language===ghLang);
+  if(!list.length){ghGrid.innerHTML='<div class="gh-off">No repositories in this language yet.</div>';return}
+  list.forEach(r=>ghGrid.appendChild(repoCard(r)));
+}
+function renderGhFilters(){
+  const langs=[...new Set(ghRepos.map(r=>r.language).filter(Boolean))];
+  const bar=document.getElementById('ghFilters');bar.innerHTML='';
+  ['All',...langs].forEach(l=>{const b=document.createElement('button');b.className='gh-filter'+(l===ghLang?' active':'');b.textContent=l;b.onclick=()=>{ghLang=l;renderGhFilters();renderGh()};bar.appendChild(b)});
+}
+(async()=>{try{
+  const res=await fetch('https://api.github.com/users/'+GH_USER+'/repos?sort=updated&per_page=50');
+  if(!res.ok)throw new Error(res.status);
+  ghRepos=await res.json();
+  const stars=ghRepos.reduce((s,r)=>s+r.stargazers_count,0);
+  document.getElementById('ghMeta').innerHTML='<b>'+ghRepos.length+'</b> public repos · <b>'+stars+'</b> ★ · live via GitHub API';
+  renderGhFilters();renderGh();
+}catch(e){
+  ghGrid.innerHTML='<div class="gh-off">📡 Couldn\'t reach GitHub right now.<br><br>All repositories live at <a href="https://github.com/'+GH_USER+'" target="_blank" rel="noopener" style="color:var(--accent-light);font-weight:700">github.com/'+GH_USER+' ↗</a> — reconnect and refresh to see them here.</div>';
+  document.getElementById('ghMeta').textContent='offline — will load on refresh';
+}})();
+new IntersectionObserver((es,o)=>es.forEach(e=>{if(e.isIntersecting){unlock('github');o.disconnect()}}),{threshold:.25}).observe(document.getElementById('github'));
+
+updateAchUI();
+</script>
+</body>
+</html>
