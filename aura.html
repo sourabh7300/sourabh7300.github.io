@@ -501,7 +501,7 @@ const KB={
   "who made you":"I was built by Sourabh Singh, a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation.",
   "your creator":"My creator is Sourabh Singh — B.Tech CSE, JECRC University. He built me entirely from scratch: no frameworks, no engines, one file.",
   "sourabh":"Sourabh Singh — my creator. B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. He hand-coded my holographic core, my voice pipeline and my brain in a single HTML file.",
-  "what can you do":"I'm Jarvis-grade, boss. COMMANDS I execute: 'google quantum computing' or 'youtube iron man trailer' — I search the web for you · 'set a timer for 10 minutes' · 'note: project due friday' and 'read my notes' · 'open lucid' or 'open portfolio' · 'go to github.com' · math and unit conversions · 'weather in Jaipur' · 'run diagnostics'. KNOWLEDGE: ask me anything and I gather live evidence from the internet, think it through and answer with cited sources. Tap SET AI KEY for my full reasoning brain.",
+  "what can you do":"I'm Jarvis-grade, boss. COMMANDS I execute: 'google quantum computing' or 'youtube iron man trailer' — I search the web for you · 'set a timer for 10 minutes' · 'note: project due friday' and 'read my notes' · 'open lucid' or 'open portfolio' · 'go to github.com' · math and unit conversions · 'weather in Jaipur' · 'run diagnostics' · 'screenshot' — I capture my hologram as a PNG · 'summarize https://…' — I read any webpage and give you the key points · 'batch resize my photos with cinematic' — I drive Lucid's batch processor with a preset of your choice. KNOWLEDGE: ask me anything and I gather live evidence from the internet, think it through and answer with cited sources. Tap SET AI KEY for my full reasoning brain.",
   "jecrc":"JECRC University is in Jaipur, Rajasthan — where my creator Sourabh Singh studies B.Tech CSE.",
   "b.tech":"B.Tech is a four-year engineering degree. My creator studies the Computer Science track with AI, DevOps and Cloud Automation.",
   "portfolio":"Sourabh's portfolio is a single page that live-embeds six of his web apps — including me. Say 'open portfolio' and I'll launch it.",
@@ -1485,6 +1485,23 @@ const BOOT=["> AURA OS v3.1 — initializing neural core","> personality matrix 
 })();
 /* ================= JARVIS TASK ENGINE ================= */
 /* "Do things, don't just say things." — searches, clocks, notes, timers, pages, app launches, unit/math one-shots. */
+/* Tiny LLM helper for task engines: Gemini key if present, else Puter free AI (16s cap) */
+async function llmChat(prompt){
+  if(geminiKey()){
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
+      method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(16000),
+      body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}]})});
+    if(r.ok){const d=await r.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text;if(t&&t.trim())return t.trim()}
+    throw new Error("gemini unavailable");
+  }
+  if(puterReady()){
+    const rr=await Promise.race([window.puter.ai.chat(prompt),new Promise((_,rej)=>setTimeout(()=>rej(new Error("puter timeout")),16000))]);
+    const t=typeof rr==="string"?rr:(rr&&rr.message&&rr.message.content||rr&&rr.text||"");
+    if(t&&t.trim())return t.trim();
+    throw new Error("puter empty");
+  }
+  throw new Error("no llm");
+}
 const TASKS={
   search:{re:/^(?:hey aura[, ]*)?(?:please )?(?:google|search(?: for| the web for)?|look up|youtube|yt)\s+(?:for\s+)?(.+?)(?:\s+(?:for me|on youtube|on google|in google))?[.?!]?$/i,
     go:m=>{const q=m[1].trim();const yt=/^(?:youtube|yt)\b/i.test(m.input);const url=yt?"https://www.youtube.com/results?search_query="+encodeURIComponent(q):"https://www.google.com/search?q="+encodeURIComponent(q);
@@ -1508,8 +1525,24 @@ const TASKS={
       const site=/^(?:www\.)?[a-z0-9-]+\.[a-z]{2,}$/.test(t)?"https://"+t:"";
       if(site){window.open(site,"_blank");return"Opening "+t+" in a new tab, boss."}
       return null}},
-  site:{re:/^(?:hey aura[, ]*)?(?:go to|visit|open site)\s+((?:www\.)?[a-z0-9-]+\.[a-z]{2,})(?:\s+(?:for me|please))?[.?!]?$/i,
-    go:m=>{window.open("https://"+m[1].replace(/^www\./,""),"_blank");return"Opening "+m[1]+", boss."}},
+  /* ================= JARVIS POWERS: screenshot · page summary · batch preset ================= */
+  snap:{re:/^(?:hey aura[, ]*)?(?:take |capture |grab )?(?:a )?screenshot(?: of (?:the )?(?:hologram|visual(?:ization)?|nebula|plasma|orbitals?|galaxy))?[,!.]?$/i,
+    go:m=>{try{const c=document.getElementById("fx");if(!c||!c.width)return"Hologram not ready — give me a second and try again.";const stamp=new Date().toISOString().replace(/[:T]/g,"-").slice(0,19);const a=document.createElement("a");a.download="aura-hologram-"+stamp+".png";a.href=c.toDataURL("image/png");document.body.appendChild(a);a.click();a.remove();return"📸 Hologram captured — 'aura-hologram-"+stamp+".png' saved to your downloads."}catch(e){return"Capture blocked by the browser — try again after tapping the page."}}},
+  summarize:{re:/^(?:hey aura[, ]*)?(?:please )?(?:summarize|summarise|summary of|tldr|summarize this page|read this page|open and summarize)\s+(https?:\/\/\S+?)[.?!]?$/i,
+    go:m=>{const url=m[1];(async()=>{try{pushSys("summarizer fetching · "+url.replace(/^https?:\/\//,"").slice(0,40));let html="";try{const r=await fetch("https://r.jina.ai/"+url,{signal:(AbortSignal.timeout?AbortSignal.timeout(15000):undefined)});if(r.ok)html=await r.text()}catch(e){}
+if(html.length<400){try{const r=await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(url),{signal:(AbortSignal.timeout?AbortSignal.timeout(15000):undefined)});if(r.ok)html=await r.text()}catch(e){}}
+if(html.length<400)throw 0;
+const looksHtml=/<html[\s>]|<div[\s>]|<p[\s>]/i.test(html.slice(0,4000));
+let title="",body="";
+if(looksHtml){const doc=new DOMParser().parseFromString(html,"text/html");doc.querySelectorAll("script,style,noscript,svg,nav,footer,header,form,iframe").forEach(n=>n.remove());title=(doc.querySelector("title")&&doc.querySelector("title").textContent.trim())||url;const paras=[...doc.querySelectorAll("p,h1,h2,h3,li")].map(n=>n.textContent.replace(/\s+/g," ").trim()).filter(x=>x.length>60);body=paras.join(" ").slice(0,9000)}
+else{title=(html.match(/^Title:\s*(.+)$/m)||[])[1]||url;body=html.slice(html.indexOf("Markdown Content:")+17).replace(/!\[[^\]]*\]\([^)]*\)/g," ").replace(/\[(.*?)\]\([^)]*\)/g,"$1").replace(/[ \t]+/g," ").slice(0,9000)}
+if(body.length<300)throw 0;
+let sum="";try{sum=await llmChat("You are AURA, a crisp research assistant. Summarize the PAGE EXTRACT below in 4-6 short sentences: what the page is, the key facts/claims, and who it is for. Plain text, no markdown, no preamble. The page may be in any language; answer in the page's dominant language.\n\nPAGE EXTRACT:\nTitle: "+title+"\n\nContent (trim):\n"+body)}catch(e){}if(!sum||sum.length<40){const all=body.match(/[^.!?]+[.!?]+/g)||[];sum=all.slice(0,5).map(s=>"• "+s.trim()).join("\n")}sum=("📄 "+title+"\n"+sum+"\n\nSource: "+url).slice(0,1600);addMsg("AURA ▸",sum,"aura");if(voiceAllowed())speak(sum.split("\n").filter(l=>!/^Source:/.test(l)).join(". ").slice(0,600))}catch(e){const t="I couldn't read that page, boss — it blocks robots or the network hiccupped. Try a Wikipedia or news link.";addMsg("AURA ▸",t,"aura");if(voiceAllowed())speak(t)}})();return"Opening and reading "+url.replace(/^https?:\/\//,"").slice(0,60)+" — give me a few seconds to think it through."}},
+  batchPreset:{re:/^(?:hey aura[, ]*)?(?:batch (?:resize|process|edit) (?:my |the )?(?:photos?|images?|pictures?)(?: with (?:the )?(.+?))?|apply (?:the )?(cinematic|vivid(?: pop)?|golden ?hour|noir|cool ?mono|vintage(?: fade)?|faded(?: film)?|original) (?:preset|look|filter) to (?:a )?batch|batch (cinematic|vivid(?: pop)?|golden ?hour|noir|cool ?mono|vintage(?: fade)?|faded(?: film)?|original))(?:[.?!]?)$/i,
+    go:m=>{const norm=s=>{s=(s||"").toLowerCase().trim();if(/^(cine)/.test(s))return"Cinematic";if(/vivid/.test(s))return"Vivid Pop";if(/gold/.test(s))return"Golden Hour";if(/noir/.test(s))return"Noir";if(/cool/.test(s))return"Cool Mono";if(/vintage/.test(s))return"Vintage Fade";if(/faded/.test(s))return"Faded Film";return null};const p=norm(m[1])||norm(m[2])||norm(m[3]);
+      if(location.protocol==="file:")return"Batch works on the live site — open " + location.origin + "/lucid.html there, boss.";
+      const hs=p?"#batch&preset="+encodeURIComponent(p):"#batch";try{const x=new XMLHttpRequest();x.open("HEAD","lucid.html",false);x.send();if(x.status!==200)return"I can't find lucid.html — keep it next to me."}catch(e){return"I can't reach Lucid from here."}
+      window.open("lucid.html"+hs,"_blank");return p?("Batch processor ready in Lucid 📸 — I've loaded the **"+p+"** look for you. Choose your photos there; every one gets the "+p+" treatment, auto-resized for web and downloaded as JPEG."):("Batch processor ready in Lucid 📸 — pick your photos there. It applies your current look, auto-resizes for web and downloads every photo as JPEG.")}},
   time:{re:/^(?:hey aura[, ]*)?what(?:'s| is) the time(?: right now)?\??[.?!]?$/i,
     go:()=>"It's "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+" right now."},
   date:{re:/^(?:hey aura[, ]*)?what(?:'s| is) (?:the |today'?s )?date(?: today)?\??$/i,
@@ -1544,7 +1577,7 @@ function taskCommand(raw){
     localStorage.setItem("aura_key",k);
     try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");s.apiKey=k;s.engineMode="gemini";localStorage.setItem("sense_settings_v4",JSON.stringify(s))}catch(e){}
     hide();updateEngTag();pushSys("⚡ full jarvis mode engaged — reasoning brain online");
-    addMsg("AURA ▸","Full power, boss 🧠 — reasoning brain online. Ask me anything, or command me: 'google quantum computing', 'set a timer for 10 minutes', 'note: project due friday', 'open lucid'.","aura");
+    addMsg("AURA ▸","Full power, boss 🧠 — reasoning brain online. Ask me anything, or command me: 'google quantum computing', 'set a timer for 10 minutes', 'screenshot', 'summarize <link>', 'batch resize my photos with noir', 'open lucid'.","aura");
   };
   document.getElementById("wizLater").onclick=hide;
   document.getElementById("wizX").onclick=hide;
