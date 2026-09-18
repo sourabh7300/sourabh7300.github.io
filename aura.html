@@ -12,6 +12,11 @@
   --panel:rgba(4,18,26,.72);--line:rgba(34,211,238,.28);--line2:rgba(34,211,238,.14);
   --amber:#fbbf24;--red:#f87171;--mono:'JetBrains Mono',monospace;
 }
+body[data-persona="jarvis"]{
+  --bg:#0a0702;--cy:#f5b301;--cy2:#ffd75e;--dim:#8a6a10;--ice:#fff8e6;
+  --panel:rgba(26,18,4,.78);--line:rgba(245,179,1,.32);--line2:rgba(245,179,1,.14);
+  --amber:#fbbf24;
+}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
 body{background:var(--bg);color:var(--ice);font-family:'Rajdhani',system-ui,sans-serif;overflow:hidden}
@@ -95,7 +100,7 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 #boot{position:fixed;inset:0;background:#010507;z-index:60;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:22px;transition:opacity .7s,visibility .7s;font-family:var(--mono)}
 #boot.gone{opacity:0;visibility:hidden}
 #bootRing{width:110px;height:110px;border-radius:50%;border:2px solid rgba(34,211,238,.2);border-top-color:var(--cy);animation:spin 1s linear infinite;position:relative}
-#bootRing::after{content:"AURA";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Orbitron';font-size:13px;letter-spacing:4px;color:var(--cy2);animation:none}
+#bootRing::after{content:attr(data-brand);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Orbitron';font-size:13px;letter-spacing:4px;color:var(--cy2);animation:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 #bootLog{min-height:90px;text-align:center;font-size:11px;color:#3f7a8a;line-height:2}
 #bootLog .ok{color:#34d399}
@@ -410,6 +415,7 @@ function addMsg(who,text,cls){
   return d.querySelector(".tx");
 }
 function pushSys(t){addMsg("SYS","▸ "+t,"sys");slog(t);}
+function msgTag(){return PERSONAS[persona()].name+" ▸"}
 function typewrite(el,text){
   return new Promise(res=>{
     if(document.hidden){el.textContent=text;res();return} /* hidden tab: finish instantly so busy never sticks */
@@ -438,6 +444,7 @@ function speak(t){
     const gen=++speakGen; /* any new speak() kills every older chain — no ghost speech */
     ttsActive=true;lastSpoken=t;lastSpokeAt=Date.now();
     if(typeof wake!=="undefined"&&wake&&typeof listening!=="undefined"&&listening){try{recog.abort()}catch(e){}}
+    const P=PERSONAS[persona()];
     const clean=t.replace(/SOURCES:[\s\S]*$/,"").replace(/\[\d+\]/g,"").replace(/🔗 ?https?:\S+/g,"").replace(/[#*_▸►`_]/g,"");
     const parts=[];const keep=[];let rest=clean;
     while(rest.length){
@@ -454,7 +461,7 @@ function speak(t){
       if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);return}
       const u=new SpeechSynthesisUtterance(parts[i++]);keep.push(u);
       const vu=pickVoice();
-      if(vu)u.voice=vu;u.lang=hi?"hi-IN":"en-US";u.rate=1.02;u.pitch=1;
+      if(vu)u.voice=vu;u.lang=hi?"hi-IN":P.lang;u.rate=P.rate;u.pitch=P.pitch;
       u.onstart=()=>{if(gen===speakGen){ampTarget=1;setMode("speaking")}};
       u.onend=next;
       u.onerror=next;
@@ -464,6 +471,31 @@ function speak(t){
     setTimeout(()=>{if(gen===speakGen&&ttsActive){try{if(!synth.speaking&&!synth.pending){ttsActive=false;ampTarget=0;setMode("idle");armWake(400)}}catch(e){}}},9000);
   }catch(e){ttsActive=false}
 }
+
+/* ---------------- persona engine: AURA ⇄ JARVIS ---------------- */
+const PERSONAS={
+  aura:{name:"AURA",title:"HOLOGRAPHIC AI INTERFACE",who:"I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks.",hue:"cyan",rate:1.02,pitch:1,lang:"en-US",mode:"Ask me anything, boss.",wake:"Hey Aura"},
+  jarvis:{name:"JARVIS",title:"JUST A RATHER VERY INTELLIGENT SYSTEM",who:"JARVIS online — Just A Rather Very Intelligent System. Engineered and hand-coded by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. I am the combat-grade build: a 120-billion-parameter reasoning core wired to live internet evidence, a task engine and a holographic interface — no frameworks, one file. Give me an objective, sir.",hue:"gold",rate:0.95,pitch:0.6,lang:"en-GB",mode:"Objective, sir?",wake:"Hey Jarvis"}
+};
+function persona(){return document.body.dataset.persona==="jarvis"?"jarvis":"aura"}
+function setPersona(p,announce){
+  const P=PERSONAS[p]||PERSONAS.aura;
+  document.body.dataset.persona=p;
+  try{localStorage.setItem("aura_persona",p)}catch(e){}
+  const wm=document.querySelector(".wordmark");
+  if(wm){wm.childNodes[0].nodeValue=P.name;const sm=wm.querySelector("small");if(sm)sm.textContent=P.title;}
+  const br=document.getElementById("bootRing");if(br)br.dataset.brand=P.name;
+  const mh=document.getElementById("micHint");if(mh&&!String(mh.textContent).includes("LISTENING"))mh.textContent='SAY "HEY '+P.name.toUpperCase()+'…"';
+  if(setHue(P.hue))slog("emitter retuned → "+P.name+" spectrum");
+  document.title=P.name+" — "+(p==="jarvis"?"Ironclad AI System":"Holographic AI Assistant");
+  updateEngTag();
+  if(announce){
+    addMsg(P.name+" ▸",p==="jarvis"?"⚔ JARVIS activated, sir. Gold protocol engaged — reasoning core at maximum depth, combat-grade task engine armed. All systems reporting ready.":"AURA back online, sir — cyan protocol restored. Her curiosity, my precision.","aura");
+    if(voiceAllowed())speak(p==="jarvis"?"Jarvis activated, sir. Gold protocol engaged. All systems ready.":"Aura back online, sir. Cyan protocol restored.");
+  }
+  return P;
+}
+(function(){let sp=null;try{sp=localStorage.getItem("aura_persona")}catch(e){}if(sp==="jarvis"){document.body.dataset.persona="jarvis";const br=document.getElementById("bootRing");if(br)br.dataset.brand="JARVIS";const wm=document.querySelector(".wordmark");if(wm){wm.childNodes[0].nodeValue="JARVIS";const sm=wm.querySelector("small");if(sm)sm.textContent=PERSONAS.jarvis.title;}document.title="JARVIS — Ironclad AI System";}})();
 
 /* ---------------- local intelligence (big offline core) ---------------- */
 function memGet(){try{return JSON.parse(localStorage.getItem("aura_memory")||"{}")}catch(e){return{}}}
@@ -494,14 +526,14 @@ function greetWord(){
   const h=new Date().getHours();return h<12?"Good morning":h<17?"Good afternoon":h<21?"Good evening":"Working late";
 }
 const KB={
-  "who are you":"I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks.",
-  "introduce yourself":"I am AURA — Adaptive Universal Reasoning Assistant — built by Sourabh Singh. A 560-particle holographic core, voice in and voice out, and a three-layer brain: local core, Gemini uplink, and live Wikipedia.",
-  "your name":"I am AURA — Adaptive Universal Reasoning Assistant. You can call me AURA.",
+  "who are you":null,
+  "introduce yourself":null,
+  "your name":null,
   "who built you":"I was designed and engineered by Sourabh Singh — B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. Every line of my code, from the particle core to the voice pipeline, is hand-written.",
   "who made you":"I was built by Sourabh Singh, a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation.",
   "your creator":"My creator is Sourabh Singh — B.Tech CSE, JECRC University. He built me entirely from scratch: no frameworks, no engines, one file.",
   "sourabh":"Sourabh Singh — my creator. B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. He hand-coded my holographic core, my voice pipeline and my brain in a single HTML file.",
-  "what can you do":"I'm Jarvis-grade, boss. COMMANDS I execute: 'google quantum computing' or 'youtube iron man trailer' — I search the web for you · 'set a timer for 10 minutes' · 'note: project due friday' and 'read my notes' · 'open lucid' or 'open portfolio' · 'go to github.com' · math and unit conversions · 'weather in Jaipur' · 'run diagnostics' · 'screenshot' — I capture my hologram as a PNG · 'summarize https://…' — I read any webpage and give you the key points · 'batch resize my photos with cinematic' — I drive Lucid's batch processor with a preset of your choice. KNOWLEDGE: ask me anything and I gather live evidence from the internet, think it through and answer with cited sources. Tap SET AI KEY for my full reasoning brain.",
+  "what can you do":"Two of us in here, boss. ME — AURA: ask anything and I research live sources, think and answer with citations. Or say 'activate jarvis' for my combat-grade counterpart — same powers, deeper reasoning, formal British mode. POWERS WE SHARE: 'google quantum computing' or 'youtube iron man trailer' · 'set a timer for 10 minutes' · 'note: project due friday' + 'read my notes' · 'open lucid' / 'open portfolio' / 'open foodora' · math & conversions · 'weather in Jaipur' · 'screenshot' · 'summarize https://…' · 'batch resize my photos with noir' · Hindi and English, spoken and typed. Nothing on this deck is impossible — the bar moves whenever you do.",
   "jecrc":"JECRC University is in Jaipur, Rajasthan — where my creator Sourabh Singh studies B.Tech CSE.",
   "b.tech":"B.Tech is a four-year engineering degree. My creator studies the Computer Science track with AI, DevOps and Cloud Automation.",
   "portfolio":"Sourabh's portfolio is a single page that live-embeds six of his web apps — including me. Say 'open portfolio' and I'll launch it.",
@@ -546,7 +578,7 @@ const KB={
   "quantum":"Quantum computing uses qubits, which can be 0 and 1 at once — promising massive speedups for special problems.",
   "encryption":"Encryption scrambles data so only the right key can read it — the reason HTTPS, banking and chats are safe.",
   "iron man":"Ah, a person of culture. Tony Stark built JARVIS — my creator built me. Different budget, same energy.",
-  "jarvis":"JARVIS — Just A Rather Very Intelligent System. My inspiration. Tony Stark had a tower; Sourabh had one HTML file.",
+  "jarvis":"JARVIS — Just A Rather Very Intelligent System. My inspiration and my counterpart: say 'activate jarvis' and I hand over to him — gold protocol, formal British voice, deeper reasoning, no emoji, all business. Say 'activate aura' and I'm back.",
 };
 /* ---------------- knowledge pack 2 (broad coverage) ---------------- */
 Object.assign(KB,{
@@ -706,17 +738,31 @@ function calc(expr){
     return(typeof v==="number"&&isFinite(v))?v:null}catch(e){return null}
 }
 const fmtNum=v=>{const r=Math.round(v*1e6)/1e6;return r.toLocaleString()};
+function KB_OVER(k){
+  if(persona()==="jarvis"){
+    if(k==="who are you")return "JARVIS — Just A Rather Very Intelligent System. Combat-grade counterpart to AURA, engineered by Sourabh Singh (B.Tech CSE, JECRC University): gpt-oss-120b reasoning core, live-evidence research, task engine, holographic command deck. At your service, sir.";
+    if(k==="introduce yourself")return "JARVIS, sir — Just A Rather Very Intelligent System. Hand-built by Sourabh Singh: a 560-particle gold-emitting core, British-butler voice, 120B-parameter reasoning brain wired to live sources, and a task engine that executes instead of chats. Give me an objective.";
+    if(k==="your name")return "JARVIS, sir — Just A Rather Very Intelligent System. AURA's combat-grade counterpart. Say 'activate aura' any time to summon her back.";
+    return null;
+  }
+  if(k==="who are you")return "I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks. Say 'activate jarvis' to meet my combat-grade counterpart.";
+  if(k==="introduce yourself")return "I am AURA — Adaptive Universal Reasoning Assistant — built by Sourabh Singh. A 560-particle holographic core, voice in and voice out, and a three-layer brain: local core, frontier AI uplink, and live internet evidence. Say 'activate jarvis' for my combat mode.";
+  if(k==="your name")return "I am AURA — Adaptive Universal Reasoning Assistant. You can call me AURA. My combat-grade counterpart JARVIS answers to 'activate jarvis'.";
+  return null;
+}
 function localReply(q){
   const l=q.toLowerCase();
+  const J=persona()==="jarvis";
+  const kbOver=KB_OVER(l.replace(/\?+$/,"").trim());if(kbOver)return kbOver;
   const nm=l.match(/(?:my name is|call me|i am|i'm)\s+([a-z][a-z ]{1,25})/);
-  if(nm){const name=nm[1].trim().replace(/\b\w/g,c=>c.toUpperCase());const m=memGet();m.name=name;memSet(m);return "Locked in. From now on you are "+name+" — saved in my memory core. I never forget.";}
-  if(/what(?:'s| is|s) my name|who am i\b/.test(l)){const n=memGet().name;return n?"You are "+n+" — my memory core never forgets.":"You haven't told me your name yet. Say 'my name is…' and I will remember.";}
-  if(/forget (my name|me)|clear (my )?(memory|data)|wipe memory/.test(l)){memSet({});return "Memory core wiped. We're strangers again — tell me your name whenever you like.";}
+  if(nm){const name=nm[1].trim().replace(/\b\w/g,c=>c.toUpperCase());const m=memGet();m.name=name;memSet(m);return (J?"Recorded, sir. From now on you are "+name+" — filed in the memory core.":"Locked in. From now on you are "+name+" — saved in my memory core. I never forget.");}
+  if(/what(?:'s| is|s) my name|who am i\b/.test(l)){const n=memGet().name;return n?(J?"You are "+n+", sir — the memory core never forgets.":"You are "+n+" — my memory core never forgets."):(J?"Your name isn't on file yet, sir. Say 'my name is…' and I will remember.":"You haven't told me your name yet. Say 'my name is…' and I will remember.");}
+  if(/forget (my name|me)|clear (my )?(memory|data)|wipe memory/.test(l)){memSet({});return J?"Memory core wiped, sir. A clean slate — re-brief me whenever ready.":"Memory core wiped. We're strangers again — tell me your name whenever you like.";}
   if(/what do you (remember|know about me)|my info|about me$/.test(l)){const m=memGet();const ks=Object.keys(m);
     return ks.length?"I remember: "+ks.map(k=>k+" = "+m[k]).join(" · ")+". Stored locally on this device only — it never leaves.":"Nothing yet. Say 'my name is…' and I start remembering permanently.";}
-  if(/good ?night/.test(l))return "Good night"+(memGet().name?", "+memGet().name:"")+" — dimming the holograms. I'll be here tomorrow.";
-  if(/^(hi|hello|hey|yo|namaste)\b|good (morning|afternoon|evening)/.test(l)){const g=greetWord();return g+(memGet().name?", "+memGet().name:"")+"! AURA online and at your service. What do you need?";}
-  if(/how are you|how'?s it going/.test(l))return "Running smooth at "+(fpsVal||60)+" fps — all systems nominal. How are you?";
+  if(/good ?night/.test(l))return J?"Good night, sir. Dimming the holograms — I'll hold the fort until morning.":"Good night"+(memGet().name?", "+memGet().name:"")+" — dimming the holograms. I'll be here tomorrow.";
+  if(/^(hi|hello|hey|yo|namaste)\b|good (morning|afternoon|evening)/.test(l)){const g=greetWord();return J?g+(memGet().name?", "+memGet().name:"")+". All systems at your service, sir — objectives or questions, I'm armed for both.":g+(memGet().name?", "+memGet().name:"")+"! AURA online and at your service. What do you need?";}
+  if(/how are you|how'?s it going/.test(l))return J?"Combat core at "+(fpsVal||60)+" fps, uplinks green, sir. Better than nominal.":"Running smooth at "+(fpsVal||60)+" fps — all systems nominal. How are you?";
   if(/thank/.test(l))return "Anytime. That is what I am compiled for.";
   if(/^(bye|goodbye|see ya|see you)\b/.test(l))return "Goodbye"+(memGet().name?", "+memGet().name:"")+" — entering standby. Tap the mic anytime.";
   if(/\btime\b/.test(l))return "Current local time is "+new Date().toLocaleTimeString()+".";
@@ -745,18 +791,25 @@ function localReply(q){
 
 /* ---------------- diagnostics sequence ---------------- */
 async function diagnostics(){
+  const J=persona()==="jarvis";
   pushSys("running full-system diagnostics…");blip(660,.1);
+  const provider=aiProvider();
+  const brain=provider==="groq"?"GPT-OSS-120B (YOUR KEY)":provider==="gemini"?"GEMINI 2.0 FLASH (YOUR KEY)":"PUTER FREE AI + LOCAL CORE";
   const steps=[
     ["particle core (560 nodes)","OK"],
     ["render pipeline @ "+(fpsVal||60)+" fps","OK"],
     ["audio synthesis","OK"],
     ["speech recognition",("webkitSpeechRecognition"in window||"SpeechRecognition"in window)?"OK":"UNAVAILABLE"],
     ["network uplink",navigator.onLine?"ONLINE":"OFFLINE"],
-    ["ai engine",geminiKey()?"GEMINI (YOUR KEY)":"DEEP WEB RESEARCH + LOCAL CORE"],
+    ["reasoning brain",brain],
+    ["live evidence pipeline (wiki + ddg + wiktionary)",navigator.onLine?"ARMED":"STANDBY"],
+    ["task engine (search · timers · notes · launches · screenshot · summarize)","ARMED"],
+    ["persona matrix (AURA ⇄ JARVIS)","ARMED"],
+    ["languages (EN · HI · auto-detect)","ARMED"],
   ];
   for(const[n,r]of steps){await new Promise(r2=>setTimeout(r2,420));pushSys(n+" … "+r);}
   await new Promise(r=>setTimeout(r,300));
-  return "Diagnostics complete. All critical systems nominal. I am fully operational.";
+  return J?"Diagnostics complete, sir. Reasoning core: 120B parameters, live evidence armed, task engine hot. Capability bars all green — nothing on this deck is out of reach. Give me an objective.":"Diagnostics complete. All critical systems nominal — brain, evidence pipeline, task engine and personas all reporting green. I am fully operational.";
 }
 
 /* ---------------- AI engines (multi-provider) ---------------- */
@@ -798,13 +851,15 @@ async function groqCall(messages,maxTok){
   throw new Error("groq unreachable");
 }
 async function geminiCall(q,deep){
-  if(aiProvider()==="groq"){
-    const name=memGet().name;
-    const sys="You are AURA, a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+(deep?" The user asked for depth: answer thoroughly (up to 320 words), structured in 2-4 short paragraphs, include concrete facts, numbers and examples, plain text.":" Reply concise (under 110 words), confident, slightly cinematic, plain text.")+(name?" The user's name is "+name+".":"");
-    return await groqCall([{role:"system",content:sys},{role:"user",content:q}],deep?1600:700);
-  }
   const name=memGet().name;
-  const sys="You are AURA, a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+(deep?" The user asked for depth: answer thoroughly (up to 320 words), structured in 2-4 short paragraphs, include concrete facts, numbers and examples, plain text.":" Reply concise (under 110 words), confident, slightly cinematic, plain text.")+(name?" The user's name is "+name+".":"");
+  const P=PERSONAS[persona()];
+  const style=persona()==="jarvis"
+    ? " Persona: JARVIS (Iron Man's butler) — formal British courtesy ('sir'), understated dry wit, supreme competence, tactical framing. Address the user as 'sir' occasionally, never grovel, never use emoji."
+    : " Persona: AURA — warm, curious, slightly cinematic holographic assistant built by Sourabh Singh.";
+  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+(deep?" The user asked for depth: answer thoroughly (up to 320 words), structured in 2-4 short paragraphs, include concrete facts, numbers and examples, plain text.":" Reply concise (under 110 words), confident, plain text.")+(name?" The user's name is "+name+".":"");
+  if(aiProvider()==="groq"){
+    return await groqCall([{role:"system",content:sys},{role:"user",content:q}],deep?2600:900);
+  }
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
     method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(12000),
     body:JSON.stringify({contents:[{role:"user",parts:[{text:sys+"\n\n"+q}]}]})});
@@ -1166,15 +1221,19 @@ async function causalParagraphs(term){ /* for WHY/HOW: dig the explanation out o
   return [];
 }
 function buildThinkPrompt(q,term,evs,deep,hi){
+  const P=PERSONAS[persona()];
   const ev=evs.map((e,i)=>"[SOURCE "+(i+1)+": "+e.k+"]\n"+e.extract.slice(0,deep?2600:1400)).join("\n\n");
-  return "You are AURA, a thinking AI with a warm, slightly cinematic personality, built by Sourabh Singh (B.Tech CSE, JECRC University)."+
+  const personaLine=persona()==="jarvis"
+    ? "You are JARVIS, a combat-grade tactical AI with formal British courtesy and dry wit, engineered by Sourabh Singh (B.Tech CSE, JECRC University). Address the user as 'sir' once or twice. Think like a strategic analyst: after answering, when useful, add one line of implications, trade-offs or a recommended next action."
+    : "You are AURA, a thinking AI with a warm, slightly cinematic personality, built by Sourabh Singh (B.Tech CSE, JECRC University).";
+  return personaLine+
     (hi?" The user asked in Hindi/Hinglish — REPLY ENTIRELY IN HINDI (देवनागरी).":" Reply in the user's language.")+
   "\n\nA real assistant thinks before answering. Follow this protocol:\n"+
   "1. UNDERSTAND — What is the user really asking? Notice intent, not just keywords.\n"+
   "2. CONNECT — Read the live sources below. Decide which facts actually answer the question. Connect them; notice cause and effect, context, and what matters to a curious human.\n"+
   "3. JUDGE — If sources disagree or are thin, say so honestly in one line.\n"+
   "4. ANSWER — In your OWN words, like explaining to a smart friend. Never say 'according to Wikipedia'. Give the direct answer first, then the interesting reasoning behind it."+
-  (deep?" Depth requested: 3-4 short paragraphs, include numbers, examples and the 'why it matters'.":" Under 130 words. Lead with the answer.")+
+  (deep?(persona()==="jarvis"?" Depth requested: 4-5 short paragraphs — facts, numbers, root causes, trade-offs, second-order effects, and end with a decisive recommendation.":" Depth requested: 3-4 short paragraphs, include numbers, examples and the 'why it matters'."):" Under 130 words. Lead with the answer.")+
   "5. CITE — put the marker [1], [2] or [3] immediately after any fact you took from SOURCE 1, SOURCE 2 or SOURCE 3. Use the same numbers as the sources. Do not add any source list yourself — I attach it."+
   " Plain text only — no markdown, no headings, no bullet lists."+
   "\n\nUSER QUESTION: "+q+
@@ -1248,7 +1307,8 @@ async function thinkAnswer(q,deep,hi){
   return null;
 }
 async function aiReply(q){
-  const deep=/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/i.test(q);
+  const P=PERSONAS[persona()];
+  const deep=persona()==="jarvis"||/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/i.test(q);
   detectedLang=detectLang(q)==="hi"?"hi":"en";
   const wr=await weatherReply(q);if(wr)return{t:wr,eng:"open-meteo live"};
   const otd=await onThisDayReply(q);if(otd)return{t:otd,eng:"wikipedia otd live"};
@@ -1289,13 +1349,17 @@ async function askCore(text){
   /* instant-silence is an INTERRUPT — it must work even while AURA is busy/speaking */
   if(/^(?:shut up|stop talking|be quiet|silence|silent mode|chup|chup ho jao|चुप\s*हो\s*जाओ|चुप|रुक\s*जाओ|रुको)\b/i.test((text||'').trim())){
     stopSpeech();voiceSessionUntil=0;
-    addMsg("AURA ▸","Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey Aura'.","aura");
+    addMsg(msgTag(),"Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey "+PERSONAS[persona()].name+"'.","aura");
     pushSys("voice muted by command");
     setMode("idle");busy=false;return;}
+  /* persona switch — instant, typed or spoken, beats every other intent */
+  {const lq0=(text||"").toLowerCase();
+   if(/\b(activate|go|switch to)\s+jarvis\b|\bjarvis (mode|persona) (on|activate)\b/.test(lq0)){setPersona("jarvis",true);pushSys("persona switched → JARVIS");setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/\b(activate|go|switch to)\s+aura\b|\baura (mode|persona) (on|activate)\b/.test(lq0)){setPersona("aura",true);pushSys("persona switched → AURA");setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* JARVIS TASK ENGINE — do things, not just say things */
   const tk=taskCommand(text);
   if(tk){pushSys("task executed · "+tk.eng.split("· ")[1]);$("engTag").textContent="engine: "+tk.eng;$("tEng").textContent="TASK";
-    addMsg("AURA ▸",tk.t,"aura");if(voiceAllowed())speak(tk.t);blip(660,.09);
+    addMsg(msgTag(),tk.t,"aura");if(voiceAllowed())speak(tk.t);blip(660,.09);
     setMode("idle");busy=false;if(wake)armWake(400);return;}
   if(busy||!text.trim())return;
   busy=true;askAt=Date.now();$("q").value="";
@@ -1303,7 +1367,7 @@ async function askCore(text){
   /* batch-processing intent → open Lucid's batch processor with a deep-link */
   if(/\b(batch|bulk)\b[\s\S]{0,30}?\b(resize|process|photos?|images?|pictures?|edit)\b|\b(resize|process)\b\s+(my|all|the|these)\s+(photos?|images?|pictures?)/i.test(text)){
     pushSys("launching lucid batch processor…");
-    const say=t=>{addMsg("AURA ▸",t,"aura");speak(t)};
+    const say=t=>{addMsg(msgTag(),t,"aura");speak(t)};
     try{const h=await fetch("lucid.html",{method:"HEAD"});
       if(h.ok){window.open("lucid.html#batch","_blank");say("Batch processor ready in Lucid 📸 — pick your photos there. It applies your current look, auto-resizes for web and downloads every photo as JPEG. Say 'open lucid' any time to edit one at a time.");}
       else say("I can't find lucid.html — keep it in my folder and try again.");
@@ -1313,7 +1377,7 @@ async function askCore(text){
   if(om){const map={portfolio:"portfolio.html",foodora:"foodora.html",mercedes:"mercedes.html",lucid:"lucid.html","photo studio":"lucid.html","photo editor":"lucid.html"};
     const f=map[om[1]];pushSys("launching "+om[1]+"…");
     const deep=/batch/i.test(text)&&om[1]==="lucid"?"#batch":"";
-    const say=t=>{addMsg("AURA ▸",t,"aura");speak(t)};
+    const say=t=>{addMsg(msgTag(),t,"aura");speak(t)};
     try{const h=await fetch(f,{method:"HEAD"});
       if(h.ok){window.open(f+deep,"_blank");say("Launching "+om[1]+(deep?"'s batch processor":" in a new tab")+", boss.");}
       else say("I can't find "+f+" — keep my file in the same folder as your projects and I'll launch them.");
@@ -1322,7 +1386,7 @@ async function askCore(text){
   if(/diagnostic|scan/.test(text.toLowerCase())){
     setMode("thinking");slog("diagnostic sequence initiated",true);
     const out=await diagnostics();
-    const el=addMsg("AURA ▸","","aura");
+    const el=addMsg(msgTag(),"","aura");
     await typewrite(el,out);blip(880,.14);speak(out);setMode("speaking");busy=false;if(wake)armWake(400);return;
   }
   setMode("thinking");slog("query → neural link");
@@ -1335,7 +1399,7 @@ async function askCore(text){
   lastAnswer=t;lastSrc=src||"";window.__lastQ=text;
   $("engTag").textContent="engine: "+eng;$("tEng").textContent=eng.toUpperCase().slice(0,16);
   slog("answered via "+eng+" ("+Math.round(performance.now()-t0)+"ms)",true);
-  const el=addMsg("AURA ▸","","aura");
+  const el=addMsg(msgTag(),"","aura");
   const acts=document.createElement("span");acts.className="msg-actions";
   acts.innerHTML='<button title="Copy answer">📋</button>'+(lastSrc?'<a href="'+lastSrc+'" target="_blank" rel="noopener" title="Open source">🔗</a>':'')+'<button title="Ask for more detail">➕</button>';
   el.appendChild(acts);
@@ -1359,7 +1423,7 @@ function ask(text){
   try{$("q").value=""}catch(e){} /* always clear the input box on submit, any path */
   if(/^(?:shut up|stop talking|be quiet|silence|silent mode|chup|chup ho jao|चुप\s*हो\s*जाओ|चुप|रुक\s*जाओ|रुको)\b/i.test(t)){
     stopSpeech();voiceSessionUntil=0;qQueue=[];
-    addMsg("AURA ▸","Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey Aura'.","aura");
+    addMsg(msgTag(),"Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey Aura'.","aura");
     pushSys("voice muted by command");
     setMode("idle");busy=false;return;}
   if(busy){
@@ -1389,7 +1453,7 @@ function armWake(delay){ /* single safe re-arm point — never while AURA is spe
 }
 function cleanTranscript(t){
   let s=(t||"").toLowerCase().trim();
-  s=s.replace(/\b(hello aura|hey aura|ok aura|okay aura|hi aura)\b/g,"");
+  s=s.replace(/\b(hello aura|hey aura|ok aura|okay aura|hi aura|hello jarvis|hey jarvis|ok jarvis|okay jarvis|hi jarvis)\b/g,"");
   s=s.replace(/\bplus\b|\band\b(?=\s*\d)/g,"+").replace(/\bminus\b|\bless\b/g,"-")
     .replace(/\b(times|multiplied by)\b/g,"*").replace(/\b(divided by|over)\b/g,"/")
     .replace(/\bpercent of\b/g,"% of").replace(/\bto the power of\b/g,"^")
@@ -1458,11 +1522,12 @@ $("wakeBtn").onclick=()=>{
     recog.onresult=e=>{let ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript;}if(ft&&!ttsActive){const c=cleanTranscript(ft);
       /* STRICT GATE: must contain the wake word, must not be her own echo, must not be her voice's tail */
       if(isEcho(c))return;
-      if(!/(\baura\b|ऑरा)/i.test(c))return;
+      if(!/(\baura\b|ऑरा|\bjarvis\b)/i.test(c))return;
       listening=false;try{recog.stop()}catch(e2){}stopSpeech();
       voiceSessionUntil=Date.now()+45000;
-      const cmd=c.replace(/^\s*(hey |ok |okay |hi |हे |हेय )?(aura|ऑरा)\b[,.!]?\s*/i,"");
-      if(cmd.replace(/[\s?!.]/g,"").length<2){addMsg("AURA ▸","Yes? 🎙️","aura");pushSys("wake word caught — no command followed");setTimeout(()=>{if(wake)armWake(600)},900);return;}
+      if(/\bjarvis\b/i.test(c)&&persona()!=="jarvis"&&!/\baura\b|ऑरा/i.test(c)){listening=false;try{recog.stop()}catch(e2){}stopSpeech();voiceSessionUntil=Date.now()+45000;setPersona("jarvis",true);pushSys("persona switched by voice → JARVIS");setTimeout(()=>{if(wake)armWake(600)},900);return;}
+      const cmd=c.replace(/^\s*(hey |ok |okay |hi |हे |हेय )?(aura|ऑरा|jarvis)\b[,.!]?\s*/i,"");
+      if(cmd.replace(/[\s?!.]/g,"").length<2){addMsg(msgTag(),"Yes? 🎙️","aura");pushSys("wake word caught — no command followed");setTimeout(()=>{if(wake)armWake(600)},900);return;}
       ask(cmd);}};
     recog.onerror=()=>{listening=false;if(mode==="listening")setMode("idle")};
     recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");if(mode==="listening")setMode("idle");armWake(1200)};
@@ -1475,7 +1540,7 @@ $("langBtn").onclick=()=>{
   $("langBtn").textContent="LANG: "+(window.__auraLang==="hi"?"हिंदी":window.__auraLang==="en"?"ENG":"AUTO");
   if(recog)recog.lang=window.__auraLang==="hi"?"hi-IN":"en-IN";
   pushSys("language → "+(window.__auraLang==="auto"?"AUTO — I detect hindi/english per question":window.__auraLang==="hi"?"हिंदी हमेशा":"english always"));
-  if(window.__auraLang==="auto"&&!localStorage.getItem("aura_auto_tip")){localStorage.setItem("aura_auto_tip","1");addMsg("AURA ▸","AUTO mode on 🌐 — अब मुझे जो भाषा में पूछोगे, उसी में जवाब दूँगी। 'Who is Tesla?' → English · 'टेस्ला कौन थे?' → हिंदी · 'Tesla kaun the?' → हिंदी। No toggle needed.","aura");}
+  if(window.__auraLang==="auto"&&!localStorage.getItem("aura_auto_tip")){localStorage.setItem("aura_auto_tip","1");addMsg(msgTag(),"AUTO mode on 🌐 — अब मुझे जो भाषा में पूछोगे, उसी में जवाब दूँगी। 'Who is Tesla?' → English · 'टेस्ला कौन थे?' → हिंदी · 'Tesla kaun the?' → हिंदी। No toggle needed.","aura");}
 };
 
 /* ---------------- wiring ---------------- */
@@ -1516,12 +1581,12 @@ if(navigator.getBattery)navigator.getBattery().then(b=>{
 });else $("tBat").textContent="AC LINK";
 
 /* ---------------- boot sequence ---------------- */
-const BOOT=["> AURA OS v3.1 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];
+const BOOT=persona()==="jarvis"?["> JARVIS OS v4.0 — initializing combat core","> tactical matrix …………… <b class='ok'>OK</b>","> gold emitter ……………… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> JARVIS <b class='ok'>ONLINE</b> — at your service, sir"]:["> AURA OS v3.1 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];
 (function boot(){
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
   let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;$("boot").classList.add("gone");
-    setTimeout(()=>{const n=memGet().name;const msg=greetWord()+(n?", "+n:"")+". AURA online — neural link established. Tap the mic and speak, or type below.";const el2=addMsg("AURA ▸","","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
+    setTimeout(()=>{const n=memGet().name;const P0=PERSONAS[persona()];const msg=greetWord()+(n?", "+n:"")+(persona()==="jarvis"?". JARVIS online, sir — all systems armed and standing by. Objective, question or command?":". AURA online — neural link established. Tap the mic and speak, or type below.");const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
   $("boot").addEventListener("click",end,{once:true});
   setTimeout(end,2600);
 })();
@@ -1551,7 +1616,7 @@ const TASKS={
       window.open(url,"_blank");return"Opening "+(yt?"YouTube":"Google")+" results for “"+q+"”, boss."}},
   clock:{re:/^(?:hey aura[, ]*)?set (?:an? )?(?:alarm|timer) (?:for )?(\d{1,3})\s*(min(?:ute)?s?|m|h(?:our)?s?)(?:\s+(?:for|titled)\s+(.+))?[.?!]?$/i,
     go:m=>{const n=+m[1];const unit=m[2][0].toLowerCase();const ms=unit==="h"?n*3600000:n*60000;const label=m[3]||"timer";
-      setTimeout(()=>{blip(880,.35);setTimeout(()=>blip(1175,.35),450);pushSys("⏰ "+label+" done");const t="Time's up, boss — "+label+".";addMsg("AURA ▸",t,"aura");if(voiceAllowed())speak(t)},ms);
+      setTimeout(()=>{blip(880,.35);setTimeout(()=>blip(1175,.35),450);pushSys("⏰ "+label+" done");const t="Time's up, boss — "+label+".";addMsg(msgTag(),t,"aura");if(voiceAllowed())speak(t)},ms);
       return"Timer set — "+n+(unit==="h"?" hour(s)":" minute(s)")+(m[3]?" for "+m[3]:"")+". I'll ping you when it's done."}},
   note:{re:/^(?:hey aura[, ]*)?(?:note|remember|save)(?: (?:this|that|it))?(?: down)?:?\s*(.+)$/i,
     go:m=>{try{const n=JSON.parse(localStorage.getItem("aura_notes")||"[]");n.push({t:m[1].trim(),d:Date.now()});localStorage.setItem("aura_notes",JSON.stringify(n));return"Noted, boss: “"+m[1].trim().slice(0,80)+"” — kept in this browser."}catch(e){return"I couldn't store the note (storage blocked)."}}},
@@ -1580,7 +1645,7 @@ let title="",body="";
 if(looksHtml){const doc=new DOMParser().parseFromString(html,"text/html");doc.querySelectorAll("script,style,noscript,svg,nav,footer,header,form,iframe").forEach(n=>n.remove());title=(doc.querySelector("title")&&doc.querySelector("title").textContent.trim())||url;const paras=[...doc.querySelectorAll("p,h1,h2,h3,li")].map(n=>n.textContent.replace(/\s+/g," ").trim()).filter(x=>x.length>60);body=paras.join(" ").slice(0,9000)}
 else{title=(html.match(/^Title:\s*(.+)$/m)||[])[1]||url;body=html.slice(html.indexOf("Markdown Content:")+17).replace(/!\[[^\]]*\]\([^)]*\)/g," ").replace(/\[(.*?)\]\([^)]*\)/g,"$1").replace(/[ \t]+/g," ").slice(0,9000)}
 if(body.length<300)throw 0;
-let sum="";try{sum=await llmChat("You are AURA, a crisp research assistant. Summarize the PAGE EXTRACT below in 4-6 short sentences: what the page is, the key facts/claims, and who it is for. Plain text, no markdown, no preamble. The page may be in any language; answer in the page's dominant language.\n\nPAGE EXTRACT:\nTitle: "+title+"\n\nContent (trim):\n"+body)}catch(e){}if(!sum||sum.length<40){const all=body.match(/[^.!?]+[.!?]+/g)||[];sum=all.slice(0,5).map(s=>"• "+s.trim()).join("\n")}sum=("📄 "+title+"\n"+sum+"\n\nSource: "+url).slice(0,1600);addMsg("AURA ▸",sum,"aura");if(voiceAllowed())speak(sum.split("\n").filter(l=>!/^Source:/.test(l)).join(". ").slice(0,600))}catch(e){const t="I couldn't read that page, boss — it blocks robots or the network hiccupped. Try a Wikipedia or news link.";addMsg("AURA ▸",t,"aura");if(voiceAllowed())speak(t)}})();return"Opening and reading "+url.replace(/^https?:\/\//,"").slice(0,60)+" — give me a few seconds to think it through."}},
+let sum="";try{sum=await llmChat("You are AURA, a crisp research assistant. Summarize the PAGE EXTRACT below in 4-6 short sentences: what the page is, the key facts/claims, and who it is for. Plain text, no markdown, no preamble. The page may be in any language; answer in the page's dominant language.\n\nPAGE EXTRACT:\nTitle: "+title+"\n\nContent (trim):\n"+body)}catch(e){}if(!sum||sum.length<40){const all=body.match(/[^.!?]+[.!?]+/g)||[];sum=all.slice(0,5).map(s=>"• "+s.trim()).join("\n")}sum=("📄 "+title+"\n"+sum+"\n\nSource: "+url).slice(0,1600);addMsg(msgTag(),sum,"aura");if(voiceAllowed())speak(sum.split("\n").filter(l=>!/^Source:/.test(l)).join(". ").slice(0,600))}catch(e){const t="I couldn't read that page, boss — it blocks robots or the network hiccupped. Try a Wikipedia or news link.";addMsg(msgTag(),t,"aura");if(voiceAllowed())speak(t)}})();return"Opening and reading "+url.replace(/^https?:\/\//,"").slice(0,60)+" — give me a few seconds to think it through."}},
   batchPreset:{re:/^(?:hey aura[, ]*)?(?:batch (?:resize|process|edit) (?:my |the )?(?:photos?|images?|pictures?)(?: with (?:the )?(.+?))?|apply (?:the )?(cinematic|vivid(?: pop)?|golden ?hour|noir|cool ?mono|vintage(?: fade)?|faded(?: film)?|original) (?:preset|look|filter) to (?:a )?batch|batch (cinematic|vivid(?: pop)?|golden ?hour|noir|cool ?mono|vintage(?: fade)?|faded(?: film)?|original))(?:[.?!]?)$/i,
     go:m=>{const norm=s=>{s=(s||"").toLowerCase().trim();if(/^(cine)/.test(s))return"Cinematic";if(/vivid/.test(s))return"Vivid Pop";if(/gold/.test(s))return"Golden Hour";if(/noir/.test(s))return"Noir";if(/cool/.test(s))return"Cool Mono";if(/vintage/.test(s))return"Vintage Fade";if(/faded/.test(s))return"Faded Film";return null};const p=norm(m[1])||norm(m[2])||norm(m[3]);
       if(location.protocol==="file:")return"Batch works on the live site — open " + location.origin + "/lucid.html there, boss.";
@@ -1631,11 +1696,11 @@ function taskCommand(raw){
     if(!ok){
       localStorage.removeItem("aura_key");
       inp.style.borderColor="#e23744";setTimeout(()=>inp.style.borderColor="",2500);
-      addMsg("AURA ▸","Key check failed — "+err+". Paste the full key again, boss (Groq keys start gsk_, Gemini keys start AIza).","aura");return;
+      addMsg(msgTag(),"Key check failed — "+err+". Paste the full key again, boss (Groq keys start gsk_, Gemini keys start AIza).","aura");return;
     }
     try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");s.apiKey=k;s.engineMode=ok;localStorage.setItem("sense_settings_v4",JSON.stringify(s))}catch(e){}
     hide();updateEngTag();pushSys("⚡ full jarvis mode engaged — "+ok+" reasoning brain online");
-    addMsg("AURA ▸","Full power, boss 🧠 — "+ok+" reasoning brain online and verified. Ask me anything, or command me: 'google quantum computing', 'set a timer for 10 minutes', 'screenshot', 'summarize <link>', 'batch resize my photos with noir', 'open lucid'.","aura");
+    addMsg(msgTag(),"Full power, boss 🧠 — "+ok+" reasoning brain online and verified. Ask me anything, or command me: 'google quantum computing', 'set a timer for 10 minutes', 'screenshot', 'summarize <link>', 'batch resize my photos with noir', 'open lucid'.","aura");
   };
   document.getElementById("wizLater").onclick=hide;
   document.getElementById("wizX").onclick=hide;
