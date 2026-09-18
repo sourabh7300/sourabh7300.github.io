@@ -157,10 +157,10 @@ canvas#fx{position:fixed;inset:0;z-index:0}
     <div class="wiz-tag">system requisition · clearance granted</div>
     <div class="wiz-h">Unlock full JARVIS mode 🧠</div>
     <p class="wiz-p">One free key gives me a real reasoning brain — I'll <b>think, plan and speak</b> with full knowledge instead of short web summaries. Takes 60 seconds, no card, no signup beyond your Google account.</p>
-    <div class="wiz-step"><span class="wiz-n">1</span><span>Open <b>aistudio.google.com/app/apikey</b> in a new tab (sign in with Google)</span></div>
-    <div class="wiz-step"><span class="wiz-n">2</span><span>Click <b>“Create API key”</b> → copy it (starts with <b>AIza…</b>)</span></div>
+    <div class="wiz-step"><span class="wiz-n">1</span><span>Get a free key — <b>console.groq.com/keys</b> (starts <b>gsk_…</b>) or <b>aistudio.google.com/app/apikey</b> (starts <b>AIza…</b>)</span></div>
+    <div class="wiz-step"><span class="wiz-n">2</span><span>Create &amp; copy the key — I detect the provider automatically</span></div>
     <div class="wiz-step"><span class="wiz-n">3</span><span>Paste it below and hit <b>ACTIVATE</b> — I'll do the rest, boss.</span></div>
-    <input class="wiz-in" id="wizKey" type="password" placeholder="AIza…" autocomplete="off">
+    <input class="wiz-in" id="wizKey" type="password" placeholder="gsk_… or AIza…" autocomplete="off">
     <div class="wiz-row">
       <button class="wiz-btn" id="wizGo">⚡ ACTIVATE JARVIS MODE</button>
       <button class="wiz-btn ghost" id="wizLater">Later</button>
@@ -509,7 +509,7 @@ const KB={
   "mercedes":"The Mercedes-Benz showcase is a cinematic luxury automotive landing page — premium design and scroll animations.",
   "aura":"That's me — a holographic AI with a 560-particle 3D core, voice interface, live telemetry and a three-layer brain, all in one hand-written file.",
   "lucid":"Lucid is Sourabh's Photo Studio — a desktop-class editor with layer compositing, batch processing (resize + watermark + export in bulk), real-time pixel engines like curves, clarity and bloom, a live histogram, and a built-in SENSE camera bridge. Say 'open lucid' to launch it, or 'batch resize my photos' and I'll open the batch processor directly.",
-  "api key":"An API key is a secret token that identifies you to an API. My creator uses a free Gemini key from aistudio.google.com — press SET AI KEY to give me one and my answers become frontier-grade.",
+  "api key":"An API key is a secret token that identifies you to an AI service. I accept free Groq keys (gsk_… from console.groq.com/keys) and free Gemini keys (AIza… from aistudio.google.com) — press SET AI KEY, paste either one, and my reasoning brain goes frontier-grade.",
   "api":"An API (Application Programming Interface) is a contract that lets two programs talk — you send a request, it sends structured data back.",
   "javascript":"JavaScript is the programming language of the web — it runs in every browser. My entire brain, core and voice are written in it.",
   "html":"HTML (HyperText Markup Language) structures every web page. I am literally one HTML file.",
@@ -759,14 +759,50 @@ async function diagnostics(){
   return "Diagnostics complete. All critical systems nominal. I am fully operational.";
 }
 
-/* ---------------- AI engines ---------------- */
+/* ---------------- AI engines (multi-provider) ---------------- */
 function geminiKey(){
   const a=localStorage.getItem("aura_key");if(a)return a;
   try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");
     if(s.apiKey&&s.engineMode!=="openai"&&!/^sk-/.test(s.apiKey))return s.apiKey;}catch(e){}
   return "";
 }
+function aiProvider(){
+  const k=(geminiKey()||"").trim();
+  if(/^gsk_/.test(k))return"groq";
+  if(/^AIza/.test(k))return"gemini";
+  return k?"unknown":"none";
+}
+const GROQ_MODELS=["openai/gpt-oss-120b","openai/gpt-oss-20b","qwen/qwen3.8-27b"];
+let groqModel="";
+async function groqCall(messages,maxTok){
+  const key=geminiKey().trim();
+  const tryModels=groqModel?[groqModel]:GROQ_MODELS;
+  for(const mdl of tryModels){
+    let budget=maxTok||1400;
+    for(let attempt=0;attempt<2;attempt++){
+      try{
+        const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+          method:"POST",
+          headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
+          signal:AbortSignal.timeout(20000),
+          body:JSON.stringify({model:mdl,messages:messages,max_tokens:budget,temperature:0.6})});
+        if(r.status===429)throw new Error("rate-limited");
+        if(!r.ok)throw new Error("HTTP "+r.status);
+        const d=await r.json();
+        const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
+        if(t&&t.trim()){groqModel=mdl;return t.trim()}
+        if(attempt===0){budget=Math.max(budget*2,2000);continue}
+      }catch(e){if(String(e.message||e).includes("rate"))throw e;break}
+    }
+  }
+  throw new Error("groq unreachable");
+}
 async function geminiCall(q,deep){
+  if(aiProvider()==="groq"){
+    const name=memGet().name;
+    const sys="You are AURA, a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+(deep?" The user asked for depth: answer thoroughly (up to 320 words), structured in 2-4 short paragraphs, include concrete facts, numbers and examples, plain text.":" Reply concise (under 110 words), confident, slightly cinematic, plain text.")+(name?" The user's name is "+name+".":"");
+    return await groqCall([{role:"system",content:sys},{role:"user",content:q}],deep?1600:700);
+  }
   const name=memGet().name;
   const sys="You are AURA, a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+(deep?" The user asked for depth: answer thoroughly (up to 320 words), structured in 2-4 short paragraphs, include concrete facts, numbers and examples, plain text.":" Reply concise (under 110 words), confident, slightly cinematic, plain text.")+(name?" The user's name is "+name+".":"");
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
@@ -1169,7 +1205,13 @@ async function thinkAnswer(q,deep,hi){
   const evs=await gatherEvidence(term);
   slog(evs.length?"evidence from "+evs.length+' source'+(evs.length>1?"s":"")+" — reasoning…":"no evidence yet — reasoning from my own knowledge…",true);
   const prompt=buildThinkPrompt(q,term,evs,deep,hi);
-  if(geminiKey()){
+  if(aiProvider()==="groq"){
+    try{
+      const t=await groqCall([{role:"system",content:"You are AURA, Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt}],deep?2200:1400);
+      const src=evs.find(e=>e.url);return{t:attachCitations(t,evs),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + gpt-oss-120b + live evidence ("+evs.length+" sources)",src:src&&src.url};
+    }catch(e){slog("groq thinking failed — trying puter",true)}
+  }
+  else if(geminiKey()){
     try{
       const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
         method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(20000),
@@ -1222,7 +1264,7 @@ async function aiReply(q){
     /* THE THINKING BRAIN FIRST — gather live evidence, then reason over it in human fashion */
     const th=await thinkAnswer(q,deep,hiMode);if(th)return th;
     if(hiMode){const hw=await hiWikiAnswer(q,deep);if(hw)return hw;}
-    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:"gemini 2.0 flash (direct)"};}catch(e){slog("gemini uplink failed — trying live web");}}
+    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b (direct)":"gemini 2.0 flash (direct)"};}catch(e){slog("ai uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
     const d2=await ddgAnswer(q);if(d2)return d2;
@@ -1231,7 +1273,7 @@ async function aiReply(q){
   }else{
     const loc0=localReply(q);
     if(loc0!==undefined)return{t:loc0,eng:"local core"};
-    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:"gemini 2.0 flash"};}catch(e){slog("gemini uplink failed — trying live web");}}
+    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
   }
   slog("going live to the internet");
   const w2b=deep?await webResearch(q):await wikiAnswer(q,false);
@@ -1448,7 +1490,7 @@ $("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent="SOUND: "+
 $("fsBtn").onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})};
 /* SET AI KEY now opens the Jarvis setup wizard (handler registered with the wizard below) */
 function updateEngTag(){
-  $("engTag").textContent=geminiKey()?"engine: gemini (your key)":"engine: deep web research + local core";
+  $("engTag").textContent=aiProvider()==="groq"?"engine: groq gpt-oss-120b (your key)":geminiKey()?"engine: gemini (your key)":"engine: deep web research + local core";
 }
 addEventListener("online",()=>{$("tNet").textContent="ONLINE";$("tNet").className="on"});
 addEventListener("offline",()=>{$("tNet").textContent="OFFLINE";$("tNet").className="off"});
@@ -1487,6 +1529,7 @@ const BOOT=["> AURA OS v3.1 — initializing neural core","> personality matrix 
 /* "Do things, don't just say things." — searches, clocks, notes, timers, pages, app launches, unit/math one-shots. */
 /* Tiny LLM helper for task engines: Gemini key if present, else Puter free AI (16s cap) */
 async function llmChat(prompt){
+  if(aiProvider()==="groq")return await groqCall([{role:"user",content:prompt}],1200);
   if(geminiKey()){
     const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
       method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(16000),
@@ -1571,13 +1614,28 @@ function taskCommand(raw){
   if(!wiz||!inp)return;
   const show=()=>{wiz.classList.add("show");setTimeout(()=>inp.focus(),150)};
   const hide=()=>wiz.classList.remove("show");
-  document.getElementById("wizGo").onclick=()=>{
+  document.getElementById("wizGo").onclick=async()=>{
     const k=inp.value.trim();
     if(!k){inp.focus();return}
     localStorage.setItem("aura_key",k);
-    try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");s.apiKey=k;s.engineMode="gemini";localStorage.setItem("sense_settings_v4",JSON.stringify(s))}catch(e){}
-    hide();updateEngTag();pushSys("⚡ full jarvis mode engaged — reasoning brain online");
-    addMsg("AURA ▸","Full power, boss 🧠 — reasoning brain online. Ask me anything, or command me: 'google quantum computing', 'set a timer for 10 minutes', 'screenshot', 'summarize <link>', 'batch resize my photos with noir', 'open lucid'.","aura");
+    const btn=document.getElementById("wizGo");btn.textContent="⏳ VERIFYING…";btn.disabled=true;
+    let ok="",err="";
+    try{
+      if(aiProvider()==="groq"){const t=await groqCall([{role:"user",content:"Say READY"}],20);ok=t?"groq":""}
+      else{
+        const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(k),{method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(12000),body:JSON.stringify({contents:[{role:"user",parts:[{text:"Say READY"}]}]})});
+        if(r.ok)ok="gemini";else err="key rejected (HTTP "+r.status+")";
+      }
+    }catch(e){err=e.message||"network error"}
+    btn.textContent="⚡ ACTIVATE JARVIS MODE";btn.disabled=false;
+    if(!ok){
+      localStorage.removeItem("aura_key");
+      inp.style.borderColor="#e23744";setTimeout(()=>inp.style.borderColor="",2500);
+      addMsg("AURA ▸","Key check failed — "+err+". Paste the full key again, boss (Groq keys start gsk_, Gemini keys start AIza).","aura");return;
+    }
+    try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");s.apiKey=k;s.engineMode=ok;localStorage.setItem("sense_settings_v4",JSON.stringify(s))}catch(e){}
+    hide();updateEngTag();pushSys("⚡ full jarvis mode engaged — "+ok+" reasoning brain online");
+    addMsg("AURA ▸","Full power, boss 🧠 — "+ok+" reasoning brain online and verified. Ask me anything, or command me: 'google quantum computing', 'set a timer for 10 minutes', 'screenshot', 'summarize <link>', 'batch resize my photos with noir', 'open lucid'.","aura");
   };
   document.getElementById("wizLater").onclick=hide;
   document.getElementById("wizX").onclick=hide;
