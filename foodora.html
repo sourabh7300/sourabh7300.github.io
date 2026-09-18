@@ -237,7 +237,7 @@ function placeOrder(){
    window.open(`https://wa.me/${waPhone}?text=${encodeURIComponent(msg)}`,"_blank");
  }
  if(pay==="upi"&&contact.upi){
-   window.open(`upi://pay?pa=${encodeURIComponent(contact.upi)}&pn=${encodeURIComponent(r.n)}&am=${total}&cu=INR&tn=${encodeURIComponent("Order "+orderId)}`,"_self");
+   window.open(`upi://pay?pa=${encodeURIComponent(contact.upi)}&pn=${encodeURIComponent(r.n)}&am=${b.total}&cu=INR&tn=${encodeURIComponent("Order "+orderId)}`,"_self");
  }
 
  hide("checkoutModal");closeCart();cart=[];save();
