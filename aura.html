@@ -91,6 +91,8 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 #micBtn:hover{transform:scale(1.06)}
 #micBtn.listening{border-color:var(--red);color:#fecaca;box-shadow:0 0 34px rgba(248,113,113,.5);animation:pp 1s infinite}
 #micHint{font-family:var(--mono);font-size:9.5px;letter-spacing:2px;color:var(--dim)}
+#stopBtn{position:fixed;right:26px;bottom:150px;z-index:60;display:none;font-family:'Orbitron';font-size:10px;letter-spacing:2px;color:#ffb4b4;background:rgba(127,29,29,.25);border:1px solid #f87171;border-radius:16px;padding:8px 14px;cursor:pointer}
+#stopBtn.show{display:block;animation:pulse 1.2s ease-in-out infinite}
 #inputRow{display:flex;gap:9px;width:100%}
 #q{flex:1;background:rgba(4,18,26,.85);border:1px solid var(--line);border-radius:24px;color:var(--ice);font-family:'Rajdhani';font-size:16px;font-weight:500;padding:13px 20px;outline:0;letter-spacing:.3px;backdrop-filter:blur(6px)}
 #q:focus{border-color:var(--cy2);box-shadow:0 0 18px rgba(34,211,238,.25)}
@@ -243,6 +245,7 @@ canvas#fx{position:fixed;inset:0;z-index:0}
   <div id="bootLog"></div>
   <div id="bootSkip">TAP TO SKIP</div>
 </div>
+<button id="stopBtn">■ STOP</button>
 
 <script>
 "use strict";
@@ -878,7 +881,7 @@ async function groqCall(messages,maxTok){
           method:"POST",
           headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
           signal:AbortSignal.timeout(20000),
-          body:JSON.stringify({model:mdl,messages:messages,max_tokens:budget,temperature:0.6})});
+          body:JSON.stringify(Object.assign({model:mdl,messages:messages,max_tokens:budget,temperature:0.6},persona()==="jarvis"?{reasoning_effort:"high"}:{}))});
         if(r.status===429)throw new Error("rate-limited");
         if(!r.ok)throw new Error("HTTP "+r.status);
         const d=await r.json();
@@ -887,7 +890,7 @@ async function groqCall(messages,maxTok){
         if(attempt===0){budget=Math.max(budget*2,2000);continue}
       }catch(e){
         const m=String(e.message||e);
-        if(m.includes("rate"))throw e;
+        if(m.includes("rate")||m.includes("abort")||m.includes("AbortError"))throw e;
         if(/HTTP 4(?!04)/.test(m)||m.includes("abort")||m.includes("timeout")||m.includes("fetch"))throw e; /* network/limit issues: fail fast, don't burn the other models */
         break; /* model-level problem (404 etc): try next model */
       }
@@ -1084,6 +1087,36 @@ async function webResearch(q){
 }
 /* ---------------- conversation context (follow-up memory) ---------------- */
 let lastTopic="",lastAnswer="",lastSrc="";
+/* ---------------- conversation memory (ChatGPT-style follow-ups) ---------------- */
+const CONVO=[];const CONVO_MAX=12;
+function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX)}
+function convoCtx(){return CONVO.length?"\n\nRECENT CONVERSATION (for context, do not repeat it verbatim):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):""}
+/* ---------------- streaming (ChatGPT-style token-by-token) ---------------- */
+let streamAbort=null;
+async function groqStream(messages,maxTok,onChunk){
+  const key=geminiKey().trim();
+  const mdl=groqModel||GROQ_MODELS[0];
+  const ac=new AbortController();streamAbort=ac;
+  const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+    method:"POST",signal:ac.signal,
+    headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},      body:JSON.stringify(Object.assign({model:mdl,messages:messages,max_tokens:maxTok||1400,temperature:0.6,stream:true},persona()==="jarvis"?{reasoning_effort:"high"}:{}))});
+  if(!r.ok){streamAbort=null;throw new Error("HTTP "+r.status)}
+  const reader=r.body.getReader();const dec=new TextDecoder();let buf="",full="";
+  try{
+    while(true){
+      const{done,value}=await reader.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split("\n");buf=lines.pop()||"";
+      for(const ln of lines){
+        const s=ln.replace(/^data:\s*/,"").trim();
+        if(!s||s==="[DONE]")continue;
+        try{const j=JSON.parse(s);const d=j.choices&&j.choices[0]&&j.choices[0].delta&&j.choices[0].delta.content||"";if(d){full+=d;onChunk(full)}}catch(e){}
+      }
+    }
+  }finally{streamAbort=null}
+  if(!full.trim())throw new Error("empty stream");
+  return full.trim();
+}
 const FOLLOWUP=/^(tell me more|more|elaborate|expand|continue|go on|why|how|what about (him|her|it|that|this)|and (him|her|it|that)|what else|details?|explain( more)?|summarize|shorter|in hindi|translate( it)?|who is he|who is she|when was (he|she|it) born|how old is (he|she|it))\b/i;
 function resolveContext(q){
   const l=q.toLowerCase().trim();
@@ -1311,7 +1344,9 @@ async function thinkAnswer(q,deep,hi){
   const prompt=buildThinkPrompt(q,term,evs,deep,hi);
   if(aiProvider()==="groq"){
     try{
-      const t=await groqCall([{role:"system",content:"You are AURA, Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt}],deep?2200:1400);
+      let t="";
+      try{t=await groqStream([{role:"system",content:"You are AURA, Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?2400:1400,full=>{if(window.__streamEl)window.__streamEl.textContent=full})}
+      catch(se){if(String(se).includes("abort"))return{t:"",eng:"streamed answer — stopped by user",stop:true};t=await groqCall([{role:"system",content:"You are AURA, Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?2400:1400)}
       const src=evs.find(e=>e.url);return{t:attachCitations(t,evs),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + gpt-oss-120b + live evidence ("+evs.length+" sources)",src:src&&src.url};
     }catch(e){slog("groq thinking failed — trying puter",true)}
   }
@@ -1445,20 +1480,34 @@ async function askCore(text){
   setMode("thinking");slog("query → neural link");
   const resolved=resolveContext(text);
   const t0=performance.now();
-  const{t,eng,src}=await aiReply(resolved);
+  window.__streamEl=null;
+  const pre=addMsg(msgTag(),"","aura");
+  pre.textContent="…";window.__streamEl=pre;
+  try{const sb=document.getElementById("stopBtn");sb.classList.add("show");sb.onclick=()=>{try{if(streamAbort)streamAbort.abort()}catch(e){}}}catch(e){}
+  const{t,eng,src,stop}=await aiReply(resolved);
+  window.__streamEl=null;
+  try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}
   if(!FOLLOWUP.test(text.toLowerCase())&&!/^(tell me more|more|elaborate)/i.test(text)){
     const tp=topicOf(resolved);if(tp&&eng!=="local core"&&eng!=="holo-emitter control"&&eng!=="quiz mode")lastTopic=tp;
   }
+  if(stop||!t){
+    if(stop){pre.textContent="(stream stopped)";pushSys("generation stopped by user")}
+    try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}
+    setMode("idle");busy=false;if(wake)armWake(400);return;
+  }
   lastAnswer=t;lastSrc=src||"";window.__lastQ=text;
+  convoAdd("user",text);convoAdd("assistant",t);
   $("engTag").textContent="engine: "+eng;$("tEng").textContent=eng.toUpperCase().slice(0,16);
-  slog("answered via "+eng+" ("+Math.round(performance.now()-t0)+"ms)",true);
-  const el=addMsg(msgTag(),"","aura");
+  const ms=Math.round(performance.now()-t0);const wps=Math.max(1,Math.round(t.split(/\s+/).length/Math.max(0.4,ms/1000)));
+  slog("answered via "+eng+" ("+ms+"ms · ~"+wps+" words/s)",true);
+  const el=pre;
   const acts=document.createElement("span");acts.className="msg-actions";
-  acts.innerHTML='<button title="Copy answer">📋</button>'+(lastSrc?'<a href="'+lastSrc+'" target="_blank" rel="noopener" title="Open source">🔗</a>':'')+'<button title="Ask for more detail">➕</button>';
+  acts.innerHTML='<button title="Copy answer">📋</button>'+(lastSrc?'<a href="'+lastSrc+'" target="_blank" rel="noopener" title="Open source">🔗</a>':'')+'<button title="Ask for more detail">➕</button><button title="Regenerate this answer">↻</button>';
   el.appendChild(acts);
   acts.children[0].onclick=()=>{navigator.clipboard?navigator.clipboard.writeText(t).then(()=>pushSys("answer copied")):pushSys("copy unsupported here")};
   const plus=acts.querySelector('button[title="Ask for more detail"]');if(plus)plus.onclick=()=>{if(lastTopic)ask(lastTopic+" in detail");else ask("tell me more")};
-  if(!synth||!soundOn||!voiceAllowed()){await typewrite(el,t);setMode("idle");}
+  const regen=acts.querySelector('button[title="Regenerate this answer"]');if(regen)regen.onclick=()=>{convoAdd("user","(the user was unsatisfied with the previous answer — regenerate it better)");ask("tell me more")};
+  if(!synth||!soundOn||!voiceAllowed()){el.textContent=t;el.appendChild(acts);}
   else{el.textContent=t;el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);}
   blip(520,.1,"triangle");
   busy=false;
