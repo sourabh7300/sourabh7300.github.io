@@ -233,6 +233,7 @@ canvas#fx{position:fixed;inset:0;z-index:0}
   <button class="ibtn" id="wakeBtn">WAKE: OFF</button>
   <button class="ibtn" id="langBtn">LANG: ENG</button>
   <button class="ibtn" id="fsBtn">FULLSCREEN</button>
+  <button class="ibtn" id="personaBtn" title="One-tap switch between AURA and JARVIS">MODE: AURA</button>
   <button class="ibtn" id="keyBtn">SET AI KEY</button>
   </div>
 </div>
@@ -523,6 +524,7 @@ function setPersona(p,announce){
   if(wm){wm.childNodes[0].nodeValue=P.name;const sm=wm.querySelector("small");if(sm)sm.textContent=P.title;}
   const br=document.getElementById("bootRing");if(br)br.dataset.brand=P.name;
   const mh=document.getElementById("micHint");if(mh&&!String(mh.textContent).includes("LISTENING"))mh.textContent='SAY "HEY '+P.name.toUpperCase()+'…"';
+  const pb=document.getElementById("personaBtn");if(pb){pb.textContent="MODE: "+P.name;pb.title="One tap → switch to "+(p==="jarvis"?"AURA":"JARVIS")}
   if(setHue(P.hue))slog("emitter retuned → "+P.name+" spectrum");
   document.title=P.name+" — "+(p==="jarvis"?"Ironclad AI System":"Holographic AI Assistant");
   updateEngTag();
@@ -532,7 +534,7 @@ function setPersona(p,announce){
   }
   return P;
 }
-(function(){let sp=null;try{sp=localStorage.getItem("aura_persona")}catch(e){}if(sp==="jarvis"){document.body.dataset.persona="jarvis";const br=document.getElementById("bootRing");if(br)br.dataset.brand="JARVIS";const wm=document.querySelector(".wordmark");if(wm){wm.childNodes[0].nodeValue="JARVIS";const sm=wm.querySelector("small");if(sm)sm.textContent=PERSONAS.jarvis.title;}document.title="JARVIS — Ironclad AI System";}})();
+(function(){let sp=null;try{sp=localStorage.getItem("aura_persona")}catch(e){}if(sp==="jarvis"){document.body.dataset.persona="jarvis";const br=document.getElementById("bootRing");if(br)br.dataset.brand="JARVIS";const wm=document.querySelector(".wordmark");if(wm){wm.childNodes[0].nodeValue="JARVIS";const sm=wm.querySelector("small");if(sm)sm.textContent=PERSONAS.jarvis.title;}document.title="JARVIS — Ironclad AI System";}const pb=document.getElementById("personaBtn");if(pb){const P=PERSONAS[document.body.dataset.persona==="jarvis"?"jarvis":"aura"];pb.textContent="MODE: "+P.name;}})();
 
 /* ---------------- local intelligence (big offline core) ---------------- */
 function memGet(){try{return JSON.parse(localStorage.getItem("aura_memory")||"{}")}catch(e){return{}}}
@@ -1759,6 +1761,8 @@ function taskCommand(raw){
   ["wizLater","wizX"].forEach(id=>document.getElementById(id).addEventListener("click",()=>{try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}}));
   if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")){setTimeout(show,3200)}
   document.getElementById("keyBtn").addEventListener("click",()=>{try{sessionStorage.removeItem("wiz_dismissed")}catch(e){}setTimeout(show,150)});
+  const pbtn=document.getElementById("personaBtn");
+  if(pbtn)pbtn.onclick=()=>{const next=persona()==="jarvis"?"aura":"jarvis";setPersona(next,true);pushSys("persona switched → "+PERSONAS[next].name);try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}};
 })();
 if(location.protocol==="file:"){setTimeout(()=>pushSys("local-file mode — mic & voice need the live site (sourabh7300.github.io) or a local server"),3500)}
 updateEngTag();
