@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FOODORA Restaurant — Live Order Dashboard</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:#f6f7f9;color:#18191d}
+:root{--red:#e23744;--line:#e7e8ec;--muted:#70747c;--green:#178653}
+button{font:inherit;cursor:pointer}
+.top{background:#111;color:#fff;padding:8px 5%;font-size:11px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+nav{height:66px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 5%;gap:20px}
+.logo{font-size:24px;font-weight:900;color:var(--red)}.logo span{color:#111}
+.conn{margin-left:auto;display:flex;gap:14px;align-items:center;font-size:12px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;background:#ccc;display:inline-block;margin-right:5px}
+.dot.on{background:#12b76a;animation:pulse 1.4s ease-in-out infinite}
+.dot.off{background:#e23744}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+main{padding:25px 5%}
+.banner{background:#fff8ec;border:1px solid #f2dfb6;color:#8a6d3b;padding:10px 14px;border-radius:10px;font-size:12.5px;line-height:1.6;margin-bottom:18px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:18px}
+.panel h2{margin:0 0 12px;font-size:18px}
+.neworder{border:2px solid #12b76a;border-radius:12px;padding:14px;margin-bottom:12px;background:#f4fdf8;animation:flash 1.2s ease-in-out 3}
+@keyframes flash{0%,100%{box-shadow:0 0 0 0 #12b76a55}50%{box-shadow:0 0 0 8px #12b76a33}}
+.ordercard{border:1px solid var(--line);border-radius:12px;padding:13px;margin-bottom:11px;background:#fff}
+.ordercard h4{margin:0 0 5px;font-size:14.5px;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.ordercard .items{font-size:13px;color:#333;line-height:1.65;margin:6px 0}
+.meta{color:var(--muted);font-size:11.5px}
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;color:#fff}
+.b-new{background:#e23744}.b-accepted{background:#178653}.b-prep{background:#e8890c}.b-out{background:#0b3d91}.b-done{background:#444}.b-declined{background:#c0392b}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.btnrow button{border:0;border-radius:8px;padding:9px 14px;color:#fff;font-weight:600}
+.b-accept{background:#178653}.b-decline{background:#c0392b}.b-prepbtn{background:#e8890c}.b-outbtn{background:#0b3d91}.b-donebtn{background:#444}.b-wa{background:#128c7e}
+audio{display:none}
+@media(max-width:550px){main{padding:18px 4%}.conn{display:none}}
+</style>
+</head>
+<body>
+<div class="top"><span>FOODORA • RESTAURANT PARTNER DASHBOARD</span><span>Orders arrive here in real time — no app install needed</span></div>
+<nav><div class="logo">FOOD<span>ORA</span> <span style="font-size:12px;color:var(--muted);font-weight:600">Restaurant</span></div><div class="conn"><span><span class="dot" id="dot"></span><span id="connText">connecting…</span></span><span id="clock"></span></div></nav>
+<main>
+<div class="banner">🏠 <b>Kalash Kuisine</b> dashboard — every order placed on <a href="https://sourabh7300.github.io/foodora.html" target="_blank">FOODORA</a> lands here instantly. Accept it, cook it, dispatch it — the customer's tracking page updates live. You also get browser notifications + an alert sound. Keep this tab open.</div>
+
+<div class="panel"><h2>📥 Live Orders <span class="meta" id="lastEvent"></span></h2>
+<div id="orders"></div></div>
+
+<div class="panel"><h2>🗄️ History (this device)</h2>
+<div id="history"></div></div>
+</main>
+<audio id="ding" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" preload="auto"></audio>
+<script>
+const API="https://ntfy.sh", CHANNEL="foodora-live-9F3K2";
+const REST_NAME="Kalash Kuisine";
+let inbox=JSON.parse(localStorage.getItem("foodoraLiveInbox")||"[]");
+let sub=null;
+
+setInterval(()=>{document.getElementById("clock").textContent=new Date().toLocaleTimeString()},1000);
+
+function connect(){
+ try{
+  if(sub)sub.close();
+ }catch(e){}
+ sub=new EventSource(API+"/"+CHANNEL+"/sse?since=30m");
+ sub.onopen=()=>{setConn(true)};
+ sub.onerror=()=>{setConn(false);setTimeout(connect,3000)};
+ sub.onmessage=onMsg;
+}
+function setConn(on){
+ document.getElementById("dot").className="dot"+(on?" on":" off");
+ document.getElementById("connText").textContent=on?"live — receiving orders":"reconnecting…";
+}
+
+function onMsg(ev){
+ let m=null;try{m=JSON.parse(ev.data)}catch(e){return}
+ if(!m||!m.message)return;
+ let d=null;try{d=JSON.parse(m.message)}catch(e){return}
+ if(!d||d.type!=="order"||!d.order)return;
+ let o=d.order;
+ if(inbox.some(x=>x.id===o.id))return;
+ o.receivedAt=Date.now();
+ inbox.unshift(o);
+ saveInbox();
+ render();
+ notifyNew(o);
+}
+
+function notifyNew(o){
+ try{let ding=document.getElementById("ding");ding.currentTime=0;ding.play().catch(()=>{})}catch(e){}
+ try{if(window.Notification&&Notification.permission==="granted"){new Notification("🔔 NEW ORDER "+o.id+" — ₹"+o.total,{body:REST_NAME+" • "+o.name+" • "+o.items.length+" item(s)"})}}catch(e){}
+}
+document.addEventListener("click",function reqNotif(){
+ try{if(window.Notification&&Notification.permission==="default")Notification.requestPermission()}catch(e){}
+ document.removeEventListener("click",reqNotif);
+});
+
+function pub(obj){try{fetch(API+"/"+CHANNEL,{method:"POST",body:JSON.stringify(obj)}).catch(()=>{})}catch(e){}}
+function mark(id,status){let o=inbox.find(x=>x.id===id);if(o){o.status=status;o.statusAt=Date.now();saveInbox();render()}}
+function accept(id){pub({type:"ack",orderId:id,accepted:true});mark(id,"Accepted by restaurant")}
+function decline(id){pub({type:"ack",orderId:id,accepted:false});mark(id,"Declined by restaurant")}
+function prep(id){pub({type:"status",orderId:id,status:"Preparing"});mark(id,"Preparing")}
+function out(id){pub({type:"status",orderId:id,status:"Out for delivery"});mark(id,"Out for delivery")}
+function done(id){pub({type:"status",orderId:id,status:"Delivered"});mark(id,"Delivered")}
+function waCustomer(id){
+ let o=inbox.find(x=>x.id===id);if(!o)return;
+ let lines=o.items.map(i=>"• "+i.name+" × "+i.qty).join("\n");
+ let msg="Namaste "+o.name+"! "+REST_NAME+" here — your FOODORA order "+o.id+" ("+lines+"), total Rs."+o.total+", is CONFIRMED. We have started preparing it. "+(o.pay==="upi"?"Please complete the UPI payment of Rs."+o.total+" — request is opening.":"Please keep cash Rs."+o.total+" ready for delivery.");
+ let digits=String(o.phone||"").replace(/\D/g,"");
+ window.open("https://wa.me/"+(digits.length===10?"91"+digits:digits)+"?text="+encodeURIComponent(msg),"_blank");
+}
+
+function badge(s){
+ if(s==="Sent to restaurant")return'<span class="badge b-new">NEW</span>';
+ if(s==="Accepted by restaurant")return'<span class="badge b-accepted">ACCEPTED</span>';
+ if(s==="Preparing")return'<span class="badge b-prep">PREPARING</span>';
+ if(s==="Out for delivery")return'<span class="badge b-out">OUT FOR DELIVERY</span>';
+ if(s==="Delivered")return'<span class="badge b-done">DELIVERED</span>';
+ if(s==="Declined by restaurant")return'<span class="badge b-declined">DECLINED</span>';
+ return'<span class="badge b-new">'+s+'</span>';
+}
+function card(o,isNew){
+ let btns="";
+ if(o.status==="Sent to restaurant")btns='<button class="b-accept" onclick="accept(\''+o.id+'\')">✓ Accept</button><button class="b-decline" onclick="decline(\''+o.id+'\')">✕ Decline</button><button class="b-wa" onclick="waCustomer(\''+o.id+'\')">💬 WhatsApp customer</button>';
+ else if(o.status==="Accepted by restaurant")btns='<button class="b-prepbtn" onclick="prep(\''+o.id+'\')">🍳 Start preparing</button>';
+ else if(o.status==="Preparing")btns='<button class="b-outbtn" onclick="out(\''+o.id+'\')">🛵 Hand to rider</button>';
+ else if(o.status==="Out for delivery")btns='<button class="b-donebtn" onclick="done(\''+o.id+'\')">🏠 Mark delivered</button>';
+ let items=o.items.map(i=>"• "+i.name+" × "+i.qty+" — ₹"+(i.price*i.qty)).join("<br>");
+ return'<div class="'+(isNew?"neworder":"ordercard")+'"><h4>'+o.id+' '+badge(o.status)+'</h4>'
+ +'<div class="meta">'+o.restaurant+' • '+new Date(o.time).toLocaleString()+' • '+(o.pay==="upi"?"UPI":"Cash on Delivery")+'</div>'
+ +'<div class="items">'+items+'</div>'
+ +'<div><b>Total ₹'+o.total+'</b> <span class="meta">(items ₹'+o.sub+(o.offer?' − offer ₹'+o.offer:'')+(o.coupon?' − coupon '+o.coupon.code+' ₹'+o.coupon.amt:'')+' + delivery '+(o.fee?'₹'+o.fee:'FREE')+' + GST ₹'+o.gst+')</span></div>'
+ +'<div class="meta" style="margin-top:6px">👤 '+o.name+' • 📞 '+o.phone+'<br>📍 '+o.addr+'</div>'
+ +(btns?'<div class="btnrow">'+btns+'</div>':'')
+ +'</div>';
+}
+function render(){
+ let fresh=inbox.filter(o=>o.status==="Sent to restaurant");
+ let active=inbox.filter(o=>["Accepted by restaurant","Preparing","Out for delivery"].indexOf(o.status)>=0);
+ let hist=inbox.filter(o=>o.status==="Delivered"||o.status==="Declined by restaurant");
+ document.getElementById("orders").innerHTML=(fresh.length?fresh.map(o=>card(o,true)).join(""):"<p class='meta'>No new orders yet — they will pop here the second a customer checks out.</p>")
+ +(active.length?"<h3 class='meta' style='margin:14px 0 8px'>In progress</h3>"+active.map(o=>card(o,false)).join(""):"");
+ document.getElementById("history").innerHTML=hist.length?hist.map(o=>card(o,false)).join(""):"<p class='meta'>Delivered and declined orders will appear here.</p>";
+ if(fresh.length)document.getElementById("lastEvent").textContent="• "+fresh.length+" waiting";
+ else document.getElementById("lastEvent").textContent="";
+}
+function saveInbox(){try{localStorage.setItem("foodoraLiveInbox",JSON.stringify(inbox.slice(0,40)))}catch(e){}}
+
+render();
+connect();
+</script>
+</body>
+</html>
