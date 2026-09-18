@@ -70,6 +70,10 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 .msg{font-size:14.5px;line-height:1.5;letter-spacing:.2px}
 .msg .who{font-family:'Orbitron';font-size:9px;letter-spacing:2.5px;display:block;margin-bottom:3px}
 .msg.aura .who{color:var(--cy)}
+.msg.duelA .who{color:#22d3ee}
+.msg.duelJ .who{color:#f5b301}
+.msg.duelA,.msg.duelJ{border-left:2px solid rgba(34,211,238,.35);padding-left:9px}
+.msg.duelJ{border-left-color:rgba(245,179,1,.45)}
 .msg-actions{display:inline-flex;gap:5px;margin-left:9px;vertical-align:middle}
 .msg-actions button,.msg-actions a{font-size:10px;background:rgba(34,211,238,.08);border:1px solid var(--line);color:var(--cy2);border-radius:6px;padding:2px 6px;cursor:pointer;text-decoration:none;transition:.15s}
 .msg-actions button:hover,.msg-actions a:hover{background:rgba(34,211,238,.22)}
@@ -210,6 +214,7 @@ canvas#fx{position:fixed;inset:0;z-index:0}
     <button class="chip">what can you do?</button>
     <button class="chip">run diagnostics</button>
     <button class="chip">tell me a joke</button>
+    <button class="chip">aura vs jarvis duel</button>
   </div>
 </div>
 
@@ -416,6 +421,38 @@ function addMsg(who,text,cls){
 }
 function pushSys(t){addMsg("SYS","▸ "+t,"sys");slog(t);}
 function msgTag(){return PERSONAS[persona()].name+" ▸"}
+/* ---------------- DUEL MODE: AURA ⚔ JARVIS ---------------- */
+let duelGen=0;
+async function duel(topic){
+  const gen=++duelGen;
+  const alive=()=>gen===duelGen;
+  const say=async(cls,who,text)=>{if(!alive())return;const el=addMsg(cls,"","aura");el.parentNode.querySelector(".who").textContent=who;await typewrite(el,text);};
+  const brain=async(sys,usr,tok)=>{
+    try{if(aiProvider()==="groq")return await groqCall([{role:"system",content:sys},{role:"user",content:usr}],tok);}catch(e){}
+    try{if(puterReady()){const rr=await Promise.race([window.puter.ai.chat(sys+"\n\n"+usr),new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),22000))]);const t=typeof rr==="string"?rr:(rr&&rr.message&&rr.message.content||rr&&rr.text||"");if(t&&t.trim())return t.trim();}}catch(e){}
+    return "";
+  };
+  pushSys("duel engine arming — gathering shared evidence…");
+  let evs=[];try{evs=await gatherEvidence(topic.slice(0,90))}catch(e){}
+  if(!alive())return;
+  const ev=evs.length?"\n\nShared live evidence:\n"+evs.map((e,i)=>"["+(i+1)+"] "+e.k+": "+e.extract.slice(0,500)).join("\n"):"";
+  const base="You are in a friendly but sharp DUEL debate with your AI counterpart, in front of a live audience (a classroom). Built by Sourabh Singh (B.Tech CSE, JECRC University). Plain text only, no markdown.";
+  try{
+    pushSys("round 1 — opening statements");
+    const a1=await brain(base+" You are AURA — warm, curious, argues with heart and human stories.","Topic: \""+topic+"\""+ev+"\n\nGive YOUR opening position in max 95 words. Punchy, smart, end with your strongest point.",800);if(!alive())return;
+    await say("duelA","AURA ▸",a1||"(AURA went quiet — uplink trouble.)");
+    const j1=await brain(base+" You are JARVIS — formal British tactical analyst, dry wit, addresses the audience as 'sir', argues with data and second-order effects. No emoji.","Topic: \""+topic+"\""+ev+"\n\nYour counterpart AURA just argued: \""+(a1||"").slice(0,400)+"\"\n\nGive YOUR opening position in max 95 words — counter her where she is weakest.",800);if(!alive())return;
+    await say("duelJ","JARVIS ▸",j1||"(JARVIS is recalibrating — uplink trouble, sir.)");
+    pushSys("round 2 — rebuttals");
+    const a2=await brain(base+" You are AURA — warm, curious, quick on her feet.","Topic: \""+topic+"\"\n\nJARVIS just said: \""+(j1||"").slice(0,400)+"\"\n\nRebut his single weakest point in max 45 words. No new speeches — one surgical strike.",450);if(!alive())return;
+    await say("duelA","AURA ▸",a2||"(AURA concedes the round — uplink flak.)");
+    const j2=await brain(base+" You are JARVIS — formal British tactical analyst, dry wit, 'sir'. No emoji.","Topic: \""+topic+"\"\n\nAURA's final rebuttal: \""+(a2||"").slice(0,300)+"\"\n\nDeliver the closing verdict in max 55 words: acknowledge her best point in one clause, then rule where the smart money stands and why.",500);if(!alive())return;
+    await say("duelJ","JARVIS ▸",j2||"(Verdict withheld — uplink flak, sir.)");
+    if(evs.length&&evs.find(e=>e.url))pushSys("shared sources: "+evs.slice(0,2).map(e=>e.url).filter(Boolean).join("  ·  "));
+    pushSys("duel complete — "+PERSONAS.aura.name+" & "+PERSONAS.jarvis.name+" standing down");
+    addMsg("SYS","▸ Duel closed. Ask 'duel on <topic>' any time — they never get tired of each other.","sys");
+  }catch(e){pushSys("duel interrupted — "+(e.message||e))}
+}
 function typewrite(el,text){
   return new Promise(res=>{
     if(document.hidden){el.textContent=text;res();return} /* hidden tab: finish instantly so busy never sticks */
@@ -579,6 +616,7 @@ const KB={
   "encryption":"Encryption scrambles data so only the right key can read it — the reason HTTPS, banking and chats are safe.",
   "iron man":"Ah, a person of culture. Tony Stark built JARVIS — my creator built me. Different budget, same energy.",
   "jarvis":"JARVIS — Just A Rather Very Intelligent System. My inspiration and my counterpart: say 'activate jarvis' and I hand over to him — gold protocol, formal British voice, deeper reasoning, no emoji, all business. Say 'activate aura' and I'm back.",
+  "duel":"Duel mode pits me and JARVIS against each other on any topic — say 'duel on should humans colonize Mars' (or just 'aura vs jarvis' for a random topic). We gather live evidence, trade opening statements and rebuttals, and JARVIS delivers the closing verdict. Say 'end duel' to stop us mid-fight.",
 };
 /* ---------------- knowledge pack 2 (broad coverage) ---------------- */
 Object.assign(KB,{
@@ -845,7 +883,12 @@ async function groqCall(messages,maxTok){
         const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
         if(t&&t.trim()){groqModel=mdl;return t.trim()}
         if(attempt===0){budget=Math.max(budget*2,2000);continue}
-      }catch(e){if(String(e.message||e).includes("rate"))throw e;break}
+      }catch(e){
+        const m=String(e.message||e);
+        if(m.includes("rate"))throw e;
+        if(/HTTP 4(?!04)/.test(m)||m.includes("abort")||m.includes("timeout")||m.includes("fetch"))throw e; /* network/limit issues: fail fast, don't burn the other models */
+        break; /* model-level problem (404 etc): try next model */
+      }
     }
   }
   throw new Error("groq unreachable");
@@ -1356,6 +1399,14 @@ async function askCore(text){
   {const lq0=(text||"").toLowerCase();
    if(/\b(activate|go|switch to)\s+jarvis\b|\bjarvis (mode|persona) (on|activate)\b/.test(lq0)){setPersona("jarvis",true);pushSys("persona switched → JARVIS");setMode("idle");busy=false;if(wake)armWake(400);return;}
    if(/\b(activate|go|switch to)\s+aura\b|\baura (mode|persona) (on|activate)\b/.test(lq0)){setPersona("aura",true);pushSys("persona switched → AURA");setMode("idle");busy=false;if(wake)armWake(400);return;}}
+  /* DUEL MODE — AURA ⚔ JARVIS debate a topic the user gives */
+  {const tl=(text||"").trim();
+   if(/^end\s+duel$|^stop\s+duel$|^duel\s*(?:end|stop|off|cancel)$|^end\s+the\s+duel$/i.test(tl)){duelGen++;addMsg(msgTag(),"Duel ended — both of us back to standby. Flag lowered, sir.","aura");pushSys("duel aborted");setMode("idle");busy=false;if(wake)armWake(400);return;}
+   const em=tl.match(/^duel(?:\s+(?:mode|on|about|over|between))?\s*:?\s*(.*)$/i)||tl.match(/^(?:aura\s*(?:vs|versus|\u2694)\s*jarvis|jarvis\s*(?:vs|versus|\u2694)\s*aura)\s*:?\s*(.*)$/i);
+   if(em){let topic=(em[1]||"").replace(/\s*duel\s*$/i,"").replace(/[?!.]+$/,"").trim();
+     if(!topic){const T=["Should humans colonize Mars?","Artificial intelligence: blessing or curse?","Bitcoin vs gold — which is the real store of value?","Is college still worth it in the AI era?","Electric cars vs petrol — the honest verdict","Space exploration vs ocean exploration — where should money go?"];topic=T[Math.floor(Math.random()*T.length)];pushSys("no topic given — rolling a random one");}
+     addMsg(msgTag(),"⚔ DUEL MODE — topic: \""+topic+"\". "+PERSONAS.aura.name+" vs "+PERSONAS.jarvis.name+", live evidence on the table. Say 'end duel' any time.","aura");
+     duel(topic);setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* JARVIS TASK ENGINE — do things, not just say things */
   const tk=taskCommand(text);
   if(tk){pushSys("task executed · "+tk.eng.split("· ")[1]);$("engTag").textContent="engine: "+tk.eng;$("tEng").textContent="TASK";
