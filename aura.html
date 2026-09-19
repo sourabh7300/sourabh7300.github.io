@@ -734,6 +734,37 @@ function writeStudySheetDoc(w,S){
   w.document.close();
   return{ok:true};
 }
+/* ---- FILE → PDF: read local files (txt/md/csv/json/code/html) and build a branded PDF ---- */
+function fileToPDF(files){
+  if(!files||!files.length){pushSys("no files chosen");return}
+  const jobs=[...files].map(f=>new Promise((res,rej)=>{
+    if(f.size>2*1024*1024){rej(new Error(f.name+" is over 2 MB — split it first"));return}
+    const rd=new FileReader();
+    rd.onload=()=>res({name:f.name,body:String(rd.result||"").slice(0,60000)});
+    rd.onerror=()=>rej(new Error("could not read "+f.name));
+    rd.readAsText(f);
+  }));
+  Promise.allSettled(jobs).then(out=>{
+    const ok=out.filter(x=>x.status==="fulfilled").map(x=>x.value);
+    const bad=out.filter(x=>x.status==="rejected").map(x=>x.reason.message);
+    if(!ok.length){addMsg(msgTag(),"I couldn't read those files — "+bad.join("; ")+". Text files work best (txt, md, csv, json, code).","aura");return}
+    const body=ok.map(f=>"【 "+f.name+" 】\n\n"+f.body).join("\n\n\n");
+    const label=ok.length===1?ok[0].name:ok.length+" files";
+    askOpenDoc("PDF of "+esc(label),()=>{docPDF("Document — "+label,body)&&pushSys("file PDF window opened")});
+    addMsg(msgTag(),"📄 Read "+ok.length+" file"+(ok.length>1?"s":"")+" ("+ok.map(f=>f.name).join(", ")+")"+(bad.length?" — skipped: "+bad.join("; "):"")+". Opening the PDF? I'll ask first, as always.","aura");
+    if(voiceAllowed())speak("File read. Shall I open the P D F?");
+  });
+}
+let fileInput=null;
+function pickLocalFiles(){
+  if(!fileInput){
+    fileInput=document.createElement("input");fileInput.type="file";fileInput.multiple=true;
+    fileInput.accept=".txt,.md,.csv,.json,.js,.html,.css,.xml,.log,.py,.java,.c,.cpp,text/*";
+    fileInput.style.display="none";document.body.appendChild(fileInput);
+    fileInput.addEventListener("change",()=>{fileToPDF(fileInput.files);fileInput.value=""});
+  }
+  fileInput.click();
+}
 function imgConvert(dataURL,toType,q){
   return new Promise((res,rej)=>{
     const im=new Image();
@@ -763,7 +794,7 @@ function humanSize(b){return b>1048576?(b/1048576).toFixed(1)+" MB":Math.max(1,M
     const ov=document.createElement("div");ov.id="toolMenu";
     ov.innerHTML='<div class="tm-card"><button class="tm-close" id="tmX">✕</button><h3>🧰 DOCUMENT ENGINE</h3><div class="tm-sub">PDF export · image converter · chat utilities</div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmPdf">📄 Last answer → PDF</button><button class="tm-btn" id="tmPdfAll">📚 Full chat → PDF</button></div>'+
-      '<div class="tm-row"><button class="tm-btn" id="tmStudy">📝 Chat → STUDY SHEET</button></div>'+
+      '<div class="tm-row"><button class="tm-btn" id="tmStudy">📝 Chat → STUDY SHEET</button><button class="tm-btn" id="tmLocal">📁 My files → PDF</button></div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmPng">→ PNG</button><button class="tm-btn" id="tmJpg">→ JPG</button><button class="tm-btn" id="tmWebp">→ WEBP</button></div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmShrink">📉 Compress image</button><button class="tm-btn" id="tmClear">🗑 Clear chat memory</button></div>'+
       '<div class="tm-note">Image tools work on the last attached photo (📎). PDF export opens a print window — choose "Save as PDF". Everything runs offline in your browser.</div>'+
@@ -774,7 +805,8 @@ function humanSize(b){return b>1048576?(b/1048576).toFixed(1)+" MB":Math.max(1,M
     ov.addEventListener("click",e=>{if(e.target===ov)close()});
     ov.querySelector("#tmPdf").onclick=()=>{close();if(!lastAnswer){pushSys("no answer yet — ask me something first");return}docPDF("Answer — "+(lastTopic||PERSONAS[persona()].name),lastAnswer)&&pushSys("PDF window opened — choose Save as PDF")};
     ov.querySelector("#tmPdfAll").onclick=()=>{close();const lines=[...document.querySelectorAll(".msg")].map(m=>m.textContent.replace(/\s+/g," ").trim()).filter(Boolean);if(!lines.length){pushSys("chat is empty");return}docPDF("Conversation with "+PERSONAS[persona()].name,lines.join("\n\n"))&&pushSys("full chat → PDF window opened")};
-    ov.querySelector("#tmStudy").onclick=()=>{close();const r=studySheetPDF();if(r.ok)pushSys("study sheet window opened — choose Save as PDF");else if(r.reason==="blocked")pushSys("popup blocked — allow popups for this site");};
+    ov.querySelector("#tmStudy").onclick=()=>{close();const r=studySheetPDF();if(r.ok)pushSys("study sheet built — I'll ask before opening");else if(r.reason==="blocked")pushSys("popup blocked — allow popups for this site")};
+    ov.querySelector("#tmLocal").onclick=()=>{close();pickLocalFiles()};
     const needImg=fn=>()=>{const img=window.__lastImg;if(!img){pushSys("attach a photo first (📎), then convert");return}fn(img)};
     ov.querySelector("#tmPng").onclick=needImg(async d=>{try{const u=await imgConvert(d,"image/png");dlDataURL(u,"converted.png");pushSys("converted → PNG downloaded ("+humanSize(dataURLBytes(u))+")")}catch(e){pushSys("convert failed: "+(e.message||e))}});
     ov.querySelector("#tmJpg").onclick=needImg(async d=>{try{const u=await imgConvert(d,"image/jpeg",.9);dlDataURL(u,"converted.jpg");pushSys("converted → JPG downloaded ("+humanSize(dataURLBytes(u))+")")}catch(e){pushSys("convert failed: "+(e.message||e))}});
@@ -948,6 +980,7 @@ const KB={
   "who built you":"I was designed and engineered by Sourabh Singh — B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. Every line of my code, from the particle core to the voice pipeline, is hand-written.",
   "how to make pdf":"Say \"make a pdf of this\" right after any answer, or open the TOOLS panel (🧰) — Last answer → PDF or Full chat → PDF. A print window opens; choose Save as PDF. Works offline, no server.",
   "convert image":"Attach a photo with the paperclip (📎), then say \"convert this to png\", \"to jpg\" or \"to webp\" — or use 🧰 TOOLS. The converted file downloads instantly, right in your browser.",
+  "pdf of my files":"Browsers can't open laptop files by themselves — you must pick them. Say \"make a pdf of my files\" or use 🧰 TOOLS → 📁 My files → PDF, choose the file(s) in the picker (txt, md, csv, json, code), and I'll build a branded PDF and ask before opening it.",
   "compress image":"Attach a photo (📎) and say \"compress this\" — I re-encode it in-browser and typically cut 60-80% of the file size, then download it.",
   "do you remember":"Yes — I keep up to 120 turns of our conversation in this browser and it survives refresh and reopen. Say \"clear chat memory\" (or 🧰 TOOLS → Clear) for a fresh start.",
   "study sheet":"Say \"make a study sheet\" and I compile everything we discussed into a print-ready PDF: one heading per topic, contents list up top, sources kept, and a revision tip at the bottom. 🧰 TOOLS → 📝 does the same.",
@@ -2020,6 +2053,10 @@ async function askCore(text0){
      duel(topic);setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* JARVIS TASK ENGINE — do things, not just say things */
   {const lq2=(text||"").toLowerCase().trim();
+   if(/^(open|make|create|generate|convert|turn|give|get)\b[\s\S]*\bpdf\b[\s\S]*\b(file|files|document|documents|folder|laptop|local|my)\b|^\bmy files?\b[\s\S]*\bpdf\b|^\bpdf\b[\s\S]*\bmy (files|documents|folder)\b/i.test(lq)){
+     pickLocalFiles();
+     addMsg(msgTag(),"📁 File picker is open — choose the file(s) from your laptop (txt, md, csv, json, code — up to 2 MB each). I'll read them and ask before opening the PDF.","aura");
+     setMode("idle");busy=false;if(wake)armWake(400);return;}
    if(/^(open|show) (the )?(sheet|study sheet|document|pdf)$/i.test(lq2)){openPendingDoc();setMode("idle");busy=false;if(wake)armWake(400);return;}
    if(/^(new chat|new conversation|clear chat|reset chat|start (a )?new chat)\b/i.test(lq2)){
      sessions.newChat();log.innerHTML="";
