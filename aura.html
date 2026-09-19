@@ -66,6 +66,18 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 #conv{top:74px;right:22px;width:min(370px,34vw);bottom:130px;display:flex;flex-direction:column;border:1px solid var(--line)}
 #conv h3{display:flex;justify-content:space-between;align-items:center}
 #conv h3 span:last-child{font-family:var(--mono);font-weight:400;font-size:9px;color:var(--dim)}
+#sessPanel{max-height:200px}
+#sessSide{overflow-y:auto}
+#sessNew{width:100%;background:rgba(34,211,238,.08);border:1px solid var(--line);color:var(--cy2);border-radius:9px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--mono);letter-spacing:.5px;margin-bottom:8px;transition:.2s}
+#sessNew:hover{background:rgba(34,211,238,.2)}
+.sess{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;margin-bottom:2px;transition:.15s}
+.sess:hover{background:rgba(34,211,238,.07)}
+.sess.on{background:rgba(34,211,238,.1);border-color:var(--line2)}
+.sess .st{flex:1;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ice);opacity:.85}
+.sess.on .st{color:var(--cy2);opacity:1}
+.sess .sx{background:none;border:none;color:var(--dim);cursor:pointer;font-size:11px;padding:2px 4px;border-radius:5px;opacity:0;transition:.15s}
+.sess:hover .sx{opacity:.8}.sess .sx:hover{color:var(--red)}
+.sess-empty{font-size:11.5px;color:var(--dim);padding:4px 8px;font-style:italic}
 #log{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
 .msg{font-size:14.5px;line-height:1.5;letter-spacing:.2px}
 .msg .who{font-family:'Orbitron';font-size:9px;letter-spacing:2.5px;display:block;margin-bottom:3px}
@@ -216,6 +228,11 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 <div class="panel" id="syslog">
   <h3>SYSTEM LOG</h3>
   <div id="syslogLines"></div>
+</div>
+
+<div class="panel" id="sessPanel">
+  <h3><span>CHATS</span><span id="sessCount"></span></h3>
+  <div id="sessSide"></div>
 </div>
 
 <div class="panel" id="conv">
@@ -591,8 +608,8 @@ function docPDF(title,body){
   return true;
 }
 /* ---- study sheet: group saved conversation into topic sections, print-ready ---- */
-function buildStudySheet(){
-  const raw=hist.load("convo")||[];
+function buildStudySheet(rawOverride){
+  const raw=rawOverride||hist.load("convo")||[];
   /* pairs: user question + assistant answer, in order */
   const pairs=[];
   for(let i=0;i<raw.length;i++){
@@ -624,28 +641,30 @@ function studySheetPDF(){
   const P=PERSONAS[persona()];
   let secs="";
   S.sections.forEach((s,i)=>{
-    secs+='<section><h2>'+esc((i+1)+". "+s.title)+'</h2>';
+    secs+='<section><div class="snum">TOPIC '+(i+1)+' OF '+S.sections.length+'</div><h2>'+esc(s.title)+'</h2>';
     s.pairs.forEach(p=>{
-      secs+='<div class="q">Q. '+esc(p.q)+'</div>';
+      secs+='<div class="q">'+esc(p.q)+'</div>';
       if(p.a)secs+='<div class="a">'+esc(p.a).replace(/SOURCES?:[\s\S]*$/m,m=>'<span class="src">'+esc(m)+'</span>')+'</div>';
     });
     secs+='</section>';
   });
   w.document.write('<!doctype html><html><head><title>Study Sheet — '+esc(S.date)+'</title><style>'+ 
-    'body{font-family:Georgia,serif;max-width:760px;margin:36px auto;color:#16181d;line-height:1.62;padding:0 22px;font-size:14.5px}'+
-    'header{border-bottom:3px solid #0f766e;padding-bottom:10px;margin-bottom:6px}h1{font-size:23px;margin:0 0 2px}.meta{color:#5c6672;font-size:12px}'+
-    '.toc{background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:12px 16px;margin:18px 0;font-size:13px}.toc b{color:#0f766e}.toc ol{margin:6px 0 0 18px;padding:0}'+
-    'section{margin:26px 0;break-inside:avoid-page}h2{font-size:17px;color:#0f766e;margin:0 0 10px;padding-left:10px;border-left:4px solid #0f766e}'+
-    '.q{font-weight:700;background:#f4f4f5;border-radius:8px;padding:8px 12px;margin:12px 0 6px}'+
-    '.a{padding:2px 12px;white-space:pre-wrap}.a .src{display:block;margin-top:8px;font-size:11.5px;color:#64748b}'+
-    '.tip{margin-top:28px;background:#fefce8;border:1px solid #fde047;border-radius:10px;padding:12px 16px;font-size:13px}.tip b{color:#a16207}'+
-    'footer{margin-top:34px;font-size:11px;color:#9aa3ad;border-top:1px solid #e4e4e7;padding-top:8px}'+
-    '@media print{body{margin:0}section{break-inside:avoid}}</style></head><body>'+
-    '<header><h1>Study Sheet</h1><div class="meta">'+S.date+' · made with '+P.name+' · Sourabh Singh — JECRC University</div></header>'+
-    '<div class="toc"><b>CONTENTS — '+S.sections.length+' topic'+(S.sections.length>1?"s":"")+':</b><ol>'+S.sections.map(s=>'<li>'+esc(s.title)+'</li>').join('')+'</ol></div>'+
+    '*{box-sizing:border-box}body{font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;max-width:780px;margin:0 auto;color:#243040;line-height:1.7;padding:40px 30px;font-size:14.5px;background:#fff}'+
+    'header{text-align:center;padding:26px 20px 20px;background:linear-gradient(135deg,#eef7fb,#f7fbf9);border:1px solid #dcebe9;border-radius:16px;margin-bottom:26px}h1{font-size:24px;margin:0 0 4px;color:#134e5e;font-weight:650;letter-spacing:.2px}.meta{color:#7a8a99;font-size:12.5px}'+
+    '.toc{background:#f6fafb;border:1px solid #e2eef0;border-radius:14px;padding:16px 22px;margin:0 0 10px;font-size:13.5px}.toc b{color:#20808d;display:block;margin-bottom:8px;font-size:12px;letter-spacing:1.2px}.toc ol{margin:0;padding-left:20px}.toc li{margin:4px 0;color:#33475c}'+
+    'section{margin:30px 0;break-inside:avoid-page;padding:22px 24px;background:#fbfcfd;border:1px solid #eef2f4;border-radius:16px}'+
+    '.snum{font-size:10px;letter-spacing:2px;color:#8aa0ad;margin-bottom:4px}'+
+    'h2{font-size:18px;color:#134e5e;margin:0 0 14px;font-weight:650;line-height:1.35}'+
+    '.q{font-weight:600;color:#134e5e;background:#eaf4f4;border-left:3px solid #4aa3a2;border-radius:0 10px 10px 0;padding:9px 14px;margin:16px 0 8px;font-size:14px}'+
+    '.a{padding:2px 4px 2px 16px;white-space:pre-wrap;color:#33475c}.a .src{display:block;margin-top:10px;font-size:11.5px;color:#90a4ae;background:#f7f9fa;border-radius:8px;padding:8px 12px}'+
+    '.tip{margin-top:30px;background:#fdf9ec;border:1px solid #f2e3ae;border-radius:14px;padding:16px 22px;font-size:13.5px;color:#5c5233}.tip b{color:#a16207;display:block;margin-bottom:6px;font-size:12px;letter-spacing:1.2px}'+
+    'footer{margin-top:30px;font-size:11.5px;color:#9fb0ba;text-align:center;border-top:1px solid #eef2f4;padding-top:14px}'+
+    '@media print{body{padding:10mm 8mm}section{break-inside:avoid;border:1px solid #e8eef0}header{border-radius:0}}</style></head><body>'+
+    '<header><h1>📚 Study Sheet</h1><div class="meta">'+S.date+' · '+S.sections.length+' topic'+(S.sections.length>1?"s":"")+' · made with '+P.name+' · Sourabh Singh — JECRC University</div></header>'+
+    '<div class="toc"><b>CONTENTS</b><ol>'+S.sections.map(s=>'<li>'+esc(s.title)+'</li>').join('')+'</ol></div>'+
     secs+
-    '<div class="tip"><b>REVISION TIP:</b> Cover the answers, read each question aloud, try to answer in your own words, then check. Revisit the sections you hesitate on tomorrow — spaced repetition is how memory sticks.</div>'+
-    '<footer>Generated by '+P.name+' (persona: '+persona()+') · '+S.sections.length+' topics · sourabh7300.github.io</footer>'+
+    '<div class="tip"><b>HOW TO REVISE</b> Cover the answers, read each question aloud, answer in your own words, then check. Revisit the sections you hesitate on tomorrow — spaced repetition is how memory sticks.</div>'+
+    '<footer>Generated by '+P.name+' ('+persona()+' persona) · sourabh7300.github.io</footer>'+
     '<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>');
   w.document.close();
   return{ok:true};
@@ -814,7 +833,7 @@ function setPersona(p,announce){
 /* image attach + export buttons */
 (function(){
   const inp=document.getElementById("imgInput");if(!inp)return;
-  inp.addEventListener("change",()=>{
+  inp.addEventListener("change",()=>{/* attached image: stored for vision + converter */
     const f=inp.files&&inp.files[0];if(!f)return;
     if(f.size>4*1024*1024){pushSys("image too large — keep it under 4 MB");return}
     const rd=new FileReader();
@@ -867,6 +886,8 @@ const KB={
   "compress image":"Attach a photo (📎) and say \"compress this\" — I re-encode it in-browser and typically cut 60-80% of the file size, then download it.",
   "do you remember":"Yes — I keep up to 120 turns of our conversation in this browser and it survives refresh and reopen. Say \"clear chat memory\" (or 🧰 TOOLS → Clear) for a fresh start.",
   "study sheet":"Say \"make a study sheet\" and I compile everything we discussed into a print-ready PDF: one heading per topic, contents list up top, sources kept, and a revision tip at the bottom. 🧰 TOOLS → 📝 does the same.",
+  "chats sidebar":"Left panel, under CHATS — every conversation is saved automatically as a session. Tap one to jump back into it (memory included), double-tap its name to rename, ✕ to delete, ＋ New chat to start fresh. Nothing leaves your browser.",
+  "new chat":"Tap ＋ New chat in the CHATS panel (or say \"new chat\") — I wipe the current thread from memory but keep all old sessions saved so you can return to them any time.",
   "who made you":"I was built by Sourabh Singh, a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation.",
   "your creator":"My creator is Sourabh Singh — B.Tech CSE, JECRC University. He built me entirely from scratch: no frameworks, no engines, one file.",
   "sourabh":"Sourabh Singh — my creator. B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. He hand-coded my holographic core, my voice pipeline and my brain in a single HTML file.",
@@ -1390,6 +1411,65 @@ const hist={
 };
 /* restore conversation history across reloads */
 try{(function(){const saved=hist.load("convo");if(saved&&saved.length){CONVO.push(...saved.slice(-CONVO_MAX));const lt=hist.load("lastTopic");if(lt)lastTopic=lt;setTimeout(()=>{try{pushSys("chat history restored — "+CONVO.length+" turns · topic: "+(lastTopic||"none"))}catch(e){}},1200)}})()}catch(e){}
+/* ---- chat sessions: ChatGPT-style conversation list (save/switch/rename/delete) ---- */
+const sessions={
+  all(){try{return JSON.parse(localStorage.getItem("aura_sessions")||"[]")}catch(e){return[]}},
+  write(list){try{localStorage.setItem("aura_sessions",JSON.stringify(list))}catch(e){}},
+  currentId(){try{return localStorage.getItem("aura_session_id")||""}catch(e){return""}},
+  setCurrent(id){try{localStorage.setItem("aura_session_id",id)}catch(e){}},
+  sync(){ /* mirror current CONVO into the session store */
+    try{
+      const id=this.currentId();const list=this.all();
+      const title=(lastTopic||String((CONVO.find(m=>m.role==="user")||{}).content||"New chat")).replace(/\?+$/,"").slice(0,42)||"New chat";
+      const at=Date.now();
+      const i=list.findIndex(s=>s.id===id);
+      const data={id:id||("s"+at),title,at,convo:CONVO.slice(-40),lastTopic};
+      if(i>=0){data.id=list[i].id;data.created=list[i].created||at;list[i]=data}else{data.created=at;list.unshift(data)}
+      this.write(list);this.setCurrent(data.id);return data.id;
+    }catch(e){return""}
+  },
+  newChat(){try{this.sync()}catch(e){}CONVO.length=0;lastTopic="";hist.clear();this.setCurrent("s"+Date.now());try{renderSessions()}catch(e){}},
+  open(id){
+    try{
+      this.sync();
+      const s=this.all().find(x=>x.id===id);if(!s)return;
+      CONVO.length=0;CONVO.push(...(s.convo||[]));lastTopic=s.lastTopic||"";
+      hist.save("convo",s.convo||[]);if(lastTopic)hist.save("lastTopic",lastTopic);else hist.save("lastTopic","");
+      this.setCurrent(id);renderSessions();replayOnScreen(s.convo||[]);
+    }catch(e){}
+  },
+  del(id){try{this.write(this.all().filter(x=>x.id!==id));if(this.currentId()===id){this.setCurrent("");this.newChat()}}catch(e){}try{renderSessions()}catch(e){}},
+  rename(id,title){try{const list=this.all();const s=list.find(x=>x.id===id);if(s){s.title=String(title).slice(0,60);this.write(list);renderSessions()}}catch(e){}}
+};
+function replayOnScreen(list){
+  try{
+    log.innerHTML="";
+    if(list&&list.length){const hd=addMsg("SYS","— conversation restored —","sys");hd.style.opacity=".55";
+      list.slice(-10).forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
+      const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
+    const n=memGet().name;const msg=greetWord()+(n?", "+n:"")+". Memory loaded — where were we?";
+    const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);
+  }catch(e){}
+}
+function renderSessions(){
+  try{
+    const side=document.getElementById("sessSide");if(!side)return;
+    const list=sessions.all();const cur=sessions.currentId();
+    side.innerHTML='<button id="sessNew">＋ New chat</button><div id="sessList">'+
+      (list.length?list.map(s=>'<div class="sess'+(s.id===cur?' on':'')+'" data-id="'+esc(s.id)+'"><span class="st">'+esc(s.title||"New chat")+'</span><button class="sx" title="Delete chat">✕</button></div>').join(""):'<div class="sess-empty">No saved chats yet</div>')+
+      '</div>';
+    side.querySelector("#sessNew").onclick=()=>{sessions.newChat();log.innerHTML="";pushSys("new chat — memory cleared, sessions kept")};
+    side.querySelectorAll(".sess").forEach(el=>{
+      el.querySelector(".st").onclick=()=>sessions.open(el.dataset.id);
+      el.querySelector(".sx").onclick=e=>{e.stopPropagation();sessions.del(el.dataset.id)};
+      let lt=null;
+      el.ondblclick=()=>{const s=list.find(x=>x.id===el.dataset.id);const name=prompt("Rename chat:",s?s.title:"");if(name)sessions.rename(el.dataset.id,name)};
+    });
+  }catch(e){}
+}
+setInterval(()=>{try{if(CONVO.length)sessions.sync()}catch(e){}},15000);
+/* migrate the single-history format into sessions on first load of this version */
+try{(function(){const list=sessions.all();if(!list.length){const saved=hist.load("convo");if(saved&&saved.length){const id=sessions.sync();pushSys("chats sidebar ready — old conversation saved as a session")}}})()}catch(e){}
 /* ---------------- conversation memory (ChatGPT-style follow-ups) ---------------- */
 const CONVO=[];const CONVO_MAX=12;
 function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX);try{hist.add(role,content)}catch(e){}}
@@ -1777,8 +1857,8 @@ async function askCore(text){
   if(/^(export|download|save) (the )?(chat|conversation|transcript)$|^export chat$/i.test(text)){exportChat();setMode("idle");busy=false;if(wake)armWake(400);return;}
   /* TOOLBELT — document & image powers, voice or typed */
   {const lq=(text||"").toLowerCase().trim();
-   if(/^(make|create|generate|export|download|convert|turn|save)\b[\s\S]*\bpdf\b|^pdf\s+(of|for|export|this|it)/i.test(lq)){
-     const sheetMode=/\bstudy\b/i.test(lq)||(/\b(chat|conversation|transcript|session)\b/i.test(lq)&&/\bstudy|sheet|notes\b/i.test(lq));
+   if(/^(make|create|generate|export|download|convert|turn|save|give|get|print)\b[\s\S]*\bpdf\b|^pdf\b|\b(pdf|print(out|ed)?) (of|for|this|that|it|chat|conversation|transcript)\b/i.test(lq)){
+     const sheetMode=/\bstudy\b|\bsheet\b|\bnotes\b|\bchat\b|\bconversation\b|\btranscript\b|\bsession\b/i.test(lq)||!lastAnswer;
      if(sheetMode){
        const r2=studySheetPDF();
        addMsg(msgTag(),r2.ok?"📝 Study sheet ready — print window is open, choose \"Save as PDF\". One section per topic, with a contents list and a revision tip.":r2.reason==="blocked"?"I built the sheet but the browser blocked the window — allow popups for this site and try again.":"No conversation to turn into a study sheet yet — ask me a few questions first.","aura");
@@ -1828,6 +1908,15 @@ async function askCore(text){
      addMsg(msgTag(),"⚔ DUEL MODE — topic: \""+topic+"\". "+PERSONAS.aura.name+" vs "+PERSONAS.jarvis.name+", live evidence on the table. Say 'end duel' any time.","aura");
      duel(topic);setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* JARVIS TASK ENGINE — do things, not just say things */
+  {const lq2=(text||"").toLowerCase().trim();
+   if(/^(new chat|new conversation|clear chat|reset chat|start (a )?new chat)\b/i.test(lq2)){
+     sessions.newChat();log.innerHTML="";
+     addMsg(msgTag(),"🆕 Fresh chat opened — old sessions are saved in the CHATS panel, tap any to revisit.","aura");
+     if(voiceAllowed())speak("New chat started.");setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/^(open|switch to|go to|show) (the )?(chat|conversation|session)/i.test(lq2)||/^(show|open) my chats$/i.test(lq2)){
+     const list=sessions.all();
+     addMsg(msgTag(),list.length?"📚 You have "+list.length+" saved chat"+(list.length>1?"s":"")+": "+list.slice(0,5).map((s,i)=>(i+1)+". "+s.title).join(" · ")+(list.length>5?" …":" — they're in the CHATS panel; tap one to open it."):"No saved chats yet — this is the first one.","aura");
+     setMode("idle");busy=false;if(wake)armWake(400);return;}}
   const tk=taskCommand(text);
   if(tk){pushSys("task executed · "+tk.eng.split("· ")[1]);$("engTag").textContent="engine: "+tk.eng;$("tEng").textContent="TASK";
     addMsg(msgTag(),tk.t,"aura");if(voiceAllowed())speak(tk.t);blip(660,.09);
@@ -1879,7 +1968,7 @@ async function askCore(text){
     setMode("idle");busy=false;if(wake)armWake(400);return;
   }
   lastAnswer=t;lastSrc=src||"";window.__lastQ=text;
-  convoAdd("user",text);convoAdd("assistant",t);
+  convoAdd("user",text);convoAdd("assistant",t);try{sessions.sync()}catch(e){}
   $("engTag").textContent="engine: "+eng;$("tEng").textContent=eng.toUpperCase().slice(0,16);
   const ms=Math.round(performance.now()-t0);const wps=Math.max(1,Math.round(t.split(/\s+/).length/Math.max(0.4,ms/1000)));
   slog("answered via "+eng+" ("+ms+"ms · ~"+wps+" words/s)",true);
@@ -2185,7 +2274,7 @@ function taskCommand(raw){
     if(!ok){
       localStorage.removeItem("aura_key");
       inp.style.borderColor="#e23744";setTimeout(()=>inp.style.borderColor="",2500);
-      addMsg(msgTag(),"Key check failed — "+err+". Paste the full key again, boss (Groq keys start gsk_, Gemini keys start AIza).","aura");return;
+      addMsg(msgTag(),"Key check failed — "+err+". Paste the full key again, boss (Groq keys start gsk_, Gemini keys start AIza). If your old key ran out of free quota, make a fresh one at console.groq.com/keys — it takes 30 seconds.","aura");return;
     }
     try{const s=JSON.parse(localStorage.getItem("sense_settings_v4")||"{}");s.apiKey=k;s.engineMode=ok;localStorage.setItem("sense_settings_v4",JSON.stringify(s))}catch(e){}
     hide();updateEngTag();pushSys("⚡ full jarvis mode engaged — "+ok+" reasoning brain online");
@@ -2197,6 +2286,10 @@ function taskCommand(raw){
   ["wizLater","wizX"].forEach(id=>document.getElementById(id).addEventListener("click",()=>{try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}}));
   if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")){setTimeout(show,3200)}
   document.getElementById("keyBtn").addEventListener("click",()=>{try{sessionStorage.removeItem("wiz_dismissed")}catch(e){}setTimeout(show,150)});
+  /* one-time migration: if the saved key fails at runtime, tell the user exactly why */
+  window.__keyFailMsg=function(err){
+    addMsg(msgTag(),"⚠ The AI uplink rejected the key ("+err+"). Free keys have monthly limits — make a fresh one at console.groq.com/keys (30 seconds, no card) and paste it via SET AI KEY.","aura");
+  };
   const pbtn=document.getElementById("personaBtn");
   if(pbtn)pbtn.onclick=()=>{const next=persona()==="jarvis"?"aura":"jarvis";setPersona(next,true);pushSys("persona switched → "+PERSONAS[next].name);try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}};
 })();
