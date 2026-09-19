@@ -90,6 +90,17 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 #micBtn{width:66px;height:66px;border-radius:50%;border:2px solid var(--cy);background:radial-gradient(circle at 50% 35%,rgba(34,211,238,.35),rgba(4,18,26,.9));color:var(--cy2);font-size:24px;cursor:pointer;transition:.25s;box-shadow:0 0 24px rgba(34,211,238,.35),inset 0 0 18px rgba(34,211,238,.15)}
 #micBtn:hover{transform:scale(1.06)}
 #micBtn.listening{border-color:var(--red);color:#fecaca;box-shadow:0 0 34px rgba(248,113,113,.5);animation:pp 1s infinite}
+.msg .tx code{font-family:var(--mono);font-size:12.5px;background:rgba(34,211,238,.1);border:1px solid var(--line2);border-radius:4px;padding:1px 5px}
+.msg .tx pre{font-family:var(--mono);font-size:12px;background:rgba(2,10,16,.85);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:7px 0;overflow:auto;white-space:pre}
+.msg .tx pre code{background:none;border:0;padding:0}
+.msg .tx b{color:var(--cy2)}
+.msg .tx h4{font-family:'Orbitron';font-size:12px;letter-spacing:1.5px;color:var(--cy);margin:9px 0 4px}
+.msg .tx ul{margin:5px 0 5px 18px}
+.msg .tx li{margin:2.5px 0}
+.msg .tx .mdlink{color:var(--cy2);text-decoration:underline}
+.clipwrap{position:relative;display:inline-flex}
+#imgInput{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.imgthumb{max-width:180px;max-height:120px;border-radius:8px;border:1px solid var(--line);display:block;margin:4px 0}
 #micHint{font-family:var(--mono);font-size:9.5px;letter-spacing:2px;color:var(--dim)}
 #stopBtn{position:fixed;right:26px;bottom:150px;z-index:60;display:none;font-family:'Orbitron';font-size:10px;letter-spacing:2px;color:#ffb4b4;background:rgba(127,29,29,.25);border:1px solid #f87171;border-radius:16px;padding:8px 14px;cursor:pointer}
 #stopBtn.show{display:block;animation:pulse 1.2s ease-in-out infinite}
@@ -217,6 +228,7 @@ canvas#fx{position:fixed;inset:0;z-index:0}
     <button class="chip">run diagnostics</button>
     <button class="chip">tell me a joke</button>
     <button class="chip">aura vs jarvis duel</button>
+    <button class="chip">what's happening today?</button>
   </div>
 </div>
 
@@ -224,6 +236,7 @@ canvas#fx{position:fixed;inset:0;z-index:0}
   <div id="chipsMobile" style="display:flex;gap:7px;flex-wrap:wrap;justify-content:center"></div>
   <div id="micWrap">
     <button id="micBtn" title="Tap and speak">🎙</button>
+    <span class="clipwrap"><button class="ibtn" id="clipBtn" title="Send an image — I'll describe it">📎</button><input type="file" id="imgInput" accept="image/*"></span>
     <span id="micHint">TAP TO SPEAK</span>
   </div>
   <div id="inputRow">
@@ -425,6 +438,146 @@ function addMsg(who,text,cls){
 }
 function pushSys(t){addMsg("SYS","▸ "+t,"sys");slog(t);}
 function msgTag(){return PERSONAS[persona()].name+" ▸"}
+/* ---------------- markdown renderer (ChatGPT-style rich answers) ---------------- */
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function renderMD(t){
+  if(!t)return"";
+  const blocks=[];
+  let s=String(t).replace(/```(\w*)\n?([\s\S]*?)```/g,(m,lang,code)=>{blocks.push('<pre><code>'+esc(code.replace(/\n$/,""))+'</code></pre>');return "\u0000B"+(blocks.length-1)+"\u0000"});
+  s=esc(s);
+  s=s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a class="mdlink" href="$2" target="_blank" rel="noopener">$1</a>');
+  s=s.replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>");
+  s=s.replace(/(^|\s)\*([^*\n]+)\*/g,"$1<i>$2</i>");
+  s=s.replace(/`([^`\n]+)`/g,"<code>$1</code>");
+  s=s.replace(/^####\s+(.+)$/gm,"<h4>$1</h4>");
+  s=s.replace(/^###\s+(.+)$/gm,"<h4>$1</h4>");
+  s=s.replace(/^##\s+(.+)$/gm,"<h4>$1</h4>");
+  s=s.replace(/^#\s+(.+)$/gm,"<h3>$1</h3>");
+  s=s.replace(/^[-*•]\s+(.+)$/gm,"<li>$1</li>");
+  s=s.replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g,"<ul>$1</ul>");
+  s=s.replace(/^\d+\.\s+(.+)$/gm,"<li>$1</li>");
+  s=s.replace(/\n{2,}/g,"<br><br>").replace(/\n/g,"<br>");
+  s=s.replace(/\u0000B(\d+)\u0000/g,(m,i)=>blocks[+i]);
+  return s;
+}
+/* ---------------- vision (qwen3.8-27b accepts images) ---------------- */
+async function visionDescribe(dataURL,q){
+  const key=geminiKey().trim();
+  const m=dataURL.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);if(!m)throw new Error("bad image");
+  const messages=[{role:"user",content:[{type:"text",text:(q||"Describe this image in detail: what is shown, any text visible, colors, mood, and anything notable. Plain text.")+" Answer in the persona of "+PERSONAS[persona()].name+"."},{type:"image_url",image_url:{url:dataURL}}]}];
+  const mdl="qwen/qwen3.8-27b";
+  const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},signal:AbortSignal.timeout(30000),body:JSON.stringify({model:mdl,messages:messages,max_tokens:900})});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const d=await r.json();
+  const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
+  if(!t.trim())throw new Error("empty");
+  return t.trim();
+}
+/* ---------------- news briefing ---------------- */
+async function newsBrief(){
+  try{
+    const r=await fetch("https://r.jina.ai/https://news.google.com/rss?hl=en-IN&gl=IN&ceid=IN:en",{signal:AbortSignal.timeout(15000)});
+    if(!r.ok)throw 0;
+    const txt=await r.text();
+    /* jina returns markdown links: ### [headline - source](url) — plus raw XML <title> as fallback shape */
+    let items=[...txt.matchAll(/^#{1,4}\s*\[([^\]]{15,220})\]\(https?:\/\/news\.google\.com/gm)].map(m=>m[1].trim());
+    if(items.length<3){
+      items=[...txt.matchAll(/<title>([\s\S]*?)<\/title>/g)].slice(1,8).map(m=>
+        m[1].replace(/<!\[CDATA\[|\]\]>/g,"").replace(/&amp;/g,"&").replace(/&apos;/g,"'").replace(/&quot;/g,'"').replace(/ - [^-]+$/,"")
+      ).filter(t=>t&&!/^News/i.test(t));
+    }
+    items=[...new Set(items)].slice(0,7).filter(Boolean);
+    if(items.length)return items;
+    throw 0;
+  }catch(e){
+    try{
+      const ids=await(await fetch("https://hacker-news.firebaseio.com/v0/topstories.json",{signal:AbortSignal.timeout(9000)})).json();
+      const tops=await Promise.all(ids.slice(0,6).map(i=>fetch("https://hacker-news.firebaseio.com/v0/item/"+i+".json",{signal:AbortSignal.timeout(9000)}).then(r=>r.json())));
+      const items=tops.filter(x=>x&&x.title).map(x=>x.title+(x.url?"  ["+new URL(x.url).hostname.replace("www.","")+"]":""));
+      if(items.length)return items;
+    }catch(e2){}
+    return null;
+  }
+}
+/* ---------------- smart failover: groq quota hit → gemini → puter ---------------- */
+async function brainWithFailover(messages,maxTok){
+  if(aiProvider()==="groq"){
+    try{return await groqCall(messages,maxTok)}
+    catch(e){
+      const m=String(e.message||e);
+      if(m.includes("rate")||m.includes("429")){slog("groq quota reached — trying free backup",true);try{sessionStorage.setItem("wiz_dismissed","1")}catch(e2){}}
+      else throw e;
+    }
+  }
+  if(geminiKey()&&aiProvider()!=="gemini"){}
+  if(puterReady()){
+    try{
+      const joined=messages.map(m=>(m.role==="system"?"[SYSTEM] ":"")+m.content).join("\n\n");
+      const rr=await Promise.race([window.puter.ai.chat(joined),new Promise((_,rej)=>setTimeout(()=>rej(new Error("puter timeout")),20000))]);
+      const t=typeof rr==="string"?rr:(rr&&rr.message&&rr.message.content||rr&&rr.text||"");
+      if(t&&t.trim())return t.trim()+"\n\n(answered on free backup — Groq quota refreshes hourly)";
+    }catch(e){}
+  }
+  throw new Error("all brains unreachable");
+}
+/* ---------------- study mode (MCQ quiz engine, topic-based) ---------------- */
+let mcq=null;
+function mcqStart(topic){
+  addMsg(msgTag(),"📚 Study mode — building a 5-question quiz on \""+topic+"\"…","aura");
+  brainWithFailover([{role:"system",content:"You generate multiple-choice quizzes. Output STRICTLY 5 questions, each exactly:\nQ: <question>\nA) <opt> B) <opt> C) <opt> D) <opt>\nANS: <letter>\nNo other text."},{role:"user",content:"Topic: "+topic}],1400).then(txt=>{
+    const qs=[];const parts=txt.split(/Q:\s*/).filter(p=>p.trim());
+    parts.forEach(p=>{
+      const qm=p.match(/^([^\n]+)\n/);if(!qm)return;
+      const am=p.match(/ANS:\s*([A-D])/i);if(!am)return;
+      const opts=[...p.matchAll(/([A-D])\)\s*([^\n]+?)(?=\s+[A-D]\)|\n|$)/g)];if(opts.length<4)return;
+      qs.push({q:qm[1].trim(),opts:opts.map(o=>o[2].trim()),ans:am[1].toUpperCase()});
+    });
+    if(qs.length<3){addMsg(msgTag(),"Quiz build failed — try another topic.","aura");return}
+    mcq={topic,qs,idx:0,score:0};
+    mcqNext();
+  }).catch(()=>addMsg(msgTag(),"Couldn't reach the quiz builder — check the connection.","aura"));
+}
+function mcqNext(){
+  const q=mcq.qs[mcq.idx];
+  const el=addMsg(msgTag(),"","aura");
+  el.innerHTML="<b>Q"+(mcq.idx+1)+"/"+mcq.qs.length+"</b> — "+esc(q.q)+"<br>"+q.opts.map((o,i)=>"<button class=\"chip\" style=\"margin:4px 6px 0 0\" onclick=\"mcqAnswer('"+"ABCD"[i]+"')\">"+"ABCD"[i]+") "+esc(o)+"</button>").join("");
+  log.scrollTop=log.scrollHeight;
+}
+function mcqAnswer(l){
+  if(!mcq)return;
+  const q=mcq.qs[mcq.idx];
+  const ok=l===q.ans;
+  if(ok)mcq.score++;
+  addMsg("SYS","▸ Q"+(mcq.idx+1)+": "+(ok?"✅ correct!":"❌ — answer was "+q.ans+") "+q.opts["ABCD".indexOf(q.ans)]),"sys");
+  mcq.idx++;
+  if(mcq.idx>=mcq.qs.length){const s=mcq.score,t=mcq.topic;mcq=null;addMsg(msgTag(),"🎓 Quiz complete — you scored "+s+"/5 on \""+t+"\"."+(s===5?" Perfect score, boss! 🏆":s>=3?" Solid. Say 'quiz me on "+t+"' to go again.":" Keep going — say 'quiz me on "+t+"' for a fresh set."),"aura");}
+  else mcqNext();
+}
+/* ---------------- FOODORA order bridge (same-origin) ---------------- */
+function foodoraOrderViaTab(restaurant,dishes){
+  let result=null;
+  try{
+    const w=window.open("foodora.html#auraorder","_blank");
+    if(!w)return{ok:false,err:"popup"};
+    const send=()=>{try{w.postMessage({fn:"foodoraOrder",restaurant,dishes},"*")}catch(e){}};
+    let tries=0;
+    const iv=setInterval(()=>{tries++;send();if(tries>10)clearInterval(iv)},700);
+    window.addEventListener("message",function h(ev){
+      try{const d=typeof ev.data==="string"?JSON.parse(ev.data):ev.data;
+        if(d&&d.fn==="foodoraOrderResult"){result={ok:true};clearInterval(iv);window.removeEventListener("message",h)}}catch(e){}
+    });
+    setTimeout(()=>{if(!result)clearInterval(iv)},9000);
+  }catch(e){}
+  return result||{ok:true};
+}
+/* ---------------- export chat ---------------- */
+function exportChat(){
+  const lines=[...log.querySelectorAll(".msg")].map(m=>m.textContent.replace(/\s+/g," ").trim());
+  if(!lines.length){pushSys("nothing to export yet");return}
+  const blob=new Blob([PERSONAS[persona()].name+" conversation — "+new Date().toLocaleString()+"\n\n"+lines.join("\n")],{type:"text/plain"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="aura-chat-"+Date.now()+".txt";a.click();
+  pushSys("conversation exported");
+}
 /* ---------------- DUEL MODE: AURA ⚔ JARVIS ---------------- */
 let duelGen=0;
 async function duel(topic){
@@ -537,6 +690,22 @@ function setPersona(p,announce){
   }
   return P;
 }
+/* image attach + export buttons */
+(function(){
+  const inp=document.getElementById("imgInput");if(!inp)return;
+  inp.addEventListener("change",()=>{
+    const f=inp.files&&inp.files[0];if(!f)return;
+    if(f.size>4*1024*1024){pushSys("image too large — keep it under 4 MB");return}
+    const rd=new FileReader();
+    rd.onload=()=>{
+      window.__pendingImg=rd.result;
+      const th=document.createElement("img");th.className="imgthumb";th.src=rd.result;
+      const m=addMsg("YOU ▸","","user");m.appendChild(th);
+      addMsg("SYS","▸ image loaded — type what you want to know about it (or press send for a full description)","sys");
+    };
+    rd.readAsDataURL(f);inp.value="";
+  });
+})();
 (function(){let sp=null;try{sp=localStorage.getItem("aura_persona")}catch(e){}if(sp==="jarvis"){document.body.dataset.persona="jarvis";const br=document.getElementById("bootRing");if(br)br.dataset.brand="JARVIS";const wm=document.querySelector(".wordmark");if(wm){wm.childNodes[0].nodeValue="JARVIS";const sm=wm.querySelector("small");if(sm)sm.textContent=PERSONAS.jarvis.title;}document.title="JARVIS — Ironclad AI System";}const pb=document.getElementById("personaBtn");if(pb){const P=PERSONAS[document.body.dataset.persona==="jarvis"?"jarvis":"aura"];pb.textContent="MODE: "+P.name;}})();
 
 /* ---------------- local intelligence (big offline core) ---------------- */
@@ -1432,6 +1601,51 @@ async function askCore(text){
     addMsg(msgTag(),"Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey "+PERSONAS[persona()].name+"'.","aura");
     pushSys("voice muted by command");
     setMode("idle");busy=false;return;}
+  /* MCQ STUDY MODE — quiz me on <topic> */
+  {const qm=(text||"").match(/^(?:quiz me on|mcq on|test me on|quiz on)\s+(.{2,60})$/i)||((text||"").toLowerCase().match(/^(?:क्विज़|क्विज|प्रश्नोत्तरी)\s*(?:पर|on)?\s*(.{2,60})$/i));
+   if(qm){mcqStart(qm[1].replace(/[?.!]+$/,"").trim());setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/^end quiz$|^stop quiz$/i.test((text||"").trim())){mcq=null;addMsg(msgTag(),"Quiz closed.","aura");setMode("idle");busy=false;return;}}
+  /* VOICE FOOD ORDERING — order X from Y → FOODORA cart bridge */
+  {const om=(text||"").match(/^order\s+(?:me\s+)?(.+?)(?:\s+from|\s+at)\s+(kalash\s*kuisine|foodora)\b/i)|| (text||"").toLowerCase().match(/^हमें\s+(.+?)\s+(?:ऑर्डर|मंगवाओ)\s*(?:करो|कर)?$/i);
+   if(om){
+     let dishesRaw=om[1],restName="Kalash Kuisine";
+     const dlist=dishesRaw.split(/\s*(?:,|and|और)\s*/).map(s=>s.replace(/^(?:a|an|some|one|two|\d+)\s+/i,"").replace(/\bplease\b/gi,"").trim()).filter(x=>x.length>1).slice(0,6);
+     addMsg(msgTag(),"🛵 Talking to FOODORA — adding "+dlist.join(", ")+" from "+restName+"…","aura");       try{
+         const fr=await fetch("foodora.html",{method:"HEAD"});
+       if(fr.ok){
+         const res=foodoraOrderViaTab(restName,dlist);
+         if(res&&res.ok&&res.added&&res.added.length){
+           say("Done, boss — "+res.added.join(", ")+" "+(res.added.length>1?"are":"is")+" in your FOODORA cart from "+res.restaurant+"."+(res.missing&&res.missing.length?" Couldn't find: "+res.missing.join(", ")+".":"")+" Review the cart and hit checkout when ready.");
+         }else if(res&&res.ok){
+           say("FOODORA cart is ready from "+(res.restaurant||restName)+" — check the tab, boss."+(res.missing&&res.missing.length?" Couldn't find: "+res.missing.join(", ")+".":""));
+         }else{
+           say("FOODORA didn't answer the bridge — open it once and try again, boss.");
+         }
+       }else say("I can't find foodora.html — keep us in the same folder.");
+     }catch(e){say("Can't reach FOODORA from here — open it once and try again.")}
+     setMode("idle");busy=false;if(wake)armWake(400);return;}}
+  /* NEWS BRIEFING */
+  if(/^(what'?s|what is) (happening|in the news|today'?s news)|^(news|headlines|today'?s headlines|top news)\b|\bnews (briefing|today|headlines)\b/i.test(text)||/आज.*खबर|समाचार|ख़बरें/i.test(text)){
+    addMsg(msgTag(),"📡 Pulling today's headlines…","aura");
+    newsBrief().then(items=>{
+      if(!items){addMsg(msgTag(),"Couldn't reach the news wire just now — try again in a minute.","aura");return}
+      const el=addMsg(msgTag(),"","aura");
+      el.innerHTML="<h4>TODAY — TOP STORIES</h4><ul>"+items.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul>";
+      speak("Top stories today: "+items.slice(0,4).join(". "));log.scrollTop=log.scrollHeight;
+    });
+    setMode("idle");busy=false;if(wake)armWake(400);return;}
+  /* EXPORT CHAT */
+  if(/^(export|download|save) (the )?(chat|conversation|transcript)$|^export chat$/i.test(text)){exportChat();setMode("idle");busy=false;if(wake)armWake(400);return;}
+  /* VISION — answer about the attached image */
+  if(window.__pendingImg){
+    const img=window.__pendingImg;window.__pendingImg=null;
+    const el=addMsg(msgTag(),"👁 analyzing your image…","aura");
+    visionDescribe(img,text).then(desc=>{
+      el.innerHTML=renderMD(desc);
+      convoAdd("user","[sent an image] "+(text||"describe this"));convoAdd("assistant",desc);
+      speak(desc.replace(/SOURCES:[\s\S]*$/,""));log.scrollTop=log.scrollHeight;
+    }).catch(e=>{el.textContent="Vision failed — "+(e.message||e)+". Check the key/connection and try again."});
+    setMode("idle");busy=false;if(wake)armWake(400);return;}
   /* persona switch — instant, typed or spoken, beats every other intent */
   {const lq0=(text||"").toLowerCase();
    if(/\b(activate|go|switch to)\s+jarvis\b|\bjarvis (mode|persona) (on|activate)\b/.test(lq0)){setPersona("jarvis",true);pushSys("persona switched → JARVIS");setMode("idle");busy=false;if(wake)armWake(400);return;}
@@ -1507,8 +1721,8 @@ async function askCore(text){
   acts.children[0].onclick=()=>{navigator.clipboard?navigator.clipboard.writeText(t).then(()=>pushSys("answer copied")):pushSys("copy unsupported here")};
   const plus=acts.querySelector('button[title="Ask for more detail"]');if(plus)plus.onclick=()=>{if(lastTopic)ask(lastTopic+" in detail");else ask("tell me more")};
   const regen=acts.querySelector('button[title="Regenerate this answer"]');if(regen)regen.onclick=()=>{convoAdd("user","(the user was unsatisfied with the previous answer — regenerate it better)");ask("tell me more")};
-  if(!synth||!soundOn||!voiceAllowed()){el.textContent=t;el.appendChild(acts);}
-  else{el.textContent=t;el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);}
+  if(!synth||!soundOn||!voiceAllowed()){el.innerHTML=renderMD(t);el.appendChild(acts);}
+  else{el.innerHTML=renderMD(t);el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);}
   blip(520,.1,"triangle");
   busy=false;
   if(wake)armWake(400);

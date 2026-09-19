@@ -104,6 +104,31 @@ const CONTACTS={
  3:{phone:"",upi:""},4:{phone:"",upi:""},5:{phone:"",upi:""},6:{phone:"",upi:""},7:{phone:"",upi:""},8:{phone:"",upi:""},9:{phone:"",upi:""},10:{phone:"",upi:""},11:{phone:"",upi:""},12:{phone:"",upi:""}
 };
 function cartRid(){return cart.length?parseInt(cart[0].key.split("-")[0]):null}
+/* ===== AURA voice-order bridge: postMessage API + same-tab deep links ===== */
+function foodoraOrder(restaurant,dishes){
+  try{
+    let r=rs.find(x=>x.n.toLowerCase()===String(restaurant||"").toLowerCase())||rs.find(x=>x.n.toLowerCase().includes(String(restaurant||"").toLowerCase()));
+    if(!r)return{ok:false,err:"restaurant"};
+    if(cart.length&&cartRid()!==r.id)cart=[];
+    let added=[],missing=[];
+    (dishes||[]).forEach(d=>{
+      const k=r.items.findIndex(it=>it[0].toLowerCase().includes(d.toLowerCase())||d.toLowerCase().includes(it[0].toLowerCase()));
+      if(k<0){missing.push(d);return}
+      const key=r.id+"-"+k;const x=cart.find(a=>a.key===key);
+      x?x.qty++:cart.push({key,name:r.items[k][0],price:r.items[k][1],emoji:r.items[k][2],qty:1});added.push(r.items[k][0]);
+    });
+    save();openCart();
+    return{ok:true,added,missing,restaurant:r.n};
+  }catch(e){return{ok:false,err:"exception"}}
+}
+window.addEventListener("message",ev=>{
+  try{
+    const d=typeof ev.data==="string"?JSON.parse(ev.data):ev.data;
+    if(!d||d.fn!=="foodoraOrder")return;
+    const res=foodoraOrder(d.restaurant,d.dishes);
+    ev.source&&ev.source.postMessage({fn:"foodoraOrderResult",ok:res.ok},"*");
+  }catch(e){}
+});
 
 function money(n){return "₹"+n.toLocaleString("en-IN")}
 
