@@ -163,6 +163,51 @@ canvas#fx{position:fixed;inset:0;z-index:0}
   .ibtn{font-size:9px;padding:6px 10px}
 }
 @media(max-width:400px){.wordmark{font-size:10.5px}#conv{bottom:190px}}
+/* ---------------- TAB PAGES: chat / chats / system ---------------- */
+#tabbar{position:fixed;top:74px;left:22px;z-index:12;display:flex;gap:8px}
+#tabbar button{background:var(--panel);border:1px solid var(--line2);color:var(--dim);font-family:var(--mono);font-size:10.5px;letter-spacing:1.5px;padding:8px 16px;border-radius:9px;cursor:pointer;transition:.2s;backdrop-filter:blur(8px)}
+#tabbar button:hover{border-color:var(--line);color:var(--cy2)}
+#tabbar button.on{color:var(--cy2);border-color:var(--line);background:rgba(34,211,238,.14)}
+body:not([data-tab="system"]) #telemetry,body:not([data-tab="system"]) #syslog{display:none}
+body[data-tab="chats"] #conv,body[data-tab="system"] #conv{display:none}
+#sessPanel{display:none;top:74px;right:22px;width:min(440px,40vw);bottom:130px;flex-direction:column;overflow:hidden}
+body[data-tab="chats"] #sessPanel{display:flex}
+#sessSide{display:flex;flex-direction:column;flex:1;overflow:hidden}
+#sessQ{width:100%;background:rgba(2,10,18,.5);border:1px solid var(--line2);color:var(--ice);border-radius:8px;padding:7px 10px;font-size:12px;margin-bottom:8px;font-family:var(--mono);outline:none}
+#sessQ:focus{border-color:var(--line)}
+#sessList{flex:1;overflow-y:auto;padding-right:2px}
+.sess .st{display:flex;flex-direction:column;gap:1px}
+.sess .st small{font-size:9.5px;color:var(--dim);font-family:var(--mono)}
+.sacts{display:flex;gap:2px;opacity:0;transition:.15s}
+.sess:hover .sacts{opacity:1}
+.sacts button{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;border-radius:5px;color:var(--dim)}
+.sacts button:hover{color:var(--cy2);background:rgba(34,211,238,.1)}
+.sacts button.sx:hover{color:var(--red)}
+/* per-message delete */
+.msg{position:relative}
+.mdel{position:absolute;top:-4px;right:0;background:none;border:none;color:var(--dim);font-size:10px;cursor:pointer;opacity:0;transition:.15s;padding:2px 5px;border-radius:5px}
+.msg:hover .mdel{opacity:.65}
+.mdel:hover{color:var(--red);opacity:1}
+/* ask-before-open doc modal */
+#docAsk{position:fixed;inset:0;background:rgba(2,6,14,.7);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center}
+#docAsk .da-card{background:rgba(10,16,30,.97);border:1px solid var(--line);border-radius:16px;padding:26px;width:min(380px,90vw);color:var(--ice);text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+#docAsk h3{font-size:16px;margin-bottom:8px;color:var(--cy2)}
+#docAsk p{font-size:13px;opacity:.75;margin-bottom:18px;line-height:1.5}
+#docAsk .da-row{display:flex;gap:10px;justify-content:center}
+#docAsk .da-row button{border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer;font-size:13px;border:1px solid var(--line)}
+#docAsk #daYes{background:rgba(34,211,238,.18);color:var(--cy2)}
+#docAsk #daYes:hover{background:rgba(34,211,238,.3)}
+#docAsk #daNo{background:none;color:var(--dim)}
+@media(max-width:860px){
+  #tabbar{top:52px;left:8px;right:8px;gap:6px}
+  #tabbar button{flex:1;padding:7px 4px;font-size:9px;letter-spacing:1px}
+  body[data-tab="chats"] #sessPanel{top:88px;left:8px;right:8px;bottom:198px;width:auto;border-radius:14px;background:rgba(2,10,14,.85);backdrop-filter:blur(8px)}
+  body[data-tab="system"] #telemetry{display:block;position:fixed;top:88px;left:8px;right:8px;width:auto}
+  body[data-tab="system"] #syslog{display:block;position:fixed;top:auto;bottom:198px;left:8px;right:8px;width:auto;max-height:150px}
+  body[data-tab="chats"] #dock,body[data-tab="system"] #dock{opacity:.25;pointer-events:none}
+}
+/* widened chat for breathing room */
+#conv{width:min(470px,42vw)}
 /* ---------------- jarvis setup wizard ---------------- */
 .wiz{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;background:rgba(2,8,14,.82);backdrop-filter:blur(6px)}
 .wiz.show{display:flex}
@@ -211,6 +256,12 @@ canvas#fx{position:fixed;inset:0;z-index:0}
   <div class="wordmark">AURA<small>HOLOGRAPHIC AI INTERFACE</small></div>
   <div id="stateBox"><span id="stateDot"></span><span id="stateText">SYSTEM ONLINE</span></div>
   <div id="clock"><b id="clockT">--:--</b><span id="clockD"></span></div>
+</div>
+
+<div id="tabbar">
+  <button data-t="chat" class="on">💬 CHAT</button>
+  <button data-t="chats">📚 CHATS</button>
+  <button data-t="system">🛠 SYSTEM</button>
 </div>
 
 <div class="panel" id="telemetry">
@@ -450,6 +501,12 @@ function addMsg(who,text,cls){
   const d=document.createElement("div");d.className="msg "+cls;
   d.innerHTML='<span class="who">'+who+'</span><span class="tx"></span>';
   if(text)d.querySelector(".tx").textContent=text; /* fill immediately — launch/batch replies have no typewriter */
+  /* per-message delete (hover) — skips boot/system markers */
+  if(cls!=="sys"){
+    const del=document.createElement("button");del.className="mdel";del.title="Delete this message";del.textContent="✕";
+    del.onclick=()=>{d.remove();pushSys("message removed from view")};
+    d.appendChild(del);
+  }
   log.appendChild(d);while(log.children.length>40)log.firstChild.remove();
   log.scrollTop=log.scrollHeight;
   return d.querySelector(".tx");
@@ -633,11 +690,19 @@ function buildStudySheet(rawOverride){
   });
   return {sections,date:new Date().toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})};
 }
+function studySheetFromData(S){
+  if(!S)return{ok:false,reason:"empty"};
+  const w=window.open("","_blank");
+  if(!w){pushSys("popup blocked — allow popups for PDF export");return{ok:false,reason:"blocked"}}
+  writeStudySheetDoc(w,S);return{ok:true};
+}
 function studySheetPDF(){
   const S=buildStudySheet();
   if(!S){pushSys("no conversation to turn into a study sheet yet");return{ok:false,reason:"empty"}}
-  const w=window.open("","_blank");
-  if(!w){pushSys("popup blocked — allow popups for PDF export");return{ok:false,reason:"blocked"}}
+  askOpenDoc("study sheet — "+S.sections.length+" topic"+(S.sections.length>1?"s":""),()=>{const w=window.open("","_blank");if(!w){pushSys("popup blocked — allow popups for PDF export");return}writeStudySheetDoc(w,S)});
+  return{ok:true};
+}
+function writeStudySheetDoc(w,S){
   const P=PERSONAS[persona()];
   let secs="";
   S.sections.forEach((s,i)=>{
@@ -1454,18 +1519,45 @@ function replayOnScreen(list){
 function renderSessions(){
   try{
     const side=document.getElementById("sessSide");if(!side)return;
-    const list=sessions.all();const cur=sessions.currentId();
-    side.innerHTML='<button id="sessNew">＋ New chat</button><div id="sessList">'+
-      (list.length?list.map(s=>'<div class="sess'+(s.id===cur?' on':'')+'" data-id="'+esc(s.id)+'"><span class="st">'+esc(s.title||"New chat")+'</span><button class="sx" title="Delete chat">✕</button></div>').join(""):'<div class="sess-empty">No saved chats yet</div>')+
+    const all=sessions.all();const cur=sessions.currentId();
+    const q=(side.querySelector("#sessQ")||{}).value||"";
+    const list=q?all.filter(s=>(s.title||"").toLowerCase().includes(q.toLowerCase())||(s.convo||[]).some(c=>String(c.content).toLowerCase().includes(q.toLowerCase()))):all;
+    side.innerHTML='<button id="sessNew">＋ New chat</button><input id="sessQ" placeholder="🔍 search chats…" value="'+esc(q)+'">'+
+      '<div id="sessList">'+
+      (list.length?list.map(s=>{
+        const when=s.at?new Date(s.at).toLocaleDateString(undefined,{month:"short",day:"numeric"}):"";
+        const preview=(s.convo&&s.convo.length?String(s.convo[s.convo.length-1].content).replace(/\s+/g," ").slice(0,44):"empty");
+        return '<div class="sess'+(s.id===cur?' on':'')+'" data-id="'+esc(s.id)+'"><span class="st"><b>'+esc(s.title||"New chat")+'</b><small>'+when+' · '+esc(preview)+'</small></span><span class="sacts"><button class="sp" title="Open">↗</button><button class="sd" title="Save as PDF">⤓</button><button class="sx" title="Delete chat">🗑</button></span></div>';
+      }).join(""):'<div class="sess-empty">'+(q?"No chats match \""+esc(q)+"\"":"No saved chats yet — say something and it saves automatically")+'</div>')+
       '</div>';
-    side.querySelector("#sessNew").onclick=()=>{sessions.newChat();log.innerHTML="";pushSys("new chat — memory cleared, sessions kept")};
+    const cnt=document.getElementById("sessCount");if(cnt)cnt.textContent=all.length?all.length+" saved":"";
+    side.querySelector("#sessNew").onclick=()=>{sessions.newChat();log.innerHTML="";renderSessions();pushSys("new chat — memory cleared, sessions kept")};
+    const sq=side.querySelector("#sessQ");sq.oninput=()=>renderSessions();
     side.querySelectorAll(".sess").forEach(el=>{
       el.querySelector(".st").onclick=()=>sessions.open(el.dataset.id);
-      el.querySelector(".sx").onclick=e=>{e.stopPropagation();sessions.del(el.dataset.id)};
-      let lt=null;
+      el.querySelector(".sp").onclick=e=>{e.stopPropagation();sessions.open(el.dataset.id)};
+      el.querySelector(".sd").onclick=e=>{e.stopPropagation();const s=sessions.all().find(x=>x.id===el.dataset.id);if(s&&s.convo&&s.convo.length){const S=buildStudySheet(s.convo);if(S)askOpenDoc("study sheet — "+s.title,()=>studySheetFromData(S));}else pushSys("that chat is empty — nothing to export")};
+      el.querySelector(".sx").onclick=e=>{e.stopPropagation();if(confirm("Delete this chat permanently?")){sessions.del(el.dataset.id);pushSys("chat deleted")}};
       el.ondblclick=()=>{const s=list.find(x=>x.id===el.dataset.id);const name=prompt("Rename chat:",s?s.title:"");if(name)sessions.rename(el.dataset.id,name)};
     });
   }catch(e){}
+}
+/* ask-before-open: no more surprise print windows */
+function askOpenDoc(label,fn){
+  try{const old=document.getElementById("docAsk");if(old)old.remove()}catch(e){}
+  const ov=document.createElement("div");ov.id="docAsk";
+  ov.innerHTML='<div class="da-card"><h3>📄 Ready to open</h3><p>Your '+esc(label)+' is built.<br>Open the print window now?<br><small style="opacity:.6">Choose “Save as PDF” inside it.</small></p><div class="da-row"><button id="daYes">Yes, open it</button><button id="daNo">Not now</button></div></div>';
+  document.body.appendChild(ov);
+  ov.querySelector("#daYes").onclick=()=>{ov.remove();fn&&fn()};
+  ov.querySelector("#daNo").onclick=()=>{ov.remove();pushSys("document kept — say \"open the sheet\" when ready")};
+  ov.addEventListener("click",e=>{if(e.target===ov)ov.remove()});
+}
+window.__pendingDoc=null;
+/* open a kept document on demand */
+function openPendingDoc(){
+  const d=window.__pendingDoc;if(!d){pushSys("nothing pending — build a sheet first");return}
+  const w=window.open("","_blank");if(!w){pushSys("popup blocked — allow popups for PDF export");return}
+  writeStudySheetDoc(w,d);window.__pendingDoc=null;
 }
 setInterval(()=>{try{if(CONVO.length)sessions.sync()}catch(e){}},15000);
 /* migrate the single-history format into sessions on first load of this version */
@@ -1639,7 +1731,22 @@ function detectLang(q){
 function isHinglish(q){
   if(HI_HINT_RE.test(q))return true;
   const ql=q.toLowerCase();
-  return /\b(hindi mein|hindi me|in hindi|kya hai|kaun hai|kaise|kyun|kyu|kahan|kab|batao|bataiye|mujhe batao|kya|kaun|kaisa|kaisi|konsa|konsi|kisne|kitna|kitni|haan|nahi|achha|bata|mausam|karo|kardo|badlo)\b/.test(ql);
+  return /\b(hindi mein|hindi me|in hindi|hinglish|kya hai|kaun hai|kaun the|kya tha|kaise|kyun|kyu|kahan|kab|batao|bataiye|mujhe batao|mujhe|kya|kaun|kaisa|kaisi|konsa|konsi|kisne|kitna|kitni|haan|nahi|achha|bata|mausam|karo|kardo|kar do|badlo|bata de|chahiye|mujhe chahiye|hoti hai|hoti|karte|hota hai|hai kya|matlab|samjhao|samjha)\b/.test(ql);
+}
+/* AUTO-FIXER: catch common typos in commands so small mistakes still work */
+function autoFix(text){
+  if(!text)return text;
+  let t=String(text);
+  const fix=(re,rep,tag)=>{if(re.test(t)){t=t.replace(re,rep);try{pushSys("auto-fixed: "+tag)}catch(e){}}};
+  fix(/\bduel\s+mode\s+on\b/gi,"duel on","duel phrase");
+  fix(/\bstudy\s*shet\b|\bstudy\s*sheat\b/gi,"study sheet","study-sheet spelling");
+  fix(/\bmake\s+a\s+pdf\s+(of|for)\s+(this|it|the chat)\b/gi,"make a pdf of this","pdf phrase");
+  fix(/\bgenrate\b/gi,"generate","spelling");
+  fix(/\bwho\s+is\s+the\s+pm\b/gi,"who is the prime minister of india","expansion");
+  fix(/\bwhats\s+the\s+time\b/gi,"what time is it","time phrase");
+  fix(/\bset\s+a\s+timer\s+of\b/gi,"set a timer for","timer phrase");
+  fix(/\b(new\s+chart|new\s+chate)\b/gi,"new chat","new-chat spelling");
+  return t;
 }
 function isKnowledgeEN(q){
   return /^(what|who|when|where|which|why|how)\b|^explain\b|^describe\b|^define\b|^tell me about\b/i.test(q.trim());
@@ -1813,7 +1920,8 @@ async function aiReply(q){
 
 /* ---------------- ask pipeline ---------------- */
 let busy=false,askAt=0,qQueue=[];
-async function askCore(text){
+async function askCore(text0){
+  let text=autoFix(text0);
   /* instant-silence is an INTERRUPT — it must work even while AURA is busy/speaking */
   if(/^(?:shut up|stop talking|be quiet|silence|silent mode|chup|chup ho jao|चुप\s*हो\s*जाओ|चुप|रुक\s*जाओ|रुको)\b/i.test((text||'').trim())){
     stopSpeech();voiceSessionUntil=0;
@@ -1860,9 +1968,12 @@ async function askCore(text){
    if(/^(make|create|generate|export|download|convert|turn|save|give|get|print)\b[\s\S]*\bpdf\b|^pdf\b|\b(pdf|print(out|ed)?) (of|for|this|that|it|chat|conversation|transcript)\b/i.test(lq)){
      const sheetMode=/\bstudy\b|\bsheet\b|\bnotes\b|\bchat\b|\bconversation\b|\btranscript\b|\bsession\b/i.test(lq)||!lastAnswer;
      if(sheetMode){
-       const r2=studySheetPDF();
-       addMsg(msgTag(),r2.ok?"📝 Study sheet ready — print window is open, choose \"Save as PDF\". One section per topic, with a contents list and a revision tip.":r2.reason==="blocked"?"I built the sheet but the browser blocked the window — allow popups for this site and try again.":"No conversation to turn into a study sheet yet — ask me a few questions first.","aura");
-       if(voiceAllowed())speak(r2.ok?"Study sheet ready. Choose save as P D F.":r2.reason==="blocked"?"Allow popups and try again.":"Ask me a few questions first, then make the study sheet.");setMode("idle");busy=false;if(wake)armWake(400);return;}
+       const S=buildStudySheet();
+       if(!S){addMsg(msgTag(),"No conversation to turn into a study sheet yet — ask me a few questions first.","aura");setMode("idle");busy=false;if(wake)armWake(400);return;}
+       window.__pendingDoc=S;
+       askOpenDoc("study sheet — "+S.sections.length+" topic"+(S.sections.length>1?"s":""),()=>{const w=window.open("","_blank");if(!w){pushSys("popup blocked — allow popups for PDF export");return}writeStudySheetDoc(w,S);pushSys("study sheet opened — choose Save as PDF")});
+       addMsg(msgTag(),"📝 Your study sheet is built — "+S.sections.length+" topic"+(S.sections.length>1?"s":"")+", one section each with sources and a revision tip. I'll ask before opening anything, as always.","aura");
+       if(voiceAllowed())speak("Study sheet built. Shall I open it?");setMode("idle");busy=false;if(wake)armWake(400);return;}
      const chatMode=/\b(this )?(chat|conversation|transcript)\b/i.test(lq)||!lastAnswer;
      const body=chatMode?[...document.querySelectorAll(".msg")].map(m=>m.textContent.replace(/\s+/g," ").trim()).filter(Boolean).join("\n\n"):lastAnswer;
      if(!body){addMsg(msgTag(),"Nothing to export yet — ask me something first.","aura");setMode("idle");busy=false;if(wake)armWake(400);return;}
@@ -1909,13 +2020,14 @@ async function askCore(text){
      duel(topic);setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* JARVIS TASK ENGINE — do things, not just say things */
   {const lq2=(text||"").toLowerCase().trim();
+   if(/^(open|show) (the )?(sheet|study sheet|document|pdf)$/i.test(lq2)){openPendingDoc();setMode("idle");busy=false;if(wake)armWake(400);return;}
    if(/^(new chat|new conversation|clear chat|reset chat|start (a )?new chat)\b/i.test(lq2)){
      sessions.newChat();log.innerHTML="";
      addMsg(msgTag(),"🆕 Fresh chat opened — old sessions are saved in the CHATS panel, tap any to revisit.","aura");
      if(voiceAllowed())speak("New chat started.");setMode("idle");busy=false;if(wake)armWake(400);return;}
    if(/^(open|switch to|go to|show) (the )?(chat|conversation|session)/i.test(lq2)||/^(show|open) my chats$/i.test(lq2)){
      const list=sessions.all();
-     addMsg(msgTag(),list.length?"📚 You have "+list.length+" saved chat"+(list.length>1?"s":"")+": "+list.slice(0,5).map((s,i)=>(i+1)+". "+s.title).join(" · ")+(list.length>5?" …":" — they're in the CHATS panel; tap one to open it."):"No saved chats yet — this is the first one.","aura");
+     addMsg(msgTag(),list.length?"📚 You have "+list.length+" saved chat"+(list.length>1?"s":"")+": "+list.slice(0,5).map((s,i)=>(i+1)+". "+s.title).join(" · ")+(list.length>5?" …":" — open the CHATS tab up top; tap one to continue it."):"No saved chats yet — this is the first one.","aura");
      setMode("idle");busy=false;if(wake)armWake(400);return;}}
   const tk=taskCommand(text);
   if(tk){pushSys("task executed · "+tk.eng.split("· ")[1]);$("engTag").textContent="engine: "+tk.eng;$("tEng").textContent="TASK";
@@ -2295,6 +2407,14 @@ function taskCommand(raw){
 })();
 if(location.protocol==="file:"){setTimeout(()=>pushSys("local-file mode — mic & voice need the live site (sourabh7300.github.io) or a local server"),3500)}
 updateEngTag();
+/* ---------------- TAB PAGES wiring ---------------- */
+(function(){
+  const bar=document.getElementById("tabbar");if(!bar)return;
+  const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions()};
+  bar.querySelectorAll("button").forEach(b=>b.onclick=()=>apply(b.dataset.t));
+  apply("chat");
+})();
+setInterval(()=>{try{const c=document.getElementById("sessCount");if(c&&document.body.dataset.tab==="chats")renderSessions()}catch(e){}},4000);
 </script>
 </body>
 </html>
