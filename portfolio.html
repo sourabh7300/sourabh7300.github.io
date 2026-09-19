@@ -5,6 +5,23 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sourabh Singh — Web Development Portfolio | JECRC University</title>
 <meta name="description" content="Portfolio of Sourabh Singh, B.Tech CSE student at JECRC University (AI, DevOps & Cloud Automation) — five hand-built web apps running live.">
+<!-- Open Graph / WhatsApp / LinkedIn preview card -->
+<meta property="og:type" content="website">
+<meta property="og:title" content="Sourabh Singh — Web Development Portfolio">
+<meta property="og:description" content="B.Tech CSE (AI, DevOps & Cloud Automation), JECRC University — live-embedded web apps: AURA & JARVIS AI assistants, real-time food ordering, photo studio. 100% hand-coded, no frameworks.">
+<meta property="og:url" content="https://sourabh7300.github.io/">
+<meta property="og:image" content="https://sourabh7300.github.io/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sourabh Singh — Web Development Portfolio">
+<meta name="twitter:description" content="AURA & JARVIS AI, live food ordering, photo studio — all hand-coded vanilla JS.">
+<meta name="twitter:image" content="https://sourabh7300.github.io/og-card.png">
+<!-- favicon + PWA -->
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0f1e">
 <script>try{if(localStorage.getItem('pf-theme')==='light')document.documentElement.dataset.theme='light'}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -1134,6 +1151,9 @@ function renderGhFilters(){
 new IntersectionObserver((es,o)=>es.forEach(e=>{if(e.isIntersecting){unlock('github');o.disconnect()}}),{threshold:.25}).observe(document.getElementById('github'));
 
 updateAchUI();
+
+/* PWA service worker — installable app + offline shell */
+if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(()=>{})}
 </script>
 </body>
 </html>
