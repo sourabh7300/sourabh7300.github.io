@@ -2132,21 +2132,15 @@ async function askCore(text0){
      duel(topic);setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* JARVIS TASK ENGINE — do things, not just say things */
   {const lq2=(text||"").toLowerCase().trim();
-   if(/^(open|make|create|generate|convert|turn|give|get)\b[\s\S]*\bpdf\b[\s\S]*\b(file|files|document|documents|folder|laptop|local|my)\b|^\bmy files?\b[\s\S]*\bpdf\b|^\bpdf\b[\s\S]*\bmy (files|documents|folder)\b/i.test(lq)){
+   if(/^(open|make|create|generate|convert|turn|give|get)\b[\s\S]*\bpdf\b[\s\S]*\b(file|files|document|documents|folder|laptop|local|my)\b|^\bmy files?\b[\s\S]*\bpdf\b|^\bpdf\b[\s\S]*\bmy (files|documents|folder)\b/i.test(lq2)){
      pickLocalFiles();
      addMsg(msgTag(),"📁 File picker is open — choose the file(s) from your laptop (txt, md, csv, json, code — up to 2 MB each). I'll read them and ask before opening the PDF.","aura");
      setMode("idle");busy=false;if(wake)armWake(400);return;}
-   if(/^(open|show|go to|switch to) (the )?(code|code (page|forge|area|mode)|coding|programming)( page| forge| area| mode)?$/i.test(lq)||/^code (page|mode|area)$/i.test(lq)){
+   if(/^(open|show|go to|switch to) (the )?(code|code (page|forge|area|mode)|coding|programming)( page| forge| area| mode)?$/i.test(lq2)||/^code (page|mode|area)$/i.test(lq2)){
      document.querySelector('#tabbar button[data-t="code"]').click();
      addMsg(msgTag(),"⌨ CODE FORGE open — pick a language (25 installed: python, java, c++, rust, go, react…), describe what to build, hit ⚡ BUILD. JavaScript and HTML run live in the output pane; everything downloads with ⤓.","aura");
      if(voiceAllowed())speak("Code forge open. What shall we build?");setMode("idle");busy=false;if(wake)armWake(400);return;}
    if(/^(open|show) (the )?(sheet|study sheet|document|pdf)$/i.test(lq2)){openPendingDoc();setMode("idle");busy=false;if(wake)armWake(400);return;}
-   if(/(switch|change|set|make).{0,12}theme|theme (to|in)|classical (mode|theme)|parchment (mode|theme)/i.test(lq)){
-     const m2=lq.match(/(classical|old|vintage|parchment|gold|cyan|futuristic)/i)?lq.match(/(classical|old|vintage|parchment|gold|cyan|futuristic)/i)[1].toLowerCase():null;
-     if(!m2){const id2=(localStorage.getItem("aura_theme")||"cyan")==="classical"?"cyan":"classical";applyTheme(id2);addMsg(msgTag(),"Theme → "+id2.toUpperCase()+".","aura");setMode("idle");busy=false;if(wake)armWake(400);return;}
-     const id=m2==="classical"||m2==="old"||m2==="vintage"||m2==="parchment"?"classical":m2==="gold"?"gold":"cyan";
-     applyTheme(id);addMsg(msgTag(),id==="classical"?"📜 Classical theme engaged — parchment, ink and Georgia serifs. The old observatory look.":"Theme switched to "+id.toUpperCase()+".","aura");
-     if(voiceAllowed())speak(id==="classical"?"Classical theme engaged.":"Theme switched.");setMode("idle");busy=false;if(wake)armWake(400);return;}
    if(/^(new chat|new conversation|clear chat|reset chat|start (a )?new chat)\b/i.test(lq2)){
      sessions.newChat();log.innerHTML="";
      addMsg(msgTag(),"🆕 Fresh chat opened — old sessions are saved in the CHATS panel, tap any to revisit.","aura");
