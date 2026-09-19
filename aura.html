@@ -169,7 +169,25 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 #tabbar button:hover{border-color:var(--line);color:var(--cy2)}
 #tabbar button.on{color:var(--cy2);border-color:var(--line);background:rgba(34,211,238,.14)}
 body:not([data-tab="system"]) #telemetry,body:not([data-tab="system"]) #syslog{display:none}
-body[data-tab="chats"] #conv,body[data-tab="system"] #conv{display:none}
+body[data-tab="chats"] #conv,body[data-tab="system"] #conv,body[data-tab="code"] #conv{display:none}
+body[data-tab="code"] #dock{opacity:.25;pointer-events:none}
+#codePage{display:none;position:fixed;top:74px;left:22px;right:22px;bottom:130px;z-index:9;flex-direction:column;gap:10px}
+body[data-tab="code"] #codePage{display:flex}
+#codeTop{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#codeLang{background:var(--panel);border:1px solid var(--line);color:var(--cy2);font-family:var(--mono);font-size:12px;padding:9px 12px;border-radius:9px;outline:none;cursor:pointer}
+#codePrompt{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line2);color:var(--ice);border-radius:9px;padding:10px 14px;font-size:13.5px;font-family:var(--mono);outline:none}
+#codePrompt:focus{border-color:var(--line)}
+.cbtn{background:rgba(34,211,238,.12);border:1px solid var(--line);color:var(--cy2);border-radius:9px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--mono);letter-spacing:.5px;transition:.2s}
+.cbtn:hover{background:rgba(34,211,238,.25)}
+#codeSplit{flex:1;display:flex;gap:10px;min-height:0}
+#codeEdWrap,#codeOutWrap{flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line2);border-radius:12px;overflow:hidden;min-width:0}
+#codeEdWrap h4,#codeOutWrap h4{font-family:'Orbitron';font-size:9.5px;letter-spacing:2px;color:var(--dim);padding:9px 14px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center}
+#codeEditor{flex:1;background:rgba(1,8,12,.55);color:#d7fbff;border:none;outline:none;resize:none;padding:14px;font-family:var(--mono);font-size:12.5px;line-height:1.55;white-space:pre;overflow:auto;tab-size:2}
+#codeRun{flex:1;background:rgba(1,8,12,.55);padding:0;overflow:hidden}
+#codeFrame{width:100%;height:100%;border:none;background:#fff}
+#codeLog{position:absolute;bottom:0;left:0;right:0;max-height:38%;overflow:auto;background:rgba(2,10,16,.92);border-top:1px solid var(--line2);padding:10px 14px;font-family:var(--mono);font-size:11.5px;color:#9fe8f5;white-space:pre-wrap;display:none}
+#codeOutWrap{position:relative}
+@media(max-width:860px){#codeSplit{flex-direction:column}#codePage{top:88px;left:8px;right:8px;bottom:198px}}
 #sessPanel{display:none;top:74px;right:22px;width:min(440px,40vw);bottom:130px;flex-direction:column;overflow:hidden}
 body[data-tab="chats"] #sessPanel{display:flex}
 #sessSide{display:flex;flex-direction:column;flex:1;overflow:hidden}
@@ -208,7 +226,37 @@ body[data-tab="chats"] #sessPanel{display:flex}
 }
 /* widened chat for breathing room */
 #conv{width:min(470px,42vw)}
-/* ---------------- jarvis setup wizard ---------------- */
+/* ---------------- CLASSICAL THEME (parchment & ink) ---------------- */
+body.theme-classical{
+  --bg:#f3ead7;--cy:#8b5e34;--cy2:#6b4226;--dim:#a08662;--ice:#2e2216;
+  --panel:rgba(252,247,235,.88);--line:rgba(139,94,52,.45);--line2:rgba(139,94,52,.22);--amber:#a16207;
+}
+body.theme-classical ::selection{background:#c9a86a;color:#2e2216}
+body.theme-classical .panel,body.theme-classical #stateBox,body.theme-classical #tabbar button,body.theme-classical #codeLang{backdrop-filter:none;box-shadow:0 2px 10px rgba(90,60,20,.08)}
+body.theme-classical .panel{border:1px solid var(--line);border-radius:8px}
+body.theme-classical .wordmark{color:#6b4226;text-shadow:none;font-family:Georgia,'Times New Roman',serif}
+body.theme-classical .wordmark small{font-family:Georgia,serif;letter-spacing:2.5px}
+body.theme-classical .panel h3,body.theme-classical .msg .who,body.theme-classical #codeEdWrap h4,body.theme-classical #codeOutWrap h4{font-family:Georgia,serif;letter-spacing:1.6px;color:#8b5e34}
+body.theme-classical .msg{font-family:Georgia,'Times New Roman',serif;font-size:15px;line-height:1.65}
+body.theme-classical .msg.aura .who{color:#8b5e34}
+body.theme-classical #q,body.theme-classical #codePrompt,body.theme-classical #codeEditor{font-family:Georgia,serif;font-size:14.5px;background:rgba(255,252,244,.8);color:#2e2216}
+body.theme-classical .chip,body.theme-classical .ibtn,body.theme-classical .cbtn,body.theme-classical #sessNew,body.theme-classical #docAsk .da-row button{background:rgba(139,94,52,.08);border:1px solid var(--line);color:#6b4226;font-family:Georgia,serif}
+body.theme-classical .chip:hover,body.theme-classical .ibtn:hover{background:rgba(139,94,52,.18)}
+body.theme-classical #stateText{color:#6b4226}
+body.theme-classical #clock b,body.theme-classical #clock span{color:#6b4226}
+body.theme-classical .msg.user .who{color:#a16207}
+body.theme-classical #sessQ{background:rgba(255,252,244,.8);color:#2e2216;font-family:Georgia,serif}
+body.theme-classical #dock{background:transparent}
+body.theme-classical #sendBtn{background:#8b5e34;color:#fdf8ec;border-color:#6b4226}
+body.theme-classical #micBtn{border-color:var(--line);color:#6b4226}
+body.theme-classical #codeEditor{color:#3d2c18;font-family:'Consolas','Courier New',monospace;font-size:12.5px}
+body.theme-classical #codeFrame{background:#fffdf6}
+body.theme-classical #boot{background:#f3ead7}
+body.theme-classical #bootLog{color:#6b4226}
+body.theme-classical #stopBtn{background:#8b5e34;color:#fff}
+body.theme-classical .wiz-card{background:#fbf5e6;border-color:var(--line);color:#2e2216}
+body.theme-classical .wiz-in{background:#fffdf4;color:#2e2216;border-color:var(--line)}
+body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical .wiz-why{color:#5c4a32}
 .wiz{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;background:rgba(2,8,14,.82);backdrop-filter:blur(6px)}
 .wiz.show{display:flex}
 .wiz-card{width:min(560px,92vw);max-height:88vh;overflow:auto;background:linear-gradient(160deg,#0b1520,#071018);border:1px solid #1e3a4d;border-radius:14px;padding:26px 26px 20px;box-shadow:0 0 60px rgba(34,211,238,.16);font-family:inherit}
@@ -261,6 +309,7 @@ body[data-tab="chats"] #sessPanel{display:flex}
 <div id="tabbar">
   <button data-t="chat" class="on">💬 CHAT</button>
   <button data-t="chats">📚 CHATS</button>
+  <button data-t="code">⌨ CODE</button>
   <button data-t="system">🛠 SYSTEM</button>
 </div>
 
@@ -300,6 +349,26 @@ body[data-tab="chats"] #sessPanel{display:flex}
   </div>
 </div>
 
+<div id="codePage">
+  <div id="codeTop">
+    <select id="codeLang">
+      <option value="javascript">JavaScript</option><option value="html">HTML (live page)</option><option value="python">Python</option>
+      <option value="java">Java</option><option value="c">C</option><option value="cpp">C++</option><option value="csharp">C#</option>
+      <option value="go">Go</option><option value="rust">Rust</option><option value="typescript">TypeScript</option>
+      <option value="php">PHP</option><option value="ruby">Ruby</option><option value="swift">Swift</option><option value="kotlin">Kotlin</option>
+      <option value="sql">SQL</option><option value="bash">Bash</option><option value="r">R</option><option value="matlab">MATLAB</option>
+      <option value="dart">Dart</option><option value="scala">Scala</option><option value="perl">Perl</option><option value="lua">Lua</option>
+      <option value="haskell">Haskell</option><option value="css">CSS</option><option value="react">React (JSX)</option>
+    </select>
+    <input id="codePrompt" placeholder="Describe what to build — e.g. “a python script that renames all photos by date”…">
+    <button class="cbtn" id="codeGen">⚡ BUILD</button>
+  </div>
+  <div id="codeSplit">
+    <div id="codeEdWrap"><h4><span>CODE</span><span><button class="cbtn" id="codeRunBtn" style="padding:5px 10px;font-size:10px">▶ RUN</button> <button class="cbtn" id="codeDl" style="padding:5px 10px;font-size:10px">⤓ SAVE</button> <button class="cbtn" id="codeCopy" style="padding:5px 10px;font-size:10px">⧉</button></span></h4><textarea id="codeEditor" spellcheck="false" placeholder="// your code appears here — write it yourself, or describe it above and hit BUILD"></textarea></div>
+    <div id="codeOutWrap"><h4><span>OUTPUT</span><button class="cbtn" id="codeClear" style="padding:5px 10px;font-size:10px">✕ clear</button></h4><iframe id="codeFrame" sandbox="allow-scripts"></iframe><div id="codeLog"></div></div>
+  </div>
+</div>
+
 <div id="dock">
   <div id="chipsMobile" style="display:flex;gap:7px;flex-wrap:wrap;justify-content:center"></div>
   <div id="micWrap">
@@ -319,6 +388,7 @@ body[data-tab="chats"] #sessPanel{display:flex}
   <button class="ibtn" id="personaBtn" title="One-tap switch between AURA and JARVIS">MODE: AURA</button>
   <button class="ibtn" id="keyBtn">SET AI KEY</button>
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
+  <button class="ibtn" id="themeBtn" title="Switch interface style: Futuristic / Gold / Classical">🎨 CYAN</button>
   </div>
 </div>
 
@@ -1961,6 +2031,15 @@ async function askCore(text0){
     addMsg(msgTag(),"Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey "+PERSONAS[persona()].name+"'.","aura");
     pushSys("voice muted by command");
     setMode("idle");busy=false;return;}
+  /* THEME SWITCH — classical / gold / cyan, typed or spoken */
+  {const lqt=(text||"").toLowerCase().trim();
+   if(/(switch|change|set|make).{0,12}theme|theme (to|in)|classical (mode|theme|look)|parchment (mode|theme|look)|^(classical|parchment) mode$/i.test(lqt)){
+     const m2=lqt.match(/(classical|old|vintage|parchment|gold|cyan|futuristic)/i);
+     const id=m2?(m2[1]==="classical"||m2[1]==="old"||m2[1]==="vintage"||m2[1]==="parchment"?"classical":m2[1]==="gold"?"gold":"cyan"):((localStorage.getItem("aura_theme")||"cyan")==="classical"?"cyan":"classical");
+     applyTheme(id);
+     addMsg(msgTag(),id==="classical"?"📜 Classical theme engaged — parchment, ink and Georgia serifs. The old observatory look.":"Theme switched to "+id.toUpperCase()+".","aura");
+     if(voiceAllowed())speak(id==="classical"?"Classical theme engaged.":"Theme switched.");
+     setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* MCQ STUDY MODE — quiz me on <topic> */
   {const qm=(text||"").match(/^(?:quiz me on|mcq on|test me on|quiz on)\s+(.{2,60})$/i)||((text||"").toLowerCase().match(/^(?:क्विज़|क्विज|प्रश्नोत्तरी)\s*(?:पर|on)?\s*(.{2,60})$/i));
    if(qm){mcqStart(qm[1].replace(/[?.!]+$/,"").trim());setMode("idle");busy=false;if(wake)armWake(400);return;}
@@ -2057,7 +2136,17 @@ async function askCore(text0){
      pickLocalFiles();
      addMsg(msgTag(),"📁 File picker is open — choose the file(s) from your laptop (txt, md, csv, json, code — up to 2 MB each). I'll read them and ask before opening the PDF.","aura");
      setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/^(open|show|go to|switch to) (the )?(code|code (page|forge|area|mode)|coding|programming)( page| forge| area| mode)?$/i.test(lq)||/^code (page|mode|area)$/i.test(lq)){
+     document.querySelector('#tabbar button[data-t="code"]').click();
+     addMsg(msgTag(),"⌨ CODE FORGE open — pick a language (25 installed: python, java, c++, rust, go, react…), describe what to build, hit ⚡ BUILD. JavaScript and HTML run live in the output pane; everything downloads with ⤓.","aura");
+     if(voiceAllowed())speak("Code forge open. What shall we build?");setMode("idle");busy=false;if(wake)armWake(400);return;}
    if(/^(open|show) (the )?(sheet|study sheet|document|pdf)$/i.test(lq2)){openPendingDoc();setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/(switch|change|set|make).{0,12}theme|theme (to|in)|classical (mode|theme)|parchment (mode|theme)/i.test(lq)){
+     const m2=lq.match(/(classical|old|vintage|parchment|gold|cyan|futuristic)/i)?lq.match(/(classical|old|vintage|parchment|gold|cyan|futuristic)/i)[1].toLowerCase():null;
+     if(!m2){const id2=(localStorage.getItem("aura_theme")||"cyan")==="classical"?"cyan":"classical";applyTheme(id2);addMsg(msgTag(),"Theme → "+id2.toUpperCase()+".","aura");setMode("idle");busy=false;if(wake)armWake(400);return;}
+     const id=m2==="classical"||m2==="old"||m2==="vintage"||m2==="parchment"?"classical":m2==="gold"?"gold":"cyan";
+     applyTheme(id);addMsg(msgTag(),id==="classical"?"📜 Classical theme engaged — parchment, ink and Georgia serifs. The old observatory look.":"Theme switched to "+id.toUpperCase()+".","aura");
+     if(voiceAllowed())speak(id==="classical"?"Classical theme engaged.":"Theme switched.");setMode("idle");busy=false;if(wake)armWake(400);return;}
    if(/^(new chat|new conversation|clear chat|reset chat|start (a )?new chat)\b/i.test(lq2)){
      sessions.newChat();log.innerHTML="";
      addMsg(msgTag(),"🆕 Fresh chat opened — old sessions are saved in the CHATS panel, tap any to revisit.","aura");
@@ -2451,7 +2540,73 @@ updateEngTag();
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>apply(b.dataset.t));
   apply("chat");
 })();
+/* ---------------- CODE FORGE: AI builds code in 25 languages ---------------- */
+const CODE_LANGS={javascript:"js",html:"html",css:"css",python:"py",java:"java",c:"c",cpp:"cpp",csharp:"cs",go:"go",rust:"rs",typescript:"ts",php:"php",ruby:"rb",swift:"swift",kotlin:"kt",sql:"sql",bash:"sh",r:"r",matlab:"m",dart:"dart",scala:"scala",perl:"pl",lua:"lua",haskell:"hs",react:"jsx"};
+function codeLog(t){const el=document.getElementById("codeLog");if(!el)return;el.style.display="block";el.textContent+=t+"\n";el.scrollTop=el.scrollHeight}
+function runCode(){
+  const lang=document.getElementById("codeLang").value;
+  const src=document.getElementById("codeEditor").value;
+  const fr=document.getElementById("codeFrame"),lg=document.getElementById("codeLog");
+  lg.style.display="block";lg.textContent="";
+  if(!src.trim()){codeLog("// editor is empty — write or BUILD code first");return}
+  if(lang==="html"||lang==="react"&&/return\s*\(/.test(src)===false){
+    let doc=src;
+    if(lang==="react"){doc="<div id='root'></div><"+"script src='https://unpkg.com/react@18/umd/react.production.min.js'><"+"/"+"script>"+"<"+"script src='https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'><"+"/"+"script>"+"<"+"script>try{"+src.replace(/export default /,"")+"}catch(e){document.body.textContent='Error: '+e.message}<"+"/"+"script>"}
+    fr.srcdoc=doc;codeLog("▶ rendered "+lang.toUpperCase()+" page");
+  } else if(lang==="javascript"||lang==="typescript"){
+    let js=src;
+    if(lang==="typescript")js=js.replace(/:\s*[A-Za-z<>\[\]|]+(?=\s*[=,)])/g,"").replace(/interface [\s\S]*?\{[\s\S]*?\}/g,"");
+    fr.srcdoc="<!doctype html><html><body><"+"script>"+"const _send=s=>{try{parent.postMessage({codeLog:s},'*')}catch(e){}};"+"const _ol=console.log;console.log=(...a)=>{_ol(...a);_send(a.map(String).join(' '))};"+"window.onerror=m=>_send('ERR '+m);"+"try{"+js+"}catch(e){_send('ERR '+e.message)}"+"<"+String.fromCharCode(47)+"script>";
+    codeLog("▶ running JavaScript — output below (console.log appears here)");
+  } else {
+    codeLog("▶ "+lang+" is a compiled/interpreter language — browsers can only RUN javascript & html.");
+    codeLog("  Your code stays in the editor: SAVE it, run it locally (python "+CODE_LANGS[lang]+" file, etc.), or hit BUILD again with 'explain' for a how-to-run guide.");
+  }
+  window.addEventListener("message",function h(ev){try{const d=typeof ev.data==="string"?JSON.parse(ev.data):ev.data;if(d&&d.codeLog){codeLog(d.codeLog)}}catch(e){}});
+}
+async function buildCode(){
+  const lang=document.getElementById("codeLang").value;
+  const q=document.getElementById("codePrompt").value.trim();
+  if(!q){codeLog("// describe what to build in the prompt box first");return}
+  if(!geminiKey()){codeLog("// BUILD needs your free AI key — SET AI KEY (gsk_…) powers the forge");return}
+  const btn=document.getElementById("codeGen");btn.textContent="⏳ FORGING…";btn.disabled=true;
+  try{
+    const sys="You are "+PERSONAS[persona()].name+"'s CODE FORGE. Produce complete, working, well-commented "+lang+" code for the request. Output ONLY the code, no markdown fences, no prose before or after. Include brief comments where helpful.";
+    let out="";
+    try{out=await groqCall([{role:"system",content:sys},{role:"user",content:q}],3000)}
+    catch(e){out=await groqCall([{role:"system",content:sys},{role:"user",content:q}],3000)}
+    out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,'').trim();
+    if(out)document.getElementById("codeEditor").value=out;
+    codeLog(out?"✓ forged "+out.split("\n").length+" lines of "+lang+" — hit ▶ RUN (js/html render live) or ⤓ SAVE":"// forge came back empty — try again or rephrase");
+  }catch(e){codeLog("// forge failed: "+(e.message||e)+" — check key/quota")}
+  btn.textContent="⚡ BUILD";btn.disabled=false;
+}
+(function(){
+  const g=document.getElementById("codeGen");if(g)g.onclick=buildCode;
+  const r=document.getElementById("codeRunBtn");if(r)r.onclick=runCode;
+  const p=document.getElementById("codePrompt");if(p)p.addEventListener("keydown",e=>{if(e.key==="Enter")buildCode()});
+  const ed=document.getElementById("codeEditor");if(ed)ed.addEventListener("keydown",e=>{if(e.key==="Tab"){e.preventDefault();const s=ed.selectionStart;ed.value=ed.value.slice(0,s)+"  "+ed.value.slice(ed.selectionEnd);ed.selectionStart=ed.selectionEnd=s+2}});
+  const dl=document.getElementById("codeDl");if(dl)dl.onclick=()=>{const lang=document.getElementById("codeLang").value;const src=document.getElementById("codeEditor").value;if(!src.trim()){codeLog("// nothing to save");return}const ext=CODE_LANGS[lang]||"txt";const blob=new Blob([src],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="forge-output."+ext;a.click();codeLog("⤓ saved forge-output."+ext)};
+  const cp=document.getElementById("codeCopy");if(cp)cp.onclick=()=>{const src=document.getElementById("codeEditor").value;navigator.clipboard?navigator.clipboard.writeText(src).then(()=>codeLog("⧉ copied to clipboard")):codeLog("// copy unsupported")};
+  const cc=document.getElementById("codeClear");if(cc)cc.onclick=()=>{const fr=document.getElementById("codeFrame");fr.srcdoc="";const lg=document.getElementById("codeLog");lg.textContent="";lg.style.display="none"};
+})();
 setInterval(()=>{try{const c=document.getElementById("sessCount");if(c&&document.body.dataset.tab==="chats")renderSessions()}catch(e){}},4000);
+/* ---------------- THEME Cycler: Cyan(futuristic) → Gold → Classical(parchment) ---------------- */
+const THEMES=[{id:"cyan",label:"🎨 CYAN"},{id:"gold",label:"🎨 GOLD"},{id:"classical",label:"🎨 CLASSICAL"}];
+function applyTheme(id){
+  document.body.classList.toggle("theme-classical",id==="classical");
+  const tb=document.getElementById("themeBtn");if(tb)tb.textContent=THEMES.find(t=>t.id===id).label;
+  try{localStorage.setItem("aura_theme",id)}catch(e){}
+  if(id==="gold"&&!document.body.dataset.persona)setHue("gold");
+  if(id==="cyan"&&persona()!=="jarvis")setHue("cyan");
+  if(id==="classical")setHue("gold");
+}
+(function(){
+  const tb=document.getElementById("themeBtn");if(!tb)return;
+  let cur="cyan";try{cur=localStorage.getItem("aura_theme")||"cyan"}catch(e){}
+  if(cur==="classical"||cur==="gold")setTimeout(()=>applyTheme(cur),150);
+  tb.onclick=()=>{const i=THEMES.findIndex(t=>t.id===cur);cur=THEMES[(i+1)%THEMES.length].id;applyTheme(cur);pushSys("theme → "+cur.toUpperCase()+(cur==="classical"?" — parchment & ink, as the old engineers preferred":""))};
+})();
 </script>
 </body>
 </html>
