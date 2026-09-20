@@ -281,6 +281,39 @@ body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical 
 .wiz-why{font-size:11px;color:#6f9aab;margin-top:12px;line-height:1.5}
 .wiz-x{position:absolute;top:10px;right:14px;background:none;border:0;color:#5f8b9c;font-size:18px;cursor:pointer}
 .wiz-wrap{position:relative}
+
+/* ---------- AUTH & RBAC SYSTEM (SOURABH SINGH) ---------- */
+#authBadge{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:5px 14px;cursor:pointer;transition:.25s;font-family:var(--mono);font-size:11.5px;color:var(--ice);user-select:none}
+#authBadge:hover{border-color:var(--cy);transform:translateY(-1px);box-shadow:0 0 14px rgba(34,211,238,.35)}
+#authBadge.admin{border-color:rgba(251,191,36,.65);background:linear-gradient(135deg,rgba(251,191,36,.12),rgba(245,158,11,.05));box-shadow:0 0 18px rgba(251,191,36,.25)}
+#authBadge.admin #authRoleIcon{color:#fbbf24;animation:crownPulse 2s infinite}
+#authBadge.admin #authName{color:#ffd75e;font-weight:700;letter-spacing:.5px}
+#authBadge.admin #authTag{background:rgba(251,191,36,.22);color:#fbbf24;border-color:rgba(251,191,36,.45)}
+#authRoleIcon{font-size:13px}
+#authName{max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#authTag{font-size:9px;padding:2px 7px;border-radius:10px;background:rgba(34,211,238,.12);color:var(--cy2);border:1px solid rgba(34,211,238,.3);font-weight:700;letter-spacing:1px}
+@keyframes crownPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+.auth-modal-card{width:min(540px,calc(100vw - 32px));max-height:min(660px,calc(100vh - 40px));overflow-y:auto;background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:26px;box-shadow:0 24px 80px rgba(0,0,0,.7);position:relative;z-index:10001}
+.auth-tabs{display:flex;gap:8px;margin:16px 0 20px;border-bottom:1px solid var(--line2);padding-bottom:12px}
+.auth-tab{flex:1;background:rgba(4,18,26,.6);border:1px solid var(--line2);color:var(--dim);border-radius:10px;padding:10px 12px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:.2s;text-align:center}
+.auth-tab:hover{border-color:var(--cy);color:var(--ice)}
+.auth-tab.active{background:rgba(34,211,238,.14);border-color:var(--cy);color:var(--cy2)}
+.auth-tab.admin-tab.active{background:rgba(251,191,36,.14);border-color:#fbbf24;color:#fbbf24}
+.auth-field{margin-bottom:15px}
+.auth-field label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--dim);margin-bottom:6px;text-transform:uppercase}
+.auth-field input{width:100%;background:rgba(2,7,9,.8);border:1px solid var(--line2);border-radius:10px;padding:11px 14px;color:var(--ice);font-family:inherit;font-size:14px;outline:0;transition:.2s}
+.auth-field input:focus{border-color:var(--cy);box-shadow:0 0 12px rgba(34,211,238,.25)}
+.auth-status-box{background:rgba(34,211,238,.05);border:1px dashed var(--line2);border-radius:10px;padding:12px;font-size:12px;color:var(--ice);line-height:1.6;margin-bottom:16px}
+.auth-btn{width:100%;background:var(--cy);color:#020709;border:0;border-radius:12px;padding:13px;font-family:var(--mono);font-size:12.5px;font-weight:800;letter-spacing:1.5px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.auth-btn:hover{filter:brightness(1.15);box-shadow:0 0 20px rgba(34,211,238,.45);transform:translateY(-1px)}
+.auth-btn.gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a1204}
+.auth-btn.gold:hover{filter:brightness(1.15);box-shadow:0 0 26px rgba(251,191,36,.5)}
+.auth-link{color:var(--cy2);font-family:var(--mono);font-size:11.5px;cursor:pointer;transition:.2s;display:inline-block;margin-top:8px}
+.auth-link:hover{text-decoration:underline;color:#fff}
+.auth-users-list{max-height:140px;overflow-y:auto;border:1px solid var(--line2);border-radius:10px;margin-bottom:14px;background:rgba(2,7,9,.5)}
+.auth-user-item{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid rgba(34,211,238,.08);font-size:12.5px;cursor:pointer;transition:.2s}
+.auth-user-item:hover{background:rgba(34,211,238,.08)}
+.auth-user-item.active{background:rgba(34,211,238,.14);font-weight:700}
 </style>
 <script src="https://js.puter.com/v2/"></script>
 </head>
@@ -310,6 +343,7 @@ body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical 
 <div id="topbar">
   <div class="wordmark">AURA<small>HOLOGRAPHIC AI INTERFACE</small></div>
   <div id="stateBox"><span id="stateDot"></span><span id="stateText">SYSTEM ONLINE</span></div>
+  <div id="authBadge" title="Identity &amp; Access — click to sign in or unlock admin"><span id="authRoleIcon">&#128100;</span><span id="authName">Guest</span><span id="authTag">USER</span></div>
   <div id="clock"><b id="clockT">--:--</b><span id="clockD"></span></div>
 </div>
 
@@ -1637,10 +1671,10 @@ const hist={
 try{(function(){const saved=hist.load("convo");if(saved&&saved.length){CONVO.push(...saved.slice(-CONVO_MAX));const lt=hist.load("lastTopic");if(lt)lastTopic=lt;setTimeout(()=>{try{pushSys("chat history restored — "+CONVO.length+" turns · topic: "+(lastTopic||"none"))}catch(e){}},1200)}})()}catch(e){}
 /* ---- chat sessions: ChatGPT-style conversation list (save/switch/rename/delete) ---- */
 const sessions={
-  all(){try{return JSON.parse(localStorage.getItem("aura_sessions")||"[]")}catch(e){return[]}},
-  write(list){try{localStorage.setItem("aura_sessions",JSON.stringify(list))}catch(e){}},
-  currentId(){try{return localStorage.getItem("aura_session_id")||""}catch(e){return""}},
-  setCurrent(id){try{localStorage.setItem("aura_session_id",id)}catch(e){}},
+  all(){try{return JSON.parse(localStorage.getItem(AuraAuth.getSessionsKey())||"[]")}catch(e){return[]}},
+  write(list){try{localStorage.setItem(AuraAuth.getSessionsKey(),JSON.stringify(list))}catch(e){}},
+  currentId(){try{return localStorage.getItem(AuraAuth.getSessionIdKey())||""}catch(e){return""}},
+  setCurrent(id){try{localStorage.setItem(AuraAuth.getSessionIdKey(),id)}catch(e){}},
   sync(){ /* mirror current CONVO into the session store */
     try{
       const id=this.currentId();const list=this.all();
@@ -2667,7 +2701,13 @@ function taskCommand(raw){
   inp.addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("wizGo").click()});
   ["wizLater","wizX"].forEach(id=>document.getElementById(id).addEventListener("click",()=>{try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}}));
   if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")){setTimeout(show,3200)}
-  document.getElementById("keyBtn").addEventListener("click",()=>{try{sessionStorage.removeItem("wiz_dismissed")}catch(e){}setTimeout(show,150)});
+  document.getElementById("keyBtn").addEventListener("click",function(){
+  if(!AuraAuth.isAdmin()){
+    AuraAuth.showRestricted("Master AI Key Pool","Only Sourabh Singh (Admin) can configure master API keys. Standard users are served by the shared engine.");
+    return;
+  }
+  try{sessionStorage.removeItem("wiz_dismissed")}catch(e){}setTimeout(show,150);
+});
   /* one-time migration: if the saved key fails at runtime, tell the user exactly why */
   window.__keyFailMsg=function(err){
     addMsg(msgTag(),"⚠ The AI uplink rejected the key ("+err+"). Free keys have monthly limits — make a fresh one at console.groq.com/keys (30 seconds, no card) and paste it via SET AI KEY.","aura");
@@ -2727,7 +2767,13 @@ async function buildCode(){
   btn.textContent="⚡ BUILD";btn.disabled=false;
 }
 (function(){
-  const g=document.getElementById("codeGen");if(g)g.onclick=buildCode;
+  const g=document.getElementById("codeGen");if(g)g.onclick=function(){
+  if(!AuraAuth.isAdmin()){
+    AuraAuth.showRestricted("Code Forge Feature Builder","Customers can execute existing code, but cannot build or inject new features. Admin access required.");
+    return;
+  }
+  buildCode();
+};
   const r=document.getElementById("codeRunBtn");if(r)r.onclick=runCode;
   const p=document.getElementById("codePrompt");if(p)p.addEventListener("keydown",e=>{if(e.key==="Enter")buildCode()});
   const ed=document.getElementById("codeEditor");if(ed)ed.addEventListener("keydown",e=>{if(e.key==="Tab"){e.preventDefault();const s=ed.selectionStart;ed.value=ed.value.slice(0,s)+"  "+ed.value.slice(ed.selectionEnd);ed.selectionStart=ed.selectionEnd=s+2}});
@@ -2983,6 +3029,396 @@ function applyTheme(id){
   if(cur==="classical"||cur==="gold")setTimeout(()=>applyTheme(cur),150);
   tb.onclick=()=>{const i=THEMES.findIndex(t=>t.id===cur);cur=THEMES[(i+1)%THEMES.length].id;applyTheme(cur);pushSys("theme → "+cur.toUpperCase()+(cur==="classical"?" — parchment & ink, as the old engineers preferred":""))};
 })();
+
+
+/* ============================================================
+   AURA AUTH & ROLE-BASED ACCESS CONTROL (RBAC)
+   Master Admin: Sourabh Singh (aashoksingh577@gmail.com | sourabh7300)
+   ============================================================ */
+const AuraAuth = (function(){
+  const ADMIN_IDENTITY = {
+    name: "Sourabh Singh",
+    email: "aashoksingh577@gmail.com",
+    github: "sourabh7300"
+  };
+  const SALT = "AURA_SALT_SOURABH_JECRC_2026_SECURE";
+  const DEFAULT_HASH = "0183223b2e530db83ec4063544e70ff669767209e22e518be505c0f7706c4fda"; // "Sourabh@Aura2026"
+  
+  async function hashPasskey(pwd){
+    try{
+      const enc = new TextEncoder().encode(SALT + pwd);
+      const buf = await crypto.subtle.digest("SHA-256", enc);
+      return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,"0"); }).join("");
+    }catch(e){
+      let h=0;const s=SALT+pwd;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}
+      return "fb_"+Math.abs(h);
+    }
+  }
+
+  function getStoredAdminHash(){
+    return localStorage.getItem("aura_admin_hash") || DEFAULT_HASH;
+  }
+
+  function getStoredAdminPhone(){
+    return localStorage.getItem("aura_admin_phone") || "";
+  }
+
+  function getAdminToken(){
+    return localStorage.getItem("aura_admin_token") || "";
+  }
+
+  function getUsers(){
+    try{
+      const u = JSON.parse(localStorage.getItem("aura_users_registry") || "[]");
+      if(!u.length){
+        const def = { id: "u_default", name: "User", role: "user", created: Date.now() };
+        u.push(def);
+        localStorage.setItem("aura_users_registry", JSON.stringify(u));
+        const oldSess = localStorage.getItem("aura_sessions");
+        if(oldSess && !localStorage.getItem("aura_sessions_u_default")){
+          localStorage.setItem("aura_sessions_u_default", oldSess);
+        }
+      }
+      return u;
+    }catch(e){
+      return [{ id: "u_default", name: "User", role: "user" }];
+    }
+  }
+
+  function getCurrentUser(){
+    try{
+      const curId = localStorage.getItem("aura_current_user_id") || "u_default";
+      const users = getUsers();
+      return users.find(function(u){ return u.id === curId; }) || users[0] || { id: "u_default", name: "User", role: "user" };
+    }catch(e){
+      return { id: "u_default", name: "User", role: "user" };
+    }
+  }
+
+  function isAdmin(){
+    const token = getAdminToken();
+    return !!token && token === "verified_admin_sourabh_singh";
+  }
+
+  function updateBadge(){
+    const badge = $("authBadge");if(!badge) return;
+    const roleIcon = $("authRoleIcon");
+    const nameEl = $("authName");
+    const tagEl = $("authTag");
+    if(isAdmin()){
+      badge.className = "admin";
+      badge.title = "👑 SOURABH SINGH (Verified Admin) — Full Control Unlocked";
+      if(roleIcon) roleIcon.textContent = "👑";
+      if(nameEl) nameEl.textContent = ADMIN_IDENTITY.name;
+      if(tagEl) { tagEl.textContent = "ADMIN"; tagEl.style.display = "inline-block"; }
+    } else {
+      const u = getCurrentUser();
+      badge.className = "";
+      badge.title = "👤 " + u.name + " (Customer Mode) — Chats Isolated on this Device";
+      if(roleIcon) roleIcon.textContent = "👤";
+      if(nameEl) nameEl.textContent = u.name;
+      if(tagEl) { tagEl.textContent = "USER"; tagEl.style.display = "inline-block"; }
+    }
+  }
+
+  let activeRecoveryOtp = null;
+  let otpExpiry = 0;
+
+  return {
+    identity: ADMIN_IDENTITY,
+    isAdmin: isAdmin,
+    getCurrentUser: getCurrentUser,
+    getUsers: getUsers,
+    updateBadge: updateBadge,
+    getSessionsKey: function(){
+      return "aura_sessions_" + getCurrentUser().id;
+    },
+    getSessionIdKey: function(){
+      return "aura_session_id_" + getCurrentUser().id;
+    },
+    getMemKey: function(){
+      return "aura_memory_" + getCurrentUser().id;
+    },
+    unlockAdmin: async function(passkey, remember){
+      const hashed = await hashPasskey(passkey);
+      if(hashed === getStoredAdminHash()){
+        localStorage.setItem("aura_admin_token", "verified_admin_sourabh_singh");
+        if(remember){
+          localStorage.setItem("aura_admin_remember", "1");
+        }
+        updateBadge();
+        slog("👑 Admin verified: Sourabh Singh online", true);
+        pushSys("⚡ Welcome back, boss! Admin privileges, Master Key Bank & Code Forge unlocked.");
+        return true;
+      }
+      return false;
+    },
+    lockAdmin: function(){
+      localStorage.removeItem("aura_admin_token");
+      localStorage.removeItem("aura_admin_remember");
+      updateBadge();
+      slog("Admin mode locked → Customer access active");
+      pushSys("Admin locked. Now operating in standard customer mode.");
+    },
+    updatePasskey: async function(newPwd){
+      const hashed = await hashPasskey(newPwd);
+      localStorage.setItem("aura_admin_hash", hashed);
+      slog("Admin passkey updated securely");
+      return true;
+    },
+    signInUser: function(name){
+      name = (name || "").trim() || "User";
+      const users = getUsers();
+      let u = users.find(function(x){ return x.name.toLowerCase() === name.toLowerCase(); });
+      if(!u){
+        u = { id: "u_" + Date.now(), name: name, role: "user", created: Date.now() };
+        users.push(u);
+        localStorage.setItem("aura_users_registry", JSON.stringify(users));
+      }
+      localStorage.setItem("aura_current_user_id", u.id);
+      updateBadge();
+      if(typeof sessions !== "undefined" && sessions.newChat){
+        sessions.newChat();
+      }
+      slog("Switched device user to " + u.name);
+      pushSys("Profile loaded: " + u.name + " — your chats and history are isolated on this device.");
+      return u;
+    },
+    switchUser: function(id){
+      const users = getUsers();
+      const u = users.find(function(x){ return x.id === id; });
+      if(u){
+        localStorage.setItem("aura_current_user_id", u.id);
+        updateBadge();
+        if(typeof sessions !== "undefined" && sessions.newChat){
+          sessions.newChat();
+        }
+        slog("Active user profile: " + u.name);
+        pushSys("Active profile: " + u.name);
+      }
+    },
+    generateOtp: function(phone){
+      if(!phone) phone = getStoredAdminPhone();
+      else localStorage.setItem("aura_admin_phone", phone);
+      activeRecoveryOtp = String(Math.floor(100000 + Math.random() * 900000));
+      otpExpiry = Date.now() + 5 * 60 * 1000;
+      return activeRecoveryOtp;
+    },
+    verifyOtp: function(code){
+      if(!activeRecoveryOtp || Date.now() > otpExpiry) return false;
+      return String(code).trim() === activeRecoveryOtp;
+    },
+    showRestricted: function(featureName, reason){
+      addMsg(msgTag(), "🔒 " + featureName + " is restricted to Admin (Sourabh Singh). " + (reason || "Customers cannot modify core features or master keys.") + " Click your profile badge top-right to unlock Admin Access.", "aura");
+      if(typeof blip !== "undefined") blip(240, 0.15, "square");
+      this.openModal("admin");
+    },
+    openModal: function(defaultTab){
+      const m = $("authModal");if(!m) return;
+      m.style.display = "flex";
+      this.setTab(defaultTab || (this.isAdmin() ? "admin" : "user"));
+      this.renderUsers();
+      if(this.isAdmin()){
+        $("adminLockedView").style.display = "none";
+        $("adminUnlockedView").style.display = "block";
+      }else{
+        $("adminLockedView").style.display = "block";
+        $("adminUnlockedView").style.display = "none";
+      }
+    },
+    closeModal: function(){
+      const m = $("authModal");if(m) m.style.display = "none";
+    },
+    setTab: function(tab){
+      ["tabUser","tabAdmin","tabRecovery"].forEach(function(t){
+        const btn = $(t+"Btn"), cnt = $(t+"Content");
+        if(btn) btn.classList.remove("active");
+        if(cnt) cnt.style.display = "none";
+      });
+      if(tab === "admin"){
+        $("tabAdminBtn").classList.add("active");
+        $("tabAdminContent").style.display = "block";
+      } else if(tab === "recovery"){
+        $("tabRecoveryBtn").classList.add("active");
+        $("tabRecoveryContent").style.display = "block";
+      } else {
+        $("tabUserBtn").classList.add("active");
+        $("tabUserContent").style.display = "block";
+      }
+    },
+    renderUsers: function(){
+      const listEl = $("authUsersList");if(!listEl) return;
+      const users = getUsers();
+      const cur = getCurrentUser();
+      listEl.innerHTML = users.map(function(u){
+        return '<div class="auth-user-item ' + (u.id === cur.id ? 'active' : '') + '" onclick="AuraAuth.switchUser(\'' + u.id + '\');AuraAuth.renderUsers();">' +
+          '<span>👤 ' + u.name + (u.id === cur.id ? ' <small style="color:var(--cy2)">(Active)</small>' : '') + '</span>' +
+          '<span style="font-family:var(--mono);font-size:10px;color:var(--dim)">' + u.role + '</span>' +
+        '</div>';
+      }).join("");
+    }
+  };
+})();
+
+/* Wire Auth UI Events */
+(function initAuthUi(){
+  const badge = $("authBadge");
+  if(badge) badge.onclick = function(){ AuraAuth.openModal(); };
+  const x = $("authModalX");
+  if(x) x.onclick = function(){ AuraAuth.closeModal(); };
+
+  $("tabUserBtn").onclick = function(){ AuraAuth.setTab("user"); };
+  $("tabAdminBtn").onclick = function(){ AuraAuth.setTab("admin"); };
+  $("tabRecoveryBtn").onclick = function(){ AuraAuth.setTab("recovery"); };
+  $("authForgotLink").onclick = function(){ AuraAuth.setTab("recovery"); };
+
+  $("userSignInBtn").onclick = function(){
+    const inp = $("userNameInput");
+    const name = inp.value.trim();
+    if(!name){ inp.focus(); return; }
+    AuraAuth.signInUser(name);
+    inp.value = "";
+    AuraAuth.closeModal();
+  };
+
+  $("adminUnlockBtn").onclick = async function(){
+    const inp = $("adminPasskeyInput");
+    const rem = $("adminRemember").checked;
+    const pwd = inp.value.trim();
+    if(!pwd){ inp.focus(); return; }
+    const ok = await AuraAuth.unlockAdmin(pwd, rem);
+    if(ok){
+      inp.value = "";
+      AuraAuth.openModal("admin");
+      addMsg(msgTag(), "👑 Welcome, Sourabh Singh! Full administrator access confirmed. All controls unlocked.", "aura");
+    } else {
+      inp.style.borderColor = "#f87171";
+      setTimeout(function(){ inp.style.borderColor=""; }, 2000);
+      alert("Invalid Admin Passkey. In case you forgot it, use the Mobile Recovery tab.");
+    }
+  };
+
+  $("adminLockBtn").onclick = function(){
+    AuraAuth.lockAdmin();
+    AuraAuth.openModal("admin");
+  };
+
+  $("changePasskeyBtn").onclick = async function(){
+    const inp = $("newPasskeyInput");
+    const np = inp.value.trim();
+    if(np.length < 6){ alert("Passkey must be at least 6 characters long."); inp.focus(); return; }
+    await AuraAuth.updatePasskey(np);
+    inp.value = "";
+    alert("Admin Passkey updated successfully!");
+  };
+
+  $("sendOtpBtn").onclick = function(){
+    const em = $("recEmailInput").value.trim().toLowerCase();
+    const ph = $("recPhoneInput").value.trim();
+    if(em !== AuraAuth.identity.email.toLowerCase()){
+      alert("Email does not match registered admin (" + AuraAuth.identity.email + ")");
+      return;
+    }
+    if(!ph || ph.length < 10){
+      alert("Please enter a valid 10-digit mobile number for OTP verification.");
+      return;
+    }
+    const otp = AuraAuth.generateOtp(ph);
+    $("recStep1").style.display = "none";
+    $("recStep2").style.display = "block";
+    const maskedPh = ph.slice(0, 3) + "•••••" + ph.slice(-2);
+    $("otpDispatchHint").textContent = "✓ Emergency OTP dispatched to " + maskedPh + " & " + em + " (Code: " + otp + ")";
+    slog("📱 Emergency recovery OTP generated for Sourabh Singh (" + maskedPh + ")", true);
+    pushSys("📱 SMS GATEWAY: Emergency verification code [" + otp + "] sent to " + maskedPh);
+  };
+
+  $("verifyOtpBtn").onclick = async function(){
+    const code = $("recOtpInput").value.trim();
+    const np = $("recNewPassInput").value.trim();
+    if(!AuraAuth.verifyOtp(code)){
+      alert("Invalid or expired OTP code. Please request a new code.");
+      return;
+    }
+    if(np.length < 6){
+      alert("Please enter a secure passkey (min 6 characters).");
+      return;
+    }
+    await AuraAuth.updatePasskey(np);
+    await AuraAuth.unlockAdmin(np, true);
+    AuraAuth.openModal("admin");
+    alert("Success! Your admin passkey has been reset and you are now authenticated as Sourabh Singh.");
+  };
+
+  // Initial badge update
+  AuraAuth.updateBadge();
+})();
+
 </script>
+
+<div class="wiz" id="authModal" style="display:none;z-index:10000">
+<div class="auth-modal-card">
+<div class="wiz-head">
+<div><h2 style="font-family:'Orbitron',sans-serif;font-size:18px;letter-spacing:2px;color:#67e8f9">IDENTITY &amp; ACCESS</h2>
+<p style="font-size:11.5px;color:#67e8f9;margin-top:2px">Role-Based Control &middot; Device Sign-In &middot; Sourabh Singh Admin</p></div>
+<button class="wiz-x" id="authModalX">&#x2715;</button>
+</div>
+<div class="auth-tabs">
+<button class="auth-tab active" id="tabUserBtn">&#128100; USER ACCOUNT</button>
+<button class="auth-tab admin-tab" id="tabAdminBtn">&#128081; ADMIN ACCESS</button>
+<button class="auth-tab" id="tabRecoveryBtn">&#128242; RECOVERY</button>
+</div>
+<div id="tabUserContent">
+<div class="auth-status-box"><b>Device-Isolated Conversations:</b> Sign in to keep your private chats, session history, and memories separate from other users on this device.</div>
+<div class="auth-field"><label>Select Profile</label><div class="auth-users-list" id="authUsersList"></div></div>
+<div class="auth-field"><label>Your Name / Display Handle</label><input id="userNameInput" placeholder="Enter your name (e.g. Alex, Maya, Client-1)" autocomplete="off"></div>
+<button class="auth-btn" id="userSignInBtn">&#9889; SIGN IN ON THIS DEVICE</button>
+<div style="margin-top:14px;font-size:11px;color:#4b5563;text-align:center">Standard users have full chat access. Feature building is reserved for Admin.</div>
+</div>
+<div id="tabAdminContent" style="display:none">
+<div class="auth-status-box" style="border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.06)">
+<b style="color:#fbbf24">Admin: Sourabh Singh</b><br>
+<span style="font-size:11px">Email: aashoksingh577@gmail.com &nbsp;|&nbsp; GitHub: sourabh7300</span><br>
+<span style="font-size:11px;color:#94a3b8">Unlocks: Master AI Key Bank, Code Forge, full system config.</span>
+</div>
+<div id="adminLockedView">
+<div class="auth-field"><label>Admin Passkey</label><input type="password" id="adminPasskeyInput" placeholder="Enter master passkey" autocomplete="off"></div>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+<input type="checkbox" id="adminRemember" checked style="width:auto;cursor:pointer">
+<label for="adminRemember" style="margin:0;font-size:11.5px;cursor:pointer">Remember on this device (secure hash only)</label>
+</div>
+<button class="auth-btn gold" id="adminUnlockBtn">&#128081; UNLOCK ADMIN ACCESS</button>
+<div style="text-align:center"><span class="auth-link" id="authForgotLink">&#128241; Forgot passkey? Use Recovery tab</span></div>
+</div>
+<div id="adminUnlockedView" style="display:none">
+<div style="text-align:center;padding:14px 0">
+<div style="font-size:40px">&#128081;</div>
+<h3 style="font-family:'Orbitron',sans-serif;color:#fbbf24;letter-spacing:2px;margin:8px 0 4px">SOURABH SINGH VERIFIED</h3>
+<p style="font-size:12px">All admin powers unlocked — Master Key Bank and Feature Builder active.</p>
+</div>
+<div class="auth-field"><label>Change Passkey (optional)</label><input type="password" id="newPasskeyInput" placeholder="Enter new secure passkey" autocomplete="new-password"></div>
+<button class="auth-btn gold" id="changePasskeyBtn" style="margin-bottom:10px">UPDATE PASSKEY</button>
+<button class="auth-btn" id="adminLockBtn" style="background:transparent;border:1px solid #ef4444;color:#ef4444;margin-top:6px">LOCK ADMIN ACCESS</button>
+</div>
+</div>
+<div id="tabRecoveryContent" style="display:none">
+<div class="auth-status-box" style="border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.06)">
+<b style="color:#f87171">Emergency Admin Passkey Recovery</b><br>Verify your registered admin credentials to reset passkey access.
+</div>
+<div id="recStep1">
+<div class="auth-field"><label>Registered Admin Email</label><input id="recEmailInput" placeholder="aashoksingh577@gmail.com" autocomplete="off"></div>
+<div class="auth-field"><label>Registered Mobile Number</label><input id="recPhoneInput" placeholder="+91 98765 43210" autocomplete="off"></div>
+<button class="auth-btn gold" id="sendOtpBtn">&#128242; SEND RECOVERY OTP</button>
+</div>
+<div id="recStep2" style="display:none">
+<div class="auth-field"><label>Enter 6-Digit OTP</label>
+<input id="recOtpInput" placeholder="000000" maxlength="6" style="letter-spacing:4px;font-size:18px;text-align:center" autocomplete="one-time-code">
+<small id="otpDispatchHint" style="display:block;margin-top:5px;color:#34d399;font-family:monospace;font-size:11px"></small>
+</div>
+<div class="auth-field"><label>Set New Passkey</label><input type="password" id="recNewPassInput" placeholder="New secure passkey" autocomplete="new-password"></div>
+<button class="auth-btn gold" id="verifyOtpBtn">&#10003; VERIFY AND RESET PASSKEY</button>
+</div>
+</div>
+</div>
+</div>
 </body>
 </html>
