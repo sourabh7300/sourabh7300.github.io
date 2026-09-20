@@ -566,7 +566,7 @@ requestAnimationFrame(frame);
 
 /* ---------------- audio blips ---------------- */
 let soundOn=true,AC=null;
-function blip(f,dur,type){if(!soundOn)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();
+function blip(f,dur,type){if(!soundOn)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended"){AC.resume().catch(()=>{});}
   const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;
   o.type=type||"sine";o.frequency.value=f;
   g.gain.setValueAtTime(.001,t);g.gain.linearRampToValueAtTime(.06,t+.015);g.gain.exponentialRampToValueAtTime(.001,t+dur);
@@ -956,7 +956,8 @@ function voiceAllowed(){return wake===true||Date.now()<voiceSessionUntil}
 function stopSpeech(){speakGen++;ttsActive=false;try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
 function speak(t){
   if(!synth||!soundOn){return}
-  if(!voiceAllowed()){return} /* silent by default — voice only after wake/tap */
+  if(!voiceAllowed()){return}
+  try{if(synth.paused)synth.resume()}catch(e){} /* silent by default — voice only after wake/tap */
   try{
     const gen=++speakGen; /* any new speak() kills every older chain — no ghost speech */
     ttsActive=true;lastSpoken=t;lastSpokeAt=Date.now();
@@ -1388,26 +1389,40 @@ async function openrouterCall(messages,maxTok){
   if(!t.trim())throw new Error("empty");
   return t.trim();
 }
-const GROQ_MODELS=["openai/gpt-oss-120b","openai/gpt-oss-20b","qwen/qwen3.8-27b"];
-let groqModel="",groqKeyCache="";
+const GROQ_MODELS=["llama-3.3-70b-versatile","llama-3.1-8b-instant","deepseek-r1-distill-llama-70b","openai/gpt-oss-120b","openai/gpt-oss-20b","qwen/qwen3.8-27b"];
+let groqModel="",groqKeyCache="",groqKeyIdx=0;const __KEY_COOL={};
+function keyPool(){const out=[];const push=k=>{k=(k||"").trim();if(/^gsk_/.test(k)&&!out.includes(k))out.push(k)};
+push(localStorage.getItem("aura_key"));
+try{JSON.parse(localStorage.getItem("aura_keys")||"[]").forEach(push)}catch(e){}
+return out}
+function keyPoolSave(p){try{localStorage.setItem("aura_keys",JSON.stringify(p))}catch(e){}}
+function nextLive(pool){const now=Date.now();
+for(let i=0;i<pool.length;i++){const k=pool[(groqKeyIdx+i)%pool.length];
+if(!(__KEY_COOL[k]>now)){groqKeyIdx=(groqKeyIdx+i)%pool.length;return k}}
+return null}
+function keyStatus(){const p=keyPool(),now=Date.now();
+return {total:p.length,live:p.filter(k=>!(__KEY_COOL[k]>now)).length,cooling:p.length-p.filter(k=>!(__KEY_COOL[k]>now)).length}}
 async function groqCall(messages,maxTok,modelOverride){
   const key=geminiKey().trim();
   if(key&&key!==groqKeyCache){groqKeyCache=key;groqModel="";slog("new AI key detected — model cache reset",true)}
   const tryModels=modelOverride?[modelOverride]:(groqModel?[groqModel]:GROQ_MODELS);
   for(const mdl of tryModels){
     let budget=maxTok||1400;
-    for(let attempt=0;attempt<2;attempt++){
+    for(let attempt=0;attempt<(Math.max(2,keyPool().length+1));attempt++){
+      const key=nextLive(keyPool());
+      if(!key){slog("all "+keyPool().length+" keys cooling — falling to backup brain",true);break}
       try{
         const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
           method:"POST",
           headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},
           signal:AbortSignal.timeout(20000),
           body:JSON.stringify(Object.assign({model:mdl,messages:messages,max_tokens:budget,temperature:0.6},persona()==="jarvis"?{reasoning_effort:"high"}:{}))});
-        if(r.status===429)throw new Error("rate-limited");
+        if(r.status===429){__KEY_COOL[key]=Date.now()+10*60*1000;const st=keyStatus();slog("key hit its limit — rotating to backup key ("+st.live+"/"+st.total+" live)",true);continue}
+        if(r.status===401||r.status===403){__KEY_COOL[key]=Date.now()+60*60*1000;slog("a key was rejected — marked dead, rotating",true);continue}
         if(!r.ok)throw new Error("HTTP "+r.status);
         const d=await r.json();
         const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
-        if(t&&t.trim()){groqModel=mdl;return t.trim()}
+        if(t&&t.trim()){groqModel=mdl;slog("answered via Groq key #"+(keyPool().indexOf(key)+1)+" (live "+keyStatus().live+"/"+keyPool().length+")",true);return t.trim()}
         if(attempt===0){budget=Math.max(budget*2,2000);continue}
       }catch(e){
         const m=String(e.message||e);
@@ -1417,7 +1432,7 @@ async function groqCall(messages,maxTok,modelOverride){
       }
     }
   }
-  try{const t=await openrouterCall(messages,maxTok);slog("groq down — answered via OpenRouter backup brain",true);return t}catch(e){}
+  try{const t=await openrouterCall(messages,maxTok);slog("all keys down — answered via OpenRouter backup brain",true);return t}catch(e){}
   throw new Error("groq unreachable");
 }
 async function geminiCall(q,deep){
@@ -2620,6 +2635,14 @@ function taskCommand(raw){
     const k=inp.value.trim();
     if(!k){inp.focus();return}
     localStorage.setItem("aura_key",k);
+    /* ---- KEY POOL SAVE — the bank where keys live ---- */
+    const keys=k.split(/\s*\n\s*|\s*,\s*|\s+/).map(s=>s.trim()).filter(Boolean);
+    const gsk=keys.filter(s=>/^gsk_/.test(s));
+    const or=keys.filter(s=>/^sk-or-v1-/.test(s));
+    const pool=new Set();
+    if(gsk.length){gsk.forEach(s=>pool.add(s));localStorage.setItem("aura_key",gsk[0]);slog("key bank loaded with "+gsk.length+" Groq keys (max 10) — anti-rune rotation on",true)}
+    if(or.length){or.forEach(s=>{localStorage.setItem("aura_orkey",s)});slog("OpenRouter backup brain — key loaded",true)}
+    if(!gsk.length&&!or.length){localStorage.setItem("aura_key",k);slog("single key pinned",true)}
     const btn=document.getElementById("wizGo");btn.textContent="⏳ VERIFYING…";btn.disabled=true;
     let ok="",err="";
     try{
