@@ -560,7 +560,7 @@ function frame(now){
   drawGrid(now/1000);
   drawRings(now/1000,STATES[mode]);
   drawCore(dt);
-  if(mode==="thinking"&&modeT>14&&!window.__researching){setMode("idle");pushSys("uplink timeout — answering locally");}
+  if(mode==="thinking"&&modeT>40&&!window.__researching&&!window.__thinking){setMode("idle");pushSys("uplink timeout — answering locally");}
 }
 requestAnimationFrame(frame);
 
@@ -878,6 +878,7 @@ function humanSize(b){return b>1048576?(b/1048576).toFixed(1)+" MB":Math.max(1,M
     ov.innerHTML='<div class="tm-card"><button class="tm-close" id="tmX">✕</button><h3>🧰 DOCUMENT ENGINE</h3><div class="tm-sub">PDF export · image converter · chat utilities</div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmPdf">📄 Last answer → PDF</button><button class="tm-btn" id="tmPdfAll">📚 Full chat → PDF</button></div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmStudy">📝 Chat → STUDY SHEET</button><button class="tm-btn" id="tmLocal">📁 My files → PDF</button></div>'+
+      '<div class="tm-row"><button class="tm-btn" id="tmRecScr">🖥 Record my screen</button><button class="tm-btn" id="tmShotScr">📸 Screen shot → PNG</button></div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmPng">→ PNG</button><button class="tm-btn" id="tmJpg">→ JPG</button><button class="tm-btn" id="tmWebp">→ WEBP</button></div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmShrink">📉 Compress image</button><button class="tm-btn" id="tmClear">🗑 Clear chat memory</button></div>'+
       '<div class="tm-note">Image tools work on the last attached photo (📎). PDF export opens a print window — choose "Save as PDF". Everything runs offline in your browser.</div>'+
@@ -890,6 +891,8 @@ function humanSize(b){return b>1048576?(b/1048576).toFixed(1)+" MB":Math.max(1,M
     ov.querySelector("#tmPdfAll").onclick=()=>{close();const lines=[...document.querySelectorAll(".msg")].map(m=>m.textContent.replace(/\s+/g," ").trim()).filter(Boolean);if(!lines.length){pushSys("chat is empty");return}docPDF("Conversation with "+PERSONAS[persona()].name,lines.join("\n\n"))&&pushSys("full chat → PDF window opened")};
     ov.querySelector("#tmStudy").onclick=()=>{close();const r=studySheetPDF();if(r.ok)pushSys("study sheet built — I'll ask before opening");else if(r.reason==="blocked")pushSys("popup blocked — allow popups for this site")};
     ov.querySelector("#tmLocal").onclick=()=>{close();pickLocalFiles()};
+    ov.querySelector("#tmRecScr").onclick=async()=>{close();addMsg(msgTag(),"🖥 Pick the screen/window in the dialog — say \"stop recording\" when you're done and the .webm downloads.","aura");const ok=await scrRecStart();if(!ok)addMsg(msgTag(),"Screen recording cancelled — nothing captured.","aura")};
+    ov.querySelector("#tmShotScr").onclick=async()=>{close();const r=await scrShot();addMsg(msgTag(),r||"Screen capture cancelled — the browser needs your pick in the dialog.","aura")};
     const needImg=fn=>()=>{const img=window.__lastImg;if(!img){pushSys("attach a photo first (📎), then convert");return}fn(img)};
     ov.querySelector("#tmPng").onclick=needImg(async d=>{try{const u=await imgConvert(d,"image/png");dlDataURL(u,"converted.png");pushSys("converted → PNG downloaded ("+humanSize(dataURLBytes(u))+")")}catch(e){pushSys("convert failed: "+(e.message||e))}});
     ov.querySelector("#tmJpg").onclick=needImg(async d=>{try{const u=await imgConvert(d,"image/jpeg",.9);dlDataURL(u,"converted.jpg");pushSys("converted → JPG downloaded ("+humanSize(dataURLBytes(u))+")")}catch(e){pushSys("convert failed: "+(e.message||e))}});
@@ -1067,6 +1070,7 @@ const KB={
   "compress image":"Attach a photo (📎) and say \"compress this\" — I re-encode it in-browser and typically cut 60-80% of the file size, then download it.",
   "do you remember":"Yes — I keep up to 120 turns of our conversation in this browser and it survives refresh and reopen. Say \"clear chat memory\" (or 🧰 TOOLS → Clear) for a fresh start.",
   "study sheet":"Say \"make a study sheet\" and I compile everything we discussed into a print-ready PDF: one heading per topic, contents list up top, sources kept, and a revision tip at the bottom. 🧰 TOOLS → 📝 does the same.",
+  "screen capture":"Three powers: \"capture my screen\" → instant PNG. \"record my screen\" → video (.webm), say \"stop recording\" to save. \"share my screen\" → I SEE your cast live and answer questions — say \"scan my screen\" or just ask \"what's on my screen?\". The browser asks which screen/window; nothing runs until you allow it, and streams close the moment you stop. Zero battery cost when idle.",
   "chats sidebar":"Left panel, under CHATS — every conversation is saved automatically as a session. Tap one to jump back into it (memory included), double-tap its name to rename, ✕ to delete, ＋ New chat to start fresh. Nothing leaves your browser.",
   "new chat":"Tap ＋ New chat in the CHATS panel (or say \"new chat\") — I wipe the current thread from memory but keep all old sessions saved so you can return to them any time.",
   "who made you":"I was built by Sourabh Singh, a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation.",
@@ -1363,7 +1367,26 @@ function aiProvider(){
   const k=(geminiKey()||"").trim();
   if(/^gsk_/.test(k))return"groq";
   if(/^AIza/.test(k))return"gemini";
+  if(/^sk-or-v1-/.test(k))return"openrouter";
   return k?"unknown":"none";
+}
+/* OpenRouter backup brain — kicks in when Groq is down/limited, or when an sk-or key is set.
+   The key is NEVER stored in this file (GitHub push-protection blocks that) — it lives only in
+   your browser. Seed it once by opening this page with ?orkey=YOUR_KEY in the URL. */
+const OR_MODEL="openai/gpt-oss-20b";
+try{const m2=location.search.match(/[?&]orkey=([^&]+)/);if(m2&&/^sk-or-v1-/.test(m2[1])){localStorage.setItem("aura_orkey",decodeURIComponent(m2[1]));history.replaceState(null,"",location.pathname);slog("OpenRouter backup brain armed — key stored in this browser only",true)}}catch(e){}
+function orKey(){const a=(localStorage.getItem("aura_key")||"").trim();if(/^sk-or-v1-/.test(a))return a;const b=(localStorage.getItem("aura_orkey")||"").trim();return /^sk-or-v1-/.test(b)?b:""}
+async function openrouterCall(messages,maxTok){
+  const k=orKey();if(!k)throw new Error("no openrouter key");
+  const r=await fetch("https://openrouter.ai/api/v1/chat/completions",{
+    method:"POST",headers:{"Authorization":"Bearer "+k,"Content-Type":"application/json"},
+    signal:AbortSignal.timeout(25000),
+    body:JSON.stringify({model:OR_MODEL,messages:messages,max_tokens:maxTok||1400,temperature:0.6})});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const d=await r.json();
+  const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
+  if(!t.trim())throw new Error("empty");
+  return t.trim();
 }
 const GROQ_MODELS=["openai/gpt-oss-120b","openai/gpt-oss-20b","qwen/qwen3.8-27b"];
 let groqModel="",groqKeyCache="";
@@ -1394,6 +1417,7 @@ async function groqCall(messages,maxTok,modelOverride){
       }
     }
   }
+  try{const t=await openrouterCall(messages,maxTok);slog("groq down — answered via OpenRouter backup brain",true);return t}catch(e){}
   throw new Error("groq unreachable");
 }
 async function geminiCall(q,deep){
@@ -1405,6 +1429,9 @@ async function geminiCall(q,deep){
   const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+(deep?" The user asked for depth: answer thoroughly (up to 320 words), structured in 2-4 short paragraphs, include concrete facts, numbers and examples, plain text.":" Reply concise (under 110 words), confident, plain text.")+(name?" The user's name is "+name+".":"");
   if(aiProvider()==="groq"){
     return await groqCall([{role:"system",content:sys+replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900);
+  }
+  if(aiProvider()==="openrouter"){
+    return await openrouterCall([{role:"system",content:sys+replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900);
   }
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
     method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(12000),
@@ -1943,6 +1970,7 @@ function attachCitations(t,evs){
   return out+"\n\nSOURCES:\n"+lines.join("\n");
 }
 async function thinkAnswer(q,deep,hi){
+  window.__thinking=true;
   const isWhy0=/^(why|how come)\b/i.test(q)||/क्यों/i.test(q);
   const isHow0=/^how\b/i.test(q)||/कैसे/i.test(q);
   let term=topicOf(q)||q;
@@ -1965,7 +1993,13 @@ async function thinkAnswer(q,deep,hi){
       try{t=await groqStream([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?2400:1400,full=>{if(window.__streamEl)window.__streamEl.textContent=full})}
       catch(se){if(String(se).includes("abort"))return{t:"",eng:"streamed answer — stopped by user",stop:true};t=await groqCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?2400:1400)}
       const src=evs.find(e=>e.url);return{t:attachCitations(t,evs),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + gpt-oss-120b + live evidence ("+evs.length+" sources)",src:src&&src.url};
-    }catch(e){slog("groq thinking failed — trying puter",true)}
+    }catch(e){slog("groq thinking failed — trying OpenRouter backup",true)}
+  }
+  else if(aiProvider()==="openrouter"){
+    try{
+      const t=await openrouterCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?2400:1400);
+      const src=evs.find(e=>e.url);return{t:attachCitations(t,evs),eng:"thinking brain · openrouter gpt-oss-20b · live evidence ("+evs.length+" sources)",src:src&&src.url}}
+    catch(e){slog("openrouter thinking failed — trying puter",true)}
   }
   else if(geminiKey()){
     try{
@@ -2208,10 +2242,36 @@ async function askCore(text0){
      setMode("idle");busy=false;if(wake)armWake(400);return;}}
    if(SAY_WHATKNOW.test(aq)){
      memRender();memListVoice();
-     setMode("idle");busy=false;if(wake)armWake(400);return;}
-   if(/^open (the )?(camera|cam) page$/i.test(aq)){camStart();setMode("idle");busy=false;if(wake)armWake(400);return}}
-  /* CAMERA VISION intents — live seeing */
-  if(camAskCam(text)){setMode("idle");busy=false;if(wake)armWake(400);return}
+     setMode("idle");busy=false;if(wake)armWake(400);return;}}
+  /* LIVE SCREEN SHARE — she sees your cast and answers about it */
+  {const ss=(text||"").toLowerCase().trim();
+   if(/^(stop|end|close) (the )?(screen )?(shar(e|ing)|cast(ing)?|live vision)$|^stop sharing$|^cast band karo$/i.test(ss)){
+     if(scrOn){scrSessionStop(true)}else{addMsg(msgTag(),"No screen share is live. Say \"share my screen\" to start one.","aura")}
+     setMode("idle");busy=false;if(wake)armWake(400);return}
+   if(/\b(share|cast)\b[\s\S]{0,16}\b(screen|my screen|display)\b|^screen share$|^share screen$|^cast my screen$|screen share karo/i.test(ss)&&!/record|screenshot|capture/.test(ss)){
+     const ok=await scrSessionStart();
+     if(!ok){addMsg(msgTag(),"Screen share cancelled — nothing is streaming.","aura")}
+     setMode("idle");busy=false;if(wake)armWake(400);return}
+   if(/\b(scan|read|look at|analyze)\b[\s\S]{0,20}\b(screen|my screen|display|cast)\b|^what.s on (my|the) screen|^scan (it|this)$|^what do you see( on( my)? screen)?$|^read (this|the) screen$/i.test(ss)){
+     if(!scrOn){const ok=await scrSessionStart();if(!ok){addMsg(msgTag(),"Screen share cancelled — I need the browser dialog pick first.","aura");setMode("idle");busy=false;if(wake)armWake(400);return}await new Promise(r=>setTimeout(r,1200))}
+     setMode("thinking");await scrAnalyze(qq&&ss.length>4?text:"Describe what is on this screen precisely.");
+     setMode("idle");busy=false;if(wake)armWake(400);return}}
+  /* SCREEN CAST — opt-in capture of your screen (camera removed by request) */
+  {const sl=(text||"").toLowerCase().trim();
+   if(/^(stop|end) (the )?(screen )?(recording|rec|cast(ing)?)$|^stop cast(ing)?$|^record band karo$/i.test(sl)){
+     if(scrRecStop()){addMsg(msgTag(),"🛑 Stopping — saving your recording…","aura")}else{addMsg(msgTag(),"No recording is running. Say \"record my screen\" to start one.","aura")}
+     setMode("idle");busy=false;if(wake)armWake(400);return}
+   if(/\b(record|capture|start)\b[\s\S]{0,18}\b(screen|casting|cast|display)\b|\bscreen record\b|\bscreenrec\b|screen record karo/i.test(sl)&&!/screenshot|screen shot/i.test(sl)){
+     addMsg(msgTag(),"🖥 Picking what to record — choose your screen or a window in the dialog. Say \"stop recording\" when done and the .webm downloads instantly.","aura");
+     if(voiceAllowed())speak("Recording your screen. Say stop recording to save.");
+     const ok=await scrRecStart();
+     if(!ok){addMsg(msgTag(),"Screen recording cancelled — nothing was captured.","aura")}
+     setMode("idle");busy=false;if(wake)armWake(400);return}
+   if(/\b(screenshot|screen shot|screen capture|capture the (casting|cast|screen)|photo of my screen|screen ki photo)\b/i.test(sl)){
+     const r=await scrShot();
+     addMsg(msgTag(),r||"Screen capture cancelled — the browser needs your pick in the dialog.","aura");
+     if(r&&voiceAllowed())speak("Screen captured and downloaded.");
+     setMode("idle");busy=false;if(wake)armWake(400);return}}
   const tk=taskCommand(text);
   if(tk){pushSys("task executed · "+tk.eng.split("· ")[1]);$("engTag").textContent="engine: "+tk.eng;$("tEng").textContent="TASK";
     addMsg(msgTag(),tk.t,"aura");if(voiceAllowed())speak(tk.t);blip(660,.09);
@@ -2284,6 +2344,7 @@ async function askCore(text0){
    new commands line up and run the moment she's free. "Shut up" still jumps the line. */
 async function askRunner(t){
   try{await askCore(t)}catch(e){setMode("idle")}
+  window.__thinking=false;
   /* silent mode: answers land as text — never leave the mode stuck on "thinking" (false watchdog) */
   if(mode==="thinking")setMode("idle");
   busy=false;
@@ -2652,7 +2713,7 @@ async function buildCode(){
   const cc=document.getElementById("codeClear");if(cc)cc.onclick=()=>{const fr=document.getElementById("codeFrame");fr.srcdoc="";const lg=document.getElementById("codeLog");lg.textContent="";lg.style.display="none"};
 })();
 setInterval(()=>{try{const c=document.getElementById("sessCount");if(c&&document.body.dataset.tab==="chats")renderSessions()}catch(e){}},4000);
-/* ============ ASTRA STACK — Pyodide sandbox · vector memory · live research · camera vision · barge-in ============ */
+/* ============ ASTRA STACK — Pyodide sandbox · vector memory · live research · barge-in ============ */
 /* ---------- 1. PYODIDE — real Python (3.12) running in the browser ---------- */
 let pyReady=false,pyLoading=false,pyodide=null,pyQueue=[];
 async function loadPyodideNow(){
@@ -2775,56 +2836,100 @@ const SAY_WHATKNOW=/^what (do you know|all) about me|^my (facts|profile|memory)/
 /* BARGE-IN — tap anywhere on the stage (not on controls) to make her stop talking instantly */
 document.addEventListener("click",e=>{
   if(!ttsActive)return;
-  if(e.target.closest("button,input,a,select,textarea,label,.cbtn,#camPanel,#log,#tb"))return;
+  if(e.target.closest("button,input,a,select,textarea,label,.cbtn,#log,#tb"))return;
   stopSpeech();try{blip(300,.06)}catch(ex){}pushSys("barge-in: speech stopped — you have the floor");
 });
-/* ---------- 4. CAMERA VISION — Astra-style live seeing with spatial memory ---------- */
-const CAMKEY="aura_cam_mem_v1";
-let camVid=null,camStream=null,camOn=false,camBusy=false,camLog=[];try{camLog=JSON.parse(localStorage.getItem(CAMKEY)||"[]")}catch(e){}
-function camSave(){try{localStorage.setItem(CAMKEY,JSON.stringify(camLog.slice(-120)))}catch(e){}}
-function camPanel(){
-  if(document.getElementById("camPanel"))return;
-  const d=document.createElement("div");d.id="camPanel";
-  d.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--cy2)">👁 LIVE VISION</b><span id="camClose" style="cursor:pointer;color:var(--dim);font-size:16px">✕</span></div><video id="camVid" autoplay playsinline muted style="width:100%;border-radius:10px;background:#000;aspect-ratio:4/3;object-fit:cover"></video><div id="camCtrl" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="cbtn" id="camLook">🔍 What do you see?</button><button class="cbtn" id="camAsk">💬 Ask about this</button><input id="camQ" placeholder="ask about the scene…" style="flex:1;min-width:130px;background:var(--panel);border:1px solid var(--line2);color:var(--ice);border-radius:8px;padding:7px 10px;font-size:12px;outline:none"></div><div id="camMem" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--dim);max-height:90px;overflow:auto">spatial memory: (empty)</div>';
-  document.body.appendChild(d);
-  d.querySelector("#camClose").onclick=camStop;
-  d.querySelector("#camLook").onclick=()=>camAnalyze("Describe this scene precisely.");
-  d.querySelector("#camAsk").onclick=()=>{const v=d.querySelector("#camQ").value.trim();if(v)camAnalyze(v)};
-  d.querySelector("#camQ").addEventListener("keydown",e=>{if(e.key==="Enter"){const v=e.target.value.trim();if(v){camAnalyze(v);e.target.value=""}}});
-  camRenderMem()}
-function camRenderMem(){const el=document.getElementById("camMem");if(!el)return;el.innerHTML=camLog.length?"spatial memory (last "+camLog.length+"):<br>"+camLog.slice(-6).reverse().map(c=>"• ["+new Date(c.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+"] "+c.d.replace(/</g,"&lt;").slice(0,90)).join("<br>"):"spatial memory: (empty)"}
-async function camStart(){
-  if(camOn)return;
-  try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})}catch(e){addMsg(msgTag(),"📷 Camera blocked — allow camera permission in the address bar and try again.","aura");return}
-  camOn=true;camPanel();
-  const css=document.createElement("style");css.id="camCSS";css.textContent="#camPanel{position:fixed;right:20px;bottom:150px;width:300px;z-index:60;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 8px 40px rgba(0,0,0,.5)}@media(max-width:860px){#camPanel{right:8px;left:8px;width:auto;bottom:140px}}";document.head.appendChild(css);
-  camVid=document.getElementById("camVid");camVid.srcObject=camStream;
-  pushSys("live vision online — I can see what the camera sees");
-  addMsg(msgTag(),"👁 **Live vision engaged.** I can now see through your camera. Point it at anything and ask — I describe scenes, read text and signs, and remember what I saw ("+camLog.length+" memories stored). Tap ✕ to close.","aura")}
-function camStop(){camOn=false;if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}const p=document.getElementById("camPanel");if(p)p.remove();const c=document.getElementById("camCSS");if(c)c.remove();pushSys("live vision closed")}
-async function camAnalyze(qq){
-  if(!camOn||camBusy)return;
-  camBusy=true;
+/* ---------- 4. CAMERA VISION — removed by request (was: live seeing + spatial memory) ---------- */
+try{localStorage.removeItem("aura_cam_mem_v1")}catch(e){}
+/* ---------- 4b. SCREEN CAST — opt-in screen capture (replaces camera: zero battery when idle) ---------- */
+function dlBlob(b,name){const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(u)},1500)}
+let scrStream=null,scrRec=null,scrChunks=[];
+function scrCleanup(){if(scrStream){try{scrStream.getTracks().forEach(t=>t.stop())}catch(e){}scrStream=null}scrRec=null;scrChunks=[]}
+async function scrShot(){
   try{
-    const cv=document.createElement("canvas");cv.width=640;cv.height=480;
-    const cx=cv.getContext("2d");cx.drawImage(camVid,0,0,640,480);
+    pushSys("screen capture: pick the screen/window in the browser dialog");
+    const s=await navigator.mediaDevices.getDisplayMedia({video:{cursor:"always"}});
+    const v=document.createElement("video");v.srcObject=s;v.muted=true;await v.play().catch(()=>{});
+    await new Promise(r=>setTimeout(r,400));
+    const cv=document.createElement("canvas");cv.width=v.videoWidth||1280;cv.height=v.videoHeight||720;
+    cv.getContext("2d").drawImage(v,0,0,cv.width,cv.height);
+    s.getTracks().forEach(t=>t.stop());
+    dlDataURL(cv.toDataURL("image/png"),"screen-capture.png");
+    pushSys("screen captured — PNG downloaded, stream closed");
+    return "📸 Screen captured — the PNG is downloaded and the stream is already closed. Zero battery drain now, boss.";
+  }catch(e){scrCleanup();return null}
+}
+async function scrRecStart(){
+  try{
+    pushSys("screen recording: pick the screen/window in the browser dialog");
+    const s=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:15},audio:false});
+    scrStream=s;scrChunks=[];
+    scrRec=new MediaRecorder(s,{mimeType:"video/webm"});
+    scrRec.ondataavailable=e=>{if(e.data&&e.data.size)scrChunks.push(e.data)};
+    s.getTracks()[0].addEventListener("ended",()=>{try{if(scrRec&&scrRec.state!=="inactive")scrRec.stop()}catch(e){}});
+    scrRec.onstop=()=>{
+      const blob=new Blob(scrChunks,{type:"video/webm"});dlBlob(blob,"screen-recording.webm");
+      scrCleanup();pushSys("screen recording saved — .webm downloaded, stream closed");
+      addMsg(msgTag(),"🎬 Recording saved — screen-recording.webm downloaded. Stream closed, zero battery drain.","aura");
+    };
+    scrRec.start();
+    pushSys("REC ● recording your screen — say \"stop recording\" to save");
+    return true;
+  }catch(e){scrCleanup();return false}
+}
+function scrRecStop(){if(scrRec&&scrRec.state!=="inactive"){try{scrRec.stop()}catch(e){scrCleanup();return false}return true}return false}
+/* ---------- 4c. LIVE SCREEN SHARE — she watches your cast and answers about it ---------- */
+const SCRKEY="aura_scr_mem_v1";
+let scrVid=null,scrOn=false,scrBusy=false,scrLog=[],scrAuto=null;try{scrLog=JSON.parse(localStorage.getItem(SCRKEY)||"[]")}catch(e){}
+function scrSave(){try{localStorage.setItem(SCRKEY,JSON.stringify(scrLog.slice(-60)))}catch(e){}}
+function scrPanel(){
+  if(document.getElementById("scrPanel"))return;
+  const d=document.createElement("div");d.id="scrPanel";
+  d.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--cy2)">🖥 SCREEN SHARE</b><span id="scrClose" style="cursor:pointer;color:var(--dim);font-size:16px">✕</span></div><video id="scrVid" autoplay playsinline muted style="width:100%;border-radius:10px;background:#000;aspect-ratio:16/9;object-fit:contain"></video><div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="cbtn" id="scrScan">🔍 Scan my screen</button><input id="scrQ" placeholder="ask about your screen…" style="flex:1;min-width:130px;background:var(--panel);border:1px solid var(--line2);color:var(--ice);border-radius:8px;padding:7px 10px;font-size:12px;outline:none"><label style="display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;color:var(--dim);cursor:pointer"><input type="checkbox" id="scrAuto" style="accent-color:var(--cy2)">auto</label></div><div id="scrMem" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--dim);max-height:90px;overflow:auto">scan memory: (empty)</div>';
+  document.body.appendChild(d);
+  d.querySelector("#scrClose").onclick=()=>scrSessionStop(true);
+  d.querySelector("#scrScan").onclick=()=>scrAnalyze("Describe what is on this screen precisely.");
+  d.querySelector("#scrQ").addEventListener("keydown",e=>{if(e.key==="Enter"){const v=e.target.value.trim();if(v){scrAnalyze(v);e.target.value=""}}});
+  d.querySelector("#scrAuto").onchange=e=>{
+    if(e.target.checked){scrAuto=setInterval(()=>{if(!scrOn||document.hidden||scrBusy)return;scrAnalyze("Briefly: what is on the screen right now? Any changes?".slice(0,200))},25000);pushSys("auto-scan every 25s — untick to stop")}
+    else{clearInterval(scrAuto);scrAuto=null;pushSys("auto-scan off")}
+  };
+  scrRenderMem()}
+function scrRenderMem(){const el=document.getElementById("scrMem");if(!el)return;el.innerHTML=scrLog.length?"scan memory (last "+scrLog.length+"):<br>"+scrLog.slice(-6).reverse().map(c=>"• ["+new Date(c.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+"] "+c.d.replace(/</g,"&lt;").slice(0,90)).join("<br>"):"scan memory: (empty)"}
+async function scrSessionStart(){
+  if(scrOn)return true;
+  try{
+    pushSys("screen share: pick the screen/window in the browser dialog");
+    scrStream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:5},audio:false});
+    scrOn=true;scrPanel();
+    scrVid=document.getElementById("scrVid");scrVid.srcObject=scrStream;
+    scrStream.getTracks()[0].addEventListener("ended",()=>scrSessionStop(false));
+    pushSys("screen share live — ask me anything about your screen");
+    addMsg(msgTag(),"🖥 **Screen share live.** I can see your cast now — say \"scan my screen\", ask \"what's on my screen?\", or type a question in the panel. Tick auto for a scan every 25s. ✕ stops the share instantly.","aura");
+    return true;
+  }catch(e){scrCleanup();return false}
+}
+function scrSessionStop(say){
+  scrOn=false;if(scrAuto){clearInterval(scrAuto);scrAuto=null}
+  scrCleanup();const p=document.getElementById("scrPanel");if(p)p.remove();const c=document.getElementById("scrCSS");if(c)c.remove();
+  if(say!==false){pushSys("screen share closed — stream stopped");if(say)addMsg(msgTag(),"🖥 Screen share closed — the stream is stopped, zero battery drain.","aura")}}
+async function scrAnalyze(qq){
+  if(!scrOn||scrBusy){if(!scrOn)addMsg(msgTag(),"Start a screen share first — say \"share my screen\".","aura");return}
+  scrBusy=true;
+  try{
+    const cv=document.createElement("canvas");cv.width=1280;cv.height=Math.round(1280*(scrVid.videoHeight||720)/(scrVid.videoWidth||1280))||720;
+    cv.getContext("2d").drawImage(scrVid,0,0,cv.width,cv.height);
     const img=cv.toDataURL("image/jpeg",0.72);
     const P=PERSONAS[persona()];
-    const sys="You are "+P.name+" with LIVE CAMERA ACCESS (Project-Astra style). Answer about the current scene. Be concrete about objects, text, colors, people count, spatial relations (left/right/center). 2-4 sentences unless asked for detail."+(qq&&qq!=="Describe this scene precisely."?" The user asks: "+qq:"");
-    const desc=await groqCall([{role:"system",content:sys},{role:"user",content:[{type:"text",text:qq||"Describe this scene precisely."},{type:"image_url",image_url:{url:img}}]}],420,"meta-llama/llama-4-scout-17b-16e-instruct");
+    const sys="You are "+P.name+" with LIVE SCREEN ACCESS (the user is sharing their display). Answer about what is visible: windows, text, code, errors, UI elements, numbers. Be concrete and reference what you actually see. 2-5 sentences unless asked for detail."+(qq&&qq!=="Describe what is on this screen precisely."?" The user asks: "+qq:"");
+    const desc=await groqCall([{role:"system",content:sys},{role:"user",content:[{type:"text",text:qq||"Describe what is on this screen precisely."},{type:"image_url",image_url:{url:img}}]}],420,"meta-llama/llama-4-scout-17b-16e-instruct");
     if(desc){
-      addMsg(msgTag(),"👁 "+desc,"aura");
+      addMsg(msgTag(),"🖥 "+desc,"aura");
       if(voiceAllowed())speak(desc);
-      camLog.push({ts:Date.now(),d:desc.slice(0,300),q:qq||"scene"});camSave();camRenderMem();
-    }else addMsg(msgTag(),"The frame came back empty — try again.","aura");
-  }catch(e){addMsg(msgTag(),"Vision glitch: "+(e.message||e),"aura")}
-  camBusy=false}
-function camAskCam(q){
-  const ql=(q||"").toLowerCase();
-  if(/\b(open|start|turn on) (the )?(camera|cam|live vision)|live vision on|see (what i see|through my camera)/i.test(ql)){camStart();return true}
-  if(/\b(close|stop|turn off) (the )?(camera|cam|live vision)|live vision off/i.test(ql)){camStop();return true}
-  if(camOn&&/\b(what do you see|describe (the )?(scene|this)|what.s this|read (this|the) (text|sign)|where is|how many)/i.test(ql)){camAnalyze(q);return true}
-  return false}
+      scrLog.push({ts:Date.now(),d:desc.slice(0,300),q:qq||"scan"});scrSave();scrRenderMem();
+    }else addMsg(msgTag(),"The frame came back empty — try the scan again.","aura");
+  }catch(e){addMsg(msgTag(),"Scan glitch: "+(e.message||e),"aura")}
+  scrBusy=false}
 /* ---------- 5. BARGE-IN — her voice stops the instant you talk ---------- */
 (function(){
   let armed=false;
