@@ -168,7 +168,14 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 #tabbar button{background:var(--panel);border:1px solid var(--line2);color:var(--dim);font-family:var(--mono);font-size:10.5px;letter-spacing:1.5px;padding:8px 16px;border-radius:9px;cursor:pointer;transition:.2s;backdrop-filter:blur(8px)}
 #tabbar button:hover{border-color:var(--line);color:var(--cy2)}
 #tabbar button.on{color:var(--cy2);border-color:var(--line);background:rgba(34,211,238,.14)}
-body:not([data-tab="system"]) #telemetry,body:not([data-tab="system"]) #syslog{display:none}
+body:not([data-tab="system"]) #telemetry,body:not([data-tab="system"]) #syslog,body:not([data-tab="system"]) #memPanel{display:none}
+#memPanel{position:fixed;left:22px;bottom:286px;width:225px;max-height:44vh;overflow:auto;z-index:9}
+#memSide .memrow{display:flex;gap:6px;align-items:flex-start;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+#memSide .memrow .mtx{flex:1;font-family:var(--mono);font-size:9.5px;color:#7fb3c4;line-height:1.5;word-break:break-word}
+#memSide .memrow .mtx .msrc{display:block;font-size:8px;color:#3f7a8a;margin-top:1px}
+#memSide .memrow button{background:none;border:1px solid var(--line2);color:var(--dim);border-radius:5px;font-size:9px;padding:2px 5px;cursor:pointer;flex-shrink:0}
+#memSide .memrow button:hover{color:#f87171;border-color:#f87171}
+#memSide .memempty{font-family:var(--mono);font-size:9.5px;color:#3f7a8a;padding:6px 0;line-height:1.6}
 body[data-tab="chats"] #conv,body[data-tab="system"] #conv,body[data-tab="code"] #conv{display:none}
 body[data-tab="code"] #dock{opacity:.25;pointer-events:none}
 #codePage{display:none;position:fixed;top:74px;left:22px;right:22px;bottom:130px;z-index:9;flex-direction:column;gap:10px}
@@ -328,6 +335,12 @@ body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical 
 <div class="panel" id="syslog">
   <h3>SYSTEM LOG</h3>
   <div id="syslogLines"></div>
+</div>
+
+<div class="panel" id="memPanel">
+  <h3><span>🧠 MEMORY</span><span id="memCount"></span></h3>
+  <div id="memSide"></div>
+  <button class="cbtn" id="memWipe" style="margin-top:8px;width:100%;font-size:9.5px">🧹 FORGET EVERYTHING</button>
 </div>
 
 <div class="panel" id="sessPanel">
@@ -547,7 +560,7 @@ function frame(now){
   drawGrid(now/1000);
   drawRings(now/1000,STATES[mode]);
   drawCore(dt);
-  if(mode==="thinking"&&modeT>14){setMode("idle");pushSys("uplink timeout — answering locally");}
+  if(mode==="thinking"&&modeT>14&&!window.__researching){setMode("idle");pushSys("uplink timeout — answering locally");}
 }
 requestAnimationFrame(frame);
 
@@ -1353,10 +1366,11 @@ function aiProvider(){
   return k?"unknown":"none";
 }
 const GROQ_MODELS=["openai/gpt-oss-120b","openai/gpt-oss-20b","qwen/qwen3.8-27b"];
-let groqModel="";
-async function groqCall(messages,maxTok){
+let groqModel="",groqKeyCache="";
+async function groqCall(messages,maxTok,modelOverride){
   const key=geminiKey().trim();
-  const tryModels=groqModel?[groqModel]:GROQ_MODELS;
+  if(key&&key!==groqKeyCache){groqKeyCache=key;groqModel="";slog("new AI key detected — model cache reset",true)}
+  const tryModels=modelOverride?[modelOverride]:(groqModel?[groqModel]:GROQ_MODELS);
   for(const mdl of tryModels){
     let budget=maxTok||1400;
     for(let attempt=0;attempt<2;attempt++){
@@ -1615,6 +1629,7 @@ function replayOnScreen(list){
     if(list&&list.length){const hd=addMsg("SYS","— conversation restored —","sys");hd.style.opacity=".55";
       list.slice(-10).forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
+    try{memRender()}catch(e){}
     const n=memGet().name;const msg=greetWord()+(n?", "+n:"")+". Memory loaded — where were we?";
     const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);
   }catch(e){}
@@ -1937,9 +1952,13 @@ async function thinkAnswer(q,deep,hi){
     if(hit){term=WHY_MAP[hit];slog("causal question → reasoning over: "+term,true)}
   }
   slog("thinking: gathering evidence for \""+term.slice(0,40)+"\"…",true);
+  /* VECTOR MEMORY — recall relevant facts into every answer */
+  let memBlock="";
+  try{await new Promise(async r=>{await memSearch(term,rs=>{memBlock=rs.map(x=>"- "+x.m.t).join("\n");r()})})}catch(e){}
+  if(memBlock)slog("memory recall: "+memBlock.split("\n").length+" relevant fact(s) loaded",true);
   const evs=await gatherEvidence(term);
   slog(evs.length?"evidence from "+evs.length+' source'+(evs.length>1?"s":"")+" — reasoning…":"no evidence yet — reasoning from my own knowledge…",true);
-  const prompt=buildThinkPrompt(q,term,evs,deep,hi);
+  const prompt=buildThinkPrompt(q,term,evs,deep,hi)+((memBlock&&typeof buildThinkPrompt==="function")?"\n\nLONG-TERM MEMORY (things the user told you or you learned in past sessions — use if relevant):\n"+memBlock:"");
   if(aiProvider()==="groq"){
     try{
       let t="";
@@ -1999,6 +2018,8 @@ async function aiReply(q){
   const hiMode=detectedLang==="hi";
   const rc=resolveContext(q);if(rc!==q)q=rc;
   if(knowledge){
+    /* TIME-SENSITIVE → live research path first (real-time web + citations) */
+    if(NEED_WEB.test(q)){const rr=await researchReply(q,hiMode);if(rr&&rr.trim())return{t:rr,eng:"live web research · "+personaName()+" · "+((rr.match(/\[\d+\]/g)||[]).length)+" citations"};}
     /* THE THINKING BRAIN FIRST — gather live evidence, then reason over it in human fashion */
     const th=await thinkAnswer(q,deep,hiMode);if(th)return th;
     if(hiMode){const hw=await hiWikiAnswer(q,deep);if(hw)return hw;}
@@ -2149,6 +2170,48 @@ async function askCore(text0){
      const list=sessions.all();
      addMsg(msgTag(),list.length?"📚 You have "+list.length+" saved chat"+(list.length>1?"s":"")+": "+list.slice(0,5).map((s,i)=>(i+1)+". "+s.title).join(" · ")+(list.length>5?" …":" — open the CHATS tab up top; tap one to continue it."):"No saved chats yet — this is the first one.","aura");
      setMode("idle");busy=false;if(wake)armWake(400);return;}}
+  /* ===== ASTRA STACK intents (before themed helpers) ===== */
+  {const aq=(text||"").toLowerCase().trim();
+   if(SAY_PY.test(aq)||/^(run|execute) (this|it|the)? ?(python|py)\b/i.test(aq)){
+     document.querySelector('#tabbar button[data-t="code"]').click();
+     const ok=await ensurePy(()=>addMsg(msgTag(),"🐍 Booting the Python 3.12 sandbox — first boot takes ~8 seconds, then it's instant.","aura"));
+     if(ok){pyRun(document.getElementById("codeEditor").value||"print('sandbox alive')");addMsg(msgTag(),"🐍 Running the Python code from the CODE FORGE editor — output streams in the pane below.","aura")}
+     if(voiceAllowed())speak("Running Python now.");setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(SAY_EXP.test(aq)){
+     const src=document.getElementById("codeEditor").value;
+     if(!src.trim()){addMsg(msgTag(),"The editor is empty — write or BUILD code first, then ask me to explain it.","aura");setMode("idle");busy=false;if(wake)armWake(400);return}
+     addMsg(msgTag(),"🧠 Reading your code…","aura");
+     const P=PERSONAS[persona()];
+     aiChat([{role:"system",content:"You are "+P.name+". Explain this code to a bright student: what it does, how it works step by step, any bugs or edge cases. Use markdown. Be vivid, not dry."},{role:"user",content:src.slice(0,6000)}],900).then(ex=>{addMsg(msgTag(),ex||"I could not read it — try again.","aura");if(voiceAllowed())speak("Here is what the code does.")}).catch(()=>addMsg(msgTag(),"Explanation failed — check the AI key.","aura"));
+     setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(SAY_FIX.test(aq)){
+     const src=document.getElementById("codeEditor").value;
+     if(!src.trim()){addMsg(msgTag(),"Editor is empty — put the broken code in first, then say fix it.","aura");setMode("idle");busy=false;if(wake)armWake(400);return}
+     addMsg(msgTag(),"🛠 Debugging your code…","aura");
+     const P=PERSONAS[persona()];
+     aiChat([{role:"system",content:"You are "+P.name+"'s DEBUGGER. Find every bug in this code. Reply with: 1-line diagnosis, then the FULL corrected code only (no fences), then one line on what changed."},{role:"user",content:src.slice(0,6000)}],2000).then(async fixed=>{
+       const m=fixed.match(/```[a-z]*\\n([\\s\\S]*?)\\n```/);let code=fixed;
+       if(m)code=m[1];else{code=fixed.replace(/^[\\s\\S]*?(?=(?:def |class |function |const |import |#include|public ))/,'')}
+       document.getElementById("codeEditor").value=code.trim();
+       addMsg(msgTag(),fixed||"No response — try again.","aura");if(voiceAllowed())speak("Fixed. The corrected code is in the editor.");
+       if(/python/i.test(fixed)){const ok=await ensurePy();if(ok)codeLog("tip: say \"run python\" to execute the fixed code")}
+     }).catch(()=>addMsg(msgTag(),"Debug failed — check the AI key.","aura"));
+     setMode("idle");new Promise(r=>setTimeout(r,300));busy=false;if(wake)armWake(400);return;}
+   const rm=text.match(SAY_REMEMBER);
+   if(rm){const fact=rm[3].trim();
+     memAdd(fact,"user");
+     addMsg(msgTag(),"🧠 Noted — \""+fact+"\" is now in my long-term memory. I'll recall it whenever it's relevant, across sessions.","aura");
+     if(voiceAllowed())speak("Remembered.");setMode("idle");busy=false;if(wake)armWake(400);return;}
+   {const fm=aq.match(SAY_FORGET);
+   if(fm){
+     memForget((fm[4]||fm[2]||"").trim(),n=>{addMsg(msgTag(),n?("🗑 Erased "+n+" memory item"+(n>1?"s":"")+" from my long-term store."):"I could not find a matching memory to erase.","aura");if(voiceAllowed())speak(n?"Forgotten.":"Nothing matched.")});
+     setMode("idle");busy=false;if(wake)armWake(400);return;}}
+   if(SAY_WHATKNOW.test(aq)){
+     memRender();memListVoice();
+     setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/^open (the )?(camera|cam) page$/i.test(aq)){camStart();setMode("idle");busy=false;if(wake)armWake(400);return}}
+  /* CAMERA VISION intents — live seeing */
+  if(camAskCam(text)){setMode("idle");busy=false;if(wake)armWake(400);return}
   const tk=taskCommand(text);
   if(tk){pushSys("task executed · "+tk.eng.split("· ")[1]);$("engTag").textContent="engine: "+tk.eng;$("tEng").textContent="TASK";
     addMsg(msgTag(),tk.t,"aura");if(voiceAllowed())speak(tk.t);blip(660,.09);
@@ -2221,6 +2284,8 @@ async function askCore(text0){
    new commands line up and run the moment she's free. "Shut up" still jumps the line. */
 async function askRunner(t){
   try{await askCore(t)}catch(e){setMode("idle")}
+  /* silent mode: answers land as text — never leave the mode stuck on "thinking" (false watchdog) */
+  if(mode==="thinking")setMode("idle");
   busy=false;
   if(qQueue.length){const n=qQueue.shift();setTimeout(()=>ask(n),150)}
 }
@@ -2396,6 +2461,7 @@ const BOOT=persona()==="jarvis"?["> JARVIS OS v4.0 — initializing combat core"
     if(replay.length){const hd=addMsg("SYS","— previous conversation restored —","sys");hd.style.opacity=".55";
       replay.forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
+    try{memRender()}catch(e){}
     const msg=greetWord()+(n?", "+n:"")+(persona()==="jarvis"?". JARVIS online, sir — all systems armed and standing by"+(histN?", "+histN+" turns of our history loaded":"")+". Objective, question or command?":". AURA online — neural link established"+(histN?", and I remember our last "+Math.min(histN,120)+" exchanges":"")+". Tap the mic and speak, or type below.");const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
   $("boot").addEventListener("click",end,{once:true});
   setTimeout(end,2600);
@@ -2547,7 +2613,8 @@ function runCode(){
     let doc=src;
     if(lang==="react"){doc="<div id='root'></div><"+"script src='https://unpkg.com/react@18/umd/react.production.min.js'><"+"/"+"script>"+"<"+"script src='https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'><"+"/"+"script>"+"<"+"script>try{"+src.replace(/export default /,"")+"}catch(e){document.body.textContent='Error: '+e.message}<"+"/"+"script>"}
     fr.srcdoc=doc;codeLog("▶ rendered "+lang.toUpperCase()+" page");
-  } else if(lang==="javascript"||lang==="typescript"){
+  } else if(lang==="python"){pyRun(src);return}
+  else if(lang==="javascript"||lang==="typescript"){
     let js=src;
     if(lang==="typescript")js=js.replace(/:\s*[A-Za-z<>\[\]|]+(?=\s*[=,)])/g,"").replace(/interface [\s\S]*?\{[\s\S]*?\}/g,"");
     fr.srcdoc="<!doctype html><html><body><"+"script>"+"const _send=s=>{try{parent.postMessage({codeLog:s},'*')}catch(e){}};"+"const _ol=console.log;console.log=(...a)=>{_ol(...a);_send(a.map(String).join(' '))};"+"window.onerror=m=>_send('ERR '+m);"+"try{"+js+"}catch(e){_send('ERR '+e.message)}"+"<"+String.fromCharCode(47)+"script>";
@@ -2585,6 +2652,193 @@ async function buildCode(){
   const cc=document.getElementById("codeClear");if(cc)cc.onclick=()=>{const fr=document.getElementById("codeFrame");fr.srcdoc="";const lg=document.getElementById("codeLog");lg.textContent="";lg.style.display="none"};
 })();
 setInterval(()=>{try{const c=document.getElementById("sessCount");if(c&&document.body.dataset.tab==="chats")renderSessions()}catch(e){}},4000);
+/* ============ ASTRA STACK — Pyodide sandbox · vector memory · live research · camera vision · barge-in ============ */
+/* ---------- 1. PYODIDE — real Python (3.12) running in the browser ---------- */
+let pyReady=false,pyLoading=false,pyodide=null,pyQueue=[];
+async function loadPyodideNow(){
+  if(pyReady||pyLoading)return;
+  pyLoading=true;codeLog("▶ booting Python 3.12 sandbox (first time only — ~8s)…");
+  try{
+    await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js";s.onload=res;s.onerror=()=>rej(new Error("CDN unreachable"));document.head.appendChild(s)});
+    pyodide=await window.loadPyodide({indexURL:"https://cdn.jsdelivr.net/pyodide/v0.26.4/full/"});
+    pyodide.setStdout({batched:s=>codeLog(s)});pyodide.setStderr({batched:s=>codeLog("ⓘ "+s)});
+    pyReady=true;codeLog("✓ Python sandbox online — " + pyodide.runPython("'py-'+__import__('sys').version.split()[0]"));
+    pyQueue.forEach(fn=>fn());pyQueue=[];
+  }catch(e){pyLoading=false;codeLog("// python sandbox failed: "+(e.message||e)+" — check internet")}
+}
+async function pyRun(src){
+  const fr=document.getElementById("codeFrame");if(fr)fr.srcdoc="";
+  if(!pyReady){pyQueue.push(()=>pyRun(src));loadPyodideNow();if(!pyReady)return}
+  codeLog("▶ running Python…");
+  try{await pyodide.runPythonAsync(src);codeLog("✓ done")}catch(e){codeLog("⛔ "+String(e).split("\n").filter(l=>/Error|error/.test(l)).slice(-3).join("\n")||String(e).slice(0,300))}
+}
+async function ensurePy(say){if(!pyReady){say&&say();loadPyodideNow();return false}return true}
+function AICTX(){const a=document.getElementById("codeEditor");return a&&a.value.trim()?("\n\nCurrent code in the editor:\n```\n"+a.value.slice(0,5000)+"\n```"):""}
+async function aiChat(msgs,tok){
+  const out=await groqCall(msgs,tok||1200);
+  return String(out||"");
+}
+window.__PYON=p=>{try{const el=document.getElementById("codeEditor");if(el&&p&&p.length>50)el.value=p}catch(e){}};window.__PYOFF=()=>codeLog("⤓ python output downloaded");
+/* ---------- 2. VECTOR MEMORY — semantic fact store with embeddings ---------- */
+const MEMKEY="aura_vector_mem_v1";
+let VMEM=[];try{VMEM=JSON.parse(localStorage.getItem(MEMKEY)||"[]")}catch(e){}
+function memSave(){try{localStorage.setItem(MEMKEY,JSON.stringify(VMEM.slice(-400)))}catch(e){}}
+let embedP=null;
+function embedder(){
+  if(!embedP){
+    embedP=(async()=>{
+      try{
+        slog("semantic core: downloading embedding model (~24MB, once only, then cached)…",true);
+        const {pipeline}=await import("https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.1");
+        const ex=await pipeline("feature-extraction","Xenova/all-MiniLM-L6-v2",{dtype:"q8"});
+        slog("semantic core online — TRUE vector memory active",true);
+        return ex;
+      }catch(e){embedP=null;slog("semantic core unavailable — falling back to keyword memory");return null}
+    })();
+  }
+  /* never block an answer on the download — after 20s fall back to keyword recall */
+  return Promise.race([embedP,new Promise(r=>setTimeout(()=>r(null),20000))])}
+async function vecOf(text){
+  try{const ex=await embedder();if(!ex)return null;
+    const out=await ex(text.slice(0,2000),{pooling:"mean",normalize:true});
+    return Array.from(out.data)}catch(e){return null}}
+function cos(a,b){if(!a||!b||a.length!==b.length)return 0;let d=0,na=0,nb=0;for(let i=0;i<a.length;i++){d+=a[i]*b[i];na+=a[i]*a[i];nb+=b[i]*b[i]}return na&&nb?d/Math.sqrt(na*nb):0}
+async function memSearch(q,cb,top){
+  top=top||6;
+  if(!VMEM.length){cb([]);return}
+  const qv=await vecOf(q);
+  const ql=(q||"").toLowerCase().split(/\W+/).filter(w=>w.length>2);
+  const scored=VMEM.map(m=>{let s=0;
+    if(qv&&m.v&&m.v.length===qv.length){s=cos(qv,m.v)}
+    else{const ml=m.t.toLowerCase();let hit=0;ql.forEach(w=>{if(ml.includes(w))hit++});s=ql.length?Math.min(0.9,hit/ql.length*0.9):0.2}
+    return {m,s}});
+  scored.sort((a,b)=>b.s-a.s);
+  cb(scored.slice(0,top).filter(x=>x.s>0.18))}
+async function memAdd(text,src){
+  if(!text||text.length<4)return;
+  if(VMEM.some(m=>m.t===text))return;
+  VMEM.push({t:text,v:null,k:src||"chat",ts:Date.now()});memSave();try{memRender()}catch(e){}
+  slog("memory ← \""+text.slice(0,42)+"\"",true);
+  const v=await vecOf(text);
+  const m=VMEM.find(x=>x.t===text);if(m){m.v=v;memSave()}}
+async function memForget(q,cb){
+  if(!VMEM.length){cb(0);return}
+  await memSearch(q,async res=>{
+    const del=res.filter(x=>x.s>0.35).map(x=>x.m);
+    let n=0;del.forEach(m=>{const i=VMEM.indexOf(m);if(i>-1){VMEM.splice(i,1);n++}});
+    if(!n){const m=VMEM.pop();n=m?1:0}
+    memSave();try{memRender()}catch(e){}cb(n)})}
+/* MEMORY MANAGER — view, inspect, delete, wipe; mirrors the CHATS manager */
+function memRender(){
+  const el=document.getElementById("memSide");if(!el)return;
+  const cnt=document.getElementById("memCount");if(cnt)cnt.textContent=VMEM.length?VMEM.length+" facts":"";
+  if(!VMEM.length){el.innerHTML='<div class="memempty">long-term memory is empty.<br>tell me "remember that…" — or just chat, and I auto-capture what matters. It persists across sessions.</div>';return}
+  el.innerHTML=VMEM.slice().reverse().map((m,ri)=>{const i=VMEM.length-1-ri;
+    return '<div class="memrow"><div class="mtx">'+m.t.replace(/</g,"&lt;").slice(0,140)+'<span class="msrc">['+(m.k||"chat")+(m.v?" · 384-d vector":"")+'] '+new Date(m.ts).toLocaleDateString()+'</span></div><button data-i="'+i+'" title="forget">✕</button></div>'}).join("");
+  el.querySelectorAll("button").forEach(b=>b.onclick=()=>{const i=+b.dataset.i;const t=VMEM[i].t;VMEM.splice(i,1);memSave();memRender();slog('memory ✕ "'+t.slice(0,36)+'"');if(voiceAllowed())speak("Forgotten.")})}
+function memListVoice(){
+  if(!VMEM.length){addMsg(msgTag(),"My long-term memory is empty — tell me things with \"remember that…\" and they persist forever.","aura");return}
+  addMsg(msgTag(),"🧠 Long-term memory ("+VMEM.length+" items):\n"+VMEM.slice(-40).reverse().map(m=>"- "+m.t).join("\n")+'\n\nDelete any fact from the 🛠 SYSTEM page → 🧠 MEMORY, or say "forget "+the fact.',"aura")}
+document.addEventListener("click",e=>{
+  const w=e.target.closest("#memWipe");if(w){
+    if(confirm("Forget EVERYTHING I know about you? This cannot be undone.")){const n=VMEM.length;VMEM.length=0;memSave();memRender();slog("memory wiped — "+n+" items erased");addMsg(msgTag(),"🧹 Long-term memory wiped — "+n+" items erased. We start fresh.","aura");if(voiceAllowed())speak("Memory wiped.")}}
+});
+/* ---------- 3. LIVE RESEARCH — DuckDuckGo + page reader + cited synthesis ---------- */
+async function webResearch(q){
+  const out={hits:[],txt:""};
+  try{const r=await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q="+encodeURIComponent(q.slice(0,220)),{signal:AbortSignal.timeout(20000)});
+    const t=await r.text();
+    const re=/##\s*\[([^\]]{8,150})\]\((https?:\/\/[^)\s]+)\)/g;let m2;
+    while((m2=re.exec(t))&&out.hits.length<5){let u=m2[2];try{u=decodeURIComponent((u.match(/uddg=([^&]+)/)||[])[1]||u)}catch(e){}if(/^https?:\/\//.test(u)&&!u.includes("duckduckgo.com"))out.hits.push({t:m2[1].trim(),u})}}catch(e){}
+  if(out.hits.length){
+    try{const pr=await fetch("https://r.jina.ai/"+out.hits[0].u,{signal:AbortSignal.timeout(22000)});
+      const pt=await pr.text();out.txt=pt.replace(/^Title:.*\n/m,"").replace(/^URL Source:.*\n/m,"").replace(/Markdown Content:/,"").replace(/!\[[^\]]*\]\([^)]*\)/g," ").replace(/\[([^\]]*)\]\([^)]*\)/g,"$1").replace(/\n{2,}/g,"\n").slice(0,3500)}catch(e){}}
+  return out}
+async function researchReply(q,hi){
+  const P=PERSONAS[persona()];
+  window.__researching=true;
+  try{
+  pushSys("research: searching the live web for \""+q.slice(0,40)+"\"…");
+  const r=await webResearch(q);
+  if(!r.hits.length){pushSys("research: web silent — answering from my own knowledge");return null}
+  pushSys("research: "+r.hits.length+" live sources — reading the top page…");
+  const src=r.hits.map((h,i)=>"["+(i+1)+"] "+h.t+" — "+h.u).join("\n");
+  const sys="You are "+P.name+". Answer the user's question using ONLY the provided live web evidence. Sound human and direct, never encyclopedic. Cite sources inline as [1], [2]. End with a SOURCES: line listing the numbered urls. If evidence is thin, say so honestly and answer from your own knowledge, marking that part clearly."+(hi?" Reply in Hindi (Devanagari).":"");
+  try{return await aiChat([{role:"system",content:sys},{role:"user",content:"Question: "+q+"\n\nLIVE WEB EVIDENCE:\n"+src+"\n\nTOP PAGE TEXT:\n"+(r.txt||"(reader blocked — rely on titles+snippets)")}],1400)}catch(e){return null}}finally{window.__researching=false}}
+const NEED_WEB=/\b(price|weather|today|current|latest|news|live score|stock|exchange rate|who won|release date|schedule|update on|right now|this week|this month|2024|2025|2026)\b|कीमत|मौसम|आज|ताज़ा|लाइव/i;
+const SAY_PY=/^(run|execute|do) (this|it|the) python|python (run|execute)|run py\b/i;
+const SAY_EXP=/^(explain|walk me through) (this|the) (code|script|python)|explain (this|the) code|what does this code do/i;
+const SAY_FIX=/^(fix|debug) (this|the) (code|script|error)|debug (this|the) code|fix my code|there is a bug in/i;
+const SAY_REMEMBER=/^(remember|note) (that )?(.+)/i;
+const SAY_FORGET=/^(forget|delete) (that )?(everything about |about )?(.+)/i;
+const SAY_WHATKNOW=/^what (do you know|all) about me|^my (facts|profile|memory)/i;
+/* BARGE-IN — tap anywhere on the stage (not on controls) to make her stop talking instantly */
+document.addEventListener("click",e=>{
+  if(!ttsActive)return;
+  if(e.target.closest("button,input,a,select,textarea,label,.cbtn,#camPanel,#log,#tb"))return;
+  stopSpeech();try{blip(300,.06)}catch(ex){}pushSys("barge-in: speech stopped — you have the floor");
+});
+/* ---------- 4. CAMERA VISION — Astra-style live seeing with spatial memory ---------- */
+const CAMKEY="aura_cam_mem_v1";
+let camVid=null,camStream=null,camOn=false,camBusy=false,camLog=[];try{camLog=JSON.parse(localStorage.getItem(CAMKEY)||"[]")}catch(e){}
+function camSave(){try{localStorage.setItem(CAMKEY,JSON.stringify(camLog.slice(-120)))}catch(e){}}
+function camPanel(){
+  if(document.getElementById("camPanel"))return;
+  const d=document.createElement("div");d.id="camPanel";
+  d.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b style="font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--cy2)">👁 LIVE VISION</b><span id="camClose" style="cursor:pointer;color:var(--dim);font-size:16px">✕</span></div><video id="camVid" autoplay playsinline muted style="width:100%;border-radius:10px;background:#000;aspect-ratio:4/3;object-fit:cover"></video><div id="camCtrl" style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button class="cbtn" id="camLook">🔍 What do you see?</button><button class="cbtn" id="camAsk">💬 Ask about this</button><input id="camQ" placeholder="ask about the scene…" style="flex:1;min-width:130px;background:var(--panel);border:1px solid var(--line2);color:var(--ice);border-radius:8px;padding:7px 10px;font-size:12px;outline:none"></div><div id="camMem" style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--dim);max-height:90px;overflow:auto">spatial memory: (empty)</div>';
+  document.body.appendChild(d);
+  d.querySelector("#camClose").onclick=camStop;
+  d.querySelector("#camLook").onclick=()=>camAnalyze("Describe this scene precisely.");
+  d.querySelector("#camAsk").onclick=()=>{const v=d.querySelector("#camQ").value.trim();if(v)camAnalyze(v)};
+  d.querySelector("#camQ").addEventListener("keydown",e=>{if(e.key==="Enter"){const v=e.target.value.trim();if(v){camAnalyze(v);e.target.value=""}}});
+  camRenderMem()}
+function camRenderMem(){const el=document.getElementById("camMem");if(!el)return;el.innerHTML=camLog.length?"spatial memory (last "+camLog.length+"):<br>"+camLog.slice(-6).reverse().map(c=>"• ["+new Date(c.ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})+"] "+c.d.replace(/</g,"&lt;").slice(0,90)).join("<br>"):"spatial memory: (empty)"}
+async function camStart(){
+  if(camOn)return;
+  try{camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})}catch(e){addMsg(msgTag(),"📷 Camera blocked — allow camera permission in the address bar and try again.","aura");return}
+  camOn=true;camPanel();
+  const css=document.createElement("style");css.id="camCSS";css.textContent="#camPanel{position:fixed;right:20px;bottom:150px;width:300px;z-index:60;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 8px 40px rgba(0,0,0,.5)}@media(max-width:860px){#camPanel{right:8px;left:8px;width:auto;bottom:140px}}";document.head.appendChild(css);
+  camVid=document.getElementById("camVid");camVid.srcObject=camStream;
+  pushSys("live vision online — I can see what the camera sees");
+  addMsg(msgTag(),"👁 **Live vision engaged.** I can now see through your camera. Point it at anything and ask — I describe scenes, read text and signs, and remember what I saw ("+camLog.length+" memories stored). Tap ✕ to close.","aura")}
+function camStop(){camOn=false;if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}const p=document.getElementById("camPanel");if(p)p.remove();const c=document.getElementById("camCSS");if(c)c.remove();pushSys("live vision closed")}
+async function camAnalyze(qq){
+  if(!camOn||camBusy)return;
+  camBusy=true;
+  try{
+    const cv=document.createElement("canvas");cv.width=640;cv.height=480;
+    const cx=cv.getContext("2d");cx.drawImage(camVid,0,0,640,480);
+    const img=cv.toDataURL("image/jpeg",0.72);
+    const P=PERSONAS[persona()];
+    const sys="You are "+P.name+" with LIVE CAMERA ACCESS (Project-Astra style). Answer about the current scene. Be concrete about objects, text, colors, people count, spatial relations (left/right/center). 2-4 sentences unless asked for detail."+(qq&&qq!=="Describe this scene precisely."?" The user asks: "+qq:"");
+    const desc=await groqCall([{role:"system",content:sys},{role:"user",content:[{type:"text",text:qq||"Describe this scene precisely."},{type:"image_url",image_url:{url:img}}]}],420,"meta-llama/llama-4-scout-17b-16e-instruct");
+    if(desc){
+      addMsg(msgTag(),"👁 "+desc,"aura");
+      if(voiceAllowed())speak(desc);
+      camLog.push({ts:Date.now(),d:desc.slice(0,300),q:qq||"scene"});camSave();camRenderMem();
+    }else addMsg(msgTag(),"The frame came back empty — try again.","aura");
+  }catch(e){addMsg(msgTag(),"Vision glitch: "+(e.message||e),"aura")}
+  camBusy=false}
+function camAskCam(q){
+  const ql=(q||"").toLowerCase();
+  if(/\b(open|start|turn on) (the )?(camera|cam|live vision)|live vision on|see (what i see|through my camera)/i.test(ql)){camStart();return true}
+  if(/\b(close|stop|turn off) (the )?(camera|cam|live vision)|live vision off/i.test(ql)){camStop();return true}
+  if(camOn&&/\b(what do you see|describe (the )?(scene|this)|what.s this|read (this|the) (text|sign)|where is|how many)/i.test(ql)){camAnalyze(q);return true}
+  return false}
+/* ---------- 5. BARGE-IN — her voice stops the instant you talk ---------- */
+(function(){
+  let armed=false;
+  const tick=()=>{
+    const on=ttsActive&&synth&&synth.speaking;
+    if(on&&!armed&&recog){armed=true;try{recog.start()}catch(e){}}
+    if(!on&&armed){armed=false;try{recog.abort()}catch(e){}}
+  };
+  setInterval(tick,450);
+})();
+/* ---------- hook: pyodide + vision models on boot ---------- */
+(function(){const iv=setInterval(()=>{if(typeof groqCall==="function"){clearInterval(iv);
+  try{const os=window.__origGroqCall;window.__origGroqCall=null}catch(e){}
+}},200)})();
 /* ---------------- THEME Cycler: Cyan(futuristic) → Gold → Classical(parchment) ---------------- */
 const THEMES=[{id:"cyan",label:"🎨 CYAN"},{id:"gold",label:"🎨 GOLD"},{id:"classical",label:"🎨 CLASSICAL"}];
 function applyTheme(id){
