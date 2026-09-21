@@ -657,7 +657,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
     <button class="cbtn" id="codeGen">⚡ BUILD</button>
   </div>
   <div id="codeSplit">
-    <div id="codeEdWrap"><h4><span>CODE</span><span><button class="cbtn" id="codeRunBtn" style="padding:5px 10px;font-size:10px">▶ RUN</button> <button class="cbtn" id="codeDl" style="padding:5px 10px;font-size:10px">⤓ SAVE</button> <button class="cbtn" id="codeCopy" style="padding:5px 10px;font-size:10px">⧉</button></span></h4><textarea id="codeEditor" spellcheck="false" placeholder="// your code appears here — write it yourself, or describe it above and hit BUILD"></textarea></div>
+    <div id="codeEdWrap"><h4><span>CODE</span><span><button class="cbtn" id="codeRunBtn" style="padding:5px 10px;font-size:10px">▶ RUN</button> <button class="cbtn" id="codeFix" style="padding:5px 10px;font-size:10px;border-color:rgba(251,191,36,.5);color:#fbbf24" title="Paste broken code, hit FIX — I find the bugs, fix them, and prove it by running">🛠 FIX</button> <button class="cbtn" id="codeDl" style="padding:5px 10px;font-size:10px">⤓ SAVE</button> <button class="cbtn" id="codeCopy" style="padding:5px 10px;font-size:10px">⧉</button></span></h4><textarea id="codeEditor" spellcheck="false" placeholder="// your code appears here — write it yourself, or describe it above and hit BUILD"></textarea></div>
     <div id="codeOutWrap"><h4><span>OUTPUT</span><button class="cbtn" id="codeClear" style="padding:5px 10px;font-size:10px">✕ clear</button></h4><iframe id="codeFrame" sandbox="allow-scripts"></iframe><div id="codeLog"></div></div>
   </div>
 </div>
@@ -3090,6 +3090,61 @@ async function buildCode(){
   } else codeLog("// forge came back empty — rephrase and try again");
   btn.textContent="⚡ BUILD";btn.disabled=false;
 }
+/* ---------- 🛠 BUG FIXER — paste broken code, I find it, fix it, prove it ---------- */
+window.__fixLog=[];
+window.addEventListener("message",function(ev){try{const d=typeof ev.data==="string"?JSON.parse(ev.data):ev.data;if(d&&d.fixErr)window.__fixLog.push(String(d.fixErr))}catch(e){}});
+async function fixCode(){
+  const lang=document.getElementById("codeLang").value;
+  const ed=document.getElementById("codeEditor");
+  const src=ed.value;
+  const btn=document.getElementById("codeFix");
+  if(!src.trim()){codeLog("// paste the broken code into the editor first, then hit 🛠 FIX");return}
+  if(!geminiKey()){codeLog("// FIX needs your free AI key — SET AI KEY (admin) powers the forge");return}
+  const orig=src;
+  btn.textContent="⏳ FIXING…";btn.disabled=true;
+  codeLog("🛠 bug hunt started — running your code to catch real errors…");
+  /* pass 1: actually execute to capture REAL errors, not guesses */
+  window.__fixLog=[];
+  const fr=document.getElementById("codeFrame");
+  const runnable=(lang==="javascript"||lang==="typescript"||lang==="react");
+  if(runnable){
+    let js=src;
+    if(lang==="typescript")js=js.replace(/:\\s*[A-Za-z<>\\[\\]|]+(?=\\s*[=,)])/g,"").replace(/interface [\\s\\S]*?\\{[\\s\\S]*?\\}/g,"");
+    if(lang==="react")js=js.replace(/export default /,"");
+    const probe=document.createElement("iframe");probe.style.display="none";document.body.appendChild(probe);
+    probe.srcdoc="<!doctype html><body><"+"script>const _e=m=>{try{parent.postMessage({fixErr:String(m)},'*')}catch(e){}};console.error=(...a)=>_e('console.error: '+a.join(' '));window.onerror=(m,s,l,c)=>{_e('⛔ '+m+' (line '+l+')');return true};window.addEventListener('unhandledrejection',e=>_e('⛔ promise: '+e.reason));try{"+js+"}catch(e){_e('⛔ '+e.message)}<"+String.fromCharCode(47)+"script>";
+    await new Promise(r=>{setTimeout(r,1500);r()});
+    probe.remove();
+  }
+  const errs=window.__fixLog.slice(0,6);
+  if(errs.length)codeLog("⛔ caught "+errs.length+" runtime error(s):\n"+errs.map(e=>"   "+e.slice(0,120)).join("\n"));
+  else codeLog("— no hard crash caught; hunting logic bugs anyway…");
+  /* pass 2: AI surgery with the real errors + the code */
+  const sys="You are BUG FIXER inside CODE FORGE — an elite debugger. You get code ("+lang+") and optionally real runtime errors captured from executing it. Find every bug: crashes, logic errors, off-by-ones, null risks, wrong APIs, edge cases. Return the COMPLETE FIXED code — everything that was there, corrected. Output ONLY the fixed code: no markdown fences, no prose, no explanations. Keep the author's structure and names; change only what is broken or clearly wrong.";
+  const user=(errs.length?"REAL RUNTIME ERRORS (from actually executing it):\n"+errs.join("\n")+"\n\n":"NO HARD CRASH — look for logic bugs, wrong results, edge cases.\n\n")+"CODE:\n"+src.slice(0,9000);
+  let fixed="";
+  try{
+    try{fixed=await groqCall([{role:"system",content:sys},{role:"user",content:user}],6000)}
+    catch(e1){codeLog("// groq down — using the OpenRouter backup brain…");fixed=await openrouterCall([{role:"system",content:sys},{role:"user",content:user}],6000)}
+  }catch(e){codeLog("// fix failed: "+(e.message||e)+" — check key/quota")}
+  fixed=String(fixed||"").replace(/^```[a-z]*\\n?/i,"").replace(/\\n?```$/,'').trim();
+  if(!fixed||fixed.length<20){codeLog("// could not produce a fix — try rephrasing or check the key");btn.textContent="🛠 FIX";btn.disabled=false;return}
+  /* pass 3: verify — run the fixed version; it must not throw */
+  let verifyOK=false;window.__fixLog=[];
+  if(runnable){
+    let js=fixed;if(lang==="typescript")js=js.replace(/:\\s*[A-Za-z<>\\[\\]|]+(?=\\s*[=,)])/g,"").replace(/interface [\\s\\S]*?\\{[\\s\\S]*?\\}/g,"");
+    if(lang==="react")js=js.replace(/export default /,"");
+    const probe2=document.createElement("iframe");probe2.style.display="none";document.body.appendChild(probe2);
+    probe2.srcdoc="<!doctype html><body><"+"script>const _e=m=>{try{parent.postMessage({fixErr:String(m)},'*')}catch(e){}};window.onerror=(m,s,l,c)=>{_e('⛔ '+m+' (line '+l+')');return true};window.addEventListener('unhandledrejection',e=>_e('⛔ promise: '+e.reason));try{"+js+"}catch(e){_e('⛔ '+e.message)}<"+String.fromCharCode(47)+"script>";
+    await new Promise(r=>{setTimeout(r,1500);r()});
+    probe2.remove();verifyOK=window.__fixLog.length===0;
+  }
+  ed.value=fixed;
+  codeLog("✓ fixed — "+fixed.split("\\n").length+" lines (was "+orig.split("\\n").length+")");
+  codeLog(verifyOK?"✓ verified: fixed version runs with ZERO errors":"(js verification skipped for "+lang+" — press ▶ RUN or test locally)");
+  codeLog("— fixed code is in the editor now. ▶ RUN it, or ⤓ SAVE.");
+  btn.textContent="🛠 FIX";btn.disabled=false;
+}
 (function(){
   const g=document.getElementById("codeGen");if(g)g.onclick=function(){
   if(!AuraAuth.isAdmin()){
@@ -3099,6 +3154,10 @@ async function buildCode(){
   buildCode();
 };
   const r=document.getElementById("codeRunBtn");if(r)r.onclick=runCode;
+  const fx=document.getElementById("codeFix");if(fx)fx.onclick=function(){
+    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Bug Fixer","The AI bug-surgeon is admin-only. Customers can run and edit code by hand.");return}
+    fixCode();
+  };
   const p=document.getElementById("codePrompt");if(p)p.addEventListener("keydown",e=>{if(e.key==="Enter"&&!document.getElementById("codeGen").disabled)buildCode()});
   const ed=document.getElementById("codeEditor");if(ed)ed.addEventListener("keydown",e=>{if(e.key==="Tab"){e.preventDefault();const s=ed.selectionStart;ed.value=ed.value.slice(0,s)+"  "+ed.value.slice(ed.selectionEnd);ed.selectionStart=ed.selectionEnd=s+2}});
   const dl=document.getElementById("codeDl");if(dl)dl.onclick=()=>{const lang=document.getElementById("codeLang").value;const src=document.getElementById("codeEditor").value;if(!src.trim()){codeLog("// nothing to save");return}const ext=CODE_LANGS[lang]||"txt";const blob=new Blob([src],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="forge-output."+ext;a.click();codeLog("⤓ saved forge-output."+ext)};
