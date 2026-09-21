@@ -3042,7 +3042,7 @@ const AuraAuth = (function(){
     github: "sourabh7300"
   };
   const SALT = "AURA_SALT_SOURABH_JECRC_2026_SECURE";
-  const DEFAULT_HASH = "0183223b2e530db83ec4063544e70ff669767209e22e518be505c0f7706c4fda"; // "Sourabh@Aura2026"
+  const DEFAULT_HASH = "0183223b2e530db83ec4063544e70ff669767209e22e518be505c0f7706c4fda"; // SHA-256(SALT + admin passkey) — plaintext never stored here
   
   async function hashPasskey(pwd){
     try{
