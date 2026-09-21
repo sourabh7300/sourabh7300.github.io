@@ -221,7 +221,16 @@ body[data-tab="code"] #codePage{display:flex}
 #codeFrame{width:100%;height:100%;border:none;background:#fff}
 #codeLog{position:absolute;bottom:0;left:0;right:0;max-height:38%;overflow:auto;background:rgba(2,10,16,.92);border-top:1px solid var(--line2);padding:10px 14px;font-family:var(--mono);font-size:11.5px;color:#9fe8f5;white-space:pre-wrap;display:none}
 #codeOutWrap{position:relative}
-@media(max-width:860px){#codeSplit{flex-direction:column}#codePage{top:88px;left:8px;right:8px;bottom:198px}}
+@media(max-width:860px){#codeSplit{flex-direction:column}#codePage{top:104px;left:8px;right:8px;bottom:200px}
+  #codeSplit{gap:8px}
+  #codeEdWrap,#codeOutWrap{min-height:220px;flex:1 1 auto}
+  #codeEdWrap{flex:0 0 240px}
+  #codeEditor{font-size:12px;padding:10px}
+  #codeTop{gap:6px}
+  #codeLang{flex:0 0 44%}
+  #codePrompt{min-width:0;flex:1}
+  #codeGen{padding:10px 14px}
+}
 #sessPanel{display:none;top:74px;right:22px;width:min(440px,40vw);bottom:130px;flex-direction:column;overflow:hidden}
 body[data-tab="chats"] #sessPanel{display:flex}
 #sessSide{display:flex;flex-direction:column;flex:1;overflow:hidden}
@@ -538,27 +547,17 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   @keyframes panelIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 }
 /* ---------- mobile: keep the rhythm without the bulk ---------- */
+/* DESIGN 2.0 mobile keeps its own code-page block; base one above is overridden */
 @media(max-width:860px){
-  :root{--sp5:16px;--sp6:20px}
-  #topbar{padding:10px 14px}
-  #tabbar{top:54px;left:8px;right:8px;gap:6px;z-index:14}
-  #tabbar button{padding:8px 6px;font-size:9.5px}
-  #conv{top:104px;right:8px;left:8px;padding:var(--sp3);border-radius:16px}
-  #log{gap:var(--sp3)}
-  .msg{font-size:14px;line-height:1.6}
-  .msg.aura,.msg.user{padding:10px 13px}
-  #chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}
-  #chips::-webkit-scrollbar{display:none}
-  #chips .chip{flex:0 0 auto}
-  #sessPanel{top:104px;right:8px;left:8px;bottom:200px}
-  #codePage{top:104px;left:8px;right:8px;bottom:200px}
-  body[data-tab="system"] #telemetry{top:104px}
-  body[data-tab="system"] #syslog{bottom:210px;max-height:130px}
-  body[data-tab="system"] #memPanel{display:none}
-  #dock{bottom:12px}
-  #micBtn{width:56px;height:56px}
-  #q{padding:13px 18px;font-size:15px}
-  .ibtn{padding:7px 11px;font-size:9.5px}
+  #codeSplit{flex-direction:column;gap:8px}
+  #codeEdWrap,#codeOutWrap{min-height:220px;flex:1 1 auto}
+  #codeEdWrap{flex:0 0 240px}
+  #codeEditor{font-size:12px;padding:10px}
+  #codeTop{gap:6px}
+  #codeLang{flex:0 0 44%}
+  #codePrompt{min-width:0;flex:1}
+  #codeGen{padding:10px 14px}
+  #codePage{gap:8px}
 }
 
 </style>
@@ -3027,43 +3026,68 @@ updateEngTag();
 /* ---------------- CODE FORGE: AI builds code in 25 languages ---------------- */
 const CODE_LANGS={javascript:"js",html:"html",css:"css",python:"py",java:"java",c:"c",cpp:"cpp",csharp:"cs",go:"go",rust:"rs",typescript:"ts",php:"php",ruby:"rb",swift:"swift",kotlin:"kt",sql:"sql",bash:"sh",r:"r",matlab:"m",dart:"dart",scala:"scala",perl:"pl",lua:"lua",haskell:"hs",react:"jsx"};
 function codeLog(t){const el=document.getElementById("codeLog");if(!el)return;el.style.display="block";el.textContent+=t+"\n";el.scrollTop=el.scrollHeight}
+/* single global listener — installed once, never accumulates */
+window.addEventListener("message",function h(ev){try{const d=typeof ev.data==="string"?JSON.parse(ev.data):ev.data;if(d&&d.codeLog){codeLog(d.codeLog)}}catch(e){}});
 function runCode(){
   const lang=document.getElementById("codeLang").value;
   const src=document.getElementById("codeEditor").value;
   const fr=document.getElementById("codeFrame"),lg=document.getElementById("codeLog");
   lg.style.display="block";lg.textContent="";
   if(!src.trim()){codeLog("// editor is empty — write or BUILD code first");return}
-  if(lang==="html"||lang==="react"&&/return\s*\(/.test(src)===false){
+  const isReact=lang==="react";
+  const reactIsComponent=isReact&&/return\s*\(/.test(src);
+  if(lang==="html"||(isReact&&!reactIsComponent&&/<[a-z!]/i.test(src))){
     let doc=src;
-    if(lang==="react"){doc="<div id='root'></div><"+"script src='https://unpkg.com/react@18/umd/react.production.min.js'><"+"/"+"script>"+"<"+"script src='https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'><"+"/"+"script>"+"<"+"script>try{"+src.replace(/export default /,"")+"}catch(e){document.body.textContent='Error: '+e.message}<"+"/"+"script>"}
-    fr.srcdoc=doc;codeLog("▶ rendered "+lang.toUpperCase()+" page");
+    if(isReact){doc="<div id='root'></div><"+"script src='https://unpkg.com/react@18/umd/react.production.min.js'><"+"/"+"script>"+"<"+"script src='https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'><"+"/"+"script>"+"<"+"script>try{"+src.replace(/export default /,"")+"}catch(e){document.body.textContent='Error: '+e.message}<"+"/"+"script>"}
+    fr.srcdoc=doc;codeLog("▶ rendered "+lang.toUpperCase()+" page — it is LIVE in the output pane");
   } else if(lang==="python"){pyRun(src);return}
-  else if(lang==="javascript"||lang==="typescript"){
+  else if(lang==="javascript"||lang==="typescript"||isReact){
     let js=src;
     if(lang==="typescript")js=js.replace(/:\s*[A-Za-z<>\[\]|]+(?=\s*[=,)])/g,"").replace(/interface [\s\S]*?\{[\s\S]*?\}/g,"");
-    fr.srcdoc="<!doctype html><html><body><"+"script>"+"const _send=s=>{try{parent.postMessage({codeLog:s},'*')}catch(e){}};"+"const _ol=console.log;console.log=(...a)=>{_ol(...a);_send(a.map(String).join(' '))};"+"window.onerror=m=>_send('ERR '+m);"+"try{"+js+"}catch(e){_send('ERR '+e.message)}"+"<"+String.fromCharCode(47)+"script>";
-    codeLog("▶ running JavaScript — output below (console.log appears here)");
+    if(isReact){/* component file: mount it for real */
+      js=js.replace(/export default /,"");
+      fr.srcdoc="<!doctype html><html><head><meta charset='utf-8'></head><body><div id='root'></div>"+"<"+"script src='https://unpkg.com/react@18/umd/react.production.min.js'><"+"/"+"script>"+"<"+"script src='https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'><"+"/"+"script>"+"<"+"script src='https://unpkg.com/@babel/standalone/babel.min.js'><"+"/"+"script>"+"<"+"script type='text/babel'>const _send=s=>{try{parent.postMessage({codeLog:String(s)},'*')}catch(e){}};const _ol=console.log;console.log=(...a)=>{_ol(...a);_send(a.join(' '))};window.onerror=m=>_send('ERR '+m);window.addEventListener('unhandledrejection',e=>_send('ERR '+e.reason));try{"+js+"\nif(typeof App!=='undefined'){ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App))}else{_send('ℹ no <App> component found — define one to render')}"+"}catch(e){_send('ERR '+e.message)}<"+String.fromCharCode(47)+"script>";
+      codeLog("▶ running React — component mounts in the output pane");return;
+    }
+    fr.srcdoc="<!doctype html><html><body style='font-family:monospace;color:#222;background:#fff'><"+"script>"+"const _send=s=>{try{parent.postMessage({codeLog:String(s)},'*')}catch(e){}};"+"const _ol=console.log;console.log=(...a)=>{_ol(...a);_send(a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '))};"+"window.onerror=m=>_send('⛔ '+m);"+"window.addEventListener('unhandledrejection',e=>_send('⛔ '+e.reason));"+"try{"+js+"}catch(e){_send('⛔ '+e.message)}"+"<"+String.fromCharCode(47)+"script>";
+    codeLog("▶ running JavaScript — console.log streams below");
   } else {
-    codeLog("▶ "+lang+" is a compiled/interpreter language — browsers can only RUN javascript & html.");
-    codeLog("  Your code stays in the editor: SAVE it, run it locally (python "+CODE_LANGS[lang]+" file, etc.), or hit BUILD again with 'explain' for a how-to-run guide.");
+    codeLog("▶ "+lang+" is a compiled/interpreter language — the browser runs JS, HTML & Python natively.");
+    codeLog("  Your code stays in the editor: ⤓ SAVE it, run locally ("+lang+" "+CODE_LANGS[lang]+"), or hit BUILD again starting with 'explain' for a how-to-run guide.");
   }
-  window.addEventListener("message",function h(ev){try{const d=typeof ev.data==="string"?JSON.parse(ev.data):ev.data;if(d&&d.codeLog){codeLog(d.codeLog)}}catch(e){}});
 }
 async function buildCode(){
   const lang=document.getElementById("codeLang").value;
   const q=document.getElementById("codePrompt").value.trim();
   if(!q){codeLog("// describe what to build in the prompt box first");return}
-  if(!geminiKey()){codeLog("// BUILD needs your free AI key — SET AI KEY (gsk_…) powers the forge");return}
+  if(!geminiKey()){codeLog("// BUILD needs your free AI key — SET AI KEY (admin) powers the forge");return}
   const btn=document.getElementById("codeGen");btn.textContent="⏳ FORGING…";btn.disabled=true;
+  codeLog("⚡ forging "+lang+" — reading your idea, planning, writing code…");
+  const LANGTIP={
+    html:"Output ONE complete HTML document from <!doctype html> to </html> with embedded <style> and <script>. Make it visually polished — real colors, spacing, hover states. No placeholders.",
+    css:"Output complete CSS with real values. Include a short HTML comment at top showing example markup the styles apply to.",
+    javascript:"Output one complete <script>-ready JS file. ALWAYS end with demo lines that call your function(s) with sample inputs and console.log the results, so pressing RUN shows output immediately.",
+    typescript:"Output complete TS. End with demo calls console.logging results.",
+    react:"Output ONE React component named App (function App(){...} or const App=()=>{...}) using JSX. Include useState where useful. No imports, no export — React UMD + Babel are preloaded. Make the UI real and styled with inline styles or a <style> block rendered via a <style> tag in the component.",
+    python:"Output complete Python 3. If it is a script, include a main section with sample calls and print() so running it shows output. Use only stdlib unless asked.",
+    sql:"Output runnable SQL with -- comments explaining each block, plus a few sample rows comments.",
+    bash:"Output a bash script starting with #!/bin/bash, well-commented."
+  };
+  const tip=LANGTIP[lang]||"Output complete, runnable, well-commented "+lang+" code. Include a demo/main section with sample input so the user can run it immediately.";
+  const sys="You are CODE FORGE, an elite senior engineer inside JARVIS/AURA. The user gives an idea — possibly short or vague: silently expand it into a sensible, complete interpretation (pick reasonable features) rather than asking questions. Produce COMPLETE, WORKING code that runs on the first try — never TODOs, never placeholders, never 'rest of the code here'. "+tip+" Output ONLY the code — no markdown fences, no prose before or after.";
+  let out="";
   try{
-    const sys="You are "+PERSONAS[persona()].name+"'s CODE FORGE. Produce complete, working, well-commented "+lang+" code for the request. Output ONLY the code, no markdown fences, no prose before or after. Include brief comments where helpful.";
-    let out="";
-    try{out=await groqCall([{role:"system",content:sys},{role:"user",content:q}],3000)}
-    catch(e){out=await groqCall([{role:"system",content:sys},{role:"user",content:q}],3000)}
-    out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,'').trim();
-    if(out)document.getElementById("codeEditor").value=out;
-    codeLog(out?"✓ forged "+out.split("\n").length+" lines of "+lang+" — hit ▶ RUN (js/html render live) or ⤓ SAVE":"// forge came back empty — try again or rephrase");
-  }catch(e){codeLog("// forge failed: "+(e.message||e)+" — check key/quota")}
+    try{out=await groqCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000)}
+    catch(e1){codeLog("// groq busy/failed — switching to the OpenRouter backup brain…");out=await openrouterCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000)}
+    if(!out||out.length<40){codeLog("// first pass thin — re-forging with more room…");out=await groqCall([{role:"system",content:sys+" The previous attempt came back empty — output the full code now."},{role:"user",content:"Build request: "+q}],6000)}
+  }catch(e){try{out=await openrouterCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000)}catch(e2){codeLog("// forge failed: "+(e2.message||e2)+" — check key/quota in SET AI KEY")}}
+  out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,'').trim();
+  if(out){
+    document.getElementById("codeEditor").value=out;
+    codeLog("✓ forged "+out.split("\n").length+" lines of "+lang);
+    if(lang==="javascript"||lang==="html"||lang==="react"||lang==="typescript"||lang==="python"){codeLog("▶ auto-running it for you…");runCode()}
+    else codeLog("— hit ▶ RUN (js/html/python run live) or ⤓ SAVE");
+  } else codeLog("// forge came back empty — rephrase and try again");
   btn.textContent="⚡ BUILD";btn.disabled=false;
 }
 (function(){
@@ -3075,7 +3099,7 @@ async function buildCode(){
   buildCode();
 };
   const r=document.getElementById("codeRunBtn");if(r)r.onclick=runCode;
-  const p=document.getElementById("codePrompt");if(p)p.addEventListener("keydown",e=>{if(e.key==="Enter")buildCode()});
+  const p=document.getElementById("codePrompt");if(p)p.addEventListener("keydown",e=>{if(e.key==="Enter"&&!document.getElementById("codeGen").disabled)buildCode()});
   const ed=document.getElementById("codeEditor");if(ed)ed.addEventListener("keydown",e=>{if(e.key==="Tab"){e.preventDefault();const s=ed.selectionStart;ed.value=ed.value.slice(0,s)+"  "+ed.value.slice(ed.selectionEnd);ed.selectionStart=ed.selectionEnd=s+2}});
   const dl=document.getElementById("codeDl");if(dl)dl.onclick=()=>{const lang=document.getElementById("codeLang").value;const src=document.getElementById("codeEditor").value;if(!src.trim()){codeLog("// nothing to save");return}const ext=CODE_LANGS[lang]||"txt";const blob=new Blob([src],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="forge-output."+ext;a.click();codeLog("⤓ saved forge-output."+ext)};
   const cp=document.getElementById("codeCopy");if(cp)cp.onclick=()=>{const src=document.getElementById("codeEditor").value;navigator.clipboard?navigator.clipboard.writeText(src).then(()=>codeLog("⧉ copied to clipboard")):codeLog("// copy unsupported")};
