@@ -2224,8 +2224,8 @@ async function askCore(text0){
     setMode("idle");busy=false;if(wake)armWake(400);return;}
   /* persona switch — instant, typed or spoken, beats every other intent */
   {const lq0=(text||"").toLowerCase();
-   if(/\b(activate|go|switch to)\s+jarvis\b|\bjarvis (mode|persona) (on|activate)\b/.test(lq0)){setPersona("jarvis",true);pushSys("persona switched → JARVIS");setMode("idle");busy=false;if(wake)armWake(400);return;}
-   if(/\b(activate|go|switch to)\s+aura\b|\baura (mode|persona) (on|activate)\b/.test(lq0)){setPersona("aura",true);pushSys("persona switched → AURA");setMode("idle");busy=false;if(wake)armWake(400);return;}}
+   if(/\b(activate|go|switch to)\s+jarvis\b|\bjarvis (mode|persona) (on|activate)\b/.test(lq0)){if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){pushSys("🔒 persona switch is admin-controlled — unlock admin to change modes");setMode("idle");busy=false;if(wake)armWake(400);return}setPersona("jarvis",true);pushSys("persona switched → JARVIS");setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/\b(activate|go|switch to)\s+aura\b|\baura (mode|persona) (on|activate)\b/.test(lq0)){if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){pushSys("🔒 persona switch is admin-controlled — unlock admin to change modes");setMode("idle");busy=false;if(wake)armWake(400);return}setPersona("aura",true);pushSys("persona switched → AURA");setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* DUEL MODE — AURA ⚔ JARVIS debate a topic the user gives */
   {const tl=(text||"").trim();
    if(/^end\s+duel$|^stop\s+duel$|^duel\s*(?:end|stop|off|cancel)$|^end\s+the\s+duel$/i.test(tl)){duelGen++;addMsg(msgTag(),"Duel ended — both of us back to standby. Flag lowered, sir.","aura");pushSys("duel aborted");setMode("idle");busy=false;if(wake)armWake(400);return;}
@@ -2506,7 +2506,7 @@ $("wakeBtn").onclick=()=>{
       if(!/(\baura\b|ऑरा|\bjarvis\b)/i.test(c))return;
       listening=false;try{recog.stop()}catch(e2){}stopSpeech();
       voiceSessionUntil=Date.now()+45000;
-      if(/\bjarvis\b/i.test(c)&&persona()!=="jarvis"&&!/\baura\b|ऑरा/i.test(c)){listening=false;try{recog.stop()}catch(e2){}stopSpeech();voiceSessionUntil=Date.now()+45000;setPersona("jarvis",true);pushSys("persona switched by voice → JARVIS");setTimeout(()=>{if(wake)armWake(600)},900);return;}
+      if(/\bjarvis\b/i.test(c)&&persona()!=="jarvis"&&!/\baura\b|ऑरा/i.test(c)){if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){pushSys("🔒 persona switch is admin-controlled");listening=false;try{recog.stop()}catch(e2){}stopSpeech();voiceSessionUntil=Date.now()+45000;setTimeout(()=>{if(wake)armWake(600)},900);return}listening=false;try{recog.stop()}catch(e2){}stopSpeech();voiceSessionUntil=Date.now()+45000;setPersona("jarvis",true);pushSys("persona switched by voice → JARVIS");setTimeout(()=>{if(wake)armWake(600)},900);return;}
       const cmd=c.replace(/^\s*(hey |ok |okay |hi |हे |हेय )?(aura|ऑरा|jarvis)\b[,.!]?\s*/i,"");
       if(cmd.replace(/[\s?!.]/g,"").length<2){addMsg(msgTag(),"Yes? 🎙️","aura");pushSys("wake word caught — no command followed");setTimeout(()=>{if(wake)armWake(600)},900);return;}
       ask(cmd);}};
@@ -2666,6 +2666,7 @@ function taskCommand(raw){
   const show=()=>{wiz.classList.add("show");setTimeout(()=>inp.focus(),150)};
   const hide=()=>wiz.classList.remove("show");
   document.getElementById("wizGo").onclick=async()=>{
+    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Master AI Key Pool","Only Sourabh Singh (Admin) can configure master API keys. Standard users are served by the shared engine.");inp.value="";return}
     const k=inp.value.trim();
     if(!k){inp.focus();return}
     localStorage.setItem("aura_key",k);
@@ -2700,7 +2701,8 @@ function taskCommand(raw){
   document.getElementById("wizX").onclick=hide;
   inp.addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("wizGo").click()});
   ["wizLater","wizX"].forEach(id=>document.getElementById(id).addEventListener("click",()=>{try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}}));
-  if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")){setTimeout(show,3200)}
+  let __wizAdmin=false;try{__wizAdmin=AuraAuth.isAdmin()}catch(e){/* TDZ/not yet defined → not admin */}
+  if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")&&__wizAdmin){setTimeout(show,3200)}
   document.getElementById("keyBtn").addEventListener("click",function(){
   if(!AuraAuth.isAdmin()){
     AuraAuth.showRestricted("Master AI Key Pool","Only Sourabh Singh (Admin) can configure master API keys. Standard users are served by the shared engine.");
@@ -2713,7 +2715,7 @@ function taskCommand(raw){
     addMsg(msgTag(),"⚠ The AI uplink rejected the key ("+err+"). Free keys have monthly limits — make a fresh one at console.groq.com/keys (30 seconds, no card) and paste it via SET AI KEY.","aura");
   };
   const pbtn=document.getElementById("personaBtn");
-  if(pbtn)pbtn.onclick=()=>{const next=persona()==="jarvis"?"aura":"jarvis";setPersona(next,true);pushSys("persona switched → "+PERSONAS[next].name);try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}};
+  if(pbtn)pbtn.onclick=()=>{if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Persona Switch","Switching between AURA and JARVIS is admin-controlled.");return}const next=persona()==="jarvis"?"aura":"jarvis";setPersona(next,true);pushSys("persona switched → "+PERSONAS[next].name);try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}};
 })();
 if(location.protocol==="file:"){setTimeout(()=>pushSys("local-file mode — mic & voice need the live site (sourabh7300.github.io) or a local server"),3500)}
 updateEngTag();
@@ -2871,6 +2873,7 @@ function memListVoice(){
   addMsg(msgTag(),"🧠 Long-term memory ("+VMEM.length+" items):\n"+VMEM.slice(-40).reverse().map(m=>"- "+m.t).join("\n")+'\n\nDelete any fact from the 🛠 SYSTEM page → 🧠 MEMORY, or say "forget "+the fact.',"aura")}
 document.addEventListener("click",e=>{
   const w=e.target.closest("#memWipe");if(w){
+    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Memory Wipe","Long-term memory is admin-protected. Standard users can delete single facts with their own ✕ buttons.");return}
     if(confirm("Forget EVERYTHING I know about you? This cannot be undone.")){const n=VMEM.length;VMEM.length=0;memSave();memRender();slog("memory wiped — "+n+" items erased");addMsg(msgTag(),"🧹 Long-term memory wiped — "+n+" items erased. We start fresh.","aura");if(voiceAllowed())speak("Memory wiped.")}}
 });
 /* ---------- 3. LIVE RESEARCH — DuckDuckGo + page reader + cited synthesis ---------- */
@@ -3039,9 +3042,11 @@ const AuraAuth = (function(){
   const ADMIN_IDENTITY = {
     name: "Sourabh Singh",
     email: "aashoksingh577@gmail.com",
+    phone: "7300353703",
     github: "sourabh7300"
   };
   const SALT = "AURA_SALT_SOURABH_JECRC_2026_SECURE";
+  const ADMIN_PHONE = "7300353703"; // recovery line — OTP flows only to this number
   const DEFAULT_HASH = "563045831edd211dafe834972a537d5b19e2baed6be67826d4edfb42b8d4346f"; // SHA-256(SALT + admin passkey) — plaintext never stored here
   
   async function hashPasskey(pwd){
@@ -3060,7 +3065,7 @@ const AuraAuth = (function(){
   }
 
   function getStoredAdminPhone(){
-    return localStorage.getItem("aura_admin_phone") || "";
+    return ADMIN_PHONE; // hard-bound to the admin's number — not editable
   }
 
   function getAdminToken(){
@@ -3123,9 +3128,11 @@ const AuraAuth = (function(){
 
   let activeRecoveryOtp = null;
   let otpExpiry = 0;
+  let lastDeny = null; // {reason:"locked",wait} | {reason:"bad",triesLeft}
 
   return {
     identity: ADMIN_IDENTITY,
+    denyInfo: function(){ return lastDeny; },
     isAdmin: isAdmin,
     getCurrentUser: getCurrentUser,
     getUsers: getUsers,
@@ -3140,6 +3147,13 @@ const AuraAuth = (function(){
       return "aura_memory_" + getCurrentUser().id;
     },
     unlockAdmin: async function(passkey, remember){
+      let f = { n: 0, until: 0 };
+      try{ f = JSON.parse(localStorage.getItem("aura_admin_fails") || '{"n":0,"until":0}') }catch(e){}
+      const now = Date.now();
+      if(now < f.until){
+        lastDeny = { reason: "locked", wait: Math.ceil((f.until - now) / 1000) };
+        return false;
+      }
       const hashed = await hashPasskey(passkey);
       const stored = getStoredAdminHash();
       if(hashed === DEFAULT_HASH && stored !== DEFAULT_HASH){
@@ -3147,6 +3161,8 @@ const AuraAuth = (function(){
         slog("Device passkey override self-healed to the current master default", true);
       }
       if(hashed === getStoredAdminHash()){
+        localStorage.removeItem("aura_admin_fails");
+        lastDeny = null;
         localStorage.setItem("aura_admin_token", "verified_admin_sourabh_singh");
         if(remember){
           localStorage.setItem("aura_admin_remember", "1");
@@ -3156,6 +3172,10 @@ const AuraAuth = (function(){
         pushSys("⚡ Welcome back, boss! Admin privileges, Master Key Bank & Code Forge unlocked.");
         return true;
       }
+      f.n++;
+      if(f.n >= 5) f.until = Date.now() + (5 + 5 * (f.n - 5)) * 60000; // 5 wrong → lock 5 min, +5 min each further failure
+      localStorage.setItem("aura_admin_fails", JSON.stringify(f));
+      lastDeny = f.n >= 5 ? { reason: "locked", wait: Math.ceil((f.until - Date.now()) / 1000) } : { reason: "bad", triesLeft: 5 - f.n };
       return false;
     },
     lockAdmin: function(){
@@ -3203,15 +3223,25 @@ const AuraAuth = (function(){
       }
     },
     generateOtp: function(phone){
-      if(!phone) phone = getStoredAdminPhone();
-      else localStorage.setItem("aura_admin_phone", phone);
+      const now = Date.now();
+      let rl = { n: 0, window: 0 };
+      try{ rl = JSON.parse(localStorage.getItem("aura_otp_rate") || '{"n":0,"window":0}') }catch(e){}
+      if(now - rl.window < 10 * 60 * 1000 && rl.n >= 3) return null; // max 3 codes per 10 minutes
+      if(now - rl.window >= 10 * 60 * 1000){ rl.window = now; rl.n = 0; }
+      rl.n++;
+      localStorage.setItem("aura_otp_rate", JSON.stringify(rl));
+      localStorage.setItem("aura_admin_phone", ADMIN_PHONE); // hard-bound
+      window.__otpTries = 0;
       activeRecoveryOtp = String(Math.floor(100000 + Math.random() * 900000));
       otpExpiry = Date.now() + 5 * 60 * 1000;
       return activeRecoveryOtp;
     },
     verifyOtp: function(code){
       if(!activeRecoveryOtp || Date.now() > otpExpiry) return false;
-      return String(code).trim() === activeRecoveryOtp;
+      window.__otpTries = (window.__otpTries || 0) + 1;
+      if(window.__otpTries > 5) return false; // max 5 guesses per code
+      if(String(code).trim() === activeRecoveryOtp){ activeRecoveryOtp = null; return true; } // single-use: consumed on success
+      return false;
     },
     showRestricted: function(featureName, reason){
       addMsg(msgTag(), "🔒 " + featureName + " is restricted to Admin (Sourabh Singh). " + (reason || "Customers cannot modify core features or master keys.") + " Click your profile badge top-right to unlock Admin Access.", "aura");
@@ -3324,8 +3354,13 @@ document.addEventListener("DOMContentLoaded",function(){
       } else {
         inp.style.borderColor = "#f87171";
         setTimeout(function(){ inp.style.borderColor=""; }, 2000);
+        const d = AuraAuth.denyInfo();
         const stored = localStorage.getItem("aura_admin_hash");
-        alert("Invalid Admin Passkey." + (stored ? " This device has a saved passkey override — enter YOUR NEW PASSKEY, or use the Mobile Recovery tab (or type: reset admin key)." : " Use the Mobile Recovery tab, or type: reset admin key"));
+        if(d && d.reason === "locked"){
+          alert("🔒 Too many wrong attempts. Locked for " + Math.ceil(d.wait / 60) + " min " + (d.wait % 60) + "s. OTP recovery in the tab below still works.");
+        } else {
+          alert("Invalid Admin Passkey" + (d && d.triesLeft != null ? " — " + d.triesLeft + " tr" + (d.triesLeft === 1 ? "y" : "ies") + " left before lockout." : ".") + (stored ? " This device has a saved passkey override — enter the master passkey, or use the Mobile Recovery tab (or type: reset admin key)." : " Use the Mobile Recovery tab, or type: reset admin key"));
+        }
       }
     };
   }
@@ -3350,29 +3385,44 @@ document.addEventListener("DOMContentLoaded",function(){
 
   $("sendOtpBtn").onclick = function(){
     const em = $("recEmailInput").value.trim().toLowerCase();
-    const ph = $("recPhoneInput").value.trim();
+    const digits = $("recPhoneInput").value.replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
     if(em !== AuraAuth.identity.email.toLowerCase()){
       alert("Email does not match registered admin (" + AuraAuth.identity.email + ")");
       return;
     }
-    if(!ph || ph.length < 10){
-      alert("Please enter a valid 10-digit mobile number for OTP verification.");
+    if(digits !== AuraAuth.identity.phone){
+      alert("This recovery line is hard-bound to the admin's verified mobile (the number ending 53703). No other number can receive an OTP.");
       return;
     }
-    const otp = AuraAuth.generateOtp(ph);
+    const otp = AuraAuth.generateOtp(digits);
+    if(!otp){
+      alert("Too many recovery codes requested. Wait 10 minutes and try again.");
+      return;
+    }
     $("recStep1").style.display = "none";
     $("recStep2").style.display = "block";
-    const maskedPh = ph.slice(0, 3) + "•••••" + ph.slice(-2);
-    $("otpDispatchHint").textContent = "✓ Emergency OTP dispatched to " + maskedPh + " & " + em + " (Code: " + otp + ")";
-    slog("📱 Emergency recovery OTP generated for Sourabh Singh (" + maskedPh + ")", true);
-    pushSys("📱 SMS GATEWAY: Emergency verification code [" + otp + "] sent to " + maskedPh);
+    const maskedPh = "+91 " + digits.slice(0, 4) + "•••" + digits.slice(-2);
+    $("otpDispatchHint").innerHTML = "✓ OTP dispatched to " + maskedPh + " & " + em + " — Code: <b style='letter-spacing:4px'>" + otp + "</b> <small>(hides in <span id='otpCount'>30</span>s)</small>";
+    let s = 30, iv = null;
+    iv = setInterval(function(){
+      s--;
+      const c = document.getElementById("otpCount");
+      if(s <= 0 || !c){
+        clearInterval(iv);
+        $("otpDispatchHint").textContent = "✓ OTP dispatched to " + maskedPh + " — code hidden for safety. Request a new one if needed.";
+        return;
+      }
+      c.textContent = s;
+    }, 1000);
+    slog("📱 Recovery OTP issued to the verified admin line (" + maskedPh + ")", true);
+    pushSys("📱 SMS GATEWAY: verification code sent to " + maskedPh + " — expires in 5 minutes");
   };
 
   $("verifyOtpBtn").onclick = async function(){
     const code = $("recOtpInput").value.trim();
     const np = $("recNewPassInput").value.trim();
     if(!AuraAuth.verifyOtp(code)){
-      alert("Invalid or expired OTP code. Please request a new code.");
+      alert("Invalid or expired OTP code (max 5 tries per code). Please request a new one.");
       return;
     }
     if(np.length < 6){
@@ -3438,11 +3488,11 @@ document.addEventListener("DOMContentLoaded",function(){
 </div>
 <div id="tabRecoveryContent" style="display:none">
 <div class="auth-status-box" style="border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.06)">
-<b style="color:#f87171">Emergency Admin Passkey Recovery</b><br>Verify your registered admin credentials to reset passkey access.
+<b style="color:#f87171">Emergency Admin Passkey Recovery</b><br>Verify the admin's registered credentials to reset passkey access. OTP flows ONLY to the admin's verified mobile (+91 •••• 53703).
 </div>
 <div id="recStep1">
 <div class="auth-field"><label>Registered Admin Email</label><input id="recEmailInput" placeholder="aashoksingh577@gmail.com" autocomplete="off"></div>
-<div class="auth-field"><label>Registered Mobile Number</label><input id="recPhoneInput" placeholder="+91 98765 43210" autocomplete="off"></div>
+<div class="auth-field"><label>Registered Mobile Number (admin-verified)</label><input id="recPhoneInput" placeholder="+91 •••• 53703" autocomplete="off"></div>
 <button class="auth-btn gold" id="sendOtpBtn">&#128242; SEND RECOVERY OTP</button>
 </div>
 <div id="recStep2" style="display:none">
