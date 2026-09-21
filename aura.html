@@ -110,12 +110,38 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 .msg .tx ul{margin:5px 0 5px 18px}
 .msg .tx li{margin:2.5px 0}
 .msg .tx .mdlink{color:var(--cy2);text-decoration:underline}
+/* citation cards — replaces the raw SOURCES dump */
+.srcbox{margin:10px 0 2px;padding:10px 12px;background:rgba(34,211,238,.04);border:1px solid var(--line2);border-radius:12px}
+.srcbox-t{font-family:'Orbitron';font-size:9px;letter-spacing:2.5px;color:var(--dim);margin-bottom:8px}
+.srcgrid{display:flex;flex-wrap:wrap;gap:7px}
+.src-card{display:inline-flex;align-items:center;gap:7px;max-width:100%;background:rgba(34,211,238,.07);border:1px solid var(--line2);border-radius:18px;padding:5px 12px 5px 6px;font-size:11.5px;color:var(--ice);text-decoration:none;transition:all .18s;overflow:hidden}
+a.src-card:hover{background:rgba(34,211,238,.16);border-color:var(--line);transform:translateY(-1px)}
+.src-card .srcn{flex:0 0 18px;height:18px;border-radius:50%;background:rgba(34,211,238,.18);color:var(--cy2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9.5px;font-weight:700}
+.src-card .srct{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:230px;letter-spacing:.2px}
+.src-card .srch{color:var(--dim);font-family:var(--mono);font-size:9.5px;flex-shrink:0}
+@media(max-width:560px){
+  .srcgrid{flex-direction:column}
+  .src-card{max-width:100%}
+  .src-card .srct{white-space:normal;max-width:none;line-height:1.35}
+  .src-card .srch{margin-left:auto}
+}
+body.theme-gold .srcbox{background:rgba(245,179,1,.05);border-color:rgba(245,179,1,.16)}
+body.theme-gold .src-card{background:rgba(245,179,1,.08);border-color:rgba(245,179,1,.18)}
+body.theme-gold a.src-card:hover{background:rgba(245,179,1,.18)}
+body.theme-gold .src-card .srcn{background:rgba(245,179,1,.2);color:#ffd75e}
+body.theme-classical .srcbox{background:rgba(139,94,52,.06);border-color:rgba(139,94,52,.25)}
+body.theme-classical .src-card{background:rgba(139,94,52,.08);border-color:rgba(139,94,52,.28);color:#3d2c18}
+body.theme-classical .src-card .srcn{background:rgba(139,94,52,.16);color:#6b4226}
+body.theme-classical .src-card .srch{color:#a08662}
+/* STOP voice bar — prominent, obvious, tappable */
 .clipwrap{position:relative;display:inline-flex}
 #imgInput{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .imgthumb{max-width:180px;max-height:120px;border-radius:8px;border:1px solid var(--line);display:block;margin:4px 0}
 #micHint{font-family:var(--mono);font-size:9.5px;letter-spacing:2px;color:var(--dim)}
-#stopBtn{position:fixed;right:26px;bottom:150px;z-index:60;display:none;font-family:'Orbitron';font-size:10px;letter-spacing:2px;color:#ffb4b4;background:rgba(127,29,29,.25);border:1px solid #f87171;border-radius:16px;padding:8px 14px;cursor:pointer}
+#stopBtn{position:fixed;right:50%;transform:translateX(50%);bottom:170px;z-index:60;display:none;font-family:'Orbitron';font-size:11px;letter-spacing:2.5px;color:#ffd7d7;background:rgba(160,20,20,.55);border:1px solid #f87171;border-radius:22px;padding:11px 26px;cursor:pointer;box-shadow:0 0 24px rgba(248,113,113,.35),0 8px 24px rgba(0,0,0,.4);backdrop-filter:blur(8px);transition:transform .15s}
+#stopBtn:hover{transform:translateX(50%) scale(1.05)}
 #stopBtn.show{display:block;animation:pulse 1.2s ease-in-out infinite}
+@media(max-width:860px){#stopBtn{bottom:210px;padding:12px 30px;font-size:12px}}
 #inputRow{display:flex;gap:9px;width:100%}
 #q{flex:1;background:rgba(4,18,26,.85);border:1px solid var(--line);border-radius:24px;color:var(--ice);font-family:'Rajdhani';font-size:16px;font-weight:500;padding:13px 20px;outline:0;letter-spacing:.3px;backdrop-filter:blur(6px)}
 #q:focus{border-color:var(--cy2);box-shadow:0 0 18px rgba(34,211,238,.25)}
@@ -261,7 +287,7 @@ body.theme-classical #codeEditor{color:#3d2c18;font-family:'Consolas','Courier N
 body.theme-classical #codeFrame{background:#fffdf6}
 body.theme-classical #boot{background:#f3ead7}
 body.theme-classical #bootLog{color:#6b4226}
-body.theme-classical #stopBtn{background:#8b5e34;color:#fff}
+body.theme-classical #stopBtn{background:rgba(139,94,52,.85);color:#fff;border-color:#8b5e34;box-shadow:0 2px 12px rgba(90,60,20,.3)}
 body.theme-classical .wiz-card{background:#fbf5e6;border-color:var(--line);color:#2e2216}
 body.theme-classical .wiz-in{background:#fffdf4;color:#2e2216;border-color:var(--line)}
 body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical .wiz-why{color:#5c4a32}
@@ -666,7 +692,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   <div id="bootLog"></div>
   <div id="bootSkip">TAP TO SKIP</div>
 </div>
-<button id="stopBtn">■ STOP</button>
+<button id="stopBtn">■ STOP VOICE</button>
 
 <script>
 "use strict";
@@ -871,6 +897,24 @@ function renderMD(t){
   s=s.replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g,"<ul>$1</ul>");
   s=s.replace(/^\d+\.\s+(.+)$/gm,"<li>$1</li>");
   s=s.replace(/\n{2,}/g,"<br><br>").replace(/\n/g,"<br>");
+  /* SOURCES block → tidy citation cards (instead of a raw ugly list) */
+  s=s.replace(/(?:<br>)?\s*SOURCES?:(?:[\s\S]*)$/i,function(m){
+    const seg=m.replace(/^\s*(?:<br>)*\s*SOURCES?:\s*/i,"");
+    const items=seg.split(/(?:<br>\s*)+|\n+/).map(x=>x.replace(/^\s*(?:<br>)+|\s+$/g,"")).filter(x=>x&&x.replace(/<[^>]+>/g,"").trim().length>3);
+    if(!items.length)return "";
+    const chips=items.map(function(it,i){
+      const mm=it.match(/\[(\d+)\]\s*(.*)/);
+      let label=mm?mm[2]:it, num=mm?mm[1]:(i+1);
+      const um=label.match(/(https?:\/\/[^\s<]+)/);
+      let host="";
+      if(um){host=um[1].replace(/^https?:\/\//,"").replace(/\/$/,"");const dn=host.split("/")[0].replace(/^www\./,"");label=label.replace(um[1],"").replace(/—\s*$/,"").replace(/\s{2,}/g," ").trim()||dn;host=dn}
+      else{const hm=label.match(/\b([a-z0-9-]+\.(?:com|org|net|io|ai|dev|news|gov|edu)(?:\.in)?)\b/i);if(hm)host=hm[1]}
+      const href=um?um[1]:(lastSrc&&/^https?:/.test(lastSrc)?lastSrc:null);
+      const inner='<span class="srcn">'+num+'</span><span class="srct">'+label+'</span>'+(host?'<span class="srch">'+host+'</span>':'');
+      return href?'<a class="src-card" href="'+href+'" target="_blank" rel="noopener">'+inner+'</a>':'<span class="src-card">'+inner+'</span>';
+    }).join("");
+    return '<div class="srcbox"><div class="srcbox-t">🔗 SOURCES</div><div class="srcgrid">'+chips+'</div></div>';
+  });
   s=s.replace(/\u0000B(\d+)\u0000/g,(m,i)=>blocks[+i]);
   return s;
 }
@@ -1219,7 +1263,7 @@ function speak(t){
     ttsActive=true;lastSpoken=t;lastSpokeAt=Date.now();
     if(typeof wake!=="undefined"&&wake&&typeof listening!=="undefined"&&listening){try{recog.abort()}catch(e){}}
     const P=PERSONAS[persona()];
-    const clean=t.replace(/SOURCES:[\s\S]*$/,"").replace(/\[\d+\]/g,"").replace(/🔗 ?https?:\S+/g,"").replace(/[#*_▸►`_]/g,"");
+    const clean=t.replace(/SOURCES:[\s\S]*$/,"").replace(/— live from Wikipedia[^\n]*/g,"").replace(/\[\d+\]/g,"").replace(/🔗 ?https?:\S+/g,"").replace(/[#*_▸►`_]/g,"");
     const parts=[];const keep=[];let rest=clean;
     while(rest.length){
       if(rest.length<=190){parts.push(rest);break}
@@ -1232,7 +1276,7 @@ function speak(t){
     const v=pickVoice();
     const next=()=>{
       if(gen!==speakGen)return; /* stale onend from a cancelled utterance → ignore, never resurrect */
-      if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);return}
+      if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}return}
       const u=new SpeechSynthesisUtterance(parts[i++]);keep.push(u);
       const vu=pickVoice();
       if(vu)u.voice=vu;u.lang=hi?"hi-IN":P.lang;u.rate=P.rate;u.pitch=P.pitch;
@@ -2637,7 +2681,9 @@ async function askCore(text0){
   const plus=acts.querySelector('button[title="Ask for more detail"]');if(plus)plus.onclick=()=>{if(lastTopic)ask(lastTopic+" in detail");else ask("tell me more")};
   const regen=acts.querySelector('button[title="Regenerate this answer"]');if(regen)regen.onclick=()=>{convoAdd("user","(the user was unsatisfied with the previous answer — regenerate it better)");ask("tell me more")};
   if(!synth||!soundOn||!voiceAllowed()){el.innerHTML=renderMD(t);el.appendChild(acts);}
-  else{el.innerHTML=renderMD(t);el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);}
+  else{el.innerHTML=renderMD(t);el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);
+    /* voice now talking → surface the STOP bar so users can halt her mid-paragraph */
+    try{const sb=document.getElementById("stopBtn");sb.classList.add("show");sb.onclick=()=>{stopSpeech();sb.classList.remove("show");pushSys("voice stopped")}}catch(e){}}
   blip(520,.1,"triangle");
   busy=false;
   if(wake)armWake(400);
