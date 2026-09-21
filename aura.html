@@ -146,16 +146,17 @@ canvas#fx{position:fixed;inset:0;z-index:0}
   #clock span{font-size:8px;white-space:nowrap}
   #telemetry,#syslog{display:none}
   #conv{display:flex;position:fixed;top:52px;right:8px;left:8px;width:auto;bottom:198px;z-index:9;border-radius:14px;background:rgba(2,10,14,.82);backdrop-filter:blur(8px);padding:12px}
-  #conv h3{font-size:10px;letter-spacing:1.5px}
-  #conv h3 span:last-child{font-size:8px}
+  #conv h3{font-size:10px;letter-spacing:1.5px;gap:6px}
+  #conv h3 span:last-child{font-size:8px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .msg{font-size:13.5px}
   #chips{display:none}
-  #chipsMobile{margin-bottom:2px}
-  #chipsMobile .chip{font-size:9.5px;padding:4px 9px}
+  #chipsMobile{margin-bottom:2px;display:flex;flex-wrap:nowrap;overflow-x:auto;padding:0 64px 3px 2px;scrollbar-width:none}
+  #chipsMobile::-webkit-scrollbar{display:none}
+  #chipsMobile .chip{font-size:9.5px;padding:4px 9px;flex:0 0 auto}
   #dock{bottom:12px;gap:8px;width:calc(100vw - 20px)}
   #micWrap{position:absolute;right:6px;top:-64px;gap:3px}
   #micBtn{width:52px;height:52px;font-size:19px}
-  #micHint{font-size:8px;letter-spacing:1px;max-width:150px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  #micHint{display:none}
   #inputRow{width:100%}
   #q{font-size:16px;padding:12px 60px 12px 16px}
   #sendBtn{width:46px;flex:0 0 auto}
@@ -314,6 +315,226 @@ body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical 
 .auth-user-item{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid rgba(34,211,238,.08);font-size:12.5px;cursor:pointer;transition:.2s}
 .auth-user-item:hover{background:rgba(34,211,238,.08)}
 .auth-user-item.active{background:rgba(34,211,238,.14);font-weight:700}
+
+/* ============================================================
+   AURA DESIGN SYSTEM 2.0 — spacing rhythm · elevated panels · polish
+   (override layer: loads after base CSS, wins the cascade)
+   ============================================================ */
+:root{
+  --sp1:4px;--sp2:8px;--sp3:12px;--sp4:16px;--sp5:24px;--sp6:32px;--sp8:48px;
+  --r-sm:10px;--r-md:16px;--r-lg:22px;
+  --sh-1:0 1px 2px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.35);
+  --sh-2:0 2px 6px rgba(0,0,0,.45),0 12px 40px rgba(0,0,0,.45);
+  --sh-glow:0 0 0 1px var(--line2),0 8px 32px rgba(34,211,238,.10);
+}
+/* ---------- panels: elevation + breathing room ---------- */
+.panel{
+  padding:var(--sp4) var(--sp5);border-radius:var(--r-md);
+  border:1px solid var(--line2);
+  box-shadow:var(--sh-1);backdrop-filter:blur(14px) saturate(1.15);
+}
+.panel h3{
+  font-size:10.5px;letter-spacing:3.2px;margin-bottom:var(--sp3);
+  padding-bottom:var(--sp2);border-bottom:1px solid var(--line2);
+}
+.panel h3 span:last-child{margin-left:auto}
+#telemetry{top:86px;left:26px;width:248px;padding:var(--sp4) var(--sp5)}
+#telemetry .trow{padding:8px 0;font-size:13px}
+#telemetry .trow b{font-size:12px}
+#syslog{bottom:132px;left:26px;width:248px;max-height:180px;padding-bottom:var(--sp3)}
+#syslogLines{line-height:2;font-size:10.5px}
+/* ---------- top bar ---------- */
+#topbar{padding:16px 32px;gap:24px}
+.wordmark{font-size:22px;letter-spacing:6px;text-shadow:0 0 24px rgba(34,211,238,.5)}
+.wordmark small{font-size:9.5px;letter-spacing:3.5px;margin-top:2px}
+#stateBox{padding:9px 22px;border-radius:24px;gap:11px;box-shadow:var(--sh-1)}
+#clock b{font-size:16px;letter-spacing:1px}
+/* ---------- tabs ---------- */
+#tabbar{top:88px;left:26px;gap:10px}
+#tabbar button{
+  padding:9px 18px;border-radius:11px;font-size:11px;letter-spacing:2px;
+  box-shadow:var(--sh-1);transition:all .22s ease;
+}
+#tabbar button.on{
+  background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(34,211,238,.08));
+  box-shadow:0 0 0 1px var(--line),0 6px 20px rgba(34,211,238,.18);
+}
+/* ---------- conversation card ---------- */
+#conv{
+  top:88px;right:26px;width:min(500px,44vw);border-radius:var(--r-lg);
+  padding:var(--sp4) var(--sp5) var(--sp4);box-shadow:var(--sh-2);
+  background:linear-gradient(180deg,var(--panel),rgba(2,10,14,.78));
+}
+#conv h3{margin-bottom:var(--sp3)}
+#log{gap:var(--sp4);padding-right:var(--sp2)}
+.msg{font-size:15px;line-height:1.65}
+.msg .who{font-size:9.5px;letter-spacing:2.8px;margin-bottom:5px}
+.msg.aura{
+  background:rgba(34,211,238,.05);border:1px solid var(--line2);
+  border-radius:14px;border-top-left-radius:4px;
+  padding:var(--sp3) var(--sp4);
+}
+.msg.user{
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+  border-radius:14px;border-top-right-radius:4px;
+  padding:var(--sp3) var(--sp4);
+}
+.msg.sys{
+  background:none;border:none;padding:2px var(--sp4);text-align:center;
+  opacity:.75;font-size:11px;
+}
+.msg-actions button,.msg-actions a{border-radius:7px;padding:3px 9px;font-size:10.5px}
+.chip{padding:6px 13px;border-radius:16px;font-size:10.5px;transition:all .2s}
+.chip:hover{transform:translateY(-1px)}
+#chips{gap:8px;margin-top:var(--sp3)}
+/* ---------- dock & input ---------- */
+#dock{bottom:28px;gap:14px}
+#inputRow{gap:10px}
+#q{
+  padding:15px 22px;border-radius:26px;font-size:16px;
+  background:rgba(3,14,20,.88);box-shadow:var(--sh-1);
+  transition:border-color .2s,box-shadow .2s;
+}
+#q:focus{box-shadow:0 0 0 1px var(--cy2),0 8px 28px rgba(34,211,238,.22)}
+#sendBtn{width:54px;border-radius:26px;font-size:18px;box-shadow:var(--sh-1);transition:all .2s}
+#sendBtn:hover{transform:scale(1.05)}
+#micBtn{
+  width:72px;height:72px;box-shadow:0 0 32px rgba(34,211,238,.4),0 8px 28px rgba(0,0,0,.5),inset 0 0 22px rgba(34,211,238,.18);
+  transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .25s;
+}
+#micBtn:hover{transform:scale(1.08)}
+#micHint{font-size:10px;letter-spacing:2.2px;margin-top:2px}
+.iconrow{gap:10px}
+.ibtn{
+  padding:8px 15px;border-radius:10px;font-size:10.5px;letter-spacing:1.6px;
+  background:rgba(4,18,26,.72);box-shadow:var(--sh-1);transition:all .2s;
+}
+.ibtn:hover{transform:translateY(-1px);border-color:var(--line);color:var(--cy2)}
+/* ---------- code page ---------- */
+#codePage{gap:var(--sp3);top:88px;left:26px;right:26px;bottom:132px}
+#codeLang,#codePrompt{padding:11px 15px;border-radius:11px;font-size:13px;box-shadow:var(--sh-1)}
+.cbtn{padding:10px 17px;border-radius:11px;transition:all .2s}
+.cbtn:hover{transform:translateY(-1px)}
+#codeEdWrap,#codeOutWrap{border-radius:var(--r-md);box-shadow:var(--sh-1)}
+#codeEditor{padding:var(--sp4);line-height:1.65;font-size:13px}
+#codeEdWrap h4,#codeOutWrap h4{padding:11px 16px;letter-spacing:2.4px}
+/* ---------- sessions / chats page ---------- */
+#sessPanel{top:88px;right:26px;bottom:132px;border-radius:var(--r-lg);box-shadow:var(--sh-2)}
+#sessQ{padding:9px 13px;border-radius:10px;margin-bottom:var(--sp3)}
+.sess{padding:9px 11px;border-radius:10px;margin-bottom:3px}
+#sessNew{padding:9px;border-radius:10px;margin-bottom:var(--sp3);transition:all .2s}
+#sessNew:hover{transform:translateY(-1px)}
+/* ---------- memory panel ---------- */
+#memPanel{left:26px;bottom:300px;width:248px;border-radius:var(--r-md)}
+#memSide .memrow{padding:7px 0}
+/* ---------- wizard & modals ---------- */
+.wiz-card{border-radius:20px;padding:30px 30px 24px;box-shadow:0 0 80px rgba(34,211,238,.2),0 24px 64px rgba(0,0,0,.6)}
+.wiz-h{font-size:23px;margin:10px 0 6px}
+.wiz-in{padding:13px 15px;border-radius:11px}
+.wiz-btn{padding:12px;border-radius:11px;transition:all .2s}
+.wiz-btn:hover{filter:brightness(1.1)}
+.auth-modal-card{border-radius:22px;padding:30px;box-shadow:0 32px 90px rgba(0,0,0,.75)}
+.auth-tab{padding:11px;border-radius:12px}
+.auth-field input{padding:12px 15px;border-radius:11px}
+.auth-btn{padding:14px;border-radius:13px}
+/* ---------- boot ---------- */
+#bootRing{width:124px;height:124px;border-width:2.5px}
+/* ============================================================
+   THEME UPGRADES — richer, more distinct worlds
+   ============================================================ */
+/* GOLD — royal dark amber with warm glow */
+body.theme-gold{
+  --bg:#0a0702;--cy:#f5b301;--cy2:#ffd75e;--dim:#8a6a10;--ice:#fff8e6;
+  --panel:rgba(26,18,4,.78);--line:rgba(245,179,1,.32);--line2:rgba(245,179,1,.14);
+}
+body.theme-gold .wordmark{text-shadow:0 0 24px rgba(245,179,1,.5)}
+body.theme-gold #micBtn{
+  border-color:var(--cy);
+  background:radial-gradient(circle at 50% 35%,rgba(245,179,1,.35),rgba(26,18,4,.9));
+  color:var(--cy2);
+  box-shadow:0 0 32px rgba(245,179,1,.4),0 8px 28px rgba(0,0,0,.5),inset 0 0 22px rgba(245,179,1,.18);
+}
+body.theme-gold #q:focus{box-shadow:0 0 0 1px var(--cy2),0 8px 28px rgba(245,179,1,.22)}
+body.theme-gold ::-webkit-scrollbar-thumb{background:#5c470e}
+body.theme-gold #tabbar button.on{
+  background:linear-gradient(135deg,rgba(245,179,1,.2),rgba(245,179,1,.08));
+  box-shadow:0 0 0 1px rgba(245,179,1,.35),0 6px 20px rgba(245,179,1,.2);
+}
+body.theme-gold #conv{
+  background:linear-gradient(180deg,rgba(26,18,4,.82),rgba(15,10,2,.78));
+}
+body.theme-gold .msg.aura{background:rgba(245,179,1,.06);border-color:rgba(245,179,1,.16)}
+body.theme-gold .msg.aura .who{color:var(--cy2)}
+/* CLASSICAL — true parchment study with ink depth */
+body.theme-classical{
+  --sh-1:0 1px 3px rgba(90,60,20,.12),0 4px 14px rgba(90,60,20,.10);
+  --sh-2:0 2px 8px rgba(90,60,20,.14),0 14px 44px rgba(90,60,20,.16);
+}
+body.theme-classical #topbar{padding:14px 32px}
+body.theme-classical .wordmark{text-shadow:none}
+body.theme-classical .panel{
+  background:linear-gradient(180deg,rgba(253,248,237,.95),rgba(248,240,224,.9));
+  border:1px solid rgba(139,94,52,.35);
+  box-shadow:var(--sh-1);
+}
+body.theme-classical #conv{
+  background:linear-gradient(180deg,rgba(253,248,237,.96),rgba(247,238,219,.93));
+}
+body.theme-classical .msg.aura{
+  background:rgba(139,94,52,.06);border:1px solid rgba(139,94,52,.22);
+}
+body.theme-classical .msg.user{
+  background:rgba(255,255,255,.5);border:1px solid rgba(139,94,52,.15);
+}
+body.theme-classical #q{
+  background:rgba(255,252,244,.9);box-shadow:0 1px 4px rgba(90,60,20,.12);
+}
+body.theme-classical #tabbar button{
+  background:rgba(252,247,235,.9);box-shadow:0 1px 4px rgba(90,60,20,.1);
+}
+body.theme-classical #tabbar button.on{
+  background:rgba(139,94,52,.16);box-shadow:0 1px 4px rgba(90,60,20,.14);
+  color:#4a2f18;border-color:rgba(139,94,52,.5);
+}
+body.theme-classical #tabbar button{color:#8b6a47}
+body.theme-classical #tabbar button:hover{color:#4a2f18}
+body.theme-classical .ibtn{
+  background:rgba(252,247,235,.9);box-shadow:0 1px 4px rgba(90,60,20,.1);
+}
+body.theme-classical #micBtn{
+  background:radial-gradient(circle at 50% 35%,rgba(139,94,52,.18),rgba(248,240,224,.95));
+  box-shadow:0 2px 10px rgba(90,60,20,.2);
+}
+body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
+/* ---------- fine motion ---------- */
+@media (prefers-reduced-motion:no-preference){
+  .panel,#conv{animation:panelIn .45s ease both}
+  @keyframes panelIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+}
+/* ---------- mobile: keep the rhythm without the bulk ---------- */
+@media(max-width:860px){
+  :root{--sp5:16px;--sp6:20px}
+  #topbar{padding:10px 14px}
+  #tabbar{top:54px;left:8px;right:8px;gap:6px;z-index:14}
+  #tabbar button{padding:8px 6px;font-size:9.5px}
+  #conv{top:104px;right:8px;left:8px;padding:var(--sp3);border-radius:16px}
+  #log{gap:var(--sp3)}
+  .msg{font-size:14px;line-height:1.6}
+  .msg.aura,.msg.user{padding:10px 13px}
+  #chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px;scrollbar-width:none}
+  #chips::-webkit-scrollbar{display:none}
+  #chips .chip{flex:0 0 auto}
+  #sessPanel{top:104px;right:8px;left:8px;bottom:200px}
+  #codePage{top:104px;left:8px;right:8px;bottom:200px}
+  body[data-tab="system"] #telemetry{top:104px}
+  body[data-tab="system"] #syslog{bottom:210px;max-height:130px}
+  body[data-tab="system"] #memPanel{display:none}
+  #dock{bottom:12px}
+  #micBtn{width:56px;height:56px}
+  #q{padding:13px 18px;font-size:15px}
+  .ibtn{padding:7px 11px;font-size:9.5px}
+}
+
 </style>
 <script src="https://js.puter.com/v2/"></script>
 </head>
@@ -417,7 +638,7 @@ body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical 
 </div>
 
 <div id="dock">
-  <div id="chipsMobile" style="display:flex;gap:7px;flex-wrap:wrap;justify-content:center"></div>
+  <div id="chipsMobile" style="display:flex;gap:7px;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none"></div>
   <div id="micWrap">
     <button id="micBtn" title="Tap and speak">🎙</button>
     <span class="clipwrap"><button class="ibtn" id="clipBtn" title="Send an image — I'll describe it">📎</button><input type="file" id="imgInput" accept="image/*"></span>
@@ -3051,6 +3272,7 @@ async function scrAnalyze(qq){
 const THEMES=[{id:"cyan",label:"🎨 CYAN"},{id:"gold",label:"🎨 GOLD"},{id:"classical",label:"🎨 CLASSICAL"}];
 function applyTheme(id){
   document.body.classList.toggle("theme-classical",id==="classical");
+  document.body.classList.toggle("theme-gold",id==="gold");
   const tb=document.getElementById("themeBtn");if(tb)tb.textContent=THEMES.find(t=>t.id===id).label;
   try{localStorage.setItem("aura_theme",id)}catch(e){}
   if(id==="gold"&&!document.body.dataset.persona)setHue("gold");
