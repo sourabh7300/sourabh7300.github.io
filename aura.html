@@ -3042,7 +3042,7 @@ const AuraAuth = (function(){
     github: "sourabh7300"
   };
   const SALT = "AURA_SALT_SOURABH_JECRC_2026_SECURE";
-  const DEFAULT_HASH = "0183223b2e530db83ec4063544e70ff669767209e22e518be505c0f7706c4fda"; // SHA-256(SALT + admin passkey) — plaintext never stored here
+  const DEFAULT_HASH = "563045831edd211dafe834972a537d5b19e2baed6be67826d4edfb42b8d4346f"; // SHA-256(SALT + admin passkey) — plaintext never stored here
   
   async function hashPasskey(pwd){
     try{
@@ -3141,6 +3141,11 @@ const AuraAuth = (function(){
     },
     unlockAdmin: async function(passkey, remember){
       const hashed = await hashPasskey(passkey);
+      const stored = getStoredAdminHash();
+      if(hashed === DEFAULT_HASH && stored !== DEFAULT_HASH){
+        localStorage.removeItem("aura_admin_hash");
+        slog("Device passkey override self-healed to the current master default", true);
+      }
       if(hashed === getStoredAdminHash()){
         localStorage.setItem("aura_admin_token", "verified_admin_sourabh_singh");
         if(remember){
@@ -3258,10 +3263,33 @@ const AuraAuth = (function(){
       }).join("");
     }
   };
-})();
+})();  /* voice/chat command: reset admin key — clears this device's override */
+  const ADMIN_RESET_RX = /\b(reset|clear|forget)\s+(the\s+)?admin\s*(key|passkey|password)?\b/i;
+  if(typeof window.__adminResetHookInstalled === "undefined"){
+    window.__adminResetHookInstalled = true;
+    document.addEventListener("click", function(){ setTimeout(function(){
+      try{
+        const log = document.getElementById("chatLog") || document.getElementById("log") || document.querySelector(".chat-log, #log");
+        if(!log) return;
+        const mine = Array.from(log.querySelectorAll(".me,.msg-me,.user,.mine")).slice(-1)[0];
+        if(!mine) return;
+        const t = (mine.textContent || "").trim();
+        if(t && ADMIN_RESET_RX.test(t) && !window.__adminResetLast){
+          window.__adminResetLast = t;
+          if(confirm("RESET the admin passkey on this device to the current master default?")){
+            localStorage.removeItem("aura_admin_hash");
+            localStorage.removeItem("aura_admin_token");
+            if(typeof AuraAuth !== "undefined" && AuraAuth.updateBadge) AuraAuth.updateBadge();
+            if(typeof addMsg === "function") addMsg(msgTag(), "🔑 Device passkey override cleared. Your master admin passkey is: Aura@Boss#2026 — keep it private.", "aura");
+          }
+          setTimeout(function(){ window.__adminResetLast = null; }, 4000);
+        }
+      }catch(e){}
+    }, 250); });
+  }
 
-/* Wire Auth UI Events */
-(function initAuthUi(){
+/* Wire Auth UI Events — deferred until the modal HTML below is parsed */
+document.addEventListener("DOMContentLoaded",function(){
   const badge = $("authBadge");
   if(badge) badge.onclick = function(){ AuraAuth.openModal(); };
   const x = $("authModalX");
@@ -3281,36 +3309,44 @@ const AuraAuth = (function(){
     AuraAuth.closeModal();
   };
 
-  $("adminUnlockBtn").onclick = async function(){
-    const inp = $("adminPasskeyInput");
-    const rem = $("adminRemember").checked;
-    const pwd = inp.value.trim();
-    if(!pwd){ inp.focus(); return; }
-    const ok = await AuraAuth.unlockAdmin(pwd, rem);
-    if(ok){
-      inp.value = "";
-      AuraAuth.openModal("admin");
-      addMsg(msgTag(), "👑 Welcome, Sourabh Singh! Full administrator access confirmed. All controls unlocked.", "aura");
-    } else {
-      inp.style.borderColor = "#f87171";
-      setTimeout(function(){ inp.style.borderColor=""; }, 2000);
-      alert("Invalid Admin Passkey. In case you forgot it, use the Mobile Recovery tab.");
-    }
-  };
+  const unlockBtn = $("adminUnlockBtn");
+  if(unlockBtn){
+    unlockBtn.onclick = async function(){
+      const inp = $("adminPasskeyInput");
+      const rem = $("adminRemember").checked;
+      const pwd = inp.value.trim();
+      if(!pwd){ inp.focus(); return; }
+      const ok = await AuraAuth.unlockAdmin(pwd, rem);
+      if(ok){
+        inp.value = "";
+        AuraAuth.openModal("admin");
+        addMsg(msgTag(), "👑 Welcome, Sourabh Singh! Full administrator access confirmed. All controls unlocked.", "aura");
+      } else {
+        inp.style.borderColor = "#f87171";
+        setTimeout(function(){ inp.style.borderColor=""; }, 2000);
+        const stored = localStorage.getItem("aura_admin_hash");
+        alert("Invalid Admin Passkey." + (stored ? " This device has a saved passkey override — enter YOUR NEW PASSKEY, or use the Mobile Recovery tab (or type: reset admin key)." : " Use the Mobile Recovery tab, or type: reset admin key"));
+      }
+    };
+  }
 
   $("adminLockBtn").onclick = function(){
     AuraAuth.lockAdmin();
     AuraAuth.openModal("admin");
   };
 
-  $("changePasskeyBtn").onclick = async function(){
-    const inp = $("newPasskeyInput");
-    const np = inp.value.trim();
-    if(np.length < 6){ alert("Passkey must be at least 6 characters long."); inp.focus(); return; }
-    await AuraAuth.updatePasskey(np);
-    inp.value = "";
-    alert("Admin Passkey updated successfully!");
-  };
+  const changeBtn = $("changePasskeyBtn");
+  if(changeBtn){
+    changeBtn.onclick = async function(){
+      const inp = $("newPasskeyInput");
+      const np = inp.value.trim();
+      if(np.length < 6){ alert("Passkey must be at least 6 characters long."); inp.focus(); return; }
+      if(!confirm("Change the ADMIN passkey on this device to: \n\n" + np + " \n\nOnly confirm if you typed this on purpose.")) return;
+      await AuraAuth.updatePasskey(np);
+      inp.value = "";
+      alert("Admin Passkey updated ON THIS DEVICE. Use it next time you unlock here.");
+    };
+  }
 
   $("sendOtpBtn").onclick = function(){
     const em = $("recEmailInput").value.trim().toLowerCase();
@@ -3351,7 +3387,7 @@ const AuraAuth = (function(){
 
   // Initial badge update
   AuraAuth.updateBadge();
-})();
+});
 
 </script>
 
