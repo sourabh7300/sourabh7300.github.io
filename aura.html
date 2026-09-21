@@ -435,6 +435,7 @@ body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical 
   <button class="ibtn" id="personaBtn" title="One-tap switch between AURA and JARVIS">MODE: AURA</button>
   <button class="ibtn" id="keyBtn">SET AI KEY</button>
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
+  <button class="ibtn" id="deepThinkBtn" title="DEEP THINK: always engage maximum reasoning, no matter the persona">🧠 DEEP</button>
   <button class="ibtn" id="themeBtn" title="Switch interface style: Futuristic / Gold / Classical">🎨 CYAN</button>
   </div>
 </div>
@@ -1423,7 +1424,7 @@ async function openrouterCall(messages,maxTok){
   if(!t.trim())throw new Error("empty");
   return t.trim();
 }
-const GROQ_MODELS=["llama-3.3-70b-versatile","llama-3.1-8b-instant","deepseek-r1-distill-llama-70b","openai/gpt-oss-120b","openai/gpt-oss-20b","qwen/qwen3.8-27b"];
+const GROQ_MODELS=["openai/gpt-oss-120b","openai/gpt-oss-20b","llama-3.1-8b-instant","deepseek-r1-distill-llama-70b","qwen/qwen3.8-27b","llama-3.3-70b-versatile"]; // current flagships first — list refreshed Sep 2026
 let groqModel="",groqKeyCache="",groqKeyIdx=0;const __KEY_COOL={};
 function keyPool(){const out=[];const push=k=>{k=(k||"").trim();if(/^gsk_/.test(k)&&!out.includes(k))out.push(k)};
 push(localStorage.getItem("aura_key"));
@@ -1770,7 +1771,7 @@ async function groqStream(messages,maxTok,onChunk){
   const ac=new AbortController();streamAbort=ac;
   const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
     method:"POST",signal:ac.signal,
-    headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},      body:JSON.stringify(Object.assign({model:mdl,messages:messages,max_tokens:maxTok||1400,temperature:0.6,stream:true},persona()==="jarvis"?{reasoning_effort:"high"}:{}))});
+    headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},      body:JSON.stringify(Object.assign({model:mdl,messages:messages,max_tokens:maxTok||1400,temperature:0.6,stream:true},(persona()==="jarvis"||window.__deepThink)?{reasoning_effort:"high"}:{}))});
   if(!r.ok){streamAbort=null;throw new Error("HTTP "+r.status)}
   const reader=r.body.getReader();const dec=new TextDecoder();let buf="",full="";
   try{
@@ -2039,14 +2040,25 @@ async function thinkAnswer(q,deep,hi){
   if(aiProvider()==="groq"){
     try{
       let t="";
-      try{t=await groqStream([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?2400:1400,full=>{if(window.__streamEl)window.__streamEl.textContent=full})}
-      catch(se){if(String(se).includes("abort"))return{t:"",eng:"streamed answer — stopped by user",stop:true};t=await groqCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?2400:1400)}
-      const src=evs.find(e=>e.url);return{t:attachCitations(t,evs),eng:hi?"सोच (हिंदी)+live evidence":"thinking brain + gpt-oss-120b + live evidence ("+evs.length+" sources)",src:src&&src.url};
+      try{t=await groqStream([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?3600:2000,full=>{if(window.__streamEl)window.__streamEl.textContent=full})}
+      catch(se){if(String(se).includes("abort"))return{t:"",eng:"streamed answer — stopped by user",stop:true};t=await groqCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?3600:2000)}
+      const src=evs.find(e=>e.url);
+      /* DEEP THINK — second pass: self-critique then rewrite fuller */
+      if(window.__deepThink&&!hi&&t&&t.length>200){
+        try{slog("deep think: self-checking my own draft…",true);
+          const chk=await groqCall([
+            {role:"system",content:"You are a ruthless editor. Given an assistant's draft answer, rewrite it: fix any factual wobble, fill thin sections, deepen the explanation, keep every claim consistent with the draft. Plain text only. Keep it tight but measurably richer than the draft."},
+            {role:"user",content:"QUESTION: "+q+"\n\nDRAFT:\n"+t}
+          ],2800);
+          if(chk&&chk.length>200){t=chk;slog("deep think: self-check upgraded the answer",true)}
+        }catch(e){slog("deep think self-check skipped: "+(e.message||e),true)}
+      }
+      return{t:attachCitations(t,evs),eng:hi?"सोच (हिंदी)+live evidence":(window.__deepThink?"thinking brain + gpt-oss-120b + DEEP self-check + live evidence (":"thinking brain + gpt-oss-120b + live evidence (")+evs.length+" sources)",src:src&&src.url};
     }catch(e){slog("groq thinking failed — trying OpenRouter backup",true)}
   }
   else if(aiProvider()==="openrouter"){
     try{
-      const t=await openrouterCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?2400:1400);
+      const t=await openrouterCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?3600:2000);
       const src=evs.find(e=>e.url);return{t:attachCitations(t,evs),eng:"thinking brain · openrouter gpt-oss-20b · live evidence ("+evs.length+" sources)",src:src&&src.url}}
     catch(e){slog("openrouter thinking failed — trying puter",true)}
   }
@@ -2092,6 +2104,10 @@ async function aiReply(q){
   detectedLang=detectLang(q)==="hi"?"hi":"en";
   const wr=await weatherReply(q);if(wr)return{t:wr,eng:"open-meteo live"};
   const otd=await onThisDayReply(q);if(otd)return{t:otd,eng:"wikipedia otd live"};
+  /* NEW BRAINS — system introspection · AI-tools oracle · deep-think advisor */
+  {const sc=await systemCheckText(q);if(sc)return{t:sc,eng:"system introspection · live device telemetry"};}
+  {const at=await aiToolsText(q);if(at)return{t:at,eng:"AI-tools oracle · live model leaderboard"};}
+  {const adv=advisorText(q);if(adv)return{t:adv,eng:"deep-think advisor · portfolio x system x 2026 AI stack"};}
   const viz=vizCommand(q);if(viz)return{t:viz,eng:"holo-emitter control"};
   const qr=quizReply(q);if(qr)return{t:qr,eng:"quiz mode"};
   if(/[\u0900-\u097F]/.test(q)||/\b(namaste|namaskar|hindi mein|hindi me)\b/i.test(q)){const hp=hiPersonalReply(q);if(hp)return{t:hp,eng:"हिंदी कोर"};}
@@ -2135,6 +2151,22 @@ async function askCore(text0){
     addMsg(msgTag(),"Silenced 🔇 — staying quiet. Voice returns when you tap the mic or say 'Hey "+PERSONAS[persona()].name+"'.","aura");
     pushSys("voice muted by command");
     setMode("idle");busy=false;return;}
+  /* DEEP THINK voice commands — 'deep think on/off' */
+  {const dl=(text||"").toLowerCase().trim();
+   const dOn=/\b(deep think|deep mode|maximum (thinking|reasoning)|think (hard|deeper|more))\b/.test(dl)&&!/\boff\b|\bstop\b|\bdisable\b/.test(dl);
+   const dOff=/\b(deep think|deep mode)\b/.test(dl)&&/\boff\b|\bstop\b|\bdisable\b/.test(dl);
+   if(dOn||dOff){
+     window.__deepThink=dOn;try{localStorage.setItem("aura_deep_think",dOn?"1":"0")}catch(e){}
+     const db=document.getElementById("deepThinkBtn");if(db){db.textContent=dOn?"🧠 DEEP ON":"🧠 DEEP";db.style.color=dOn?"#fbbf24":"";db.style.borderColor=dOn?"#fbbf24":""}
+     addMsg(msgTag(),dOn?"🧠 DEEP THINK engaged — maximum reasoning + self-check on every answer, in any persona.":"Deep think off — auto reasoning restored.","aura");
+     if(voiceAllowed())speak(dOn?"Deep think engaged.":"Deep think off.");
+     setMode("idle");busy=false;if(wake)armWake(400);return;}}
+  /* SYSTEM REPORT voice command — 'deep system report' */
+  if(/deep system report|optimize (this|my) (system|device|pc|laptop)/i.test((text||""))){
+    try{const d=await _fullSystemReport();
+      addMsg(msgTag(),"🖥 DEEP SYSTEM REPORT — tuning advice for THIS machine\n\n"+d.osHint+" · "+d.cores+" · display "+d.screen+"\n\n1. BROWSER — Chrome/Edge give me the fastest JS engine; keep only this tab heavy for max performance during demos.\n2. POWER — plug in before presentations: browsers throttle CPUs on battery, and my render loop is CPU-hungry.\n3. NETWORK — my research needs ~2 Mbps; on weak wifi my web answers degrade to offline core.\n4. STORAGE — keep 1GB+ free so service-worker caching and my vector model stay healthy.\n5. CLOSE memory-hogs (other AI tabs, VMs) before demos — "+d.cores.split(" ")[0]+" threads spread thin.","aura");
+    }catch(e){addMsg(msgTag(),"System report failed: "+(e.message||e),"aura")}
+    setMode("idle");busy=false;if(wake)armWake(400);return;}
   /* THEME SWITCH — classical / gold / cyan, typed or spoken */
   {const lqt=(text||"").toLowerCase().trim();
    if(/(switch|change|set|make).{0,12}theme|theme (to|in)|classical (mode|theme|look)|parchment (mode|theme|look)|^(classical|parchment) mode$/i.test(lqt)){
@@ -2702,8 +2734,7 @@ function taskCommand(raw){
   inp.addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("wizGo").click()});
   ["wizLater","wizX"].forEach(id=>document.getElementById(id).addEventListener("click",()=>{try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}}));
   let __wizAdmin=false;try{__wizAdmin=AuraAuth.isAdmin()}catch(e){/* TDZ/not yet defined → not admin */}
-  if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")&&__wizAdmin){setTimeout(show,3200)}
-  document.getElementById("keyBtn").addEventListener("click",function(){
+  if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")&&__wizAdmin){setTimeout(show,3200)}  document.getElementById("keyBtn").addEventListener("click",function(){
   if(!AuraAuth.isAdmin()){
     AuraAuth.showRestricted("Master AI Key Pool","Only Sourabh Singh (Admin) can configure master API keys. Standard users are served by the shared engine.");
     return;
@@ -3031,8 +3062,161 @@ function applyTheme(id){
   let cur="cyan";try{cur=localStorage.getItem("aura_theme")||"cyan"}catch(e){}
   if(cur==="classical"||cur==="gold")setTimeout(()=>applyTheme(cur),150);
   tb.onclick=()=>{const i=THEMES.findIndex(t=>t.id===cur);cur=THEMES[(i+1)%THEMES.length].id;applyTheme(cur);pushSys("theme → "+cur.toUpperCase()+(cur==="classical"?" — parchment & ink, as the old engineers preferred":""))};
+  /* DEEP THINK toggle — maximum reasoning in every persona */
+  const db=document.getElementById("deepThinkBtn");
+  if(db){
+    try{window.__deepThink=localStorage.getItem("aura_deep_think")==="1"}catch(e){}
+    const paint=()=>{db.textContent=window.__deepThink?"🧠 DEEP ON":"🧠 DEEP";db.style.color=window.__deepThink?"#fbbf24":"";db.style.borderColor=window.__deepThink?"#fbbf24":"";db.title=window.__deepThink?"DEEP THINK is ON — every answer gets maximum reasoning + a self-check pass (click to return to auto)":"DEEP THINK: always engage maximum reasoning, no matter the persona"};
+    paint();
+    db.onclick=()=>{window.__deepThink=!window.__deepThink;try{localStorage.setItem("aura_deep_think",window.__deepThink?"1":"0")}catch(e){}paint();pushSys(window.__deepThink?"🧠 DEEP THINK engaged — I will reason harder, self-check, and answer fuller on every question":"deep think off — auto reasoning per persona")};
+  }
 })();
 
+
+/* ============================================================
+   JARVIS 2.0 — DEEPER MINDS (Sep 2026)
+   1. SYSTEM INTROSPECTION — sees the device it operates on, live
+   2. AI-TOOLS ORACLE — best models & tools of the moment, live-checked
+   3. DEEP-THINK ADVISOR — what to build next, reasoned from real state
+   ============================================================ */
+const AI_TOOLS_KB = {
+  "gpt-oss-120b|gpt oss": {name:"OpenAI GPT-OSS-120B", why:"open-weight flagship: 120B MoE, ~5B active params, runs on a single 80GB GPU, Apache-2.0", best:"best quality-per-cost open model for reasoning agents — exactly my primary brain via Groq"},
+  "gpt-oss-20b|gpt oss 20": {name:"OpenAI GPT-OSS-20B", why:"the little sibling of 120B — 21B MoE that fits in 16GB, Apache-2.0", best:"on-device agents, cheap fallback brains"},
+  "llama|meta ai": {name:"Meta Llama 3.x", why:"Meta's open-weight family; 3.3-70B was the workhorse before GPT-OSS took the crown", best:"fine-tuning projects and mature tooling ecosystems"},
+  "deepseek|deep seek": {name:"DeepSeek R1 / V3", why:"Chinese lab that matched frontier reasoning at a fraction of the cost; R1 publishes its chain-of-thought", best:"math, algorithms, visible reasoning traces"},
+  "qwen": {name:"Alibaba Qwen 3", why:"strongest multilingual open family — 100+ languages, sizes 0.6B to 235B", best:"Hindi/Hinglish understanding and coding"},
+  "gemini|google ai": {name:"Google Gemini 2.5", why:"Google's frontier family with a 1M-token context and native multimodality", best:"video/screen understanding and giant-document analysis"},
+  "claude|anthropic": {name:"Anthropic Claude 4", why:"frontier family famous for long-document reasoning, code quality and careful safety work", best:"writing, long-context analysis, agentic coding"},
+  "chatgpt|gpt-4|gpt 4|openai": {name:"OpenAI GPT-4/4o family", why:"the household frontier line; 4o is fully multimodal and powers ChatGPT's voice mode", best:"polished consumer assistants and realtime voice"},
+  "mistral": {name:"Mistral AI", why:"Europe's open-weight champion — small, fast, commercial-friendly models", best:"edge deployments and EU data-residency needs"},
+  "groq": {name:"Groq LPU Inference", why:"custom Language Processing Units; hundreds of tokens/second — the fastest inference cloud, which is why I run on it", best:"real-time voice agents that must not lag"},
+  "hugging face|huggingface": {name:"Hugging Face", why:"the GitHub of ML — a million models, datasets and Spaces; Transformers.js runs models in the browser, which powers my vector memory", best:"finding and shipping any open model"},
+  "langchain|lang graph|langgraph": {name:"LangChain / LangGraph", why:"the dominant framework for chaining LLM calls into agents with stateful graphs", best:"prototype agent pipelines fast — heavy for production"},
+  "llama index|llamaindex": {name:"LlamaIndex", why:"data framework for RAG — ingestion, chunking, indexing, retrieval", best:"document Q&A over your own files"},
+  "ollama": {name:"Ollama", why:"one-command local model runner (ollama run llama3) with an OpenAI-compatible API", best:"private, offline LLM use on your own laptop"},
+  "vllm": {name:"vLLM", why:"high-throughput serving engine — paged attention squeezes maximum GPU utilization", best:"self-hosting models at scale"},
+  "cursor|github copilot|copilot": {name:"Cursor / GitHub Copilot", why:"AI code editors: Cursor wraps VS Code with repo-aware agents, Copilot is the in-editor classic", best:"pair-programming; Cursor leads agentic multi-file edits"},
+  "perplexity|perplexity ai": {name:"Perplexity", why:"answer engine that always searches the web first and cites every claim — the product version of my research pipeline", best:"research with receipts"},
+  "elevenlabs": {name:"ElevenLabs", why:"the most realistic AI voices — cloning, 30+ languages, low latency", best:"when a voice agent must sound human (my Web Speech voice is free but robotic)"},
+  "whisper|speech recognition": {name:"OpenAI Whisper", why:"open-source speech-to-text trained on 680k hours; robust to accents and noise", best:"accurate transcription offline or self-hosted"},
+  "pinecone|weaviate|chroma|qdrant|vector database|vector db": {name:"Vector databases (Pinecone, Chroma, Qdrant, Weaviate)", why:"store embeddings and retrieve by meaning, not keywords — the memory of every serious AI app", best:"RAG and long-term memory; Chroma for local, Pinecone for managed scale"},
+  "midjourney|dall|stable diffusion|image generation": {name:"Image generation (Midjourney, DALL·E, Stable Diffusion/FLUX)", why:"text-to-image: Midjourney leads aesthetics, FLUX leads open-weight realism, SD runs locally", best:"art direction vs. controllable local pipelines"},
+  "sora|runway|video generation": {name:"Video generation (Sora, Runway, Veo)", why:"text-to-video crossed into usable quality — Sora and Veo 3 generate coherent scenes with audio", best:"short cinematic clips; still costly for long-form"},
+  "n8n|zapier|make.com|automation": {name:"Automation platforms (n8n, Zapier, Make)", why:"wire apps together into workflows; n8n is open-source and self-hostable with LLM nodes", best:"agentic glue between your SaaS tools"},
+  "puter": {name:"Puter.js", why:"free, serverless frontier AI from the browser with no API key — my no-key fallback brain", best:"keyless demos and zero-cost tiers"}
+};
+const APTITUDE = {
+  "foodora": {what:"FOODORA — food-delivery platform", elite:"12 restaurants, live Leaflet GPS maps, cart→checkout, voice ordering bridged from AURA", next:"real payments (Razorpay test), live order tracking timeline, rider-assignment simulation"},
+  "lucid": {what:"Lucid — AI Pro Photo Studio", elite:"50+ hand-coded pixel engines (curves, HSL mixer, clarity convolution, bloom, bokeh), batch processing, AURA voice bridge", next:"GPU shaders via WebGL for 60fps filters, content-aware fill, AI background removal with a segmentation model"},
+  "aura": {what:"AURA/JARVIS — this assistant", elite:"multi-brain failover (Groq→OpenRouter→Puter), live web research with citations, vector memory, Pyodide sandbox, screen-share vision, RBAC with phone-OTP recovery", next:"fine-tune a persona on your own chat logs, tool-calling plugins, offline voice via WebLLM"},
+  "portfolio": {what:"the portfolio deck", elite:"live-embedded real apps, guided tour, Gia AI guide, PWA install, offline mode", next:"case-study pages per project with architecture diagrams, visitor analytics, Lighthouse 100 across the board"},
+  "quantum": {what:"Quantum Circuit Simulator", elite:"gates, superposition, entanglement rendered live", next:"noise models (decoherence), QASM import/export, Grover/Shor demos"},
+  "sre": {what:"Autonomous SRE — incident responder", elite:"multi-agent detection and response simulation", next:"hook real Prometheus metrics, add a postmortem generator"},
+  "cloudpilot": {what:"CloudPilot — DevOps cockpit", elite:"cloud workflow visualization", next:"live AWS/GCP free-tier integration, cost estimator"},
+  "groundwork": {what:"Groundwork", elite:"systems foundation lab", next:"interactive networking visualizations"}
+};
+function _fmtGB(b){return b>=1073741824?(b/1073741824).toFixed(1)+" GB":b>=1048576?(b/1048576).toFixed(0)+" MB":(b/1024).toFixed(0)+" KB"}
+async function _aiToolsLive(){
+  try{
+    const K=(typeof geminiKey==="function"&&geminiKey())?geminiKey().trim():null;
+    const r=await fetch("https://api.groq.com/openai/v1/models",Object.assign({signal:AbortSignal.timeout(8000)},K?{headers:{"Authorization":"Bearer "+K}}:{}));
+    if(r.ok){const d=await r.json();const ids=(d.data||[]).map(m=>m.id).filter(id=>/gpt-oss|llama|qwen|deepseek/.test(id));
+      if(ids.length)return "LIVE — my own inference cloud (Groq) currently serves: "+ids.slice(0,6).join(", ")}
+  }catch(e){}
+  return "OFFLINE-CORE (could not reach the model cloud just now — this list is my Sep-2026 snapshot)";
+}
+async function _aiToolsAnswer(q){
+  const lq=q.toLowerCase();
+  for(const k of Object.keys(AI_TOOLS_KB)){
+    if(k.split("|").some(v=>lq.includes(v))){
+      const t=AI_TOOLS_KB[k];
+      const live=await _aiToolsLive();
+      return "🛰 "+t.name+" — "+t.why+"\n\nBEST FOR: "+t.best+"\n\nMODEL CLOUD STATUS: "+live+"\n\nAsk me about any other tool, model or framework by name — or say 'compare the best ai models' for the full leaderboard.";
+    }
+  }
+  if(/\b(compare|top|best|leaderboard|ranking|latest)\b.*\b(ai|model|llm|tool)s?\b|\b(ai|model|llm|tool)s?\b.*\b(compare|top|best|leaderboard|ranking|latest)\b/.test(lq)){
+    const live=await _aiToolsLive();
+    return "🛰 THE 2026 AI STACK, RANKED BY WHAT I'D BET ON —\n\n1. GPT-OSS-120B (open weights) — my own primary brain; frontier reasoning at open-model cost\n2. Claude 4 — long documents, careful code, best writing\n3. Gemini 2.5 — 1M-token context, native video/screen understanding\n4. DeepSeek R1 — reasoning that shows its work, absurdly cheap\n5. Qwen 3 — 100+ languages, unbeatable for Hindi/Hinglish\n6. Llama 3.x — the mature fine-tuning ecosystem\n7. Mistral — Europe's open-weight champion, edge-sized\n8. GPT-4o — the polished consumer multimodal king\n\nINFRA: Groq LPUs for speed (my home), vLLM for self-hosting, Ollama for your laptop\nMEMORY: vector DBs — Chroma (local), Pinecone (managed) — the same tech as my own memory\nAGENTS: LangGraph for state, LlamaIndex for RAG, n8n for glue\nVOICE: ElevenLabs for realism, Whisper for bulletproof ears\n\nMODEL CLOUD STATUS: "+live+"\n\nWant a deep dive on any of these? Just name it.";
+  }
+  return null;
+}
+async function aiToolsText(q){
+  if(!/\b(ai|model|llm|gpt|claude|gemini|llama|deepseek|qwen|mistral|groq|openai|anthropic|google ai|meta ai|hugging ?face|langchain|llama ?index|ollama|vllm|cursor|copilot|perplexity|elevenlabs|whisper|pinecone|chroma|qdrant|weaviate|vector (db|database)|midjourney|dall|stable diffusion|flux|sora|runway|veo|n8n|zapier|make\.com|automation (tool|platform)|puter)\b/i.test(q))return null;
+  const a=await _aiToolsAnswer(q);return a;
+}
+function _deviceSnapshot(){
+  const nav=navigator;
+  const conn=nav.connection||nav.mozConnection||nav.webkitConnection;
+  const mem=(nav.deviceMemory?nav.deviceMemory+" GB (approx RAM class)":"not exposed by this browser");
+  const cores=nav.hardwareConcurrency?nav.hardwareConcurrency+" logical CPU threads":"not exposed";
+  const net=conn?conn.effectiveType.toUpperCase()+(conn.downlink?" · ~"+conn.downlink+" Mbps":""):(nav.onLine?"online (no detail)":"offline");
+  return {
+    platform:nav.platform||"unknown",
+    osHint:(/Win/i.test(nav.platform)?"Windows":/Mac/i.test(nav.platform)?"macOS":/Android/i.test(nav.platform)?"Android":/iPhone|iPad/i.test(nav.platform)?"iOS":/Linux/i.test(nav.platform)?"Linux":"unknown"),
+    lang:nav.language, tz:(Intl.DateTimeFormat().resolvedOptions().timeZone||"unknown"),
+    screen:screen.width+"×"+screen.height+" @"+(window.devicePixelRatio||1)+"x",
+    viewport:innerWidth+"×"+innerHeight,
+    cores:cores, ram:mem, net:net,
+    battery:(nav.getBattery?"querying…":"API not exposed"),
+    online:nav.onLine,
+    storage:(nav.storage&&nav.storage.estimate?"~"+_fmtGB(nav.storage.estimate===undefined?0:0):"not exposed")
+  };
+}
+async function _fullSystemReport(){
+  const d=_deviceSnapshot();
+  let batt="";
+  try{
+    if(navigator.getBattery){
+      const b=await navigator.getBattery();
+      batt=(b.level*100).toFixed(0)+"%"+(b.charging?" (charging ⚡)":" (discharging)");
+      const d2=_deviceSnapshot();d2.battery=batt;
+      return d2;
+    }
+  }catch(e){}
+  d.battery=batt||"API not exposed";
+  return d;
+}
+async function systemCheckText(q){
+  const lq=(q||"").toLowerCase();
+  const isDiag=/\b(system check|diagnostic|run diagnostics|system report|my system|my device|my laptop|my pc|my computer|my phone|this device|system info|specs|hardware|operating system|os i|what (os|device|system)|which (os|device|system)|battery status|battery level|how.*battery|internet speed|connection|network status|ram|cpu|processor|storage)\b/.test(lq);
+  const osSpecific=/\b(os|windows|android|mac|ios|linux|ubuntu)\b/.test(lq)&&/\b(what|which|version|update|am i|running)\b/.test(lq);
+  if(!isDiag&&!osSpecific)return null;
+  const d=await _fullSystemReport();
+  let out="🖥 SYSTEM INTROSPECTION — live from the device I operate on\n\n";
+  out+="ENVIRONMENT   "+d.osHint+" ("+d.platform+") · browser language "+d.lang+"\n";
+  out+="TIMEZONE      "+d.tz+"\n";
+  out+="DISPLAY       "+d.screen+" · your window "+d.viewport+"\n";
+  out+="COMPUTE       "+d.cores+" · RAM class "+d.ram+"\n";
+  out+="NETWORK       "+d.net+" · "+(d.online?"online":"OFFLINE")+"\n";
+  out+="POWER         "+d.battery+"\n";
+  if(/storage|disk|space/.test(lq)){
+    let est="";
+    try{if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();est="quota "+_fmtGB(e.quota||0)+" · used "+_fmtGB(e.usage||0)+" ("+((e.usage/(e.quota||1))*100).toFixed(1)+"%)"}}catch(e){}
+    out+="STORAGE       "+(est||"estimate API not exposed")+"\n";
+  }
+  out+="UPTIME HERE   "+(performance.now()/60000).toFixed(1)+" min this session\n";
+  out+="\nSay 'deep system report' for my optimization advice on this exact machine.";
+  return out;
+}
+function advisorText(q){
+  const lq=(q||"").toLowerCase();
+  const isAdv=/\b(what (else|more) (can|could|should) (i|we) build|what.*next|build next|improve (it|this|aura|portfolio|my project)|make (it|this) better|upgrade (it|this|aura)|new features|feature ideas|roadmap|what should.*do next|kya.*bana|aur kya)\b/.test(lq);
+  if(!isAdv)return null;
+  const now=new Date();
+  const hour=now.getHours();
+  const engine=aiProvider();
+  const keyCount=(typeof keyPool==="function")?keyPool().length:0;
+  const ideas=[];
+  ideas.push("1. FINE-TUNE THE PERSONA — export my chat logs (CHATS page) and tune a small model (Qwen 3 4B via Groq) on YOUR phrasing style. Result: an assistant that sounds like you built it twice.");
+  ideas.push("2. TOOL-CALLING PLUGINS — give me a JSON tool registry: calendar, email drafts, JECRC timetable scraper. I already have screen-vision and Pyodide; official tool-calling makes me truly agentic.");
+  ideas.push("3. OFFLINE VOICE — swap the cloud voice for WebLLM + Piper TTS: I answer and speak with ZERO internet. The teacher-killer demo: unplug the wifi mid-presentation.");
+  ideas.push("4. MULTI-USER LEADERBOARD — visitors take my quizzes; scores land in a shared board. Turns a portfolio into a competition.");
+  ideas.push("5. CANVAS AGENT — I generate charts/diagrams live in the chat (mermaid-style) from my research answers.");
+  if(engine==="none")ideas.push("6. URGENT: no AI key is configured on this device — my deepest brains are throttled. SET AI KEY (admin) unlocks everything.");
+  else if(keyCount<2)ideas.push("6. Add a second Groq key to the bank — free-tier limits hit exactly during demos; rotation makes that impossible.");
+  const focus=(6<=hour&&hour<12)?"Morning build session":(12<=hour&&hour<17)?"Afternoon build window":(17<=hour&&hour<22)?"Evening — prime portfolio-polishing time":"Late night — ship one small thing, then sleep";
+  return "🧠 DEEP-THINK ADVISOR — "+now.toDateString()+", "+focus+"\n\nWHAT I SEE RIGHT NOW\n• Engine: "+engine+(keyCount?" ("+keyCount+" key"+(keyCount>1?"s":"")+" in the bank)":"")+"\n• Mode: "+personaName()+" · deep-think "+(window.__deepThink?"ON":"auto")+"\n• Device: "+_deviceSnapshot().osHint+", "+_deviceSnapshot().cores+"\n\nWHAT TO BUILD NEXT (highest impact first)\n"+ideas.join("\n")+"\n\nHOW I'D SEQUENCE IT\nWeek 1: tool-calling plugins (3) — biggest capability jump per hour.\nWeek 2: persona fine-tune (1) while logs accumulate naturally.\nWeek 3: offline voice (3) — the unassailable demo.\nThen: leaderboard (4) + canvas agent (5) as portfolio candy.\n\nAsk 'deep system report' if you want hardware-level tuning advice instead.";
+}
 
 /* ============================================================
    AURA AUTH & ROLE-BASED ACCESS CONTROL (RBAC)
