@@ -1,25 +1,34 @@
 # Sourabh Singh — Web Development Portfolio
 
-> Four complete, hand-built web applications — running live, embedded in one page. No frameworks, no templates: every line written from scratch.
+B.Tech CSE (AI, DevOps & Cloud Automation) · JECRC University
+Live site: https://sourabh7300.github.io
+GitHub: https://github.com/sourabh7300
 
-**🌐 Open the portfolio: https://sourabh7300.github.io**
+## 🚀 How to open (10 seconds)
 
-## The projects
+1. Keep all files in this same folder.
+2. Double-click **`portfolio.html`** — it opens in your browser. That's it.
 
-| | Project | What it is |
-|---|---|---|
-| 01 | **FOODORA** | Food-delivery platform: 12 restaurants, 48 dishes with full recipes in English/Hindi/Spanish, live GPS maps, cart & checkout |
-| 02 | **Mercedes-Benz** | Cinematic luxury brand showcase with a full model gallery |
-| 03 | **AURA** | Jarvis-style holographic AI assistant: 3D particle core, voice in/out, deep web research (Wikipedia + DuckDuckGo fusion), offline brain |
-| 04 | **Lucid** | AI Pro Photo Studio: 50+ hand-coded pixel engines — curves, HSL mixer, clarity convolution, bloom, bokeh, grain |
+> `portfolio.html` is the homepage; every other file is a project it live-embeds,
+> which is why they must stay next to it.
 
-## Why it's different
-- **Zero frameworks.** HTML, CSS and vanilla JavaScript only — every algorithm hand-written.
-- **Live embeds.** The portfolio doesn't show screenshots; it runs the real apps on the page.
-- **Presents itself.** Built-in guided tour, an AI guide (Gia), a ⌘K command palette and a QR code so anyone can take it home on their phone.
+## 📁 What's inside
 
-## Stack
-HTML · CSS · JavaScript · Canvas 2D · Web Speech API · Leaflet · GitHub REST API
+| File | What it is |
+|---|---|
+| `portfolio.html` | The portfolio homepage — boot screen, live embeds, guided tour, Gia (AI guide) |
+| `aura.html` | **AURA** — holographic AI assistant: voice, Hindi/English auto-detect, deep web research |
+| `foodora.html` | **FOODORA** — food-delivery platform: 12 restaurants, cart, live Leaflet maps |
+| `mercedes.html` | **Mercedes** — cinematic luxury brand showcase |
+| `lucid.html` | **Lucid** — Photo Studio: layer compositing, batch processing, real-time pixel engines |
+| `quantum.html` | Lab: Quantum Circuit Simulator — gates, superposition, entanglement |
+| `sre.html` | Lab: Autonomous SRE — multi-agent incident responder |
+| `groundwork.html` | Lab: Groundwork — learn AI from zero, 8 interactive lessons |
+| `cloudpilot.html` | Lab: CloudPilot — infrastructure-as-code console |
 
----
-Built by [Sourabh Singh](https://github.com/sourabh7300) — B.Tech CSE (AI, DevOps & Cloud Automation) @ JECRC University.
+## 🛠️ Stack
+
+Plain HTML, CSS and JavaScript — no frameworks, no build tools.
+Leaflet/OpenStreetMap for maps, Web Speech for voice, Canvas for everything visual.
+
+Every line hand-written. If it can't run offline, it doesn't ship.
