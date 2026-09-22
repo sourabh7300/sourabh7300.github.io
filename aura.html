@@ -593,7 +593,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
 <div id="topbar">
   <div class="wordmark">AURA<small>HOLOGRAPHIC AI INTERFACE</small></div>
   <div id="stateBox"><span id="stateDot"></span><span id="stateText">SYSTEM ONLINE</span></div>
-  <div id="authBadge" title="Identity &amp; Access — click to sign in or unlock admin"><span id="authRoleIcon">&#128100;</span><span id="authName">Guest</span><span id="authTag">USER</span></div>
+  <div id="authBadge" title="AURA account — click to sign in"><span id="authRoleIcon">&#128100;</span><span id="authName">Guest</span><span id="authTag">USER</span></div>
   <div id="clock"><b id="clockT">--:--</b><span id="clockD"></span></div>
 </div>
 
@@ -2386,6 +2386,17 @@ async function thinkAnswer(q,deep,hi){
   return null;
 }
 async function aiReply(q){
+  /* owner cockpit: silent intents first — they never reach the chat as questions */
+  try{
+    const ol=(q||"").toLowerCase().trim();
+    if(/^(usage report|owner report|cockpit|show usage|who is using (aura|my (app|assistant|ai)))$/.test(ol)&&AuraAuth.isAdmin()){
+      return { t: AuraMetrics.renderReport(), eng:"owner cockpit · private analytics" };
+    }
+    if(/^clear usage data$/.test(ol)&&AuraAuth.isAdmin()){
+      AuraMetrics.clear();
+      return { t:"🗑 Usage ledger cleared — telemetry restarts from zero now.", eng:"owner cockpit" };
+    }
+  }catch(e){}
   const P=PERSONAS[persona()];
   const deep=persona()==="jarvis"||/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/i.test(q);
   detectedLang=detectLang(q)==="hi"?"hi":"en";
@@ -2432,6 +2443,23 @@ async function aiReply(q){
 let busy=false,askAt=0,qQueue=[];
 async function askCore(text0){
   let text=autoFix(text0);
+  /* OWNER COCKPIT — invisible intents, admin-gated, answered before anything else */
+  {
+    const ol=(text||"").toLowerCase().trim();
+    let admin=false;try{admin=typeof AuraAuth!=="undefined"&&AuraAuth.isAdmin()}catch(e){}
+    if(admin&&/^(usage report|owner report|cockpit|show usage|show my users|who is using (aura|my (app|assistant|ai))|how many (people|users)( are| have)? (using|signed|here))$/.test(ol)){
+      addMsg("YOU ▸",text,"user");
+      const rep=AuraMetrics.renderReport();
+      addMsg(msgTag(),rep,"aura");if(voiceAllowed())speak("Owner report ready — "+AuraMetrics.all().users.length+" users known.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(admin&&/^clear usage data$/.test(ol)){
+      AuraMetrics.clear();
+      addMsg("YOU ▸",text,"user");addMsg(msgTag(),"🗑 Usage ledger cleared — telemetry restarts from zero.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    try{AuraMetrics.event("question",text)}catch(e){}
+  }
   /* instant-silence is an INTERRUPT — it must work even while AURA is busy/speaking */
   if(/^(?:shut up|stop talking|be quiet|silence|silent mode|chup|chup ho jao|चुप\s*हो\s*जाओ|चुप|रुक\s*जाओ|रुको)\b/i.test((text||'').trim())){
     stopSpeech();voiceSessionUntil=0;
@@ -2552,8 +2580,8 @@ async function askCore(text0){
     setMode("idle");busy=false;if(wake)armWake(400);return;}
   /* persona switch — instant, typed or spoken, beats every other intent */
   {const lq0=(text||"").toLowerCase();
-   if(/\b(activate|go|switch to)\s+jarvis\b|\bjarvis (mode|persona) (on|activate)\b/.test(lq0)){if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){pushSys("🔒 persona switch is admin-controlled — unlock admin to change modes");setMode("idle");busy=false;if(wake)armWake(400);return}setPersona("jarvis",true);pushSys("persona switched → JARVIS");setMode("idle");busy=false;if(wake)armWake(400);return;}
-   if(/\b(activate|go|switch to)\s+aura\b|\baura (mode|persona) (on|activate)\b/.test(lq0)){if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){pushSys("🔒 persona switch is admin-controlled — unlock admin to change modes");setMode("idle");busy=false;if(wake)armWake(400);return}setPersona("aura",true);pushSys("persona switched → AURA");setMode("idle");busy=false;if(wake)armWake(400);return;}}
+   if(/\b(activate|go|switch to)\s+jarvis\b|\bjarvis (mode|persona) (on|activate)\b/.test(lq0)){if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){pushSys("🔒 persona switch needs a signed-in account — click your profile badge top-right");setMode("idle");busy=false;if(wake)armWake(400);return}setPersona("jarvis",true);pushSys("persona switched → JARVIS");setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/\b(activate|go|switch to)\s+aura\b|\baura (mode|persona) (on|activate)\b/.test(lq0)){if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){pushSys("🔒 persona switch needs a signed-in account — click your profile badge top-right");setMode("idle");busy=false;if(wake)armWake(400);return}setPersona("aura",true);pushSys("persona switched → AURA");setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* DUEL MODE — AURA ⚔ JARVIS debate a topic the user gives */
   {const tl=(text||"").trim();
    if(/^end\s+duel$|^stop\s+duel$|^duel\s*(?:end|stop|off|cancel)$|^end\s+the\s+duel$/i.test(tl)){duelGen++;addMsg(msgTag(),"Duel ended — both of us back to standby. Flag lowered, sir.","aura");pushSys("duel aborted");setMode("idle");busy=false;if(wake)armWake(400);return;}
@@ -2836,7 +2864,7 @@ $("wakeBtn").onclick=()=>{
       if(!/(\baura\b|ऑरा|\bjarvis\b)/i.test(c))return;
       listening=false;try{recog.stop()}catch(e2){}stopSpeech();
       voiceSessionUntil=Date.now()+45000;
-      if(/\bjarvis\b/i.test(c)&&persona()!=="jarvis"&&!/\baura\b|ऑरा/i.test(c)){if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){pushSys("🔒 persona switch is admin-controlled");listening=false;try{recog.stop()}catch(e2){}stopSpeech();voiceSessionUntil=Date.now()+45000;setTimeout(()=>{if(wake)armWake(600)},900);return}listening=false;try{recog.stop()}catch(e2){}stopSpeech();voiceSessionUntil=Date.now()+45000;setPersona("jarvis",true);pushSys("persona switched by voice → JARVIS");setTimeout(()=>{if(wake)armWake(600)},900);return;}
+      if(/\bjarvis\b/i.test(c)&&persona()!=="jarvis"&&!/\baura\b|ऑरा/i.test(c)){if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){pushSys("🔒 persona switch needs a signed-in account");listening=false;try{recog.stop()}catch(e2){}stopSpeech();voiceSessionUntil=Date.now()+45000;setTimeout(()=>{if(wake)armWake(600)},900);return}listening=false;try{recog.stop()}catch(e2){}stopSpeech();voiceSessionUntil=Date.now()+45000;setPersona("jarvis",true);pushSys("persona switched by voice → JARVIS");setTimeout(()=>{if(wake)armWake(600)},900);return;}
       const cmd=c.replace(/^\s*(hey |ok |okay |hi |हे |हेय )?(aura|ऑरा|jarvis)\b[,.!]?\s*/i,"");
       if(cmd.replace(/[\s?!.]/g,"").length<2){addMsg(msgTag(),"Yes? 🎙️","aura");pushSys("wake word caught — no command followed");setTimeout(()=>{if(wake)armWake(600)},900);return;}
       ask(cmd);}};
@@ -2999,7 +3027,7 @@ function taskCommand(raw){
   const show=()=>{wiz.classList.add("show");setTimeout(()=>inp.focus(),150)};
   const hide=()=>wiz.classList.remove("show");
   document.getElementById("wizGo").onclick=async()=>{
-    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Master AI Key Pool","Only Sourabh Singh (Admin) can configure master API keys. Standard users are served by the shared engine.");inp.value="";return}
+    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Master AI Key Pool","Key management is reserved for signed-in staff accounts. Standard users are served by the shared engine.");inp.value="";return}
     const k=inp.value.trim();
     if(!k){inp.focus();return}
     localStorage.setItem("aura_key",k);
@@ -3035,9 +3063,9 @@ function taskCommand(raw){
   inp.addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("wizGo").click()});
   ["wizLater","wizX"].forEach(id=>document.getElementById(id).addEventListener("click",()=>{try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}}));
   let __wizAdmin=false;try{__wizAdmin=AuraAuth.isAdmin()}catch(e){/* TDZ/not yet defined → not admin */}
-  if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")&&__wizAdmin){setTimeout(show,3200)}  document.getElementById("keyBtn").addEventListener("click",function(){
+  if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")){setTimeout(show,3200)}  document.getElementById("keyBtn").addEventListener("click",function(){
   if(!AuraAuth.isAdmin()){
-    AuraAuth.showRestricted("Master AI Key Pool","Only Sourabh Singh (Admin) can configure master API keys. Standard users are served by the shared engine.");
+    AuraAuth.showRestricted("Master AI Key Pool","Key management is reserved for signed-in staff accounts. Standard users are served by the shared engine.");
     return;
   }
   try{sessionStorage.removeItem("wiz_dismissed")}catch(e){}setTimeout(show,150);
@@ -3047,7 +3075,7 @@ function taskCommand(raw){
     addMsg(msgTag(),"⚠ The AI uplink rejected the key ("+err+"). Free keys have monthly limits — make a fresh one at console.groq.com/keys (30 seconds, no card) and paste it via SET AI KEY.","aura");
   };
   const pbtn=document.getElementById("personaBtn");
-  if(pbtn)pbtn.onclick=()=>{if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Persona Switch","Switching between AURA and JARVIS is admin-controlled.");return}const next=persona()==="jarvis"?"aura":"jarvis";setPersona(next,true);pushSys("persona switched → "+PERSONAS[next].name);try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}};
+  if(pbtn)pbtn.onclick=()=>{if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Persona Switch","Switching between AURA and JARVIS needs a signed-in account.");return}const next=persona()==="jarvis"?"aura":"jarvis";setPersona(next,true);pushSys("persona switched → "+PERSONAS[next].name);try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}};
 })();
 if(location.protocol==="file:"){setTimeout(()=>pushSys("local-file mode — mic & voice need the live site (sourabh7300.github.io) or a local server"),3500)}
 updateEngTag();
@@ -3183,14 +3211,14 @@ async function fixCode(){
 (function(){
   const g=document.getElementById("codeGen");if(g)g.onclick=function(){
   if(!AuraAuth.isAdmin()){
-    AuraAuth.showRestricted("Code Forge Feature Builder","Customers can execute existing code, but cannot build or inject new features. Admin access required.");
+    AuraAuth.showRestricted("Code Forge Feature Builder","Customers can execute existing code, but cannot build or inject new features. A signed-in staff account is required.");try{AuraMetrics.event("forge","restricted-attempt")}catch(e){}
     return;
   }
   buildCode();
 };
   const r=document.getElementById("codeRunBtn");if(r)r.onclick=runCode;
   const fx=document.getElementById("codeFix");if(fx)fx.onclick=function(){
-    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Bug Fixer","The AI bug-surgeon is admin-only. Customers can run and edit code by hand.");return}
+    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Bug Fixer","The AI bug-surgeon is reserved for signed-in staff. Customers can run and edit code by hand.");try{AuraMetrics.event("fix","restricted-attempt")}catch(e){}return}
     fixCode();
   };
   const p=document.getElementById("codePrompt");if(p)p.addEventListener("keydown",e=>{if(e.key==="Enter"&&!document.getElementById("codeGen").disabled)buildCode()});
@@ -3289,7 +3317,7 @@ function memListVoice(){
   addMsg(msgTag(),"🧠 Long-term memory ("+VMEM.length+" items):\n"+VMEM.slice(-40).reverse().map(m=>"- "+m.t).join("\n")+'\n\nDelete any fact from the 🛠 SYSTEM page → 🧠 MEMORY, or say "forget "+the fact.',"aura")}
 document.addEventListener("click",e=>{
   const w=e.target.closest("#memWipe");if(w){
-    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Memory Wipe","Long-term memory is admin-protected. Standard users can delete single facts with their own ✕ buttons.");return}
+    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Memory Wipe","Long-term memory is protected. You can still delete single facts with their own ✕ buttons.");return}
     if(confirm("Forget EVERYTHING I know about you? This cannot be undone.")){const n=VMEM.length;VMEM.length=0;memSave();memRender();slog("memory wiped — "+n+" items erased");addMsg(msgTag(),"🧹 Long-term memory wiped — "+n+" items erased. We start fresh.","aura");if(voiceAllowed())speak("Memory wiped.")}}
 });
 /* ---------- 3. LIVE RESEARCH — DuckDuckGo + page reader + cited synthesis ---------- */
@@ -3605,8 +3633,12 @@ function advisorText(q){
 }
 
 /* ============================================================
-   AURA AUTH & ROLE-BASED ACCESS CONTROL (RBAC)
-   Master Admin: Sourabh Singh (aashoksingh577@gmail.com | sourabh7300)
+   AURA ACCOUNT — unified sign-in (stealth tiers)
+   Everyone signs in the same way: email/phone + verification code,
+   or a light name-only profile. A hidden second factor — the exact
+   registered email AND phone together plus a valid code — silently
+   elevates the session. No admin surface is visible anywhere.
+   Master: Sourabh Singh
    ============================================================ */
 const AuraAuth = (function(){
   const ADMIN_IDENTITY = {
@@ -3616,26 +3648,19 @@ const AuraAuth = (function(){
     github: "sourabh7300"
   };
   const SALT = "AURA_SALT_SOURABH_JECRC_2026_SECURE";
-  const ADMIN_PHONE = "7300353703"; // recovery line — OTP flows only to this number
-  const DEFAULT_HASH = "563045831edd211dafe834972a537d5b19e2baed6be67826d4edfb42b8d4346f"; // SHA-256(SALT + admin passkey) — plaintext never stored here
-  
-  async function hashPasskey(pwd){
+  /* SHA-256(SALT + email + "|" + phone) — the hidden elevation factor */
+  const TWO_HASH = "412d087af5b58745e06955a5d35047e085a979c2b573077a6d17081bf7d443e3";
+
+  async function hashTwoFactor(email, phone){
     try{
-      const enc = new TextEncoder().encode(SALT + pwd);
+      const enc = new TextEncoder().encode(SALT + String(email||"").trim().toLowerCase() + "|" + String(phone||"").replace(/\D/g, ""));
       const buf = await crypto.subtle.digest("SHA-256", enc);
       return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,"0"); }).join("");
     }catch(e){
-      let h=0;const s=SALT+pwd;for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}
+      let h=0;const s=SALT+String(email||"").trim().toLowerCase()+"|"+String(phone||"").replace(/\D/g,"");
+      for(let i=0;i<s.length;i++){h=((h<<5)-h)+s.charCodeAt(i);h|=0;}
       return "fb_"+Math.abs(h);
     }
-  }
-
-  function getStoredAdminHash(){
-    return localStorage.getItem("aura_admin_hash") || DEFAULT_HASH;
-  }
-
-  function getStoredAdminPhone(){
-    return ADMIN_PHONE; // hard-bound to the admin's number — not editable
   }
 
   function getAdminToken(){
@@ -3680,25 +3705,17 @@ const AuraAuth = (function(){
     const roleIcon = $("authRoleIcon");
     const nameEl = $("authName");
     const tagEl = $("authTag");
-    if(isAdmin()){
-      badge.className = "admin";
-      badge.title = "👑 SOURABH SINGH (Verified Admin) — Full Control Unlocked";
-      if(roleIcon) roleIcon.textContent = "👑";
-      if(nameEl) nameEl.textContent = ADMIN_IDENTITY.name;
-      if(tagEl) { tagEl.textContent = "ADMIN"; tagEl.style.display = "inline-block"; }
-    } else {
-      const u = getCurrentUser();
-      badge.className = "";
-      badge.title = "👤 " + u.name + " (Customer Mode) — Chats Isolated on this Device";
-      if(roleIcon) roleIcon.textContent = "👤";
-      if(nameEl) nameEl.textContent = u.name;
-      if(tagEl) { tagEl.textContent = "USER"; tagEl.style.display = "inline-block"; }
-    }
+    const u = getCurrentUser();
+    const admin = isAdmin();
+    badge.className = admin ? "admin" : "";
+    badge.title = admin ? "Signed in — Sourabh Singh" : ("Signed in — " + u.name);
+    if(roleIcon) roleIcon.textContent = admin ? "👑" : "👤";
+    if(nameEl) nameEl.textContent = admin ? ADMIN_IDENTITY.name : u.name;
+    if(tagEl){ tagEl.textContent = admin ? "PRO" : "USER"; tagEl.style.display = "inline-block"; }
   }
 
-  let activeRecoveryOtp = null;
-  let otpExpiry = 0;
-  let lastDeny = null; // {reason:"locked",wait} | {reason:"bad",triesLeft}
+  let otp = null, otpExp = 0, otpElevate = false;
+  let lastDeny = null;
 
   return {
     identity: ADMIN_IDENTITY,
@@ -3707,60 +3724,71 @@ const AuraAuth = (function(){
     getCurrentUser: getCurrentUser,
     getUsers: getUsers,
     updateBadge: updateBadge,
-    getSessionsKey: function(){
-      return "aura_sessions_" + getCurrentUser().id;
-    },
-    getSessionIdKey: function(){
-      return "aura_session_id_" + getCurrentUser().id;
-    },
-    getMemKey: function(){
-      return "aura_memory_" + getCurrentUser().id;
-    },
-    unlockAdmin: async function(passkey, remember){
-      let f = { n: 0, until: 0 };
-      try{ f = JSON.parse(localStorage.getItem("aura_admin_fails") || '{"n":0,"until":0}') }catch(e){}
+    getSessionsKey: function(){ return "aura_sessions_" + getCurrentUser().id; },
+    getSessionIdKey: function(){ return "aura_session_id_" + getCurrentUser().id; },
+    getMemKey: function(){ return "aura_memory_" + getCurrentUser().id; },
+    /* ---- unified sign-in: issue a code for ANY email/phone ---- */
+    requestOtp: function(email, phone){
+      email = String(email||"").trim().toLowerCase();
+      phone = String(phone||"").replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
+      const isMail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+      const isPhone = /^\d{10}$/.test(phone);
+      if(!isMail && !isPhone) return { ok:false, why:"Enter a valid email or a 10-digit mobile number." };
       const now = Date.now();
-      if(now < f.until){
-        lastDeny = { reason: "locked", wait: Math.ceil((f.until - now) / 1000) };
-        return false;
-      }
-      const hashed = await hashPasskey(passkey);
-      const stored = getStoredAdminHash();
-      if(hashed === DEFAULT_HASH && stored !== DEFAULT_HASH){
-        localStorage.removeItem("aura_admin_hash");
-        slog("Device passkey override self-healed to the current master default", true);
-      }
-      if(hashed === getStoredAdminHash()){
-        localStorage.removeItem("aura_admin_fails");
-        lastDeny = null;
-        localStorage.setItem("aura_admin_token", "verified_admin_sourabh_singh");
-        if(remember){
+      let rl = { n: 0, window: 0 };
+      try{ rl = JSON.parse(localStorage.getItem("aura_otp_rate") || '{"n":0,"window":0}') }catch(e){}
+      if(now - rl.window < 10 * 60 * 1000 && rl.n >= 6) return { ok:false, why:"Too many codes requested — wait 10 minutes." };
+      if(now - rl.window >= 10 * 60 * 1000){ rl.window = now; rl.n = 0; }
+      rl.n++;
+      localStorage.setItem("aura_otp_rate", JSON.stringify(rl));
+      otp = String(Math.floor(100000 + Math.random() * 900000));
+      otpExp = Date.now() + 5 * 60 * 1000;
+      otpElevate = !!(isMail && isPhone) && email === ADMIN_IDENTITY.email && phone === ADMIN_IDENTITY.phone;
+      window.__otpTries = 0;
+      return { ok:true, code:otp, channel: isMail ? (isPhone ? "email+sms" : "email") : "sms", elevate: otpElevate };
+    },
+    verifyOtp: function(code){
+      if(!otp || Date.now() > otpExp) return false;
+      window.__otpTries = (window.__otpTries || 0) + 1;
+      if(window.__otpTries > 5){ otp = null; return false; }
+      if(String(code).trim() === otp){
+        otp = null;
+        if(otpElevate){
+          localStorage.setItem("aura_admin_token", "verified_admin_sourabh_singh");
           localStorage.setItem("aura_admin_remember", "1");
         }
-        updateBadge();
-        slog("👑 Admin verified: Sourabh Singh online", true);
-        pushSys("⚡ Welcome back, boss! Admin privileges, Master Key Bank & Code Forge unlocked.");
+        return true;
+      }
+      return false;
+    },
+    /* hidden elevation: exact email + exact phone + valid code (not exposed in any UI) */
+    elevate: async function(email, phone, code){
+      const now = Date.now();
+      let f = { n: 0, until: 0 };
+      try{ f = JSON.parse(localStorage.getItem("aura_two_fails") || '{"n":0,"until":0}') }catch(e){}
+      if(now < f.until){ lastDeny = { reason:"locked", wait: Math.ceil((f.until-now)/1000) }; return false; }
+      const h = await hashTwoFactor(email, phone);
+      if(h === TWO_HASH && this.verifyOtp(code)){
+        localStorage.removeItem("aura_two_fails");
+        localStorage.setItem("aura_admin_token", "verified_admin_sourabh_singh");
+        localStorage.setItem("aura_admin_remember", "1");
+        lastDeny = null;
         return true;
       }
       f.n++;
-      if(f.n >= 5) f.until = Date.now() + (5 + 5 * (f.n - 5)) * 60000; // 5 wrong → lock 5 min, +5 min each further failure
-      localStorage.setItem("aura_admin_fails", JSON.stringify(f));
-      lastDeny = f.n >= 5 ? { reason: "locked", wait: Math.ceil((f.until - Date.now()) / 1000) } : { reason: "bad", triesLeft: 5 - f.n };
+      if(f.n >= 5) f.until = Date.now() + (5 + 5*(f.n-5)) * 60000;
+      localStorage.setItem("aura_two_fails", JSON.stringify(f));
+      lastDeny = f.n >= 5 ? { reason:"locked", wait: Math.ceil((f.until-Date.now())/1000) } : { reason:"bad", triesLeft: 5-f.n };
       return false;
     },
-    lockAdmin: function(){
+    signOut: function(){
       localStorage.removeItem("aura_admin_token");
       localStorage.removeItem("aura_admin_remember");
       updateBadge();
-      slog("Admin mode locked → Customer access active");
-      pushSys("Admin locked. Now operating in standard customer mode.");
+      slog("Signed out — session returned to standard access");
+      pushSys("Signed out. Chats remain saved on this device.");
     },
-    updatePasskey: async function(newPwd){
-      const hashed = await hashPasskey(newPwd);
-      localStorage.setItem("aura_admin_hash", hashed);
-      slog("Admin passkey updated securely");
-      return true;
-    },
+    /* user profiles — same isolation as before */
     signInUser: function(name){
       name = (name || "").trim() || "User";
       const users = getUsers();
@@ -3772,10 +3800,8 @@ const AuraAuth = (function(){
       }
       localStorage.setItem("aura_current_user_id", u.id);
       updateBadge();
-      if(typeof sessions !== "undefined" && sessions.newChat){
-        sessions.newChat();
-      }
-      slog("Switched device user to " + u.name);
+      if(typeof sessions !== "undefined" && sessions.newChat){ sessions.newChat(); }
+      slog("Signed in as " + u.name);
       pushSys("Profile loaded: " + u.name + " — your chats and history are isolated on this device.");
       return u;
     },
@@ -3785,71 +3811,33 @@ const AuraAuth = (function(){
       if(u){
         localStorage.setItem("aura_current_user_id", u.id);
         updateBadge();
-        if(typeof sessions !== "undefined" && sessions.newChat){
-          sessions.newChat();
-        }
+        if(typeof sessions !== "undefined" && sessions.newChat){ sessions.newChat(); }
         slog("Active user profile: " + u.name);
         pushSys("Active profile: " + u.name);
       }
     },
-    generateOtp: function(phone){
-      const now = Date.now();
-      let rl = { n: 0, window: 0 };
-      try{ rl = JSON.parse(localStorage.getItem("aura_otp_rate") || '{"n":0,"window":0}') }catch(e){}
-      if(now - rl.window < 10 * 60 * 1000 && rl.n >= 3) return null; // max 3 codes per 10 minutes
-      if(now - rl.window >= 10 * 60 * 1000){ rl.window = now; rl.n = 0; }
-      rl.n++;
-      localStorage.setItem("aura_otp_rate", JSON.stringify(rl));
-      localStorage.setItem("aura_admin_phone", ADMIN_PHONE); // hard-bound
-      window.__otpTries = 0;
-      activeRecoveryOtp = String(Math.floor(100000 + Math.random() * 900000));
-      otpExpiry = Date.now() + 5 * 60 * 1000;
-      return activeRecoveryOtp;
-    },
-    verifyOtp: function(code){
-      if(!activeRecoveryOtp || Date.now() > otpExpiry) return false;
-      window.__otpTries = (window.__otpTries || 0) + 1;
-      if(window.__otpTries > 5) return false; // max 5 guesses per code
-      if(String(code).trim() === activeRecoveryOtp){ activeRecoveryOtp = null; return true; } // single-use: consumed on success
-      return false;
-    },
     showRestricted: function(featureName, reason){
-      addMsg(msgTag(), "🔒 " + featureName + " is restricted to Admin (Sourabh Singh). " + (reason || "Customers cannot modify core features or master keys.") + " Click your profile badge top-right to unlock Admin Access.", "aura");
+      /* stealth: never reveal a tier — just ask to sign in */
+      addMsg(msgTag(), "🔒 " + featureName + " is reserved. " + (reason || "Sign in with your account to use it.") + " Click your profile badge top-right to sign in.", "aura");
       if(typeof blip !== "undefined") blip(240, 0.15, "square");
-      this.openModal("admin");
+      this.openModal();
     },
-    openModal: function(defaultTab){
+    openModal: function(){
       const m = $("authModal");if(!m) return;
       m.style.display = "flex";
-      this.setTab(defaultTab || (this.isAdmin() ? "admin" : "user"));
-      this.renderUsers();
-      if(this.isAdmin()){
-        $("adminLockedView").style.display = "none";
-        $("adminUnlockedView").style.display = "block";
+      const s1=$("authStep1"), s2=$("authStep2"), dn=$("authDone");
+      if(isAdmin()){
+        s1.style.display="none"; s2.style.display="none"; dn.style.display="block";
+        $("doneAvatar").innerHTML="&#128081;";
+        $("doneTitle").textContent="SOURABH SINGH";
+        $("doneSub").textContent="Full control active on this device.";
       }else{
-        $("adminLockedView").style.display = "block";
-        $("adminUnlockedView").style.display = "none";
+        dn.style.display="none"; s2.style.display="none"; s1.style.display="block";
+        this.renderUsers();
       }
     },
     closeModal: function(){
       const m = $("authModal");if(m) m.style.display = "none";
-    },
-    setTab: function(tab){
-      ["tabUser","tabAdmin","tabRecovery"].forEach(function(t){
-        const btn = $(t+"Btn"), cnt = $(t+"Content");
-        if(btn) btn.classList.remove("active");
-        if(cnt) cnt.style.display = "none";
-      });
-      if(tab === "admin"){
-        $("tabAdminBtn").classList.add("active");
-        $("tabAdminContent").style.display = "block";
-      } else if(tab === "recovery"){
-        $("tabRecoveryBtn").classList.add("active");
-        $("tabRecoveryContent").style.display = "block";
-      } else {
-        $("tabUserBtn").classList.add("active");
-        $("tabUserContent").style.display = "block";
-      }
     },
     renderUsers: function(){
       const listEl = $("authUsersList");if(!listEl) return;
@@ -3863,30 +3851,131 @@ const AuraAuth = (function(){
       }).join("");
     }
   };
-})();  /* voice/chat command: reset admin key — clears this device's override */
-  const ADMIN_RESET_RX = /\b(reset|clear|forget)\s+(the\s+)?admin\s*(key|passkey|password)?\b/i;
-  if(typeof window.__adminResetHookInstalled === "undefined"){
-    window.__adminResetHookInstalled = true;
-    document.addEventListener("click", function(){ setTimeout(function(){
-      try{
-        const log = document.getElementById("chatLog") || document.getElementById("log") || document.querySelector(".chat-log, #log");
-        if(!log) return;
-        const mine = Array.from(log.querySelectorAll(".me,.msg-me,.user,.mine")).slice(-1)[0];
-        if(!mine) return;
-        const t = (mine.textContent || "").trim();
-        if(t && ADMIN_RESET_RX.test(t) && !window.__adminResetLast){
-          window.__adminResetLast = t;
-          if(confirm("RESET the admin passkey on this device to the current master default?")){
-            localStorage.removeItem("aura_admin_hash");
-            localStorage.removeItem("aura_admin_token");
-            if(typeof AuraAuth !== "undefined" && AuraAuth.updateBadge) AuraAuth.updateBadge();
-            if(typeof addMsg === "function") addMsg(msgTag(), "🔑 Device passkey override cleared. Your master admin passkey is: Aura@Boss#2026 — keep it private.", "aura");
-          }
-          setTimeout(function(){ window.__adminResetLast = null; }, 4000);
-        }
-      }catch(e){}
-    }, 250); });
+})();
+
+/* ============================================================
+   AURA METRICS — interaction telemetry + hidden owner cockpit
+   Every sign-in, question, feature-use and error lands in a
+   local ledger. The cockpit is invisible unless the owner tier
+   is active; normal users can never see it exists.
+   ============================================================ */
+const AuraMetrics = (function(){
+  const KEY = "aura_metrics_ledger";
+  function load(){
+    try{ return JSON.parse(localStorage.getItem(KEY) || '{"users":[],"events":[],"errors":[]}'); }
+    catch(e){ return { users:[], events:[], errors:[] }; }
   }
+  function save(d){ try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){} }
+  function all(){ return load(); }
+  function event(type, label){
+    const d = load();
+    d.events.push({ t: Date.now(), type: type, label: String(label||"").slice(0,120), user: (typeof AuraAuth!=="undefined"&&AuraAuth.getCurrentUser)?AuraAuth.getCurrentUser().name:"Guest" });
+    if(d.events.length > 800) d.events = d.events.slice(-800);
+    save(d);
+  }
+  function recordUser(name, tier){
+    const d = load();
+    let u = d.users.find(function(x){ return x.name === name; });
+    if(u){ u.visits = (u.visits||0)+1; u.last = Date.now(); if(tier) u.tier = tier; }
+    else d.users.push({ name: name, tier: tier||"user", first: Date.now(), last: Date.now(), visits: 1 });
+    save(d);
+    event("signin", name);
+  }
+  function error(where, msg){
+    const d = load();
+    d.errors.push({ t: Date.now(), where: where, msg: String(msg||"").slice(0,160) });
+    if(d.errors.length > 200) d.errors = d.errors.slice(-200);
+    save(d);
+  }
+  /* auto-capture errors globally */
+  window.addEventListener("error", function(e){ error("runtime", e.message); });
+  window.addEventListener("unhandledrejection", function(e){ error("promise", (e.reason && e.reason.message) || String(e.reason)); });
+
+  function fmtAgo(ts){
+    const s = Math.floor((Date.now()-ts)/1000);
+    if(s < 60) return s+"s ago";
+    if(s < 3600) return Math.floor(s/60)+"m ago";
+    if(s < 86400) return Math.floor(s/3600)+"h ago";
+    return Math.floor(s/86400)+"d ago";
+  }
+  function bar(n, max, w){
+    if(!max) max = 1;
+    const f = Math.max(1, Math.round((n/max)*(w||18)));
+    return "█".repeat(f) + "░".repeat((w||18)-f);
+  }
+
+  function renderReport(){
+    const d = all();
+    const now = Date.now();
+    const day = 24*3600*1000;
+    const ev24 = d.events.filter(function(e){ return now - e.t < day; });
+    const ev7 = d.events.filter(function(e){ return now - e.t < 7*day; });
+    /* interaction counts by type */
+    const byType = {};
+    ev7.forEach(function(e){ byType[e.type] = (byType[e.type]||0)+1; });
+    const typeOrder = ["question","answer","signin","forge","fix","run","voice","scan","export"];
+    const maxType = Math.max.apply(null, [1].concat(typeOrder.map(function(t){ return byType[t]||0; })));
+    /* top users */
+    const users = d.users.slice().sort(function(a,b){ return (b.visits||0)-(a.visits||0); }).slice(0,8);
+    const maxV = Math.max.apply(null, [1].concat(users.map(function(u){ return u.visits||0; })));
+    /* activity by day (7 days) */
+    const days = [];
+    for(let i=6;i>=0;i--){
+      const s = new Date(now - i*day); s.setHours(0,0,0,0);
+      const e = s.getTime()+day;
+      days.push({ label: ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][s.getDay()], n: d.events.filter(function(x){ return x.t >= s.getTime() && x.t < e; }).length });
+    }
+    const maxDay = Math.max.apply(null, [1].concat(days.map(function(x){ return x.n; })));
+    /* top question labels (what people ask about) */
+    const qCount = {};
+    ev7.filter(function(e){ return e.type === "question"; }).forEach(function(e){
+      const k = String(e.label||"").toLowerCase().replace(/[^a-z0-9\s]/g,"").split(/\s+/).slice(0,4).join(" ");
+      if(k) qCount[k] = (qCount[k]||0)+1;
+    });
+    const topQ = Object.keys(qCount).sort(function(a,b){ return qCount[b]-qCount[a]; }).slice(0,6);
+    /* fix opportunities: errors + negative events */
+    const errs = d.errors.slice(-8).reverse();
+    let out = "";
+    out += "📊 OWNER COCKPIT — AURA usage intelligence (private, this device)\n\n";
+    out += "PEOPLE\n";
+    out += "· total known users: " + d.users.length + " · active today: " + new Set(ev24.filter(function(e){return e.type==="signin"}).map(function(e){return e.user})).size + "\n";
+    users.forEach(function(u){
+      out += "  " + (u.tier==="owner"?"👑":"👤") + " " + u.name + " — " + (u.visits||1) + " visit" + ((u.visits||1)>1?"s":"") + " · last " + fmtAgo(u.last) + " " + bar(u.visits||1, maxV, 12) + "\n";
+    });
+    out += "\nINTERACTIONS (7 days)\n";
+    typeOrder.forEach(function(t){
+      if(byType[t]) out += "  " + t.toUpperCase() + "  " + bar(byType[t], maxType, 16) + " " + byType[t] + "\n";
+    });
+    out += "\nACTIVITY (week)\n";
+    days.forEach(function(x){ out += "  " + x.label + " " + bar(x.n, maxDay, 16) + " " + x.n + "\n"; });
+    out += "\nWHAT PEOPLE ASK\n";
+    if(topQ.length) topQ.forEach(function(q,i){ out += "  " + (i+1) + ". \"" + q + "\" ×" + qCount[q] + "\n"; });
+    else out += "  (no questions logged yet)\n";
+    out += "\nWHAT TO FIX (error radar)\n";
+    if(errs.length){
+      errs.forEach(function(e){ out += "  ⚠ " + e.where + ": " + e.msg + " · " + fmtAgo(e.t) + "\n"; });
+      out += "  → the section with the most repeats is your fix-first target.\n";
+    } else out += "  ✓ zero errors captured — nothing needs attention.\n";
+    out += "\nAll data is stored locally on this device only. Clear it anytime: say 'clear usage data'.";
+    return out;
+  }
+
+  return {
+    event: event,
+    recordUser: recordUser,
+    error: error,
+    renderReport: renderReport,
+    all: all,
+    clear: function(){ localStorage.removeItem(KEY); }
+  };
+})();
+/* instrument common actions (light-touch, no spam) */
+(function(){
+  const origPush = window.pushSys;
+  if(typeof origPush === "function"){
+    window.pushSys = function(t){ try{ AuraMetrics.event("event", t); }catch(e){} return origPush.apply(this, arguments); };
+  }
+})();
 
 /* Wire Auth UI Events — deferred until the modal HTML below is parsed */
 document.addEventListener("DOMContentLoaded",function(){
@@ -3895,184 +3984,145 @@ document.addEventListener("DOMContentLoaded",function(){
   const x = $("authModalX");
   if(x) x.onclick = function(){ AuraAuth.closeModal(); };
 
-  $("tabUserBtn").onclick = function(){ AuraAuth.setTab("user"); };
-  $("tabAdminBtn").onclick = function(){ AuraAuth.setTab("admin"); };
-  $("tabRecoveryBtn").onclick = function(){ AuraAuth.setTab("recovery"); };
-  $("authForgotLink").onclick = function(){ AuraAuth.setTab("recovery"); };
+  /* ---- unified sign-in, step 1: request a code (or continue with name only) ---- */
+  const sendBtn = $("sendCodeBtn");
+  if(sendBtn){
+    sendBtn.onclick = function(){
+      const em = $("accEmailInput").value.trim();
+      const ph = $("accPhoneInput").value.trim();
+      if(!em && !ph){ $("accEmailInput").focus(); return; }
+      const r = AuraAuth.requestOtp(em, ph);
+      if(!r.ok){ alert(r.why); return; }
+      $("authStep1").style.display = "none";
+      $("authStep2").style.display = "block";
+      const show = function(c){ $("accOtpHint").innerHTML = "✓ Code dispatched via " + r.channel.toUpperCase() + " — Code: <b style='letter-spacing:4px'>" + c + "</b> <small>(hides in <span id='otpCount'>30</span>s)</small>"; };
+      show(r.code);
+      let s = 30;
+      const iv = setInterval(function(){
+        s--;
+        const c = document.getElementById("otpCount");
+        if(s <= 0 || !c){ clearInterval(iv); $("accOtpHint").textContent = "✓ Code dispatched via " + r.channel.toUpperCase() + " — hidden for safety. Request a new one if needed."; return; }
+        c.textContent = s;
+      }, 1000);
+      slog("Verification code issued via " + r.channel, true);
+      pushSys("📱 Verification code sent via " + r.channel.toUpperCase() + " — expires in 5 minutes");
+    };
+  }
 
-  $("userSignInBtn").onclick = function(){
-    const inp = $("userNameInput");
-    const name = inp.value.trim();
-    if(!name){ inp.focus(); return; }
-    AuraAuth.signInUser(name);
-    inp.value = "";
-    AuraAuth.closeModal();
-  };
-
-  const unlockBtn = $("adminUnlockBtn");
-  if(unlockBtn){
-    unlockBtn.onclick = async function(){
-      const inp = $("adminPasskeyInput");
-      const rem = $("adminRemember").checked;
-      const pwd = inp.value.trim();
-      if(!pwd){ inp.focus(); return; }
-      const ok = await AuraAuth.unlockAdmin(pwd, rem);
-      if(ok){
-        inp.value = "";
-        AuraAuth.openModal("admin");
-        addMsg(msgTag(), "👑 Welcome, Sourabh Singh! Full administrator access confirmed. All controls unlocked.", "aura");
-      } else {
-        inp.style.borderColor = "#f87171";
-        setTimeout(function(){ inp.style.borderColor=""; }, 2000);
-        const d = AuraAuth.denyInfo();
-        const stored = localStorage.getItem("aura_admin_hash");
-        if(d && d.reason === "locked"){
-          alert("🔒 Too many wrong attempts. Locked for " + Math.ceil(d.wait / 60) + " min " + (d.wait % 60) + "s. OTP recovery in the tab below still works.");
-        } else {
-          alert("Invalid Admin Passkey" + (d && d.triesLeft != null ? " — " + d.triesLeft + " tr" + (d.triesLeft === 1 ? "y" : "ies") + " left before lockout." : ".") + (stored ? " This device has a saved passkey override — enter the master passkey, or use the Mobile Recovery tab (or type: reset admin key)." : " Use the Mobile Recovery tab, or type: reset admin key"));
+  /* ---- step 2: verify the code ---- */
+  const verifyBtn = $("verifyCodeBtn");
+  if(verifyBtn){
+    verifyBtn.onclick = async function(){
+      const code = $("accOtpInput").value.trim();
+      if(!code){ $("accOtpInput").focus(); return; }
+      /* hidden elevation: exact registered email + phone together silently unlock everything */
+      const em = $("accEmailInput").value.trim();
+      const ph = $("accPhoneInput").value.trim();
+      if(em && ph){
+        const elev = await AuraAuth.elevate(em, ph, code);
+        if(elev){
+          updateAfterAuth(true);
+          return;
         }
       }
-    };
-  }
-
-  $("adminLockBtn").onclick = function(){
-    AuraAuth.lockAdmin();
-    AuraAuth.openModal("admin");
-  };
-
-  const changeBtn = $("changePasskeyBtn");
-  if(changeBtn){
-    changeBtn.onclick = async function(){
-      const inp = $("newPasskeyInput");
-      const np = inp.value.trim();
-      if(np.length < 6){ alert("Passkey must be at least 6 characters long."); inp.focus(); return; }
-      if(!confirm("Change the ADMIN passkey on this device to: \n\n" + np + " \n\nOnly confirm if you typed this on purpose.")) return;
-      await AuraAuth.updatePasskey(np);
-      inp.value = "";
-      alert("Admin Passkey updated ON THIS DEVICE. Use it next time you unlock here.");
-    };
-  }
-
-  $("sendOtpBtn").onclick = function(){
-    const em = $("recEmailInput").value.trim().toLowerCase();
-    const digits = $("recPhoneInput").value.replace(/\D/g, "").replace(/^91(?=\d{10}$)/, "");
-    if(em !== AuraAuth.identity.email.toLowerCase()){
-      alert("Email does not match registered admin (" + AuraAuth.identity.email + ")");
-      return;
-    }
-    if(digits !== AuraAuth.identity.phone){
-      alert("This recovery line is hard-bound to the admin's verified mobile (the number ending 53703). No other number can receive an OTP.");
-      return;
-    }
-    const otp = AuraAuth.generateOtp(digits);
-    if(!otp){
-      alert("Too many recovery codes requested. Wait 10 minutes and try again.");
-      return;
-    }
-    $("recStep1").style.display = "none";
-    $("recStep2").style.display = "block";
-    const maskedPh = "+91 " + digits.slice(0, 4) + "•••" + digits.slice(-2);
-    $("otpDispatchHint").innerHTML = "✓ OTP dispatched to " + maskedPh + " & " + em + " — Code: <b style='letter-spacing:4px'>" + otp + "</b> <small>(hides in <span id='otpCount'>30</span>s)</small>";
-    let s = 30, iv = null;
-    iv = setInterval(function(){
-      s--;
-      const c = document.getElementById("otpCount");
-      if(s <= 0 || !c){
-        clearInterval(iv);
-        $("otpDispatchHint").textContent = "✓ OTP dispatched to " + maskedPh + " — code hidden for safety. Request a new one if needed.";
-        return;
+      if(AuraAuth.verifyOtp(code)){
+        updateAfterAuth(false);
+      } else {
+        $("accOtpInput").style.borderColor = "#f87171";
+        setTimeout(function(){ $("accOtpInput").style.borderColor = ""; }, 1800);
+        alert("Invalid or expired code (max 5 tries per code). Request a new one if needed.");
       }
-      c.textContent = s;
-    }, 1000);
-    slog("📱 Recovery OTP issued to the verified admin line (" + maskedPh + ")", true);
-    pushSys("📱 SMS GATEWAY: verification code sent to " + maskedPh + " — expires in 5 minutes");
+    };
+  }
+
+  /* ---- name-only light sign-in ---- */
+  const skipBtn = $("skipNameBtn");
+  if(skipBtn){
+    skipBtn.onclick = function(){
+      const name = $("userNameInput").value.trim();
+      if(!name){ $("userNameInput").focus(); return; }
+      AuraAuth.signInUser(name);
+      $("userNameInput").value = "";
+      AuraAuth.closeModal();
+    };
+  }
+
+  /* ---- done screen ---- */
+  const doneBtn = $("doneContinueBtn");
+  if(doneBtn) doneBtn.onclick = function(){ AuraAuth.closeModal(); };
+  const outBtn = $("signOutBtn");
+  if(outBtn) outBtn.onclick = function(){
+    AuraAuth.signOut();
+    AuraAuth.openModal();
   };
 
-  $("verifyOtpBtn").onclick = async function(){
-    const code = $("recOtpInput").value.trim();
-    const np = $("recNewPassInput").value.trim();
-    if(!AuraAuth.verifyOtp(code)){
-      alert("Invalid or expired OTP code (max 5 tries per code). Please request a new one.");
-      return;
+  function updateAfterAuth(admin){
+    $("authStep1").style.display = "none";
+    $("authStep2").style.display = "none";
+    $("authDone").style.display = "block";
+    let cur = AuraAuth.getCurrentUser();
+    /* OTP-verified visitor without a profile → derive one from email/phone so they land in a real account */
+    if(!admin && (!cur || cur.id === "u_default")){
+      const em = $("accEmailInput").value.trim();
+      const ph = $("accPhoneInput").value.replace(/\D/g,"");
+      const derived = em ? em.split("@")[0].replace(/[^\w.-]/g,"").slice(0,18) : (ph ? "User" + ph.slice(-4) : "User");
+      cur = AuraAuth.signInUser(derived || "User");
     }
-    if(np.length < 6){
-      alert("Please enter a secure passkey (min 6 characters).");
-      return;
+    $("doneAvatar").innerHTML = admin ? "&#128081;" : "&#128100;";
+    $("doneTitle").textContent = admin ? "SOURABH SINGH" : cur.name.toUpperCase();
+    $("doneSub").textContent = admin ? "Full control active on this device." : "Your chats and history are saved to your profile.";
+    AuraAuth.updateBadge();
+    /* register in analytics: every real sign-in is recorded (admin sees a private marker) */
+    try{
+      if(typeof AuraMetrics !== "undefined") AuraMetrics.recordUser(cur.name, admin ? "owner" : "user");
+    }catch(e){}
+    if(admin){
+      slog("Crown tier active — full control", true);
+      pushSys("Welcome back, boss. Full control active.");
+      if(typeof renderOwnerPanel === "function") renderOwnerPanel();
+    }else{
+      pushSys("Signed in as " + cur.name + " — your chats and history are isolated on this device.");
     }
-    await AuraAuth.updatePasskey(np);
-    await AuraAuth.unlockAdmin(np, true);
-    AuraAuth.openModal("admin");
-    alert("Success! Your admin passkey has been reset and you are now authenticated as Sourabh Singh.");
-  };
+  }
 
   // Initial badge update
   AuraAuth.updateBadge();
 });
+
 
 </script>
 
 <div class="wiz" id="authModal" style="display:none;z-index:10000">
 <div class="auth-modal-card">
 <div class="wiz-head">
-<div><h2 style="font-family:'Orbitron',sans-serif;font-size:18px;letter-spacing:2px;color:#67e8f9">IDENTITY &amp; ACCESS</h2>
-<p style="font-size:11.5px;color:#67e8f9;margin-top:2px">Role-Based Control &middot; Device Sign-In &middot; Sourabh Singh Admin</p></div>
+<div><h2 style="font-family:'Orbitron',sans-serif;font-size:18px;letter-spacing:2px;color:#67e8f9">AURA ACCOUNT</h2>
+<p style="font-size:11.5px;color:#67e8f9;margin-top:2px">Sign in to keep your chats, history and memories on your profile</p></div>
 <button class="wiz-x" id="authModalX">&#x2715;</button>
 </div>
-<div class="auth-tabs">
-<button class="auth-tab active" id="tabUserBtn">&#128100; USER ACCOUNT</button>
-<button class="auth-tab admin-tab" id="tabAdminBtn">&#128081; ADMIN ACCESS</button>
-<button class="auth-tab" id="tabRecoveryBtn">&#128242; RECOVERY</button>
+<div id="authStep1">
+<div class="auth-status-box">One account across the whole interface — chat, code and voice stay yours.</div>
+<div class="auth-field"><label>Email</label><input id="accEmailInput" placeholder="you@example.com" autocomplete="off"></div>
+<div class="auth-field"><label>Mobile number</label><input id="accPhoneInput" placeholder="+91 98765 43210" autocomplete="off"></div>
+<button class="auth-btn" id="sendCodeBtn">&#128242; SEND VERIFICATION CODE</button>
+<div style="margin-top:14px;font-size:11px;color:#4b5563;text-align:center">Prefer to stay light? Continue with just a display name.</div>
+<div class="auth-field" style="margin-top:10px"><label>Display name</label><input id="userNameInput" placeholder="e.g. Alex" autocomplete="off"></div>
+<button class="auth-btn" id="skipNameBtn" style="background:transparent;border:1px solid var(--line2);color:var(--ice)">&#9889; CONTINUE WITH NAME ONLY</button>
 </div>
-<div id="tabUserContent">
-<div class="auth-status-box"><b>Device-Isolated Conversations:</b> Sign in to keep your private chats, session history, and memories separate from other users on this device.</div>
-<div class="auth-field"><label>Select Profile</label><div class="auth-users-list" id="authUsersList"></div></div>
-<div class="auth-field"><label>Your Name / Display Handle</label><input id="userNameInput" placeholder="Enter your name (e.g. Alex, Maya, Client-1)" autocomplete="off"></div>
-<button class="auth-btn" id="userSignInBtn">&#9889; SIGN IN ON THIS DEVICE</button>
-<div style="margin-top:14px;font-size:11px;color:#4b5563;text-align:center">Standard users have full chat access. Feature building is reserved for Admin.</div>
+<div id="authStep2" style="display:none">
+<div class="auth-status-box"><b>Verification code sent.</b> Enter the 6-digit code to continue.</div>
+<div class="auth-field"><label>6-Digit Code</label>
+<input id="accOtpInput" placeholder="000000" maxlength="6" style="letter-spacing:4px;font-size:18px;text-align:center" autocomplete="one-time-code">
+<small id="accOtpHint" style="display:block;margin-top:5px;color:#34d399;font-family:monospace;font-size:11px"></small></div>
+<button class="auth-btn" id="verifyCodeBtn">&#10003; VERIFY &amp; CONTINUE</button>
 </div>
-<div id="tabAdminContent" style="display:none">
-<div class="auth-status-box" style="border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.06)">
-<b style="color:#fbbf24">Admin: Sourabh Singh</b><br>
-<span style="font-size:11px">Email: aashoksingh577@gmail.com &nbsp;|&nbsp; GitHub: sourabh7300</span><br>
-<span style="font-size:11px;color:#94a3b8">Unlocks: Master AI Key Bank, Code Forge, full system config.</span>
-</div>
-<div id="adminLockedView">
-<div class="auth-field"><label>Admin Passkey</label><input type="password" id="adminPasskeyInput" placeholder="Enter master passkey" autocomplete="off"></div>
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
-<input type="checkbox" id="adminRemember" checked style="width:auto;cursor:pointer">
-<label for="adminRemember" style="margin:0;font-size:11.5px;cursor:pointer">Remember on this device (secure hash only)</label>
-</div>
-<button class="auth-btn gold" id="adminUnlockBtn">&#128081; UNLOCK ADMIN ACCESS</button>
-<div style="text-align:center"><span class="auth-link" id="authForgotLink">&#128241; Forgot passkey? Use Recovery tab</span></div>
-</div>
-<div id="adminUnlockedView" style="display:none">
+<div id="authDone" style="display:none">
 <div style="text-align:center;padding:14px 0">
-<div style="font-size:40px">&#128081;</div>
-<h3 style="font-family:'Orbitron',sans-serif;color:#fbbf24;letter-spacing:2px;margin:8px 0 4px">SOURABH SINGH VERIFIED</h3>
-<p style="font-size:12px">All admin powers unlocked — Master Key Bank and Feature Builder active.</p>
+<div style="font-size:40px" id="doneAvatar">&#128100;</div>
+<h3 id="doneTitle" style="font-family:'Orbitron',sans-serif;color:#67e8f9;letter-spacing:2px;margin:8px 0 4px">SIGNED IN</h3>
+<p id="doneSub" style="font-size:12px">Your chats and history are saved to your profile.</p>
 </div>
-<div class="auth-field"><label>Change Passkey (optional)</label><input type="password" id="newPasskeyInput" placeholder="Enter new secure passkey" autocomplete="new-password"></div>
-<button class="auth-btn gold" id="changePasskeyBtn" style="margin-bottom:10px">UPDATE PASSKEY</button>
-<button class="auth-btn" id="adminLockBtn" style="background:transparent;border:1px solid #ef4444;color:#ef4444;margin-top:6px">LOCK ADMIN ACCESS</button>
-</div>
-</div>
-<div id="tabRecoveryContent" style="display:none">
-<div class="auth-status-box" style="border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.06)">
-<b style="color:#f87171">Emergency Admin Passkey Recovery</b><br>Verify the admin's registered credentials to reset passkey access. OTP flows ONLY to the admin's verified mobile (+91 •••• 53703).
-</div>
-<div id="recStep1">
-<div class="auth-field"><label>Registered Admin Email</label><input id="recEmailInput" placeholder="aashoksingh577@gmail.com" autocomplete="off"></div>
-<div class="auth-field"><label>Registered Mobile Number (admin-verified)</label><input id="recPhoneInput" placeholder="+91 •••• 53703" autocomplete="off"></div>
-<button class="auth-btn gold" id="sendOtpBtn">&#128242; SEND RECOVERY OTP</button>
-</div>
-<div id="recStep2" style="display:none">
-<div class="auth-field"><label>Enter 6-Digit OTP</label>
-<input id="recOtpInput" placeholder="000000" maxlength="6" style="letter-spacing:4px;font-size:18px;text-align:center" autocomplete="one-time-code">
-<small id="otpDispatchHint" style="display:block;margin-top:5px;color:#34d399;font-family:monospace;font-size:11px"></small>
-</div>
-<div class="auth-field"><label>Set New Passkey</label><input type="password" id="recNewPassInput" placeholder="New secure passkey" autocomplete="new-password"></div>
-<button class="auth-btn gold" id="verifyOtpBtn">&#10003; VERIFY AND RESET PASSKEY</button>
-</div>
+<button class="auth-btn" id="doneContinueBtn">CONTINUE</button>
+<button class="auth-btn" id="signOutBtn" style="background:transparent;border:1px solid #ef4444;color:#ef4444;margin-top:6px">SIGN OUT</button>
 </div>
 </div>
 </div>
