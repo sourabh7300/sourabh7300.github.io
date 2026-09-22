@@ -1730,7 +1730,7 @@ return {total:p.length,live:p.filter(k=>!(__KEY_COOL[k]>now)).length,cooling:p.l
    Optional shared secret: "set backend secret <token>" → sent as X-AURA-Key header. */
 /* Owner's secure backend is the shipped default — visitors get AI with ZERO key entry.
    Can be overridden locally: owner says 'set backend url <url>'. */
-const AURA_DEFAULT_BACKEND="https://aura-secure-backend.onrender.com";
+const AURA_DEFAULT_BACKEND="https://aura-backend-jomj.onrender.com";
 function backendUrl(){return (localStorage.getItem("aura_backend_url")||AURA_DEFAULT_BACKEND).trim().replace(/\/+$/,"")}
 async function backendCall(messages,maxTok,modelOverride){
   const base=backendUrl();if(!base)throw new Error("no backend");
