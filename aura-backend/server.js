@@ -24,8 +24,9 @@ const PORT = parseInt(process.env.PORT, 10) || 3000;
 const MODELS = (process.env.MODELS || "openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.8-27b").split(",").map(s => s.trim()).filter(Boolean);
 
 if (!KEY_POOL.length) {
-  console.error("FATAL: GROQ_API_KEY env var is missing. Set it in the Render dashboard → Environment.");
-  process.exit(1);
+  /* never crash the deploy — boot in degraded mode so Render stays green;
+     /health and /v1/chat/completions report the missing key clearly */
+  console.warn("WARNING: no GROQ_API_KEY set. Add it in Render → Environment, then redeploy.");
 }
 /* per-key cooldowns after 429 (10 min) — a cooled key re-enters the pool later */
 const keyCool = new Map();
@@ -94,7 +95,10 @@ app.post("/v1/chat/completions", async (req, res) => {
       let maxTok = Math.min(body.max_tokens || 1400, 4000);
       if (model.startsWith("openai/gpt-oss") && maxTok < 600) maxTok = 600;
       const key = pickKey();
-      if (!key) { sawLimit = true; break; }
+      if (!key) {
+        if (!KEY_POOL.length) return res.status(500).json({ error: "Server has no GROQ_API_KEY — add it in Render → Environment and redeploy." });
+        sawLimit = true; break;
+      }
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
