@@ -1728,7 +1728,10 @@ return {total:p.length,live:p.filter(k=>!(__KEY_COOL[k]>now)).length,cooling:p.l
    The Groq key lives ONLY on the owner's server; the browser never sees it.
    Contract: POST {url}/v1/chat/completions  (OpenAI-compatible) → {choices:[{message:{content}}]}
    Optional shared secret: "set backend secret <token>" → sent as X-AURA-Key header. */
-function backendUrl(){return (localStorage.getItem("aura_backend_url")||"").trim().replace(/\/+$/,"")}
+/* Owner's secure backend is the shipped default — visitors get AI with ZERO key entry.
+   Can be overridden locally: owner says 'set backend url <url>'. */
+const AURA_DEFAULT_BACKEND="https://aura-secure-backend.onrender.com";
+function backendUrl(){return (localStorage.getItem("aura_backend_url")||AURA_DEFAULT_BACKEND).trim().replace(/\/+$/,"")}
 async function backendCall(messages,maxTok,modelOverride){
   const base=backendUrl();if(!base)throw new Error("no backend");
   const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
@@ -2979,7 +2982,7 @@ $("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent="SOUND: "+
 $("fsBtn").onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})};
 /* SET AI KEY now opens the Jarvis setup wizard (handler registered with the wizard below) */
 function updateEngTag(){
-  $("engTag").textContent=aiProvider()==="groq"?"engine: groq gpt-oss-120b (your key)":geminiKey()?"engine: gemini (your key)":"engine: deep web research + local core";
+  $("engTag").textContent=backendUrl()?"engine: secure cloud backend (zero-key)":aiProvider()==="groq"?"engine: groq gpt-oss-120b (your key)":geminiKey()?"engine: gemini (your key)":"engine: deep web research + local core";
 }
 addEventListener("online",()=>{$("tNet").textContent="ONLINE";$("tNet").className="on"});
 addEventListener("offline",()=>{$("tNet").textContent="OFFLINE";$("tNet").className="off"});
@@ -3148,7 +3151,9 @@ function taskCommand(raw){
   inp.addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("wizGo").click()});
   ["wizLater","wizX"].forEach(id=>document.getElementById(id).addEventListener("click",()=>{try{sessionStorage.setItem("wiz_dismissed","1")}catch(e){}}));
   let __wizAdmin=false;try{__wizAdmin=AuraAuth.isAdmin()}catch(e){/* TDZ/not yet defined → not admin */}
-  if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")){setTimeout(show,3200)}  document.getElementById("keyBtn").addEventListener("click",function(){
+  /* key wizard auto-shows ONLY when there is no backend AND no key — visitors with the
+     secure backend get zero-key access and are never nagged */
+  if(!geminiKey()&&!sessionStorage.getItem("wiz_dismissed")&&window.__backendUp===false){setTimeout(show,3200)}  document.getElementById("keyBtn").addEventListener("click",function(){
   if(!AuraAuth.isAdmin()){
     AuraAuth.showRestricted("Master AI Key Pool","Key management is reserved for signed-in staff accounts. Standard users are served by the shared engine.");
     return;
@@ -3540,6 +3545,12 @@ async function scrAnalyze(qq){
     if(!on&&armed){armed=false;try{recog.abort()}catch(e){}}
   };
   setInterval(tick,1500); /* PERF: was 450ms — barge-in reacts fine at 1.5s, 70% fewer wakeups */
+})();
+/* ---------- KEEP-ALIVE: ping the owner backend every 10 min so Render free tier never sleeps ----------
+   Cheap GET /health — no tokens used. Plus a wake-check on boot with local-tier fallback. */
+(function(){
+  const ping=()=>{const u=(typeof backendUrl==="function")&&backendUrl();if(!u)return;fetch(u+"/health",{signal:AbortSignal.timeout(8000)}).then(r=>{if(r.ok){window.__backendUp=true;slog("backend keep-alive ok",true)}}).catch(()=>{window.__backendUp=false})};
+  setTimeout(ping,4000);setInterval(ping,10*60*1000);
 })();
 /* ---------- hook: pyodide + vision models on boot ---------- */
 (function(){const iv=setInterval(()=>{if(typeof groqCall==="function"){clearInterval(iv);
