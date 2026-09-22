@@ -1724,7 +1724,31 @@ if(!(__KEY_COOL[k]>now)){groqKeyIdx=(groqKeyIdx+i)%pool.length;return k}}
 return null}
 function keyStatus(){const p=keyPool(),now=Date.now();
 return {total:p.length,live:p.filter(k=>!(__KEY_COOL[k]>now)).length,cooling:p.length-p.filter(k=>!(__KEY_COOL[k]>now)).length}}
+/* OWNER BACKEND PROXY (Render) — the most secure tier.
+   The Groq key lives ONLY on the owner's server; the browser never sees it.
+   Contract: POST {url}/v1/chat/completions  (OpenAI-compatible) → {choices:[{message:{content}}]}
+   Optional shared secret: "set backend secret <token>" → sent as X-AURA-Key header. */
+function backendUrl(){return (localStorage.getItem("aura_backend_url")||"").trim().replace(/\/+$/,"")}
+async function backendCall(messages,maxTok,modelOverride){
+  const base=backendUrl();if(!base)throw new Error("no backend");
+  const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
+  const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
+  const r=await fetch(base+"/v1/chat/completions",{
+    method:"POST",headers:headers,signal:AbortSignal.timeout(30000),
+    body:JSON.stringify({model:modelOverride||"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||1400,temperature:0.6})});
+  if(!r.ok)throw new Error("HTTP "+r.status);
+  const d=await r.json();
+  const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||d.content||"";
+  if(!t.trim())throw new Error("empty");
+  return t.trim();
+}
 async function groqCall(messages,maxTok,modelOverride){
+  /* TIER 1 — owner's secure backend (key never leaves the server) */
+  if(backendUrl()){
+    try{const t=await backendCall(messages,maxTok,modelOverride);slog("answered via owner backend (server-side key) — most secure tier",true);return t}
+    catch(e){slog("backend unavailable ("+(e.message||e)+") — falling to direct keys",true)}
+  }
+  /* TIER 2 — direct Groq keys from the local bank */
   const key=geminiKey().trim();
   if(key&&key!==groqKeyCache){groqKeyCache=key;groqModel="";slog("new AI key detected — model cache reset",true)}
   const tryModels=modelOverride?[modelOverride]:(groqModel?[groqModel]:GROQ_MODELS);
@@ -2486,6 +2510,36 @@ async function askCore(text0){
         AuraDelivery.sendOwnerCode("730035").then(function(d){
           addMsg(msgTag(),d.ok?"✅ Delivered via "+d.via+" — check your phone now.":"❌ All channels failed — codes will show on-screen for now.","aura");
         });
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      /* backend proxy setup — the most secure key tier */
+      if((m=(text||"").match(/^set backend url\s+(.+)$/i))){
+        let u=m[1].trim();if(!/^https?:\/\//.test(u))u="https://"+u;
+        AuraDelivery&&(localStorage.setItem("aura_backend_url",u.replace(/\/+$/,"") ));
+        addMsg("YOU ▸",text,"user");addMsg(msgTag(),"🖥 Backend saved: "+u.replace(/\/+$/,"")+"\nEvery AI answer now routes through YOUR server — the Groq key stays on Render, never in the browser. Say 'test backend' to verify, 'backend status' anytime.","aura");
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      if((m=(text||"").match(/^set backend secret\s+(.+)$/i))){
+        localStorage.setItem("aura_backend_secret",m[1].trim());
+        addMsg("YOU ▸",text,"user");addMsg(msgTag(),"🔐 Shared secret saved — your backend can now reject requests that don't carry it.","aura");
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      if(/^backend status$/.test(ol)){
+        const u=backendUrl();
+        addMsg("YOU ▸",text,"user");addMsg(msgTag(),u?"🖥 Backend: "+u+"\nSecret: "+(localStorage.getItem("aura_backend_secret")?"✓ set":"— none")+"\nTier order: YOUR BACKEND → Groq key bank → OpenRouter fallback.":"🖥 No backend configured — running on the local key bank. Set one: set backend url <your-render-url>","aura");
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      if(/^test backend$/.test(ol)){
+        addMsg("YOU ▸",text,"user");
+        if(!backendUrl()){addMsg(msgTag(),"No backend set. Say: set backend url <your-render-url>","aura");}
+        else{
+          addMsg(msgTag(),"🖥 Pinging your backend …","aura");
+          backendCall([{role:"user",content:"Reply with exactly: BACKEND ONLINE"}],20).then(function(t){
+            addMsg(msgTag(),t.toLowerCase().includes("online")?"✅ Backend is LIVE — secure key tier active.":"⚠ Backend answered but oddly: "+t.slice(0,80),"aura");
+          }).catch(function(e){
+            addMsg(msgTag(),"❌ Backend test failed: "+(e.message||e)+"\nCheck: (1) the URL, (2) CORS enabled, (3) the route accepts POST /v1/chat/completions, (4) Render free tier wakes from sleep in ~50s — retry once.","aura");
+          });
+        }
         setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
       }
     }
