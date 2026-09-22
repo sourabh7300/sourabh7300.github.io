@@ -1690,6 +1690,8 @@ function geminiKey(){
   return "";
 }
 function aiProvider(){
+  /* the owner's secure backend IS the built-in key — zero-key visitors get the full brain automatically */
+  if(backendUrl&&backendUrl())return"groq";
   const k=(geminiKey()||"").trim();
   if(/^gsk_/.test(k))return"groq";
   if(/^AIza/.test(k))return"gemini";
@@ -1756,7 +1758,7 @@ async function groqCall(messages,maxTok,modelOverride){
   /* TIER 1 — owner's secure backend (key never leaves the server) */
   if(backendUrl()){
     try{const t=await backendCall(messages,maxTok,modelOverride);slog("answered via owner backend (server-side key) — most secure tier",true);return t}
-    catch(e){slog("backend unavailable ("+(e.message||e)+") — falling to direct keys",true)}
+    catch(e){if(e&&e.outOfTokens&&!keyPool().length)throw e;slog("backend unavailable ("+(e.message||e)+") — falling to direct keys",true)}
   }
   /* TIER 2 — direct Groq keys from the local bank */
   const key=geminiKey().trim();
@@ -2087,7 +2089,24 @@ function replyStyle(){return " IMPORTANT — sound like a smart human talking, n
 /* ---------------- streaming (ChatGPT-style token-by-token) ---------------- */
 let streamAbort=null;
 async function groqStream(messages,maxTok,onChunk){
-  const key=geminiKey().trim();
+  const key=(geminiKey()||"").trim();
+  /* ZERO-KEY visitors: no local Groq key → the secure backend answers, revealed
+     progressively so the conversation still feels like live streaming. */
+  if(!key){
+    const ac=new AbortController();streamAbort=ac;
+    try{
+      const t=await backendCall(messages,maxTok);
+      const parts=t.split(/(\s+)/);let acc="";
+      for(let i=0;i<parts.length;i+=6){
+        acc+=parts.slice(i,i+6).join("");
+        if(onChunk)onChunk(acc);
+        if(streamAbort&&streamAbort.signal.aborted)throw new DOMException("abort","AbortError");
+        await new Promise(r=>setTimeout(r,12));
+      }
+      if(!t.trim())throw new Error("empty stream");
+      return t.trim();
+    }finally{streamAbort=null}
+  }
   const mdl=groqModel||GROQ_MODELS[0];
   const ac=new AbortController();streamAbort=ac;
   const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{
@@ -2454,7 +2473,7 @@ async function aiReply(q){
     /* THE THINKING BRAIN FIRST — gather live evidence, then reason over it in human fashion */
     const th=await thinkAnswer(q,deep,hiMode);if(th)return th;
     if(hiMode){const hw=await hiWikiAnswer(q,deep);if(hw)return hw;}
-    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b (direct)":"gemini 2.0 flash (direct)"};}catch(e){slog("ai uplink failed — trying live web");}}
+    if(geminiKey()||backendUrl()){try{const t=await geminiCall(q,deep);return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b (direct)":"gemini 2.0 flash (direct)"};}catch(e){slog("ai uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
     const d2=await ddgAnswer(q);if(d2)return d2;
@@ -2463,7 +2482,7 @@ async function aiReply(q){
   }else{
     const loc0=localReply(q);
     if(loc0!==undefined)return{t:loc0,eng:"local core"};
-    if(geminiKey()){try{const t=await geminiCall(q,deep);return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
+    if(geminiKey()||backendUrl()){try{const t=await geminiCall(q,deep);return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
   }
   slog("going live to the internet");
   const w2b=deep?await webResearch(q):await wikiAnswer(q,false);
