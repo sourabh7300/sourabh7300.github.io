@@ -207,15 +207,17 @@ body[data-tab="chats"] #conv,body[data-tab="system"] #conv,body[data-tab="code"]
 body[data-tab="code"] #dock{opacity:.25;pointer-events:none}
 #codePage{display:none;position:fixed;top:74px;left:22px;right:22px;bottom:130px;z-index:9;flex-direction:column;gap:10px}
 body[data-tab="code"] #codePage{display:flex}
-#codeTop{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-#codeLang{background:var(--panel);border:1px solid var(--line);color:var(--cy2);font-family:var(--mono);font-size:12px;padding:9px 12px;border-radius:9px;outline:none;cursor:pointer}
-#codePrompt{flex:1;min-width:220px;background:var(--panel);border:1px solid var(--line2);color:var(--ice);border-radius:9px;padding:10px 14px;font-size:13.5px;font-family:var(--mono);outline:none}
+#codeTop{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;min-width:0}
+#codeLang{flex:0 0 auto;max-width:44%;background:var(--panel);border:1px solid var(--line);color:var(--cy2);font-family:var(--mono);font-size:12px;padding:9px 10px;border-radius:9px;outline:none;cursor:pointer}
+#codePrompt{flex:1 1 auto;min-width:120px;background:var(--panel);border:1px solid var(--line2);color:var(--ice);border-radius:9px;padding:10px 14px;font-size:13.5px;font-family:var(--mono);outline:none}
+#codeGen{flex:0 0 auto;white-space:nowrap}
 #codePrompt:focus{border-color:var(--line)}
 .cbtn{background:rgba(34,211,238,.12);border:1px solid var(--line);color:var(--cy2);border-radius:9px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--mono);letter-spacing:.5px;transition:.2s}
 .cbtn:hover{background:rgba(34,211,238,.25)}
 #codeSplit{flex:1;display:flex;gap:10px;min-height:0}
 #codeEdWrap,#codeOutWrap{flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line2);border-radius:12px;overflow:hidden;min-width:0}
-#codeEdWrap h4,#codeOutWrap h4{font-family:'Orbitron';font-size:9.5px;letter-spacing:2px;color:var(--dim);padding:9px 14px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center}
+#codeEdWrap h4,#codeOutWrap h4{font-family:'Orbitron';font-size:9.5px;letter-spacing:2px;color:var(--dim);padding:8px 12px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:38px;box-sizing:border-box}
+#codeEdWrap h4 .hbtns,#codeOutWrap h4 .hbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;letter-spacing:0}
 #codeEditor{flex:1;background:rgba(1,8,12,.55);color:#d7fbff;border:none;outline:none;resize:none;padding:14px;font-family:var(--mono);font-size:12.5px;line-height:1.55;white-space:pre;overflow:auto;tab-size:2}
 #codeRun{flex:1;background:rgba(1,8,12,.55);padding:0;overflow:hidden}
 #codeFrame{width:100%;height:100%;border:none;background:#fff}
@@ -227,8 +229,9 @@ body[data-tab="code"] #codePage{display:flex}
   #codeEdWrap{flex:0 0 240px}
   #codeEditor{font-size:12px;padding:10px}
   #codeTop{gap:6px}
-  #codeLang{flex:0 0 44%}
-  #codePrompt{min-width:0;flex:1}
+  #codeLang{flex:0 0 auto;max-width:40%;font-size:11px;padding:8px 6px}
+  #codePrompt{min-width:0;flex:1;font-size:12.5px;padding:9px 10px}
+  #codeGen{padding:8px 10px;font-size:11px}
   #codeGen{padding:10px 14px}
 }
 #sessPanel{display:none;top:74px;right:22px;width:min(440px,40vw);bottom:130px;flex-direction:column;overflow:hidden}
@@ -661,8 +664,8 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
     <button class="cbtn" id="codeGen">⚡ BUILD</button>
   </div>
   <div id="codeSplit">
-    <div id="codeEdWrap"><h4><span>CODE</span><span><button class="cbtn" id="codeRunBtn" style="padding:5px 10px;font-size:10px">▶ RUN</button> <button class="cbtn" id="codeFix" style="padding:5px 10px;font-size:10px;border-color:rgba(251,191,36,.5);color:#fbbf24" title="Paste broken code, hit FIX — I find the bugs, fix them, and prove it by running">🛠 FIX</button> <button class="cbtn" id="codeDl" style="padding:5px 10px;font-size:10px">⤓ SAVE</button> <button class="cbtn" id="codeCopy" style="padding:5px 10px;font-size:10px">⧉</button></span></h4><textarea id="codeEditor" spellcheck="false" placeholder="// your code appears here — write it yourself, or describe it above and hit BUILD"></textarea></div>
-    <div id="codeOutWrap"><h4><span>OUTPUT</span><button class="cbtn" id="codeClear" style="padding:5px 10px;font-size:10px">✕ clear</button></h4><iframe id="codeFrame" sandbox="allow-scripts"></iframe><div id="codeLog"></div></div>
+    <div id="codeEdWrap"><h4><span>CODE</span><span class="hbtns"><button class="cbtn" id="codeRunBtn" style="padding:5px 10px;font-size:10px">▶ RUN</button> <button class="cbtn" id="codeFix" style="padding:5px 10px;font-size:10px;border-color:rgba(251,191,36,.5);color:#fbbf24" title="Paste broken code, hit FIX — I find the bugs, fix them, and prove it by running">🛠 FIX</button> <button class="cbtn" id="codeDl" style="padding:5px 10px;font-size:10px">⤓ SAVE</button> <button class="cbtn" id="codeCopy" style="padding:5px 10px;font-size:10px">⧉</button></span></h4><textarea id="codeEditor" spellcheck="false" placeholder="// your code appears here — write it yourself, or describe it above and hit BUILD"></textarea></div>
+    <div id="codeOutWrap"><h4><span>OUTPUT</span><span class="hbtns"><button class="cbtn" id="codeOutDl" style="padding:5px 10px;font-size:10px;border-color:rgba(52,211,153,.55);color:#34d399" title="Download your work to this laptop — runnable file, ready to keep">⤓ DOWNLOAD</button> <button class="cbtn" id="codeClear" style="padding:5px 10px;font-size:10px">✕ clear</button></span></h4><iframe id="codeFrame" sandbox="allow-scripts allow-modals allow-popups allow-forms"></iframe><div id="codeLog"></div></div>
   </div>
 </div>
 
@@ -3231,8 +3234,9 @@ async function buildCode(){
   const lang=document.getElementById("codeLang").value;
   const q=document.getElementById("codePrompt").value.trim();
   if(!q){codeLog("// describe what to build in the prompt box first");return}
-  if(!geminiKey()){codeLog("// BUILD needs your free AI key — SET AI KEY (admin) powers the forge");return}
+  if(!geminiKey()&&!backendUrl()){codeLog("// forge offline — no AI brain reachable right now");return}
   const btn=document.getElementById("codeGen");btn.textContent="⏳ FORGING…";btn.disabled=true;
+  try{
   codeLog("⚡ forging "+lang+" — reading your idea, planning, writing code…");
   const LANGTIP={
     html:"Output ONE complete HTML document from <!doctype html> to </html> with embedded <style> and <script>. Make it visually polished — real colors, spacing, hover states. No placeholders.",
@@ -3259,7 +3263,7 @@ async function buildCode(){
     if(lang==="javascript"||lang==="html"||lang==="react"||lang==="typescript"||lang==="python"){codeLog("▶ auto-running it for you…");runCode()}
     else codeLog("— hit ▶ RUN (js/html/python run live) or ⤓ SAVE");
   } else codeLog("// forge came back empty — rephrase and try again");
-  btn.textContent="⚡ BUILD";btn.disabled=false;
+  }finally{btn.textContent="⚡ BUILD";btn.disabled=false}
 }
 /* ---------- 🛠 BUG FIXER — paste broken code, I find it, fix it, prove it ---------- */
 window.__fixLog=[];
@@ -3270,9 +3274,10 @@ async function fixCode(){
   const src=ed.value;
   const btn=document.getElementById("codeFix");
   if(!src.trim()){codeLog("// paste the broken code into the editor first, then hit 🛠 FIX");return}
-  if(!geminiKey()){codeLog("// FIX needs your free AI key — SET AI KEY (admin) powers the forge");return}
+  if(!geminiKey()&&!backendUrl()){codeLog("// fixer offline — no AI brain reachable right now");return}
   const orig=src;
   btn.textContent="⏳ FIXING…";btn.disabled=true;
+  try{
   codeLog("🛠 bug hunt started — running your code to catch real errors…");
   /* pass 1: actually execute to capture REAL errors, not guesses */
   window.__fixLog=[];
@@ -3284,8 +3289,11 @@ async function fixCode(){
     if(lang==="react")js=js.replace(/export default /,"");
     const probe=document.createElement("iframe");probe.style.display="none";document.body.appendChild(probe);
     probe.srcdoc="<!doctype html><body><"+"script>const _e=m=>{try{parent.postMessage({fixErr:String(m)},'*')}catch(e){}};console.error=(...a)=>_e('console.error: '+a.join(' '));window.onerror=(m,s,l,c)=>{_e('⛔ '+m+' (line '+l+')');return true};window.addEventListener('unhandledrejection',e=>_e('⛔ promise: '+e.reason));try{"+js+"}catch(e){_e('⛔ '+e.message)}<"+String.fromCharCode(47)+"script>";
-    await new Promise(r=>{setTimeout(r,1500);r()});
-    probe.remove();
+    /* wait for the FIRST real error, or a settle window — never resolve before the code ran */
+    await new Promise(res=>{let done=false;const fin=()=>{if(!done){done=true;window.removeEventListener("message",h);probe.remove();res()}};
+      const h=(ev)=>{try{const d=typeof ev.data==="string"?JSON.parse(ev.data):ev.data;if(d&&d.fixErr){fin()}}catch(e){}};
+      window.addEventListener("message",h);setTimeout(fin,1800);setTimeout(fin,600);
+    });
   }
   const errs=window.__fixLog.slice(0,6);
   if(errs.length)codeLog("⛔ caught "+errs.length+" runtime error(s):\n"+errs.map(e=>"   "+e.slice(0,120)).join("\n"));
@@ -3307,26 +3315,22 @@ async function fixCode(){
     if(lang==="react")js=js.replace(/export default /,"");
     const probe2=document.createElement("iframe");probe2.style.display="none";document.body.appendChild(probe2);
     probe2.srcdoc="<!doctype html><body><"+"script>const _e=m=>{try{parent.postMessage({fixErr:String(m)},'*')}catch(e){}};window.onerror=(m,s,l,c)=>{_e('⛔ '+m+' (line '+l+')');return true};window.addEventListener('unhandledrejection',e=>_e('⛔ promise: '+e.reason));try{"+js+"}catch(e){_e('⛔ '+e.message)}<"+String.fromCharCode(47)+"script>";
-    await new Promise(r=>{setTimeout(r,1500);r()});
+    await new Promise(r=>{setTimeout(r,1800)});
     probe2.remove();verifyOK=window.__fixLog.length===0;
   }
   ed.value=fixed;
   codeLog("✓ fixed — "+fixed.split("\\n").length+" lines (was "+orig.split("\\n").length+")");
   codeLog(verifyOK?"✓ verified: fixed version runs with ZERO errors":"(js verification skipped for "+lang+" — press ▶ RUN or test locally)");
   codeLog("— fixed code is in the editor now. ▶ RUN it, or ⤓ SAVE.");
-  btn.textContent="🛠 FIX";btn.disabled=false;
+  }finally{btn.textContent="🛠 FIX";btn.disabled=false}
 }
 (function(){
   const g=document.getElementById("codeGen");if(g)g.onclick=function(){
-  if(!AuraAuth.isAdmin()){
-    AuraAuth.showRestricted("Code Forge Feature Builder","Customers can execute existing code, but cannot build or inject new features. A signed-in staff account is required.");try{AuraMetrics.event("forge","restricted-attempt")}catch(e){}
-    return;
-  }
+  /* open forge: sandboxed + rate-limited by the backend — every user can build their own code */
   buildCode();
 };
   const r=document.getElementById("codeRunBtn");if(r)r.onclick=runCode;
   const fx=document.getElementById("codeFix");if(fx)fx.onclick=function(){
-    if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Bug Fixer","The AI bug-surgeon is reserved for signed-in staff. Customers can run and edit code by hand.");try{AuraMetrics.event("fix","restricted-attempt")}catch(e){}return}
     fixCode();
   };
   const p=document.getElementById("codePrompt");if(p)p.addEventListener("keydown",e=>{if(e.key==="Enter"&&!document.getElementById("codeGen").disabled)buildCode()});
@@ -3334,6 +3338,47 @@ async function fixCode(){
   const dl=document.getElementById("codeDl");if(dl)dl.onclick=()=>{const lang=document.getElementById("codeLang").value;const src=document.getElementById("codeEditor").value;if(!src.trim()){codeLog("// nothing to save");return}const ext=CODE_LANGS[lang]||"txt";const blob=new Blob([src],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="forge-output."+ext;a.click();codeLog("⤓ saved forge-output."+ext)};
   const cp=document.getElementById("codeCopy");if(cp)cp.onclick=()=>{const src=document.getElementById("codeEditor").value;navigator.clipboard?navigator.clipboard.writeText(src).then(()=>codeLog("⧉ copied to clipboard")):codeLog("// copy unsupported")};
   const cc=document.getElementById("codeClear");if(cc)cc.onclick=()=>{const fr=document.getElementById("codeFrame");fr.srcdoc="";const lg=document.getElementById("codeLog");lg.textContent="";lg.style.display="none"};
+  /* ⤵ DOWNLOAD (output header) — saves the work to the user's laptop: JS/TS/React get a
+     runnable double-click .html page; every other language downloads in its own extension. */
+  const od=document.getElementById("codeOutDl");if(od)od.onclick=()=>{
+    const lang=document.getElementById("codeLang").value;
+    const src=document.getElementById("codeEditor").value||"";
+    if(!src.trim()){codeLog("// editor is empty — nothing to download yet");return}
+    let ext=CODE_LANGS[lang]||"txt",name="aura-work",blob=null;
+    const isJS=(lang==="javascript"||lang==="typescript"||lang==="react");
+    if(isJS){
+      const reactComp=(lang==="react")&&/return\s*\(/.test(src);
+      let code=src.replace(/export default /g,"");
+      if(lang==="typescript")code=code.replace(/:\s*[A-Za-z<>\[\]|]+(?=\s*[=,)])/g,"").replace(/interface [\s\S]*?\{[\s\S]*?\}/g,"");
+      const L=[];
+      L.push("<!doctype html>");
+      L.push("<html><head><meta charset='utf-8'><title>aura-work</title>");
+      L.push("<style>body{font-family:system-ui,sans-serif;margin:24px;background:#0b1220;color:#e2f3ff}pre{background:#08111c;padding:14px;border-radius:10px;white-space:pre-wrap;color:#9fe8f5}</style>");
+      L.push("</head><body>");
+      L.push((lang==="react")?"<div id='root'></div>":"");
+      L.push("<pre id='out'>output:</pre>");
+      if(lang==="react"){
+        L.push('<script src="https://unpkg.com/react@18/umd/react.production.min.js"><'+'/script>');
+        L.push('<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><'+'/script>');
+        L.push('<script src="https://unpkg.com/@babel/standalone/babel.min.js"><'+'/script>');
+      }
+      L.push((lang==="react")?"<script type='text/babel'>":"<script>");
+      L.push("const _w=s=>{document.getElementById('out').textContent+=String(s)+\"\\n\"};");
+      L.push("const _ol=console.log;console.log=(...a)=>{_ol(...a);_w(a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '))};");
+      L.push("window.onerror=m=>_w('ERROR: '+m);");
+      L.push("try{");
+      L.push(code);
+      if(reactComp)L.push("if(typeof App!=='undefined'){ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App))}");
+      L.push("}catch(e){_w('ERROR: '+e.message)}");
+      L.push('<'+'/script>');
+      L.push("</body></html>");
+      blob=new Blob([L.join("\n")],{type:"text/html"});ext="html";name="aura-app";
+    }else{
+      blob=new Blob([src],{type:"text/plain"});name="aura-work";
+    }
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name+"."+ext;document.body.appendChild(a);a.click();a.remove();
+    codeLog("⤵ downloaded "+name+"."+ext+" — it is on this laptop now, double-click it any time");
+  };
 })();
 setInterval(()=>{try{const c=document.getElementById("sessCount");if(c&&document.body.dataset.tab==="chats")renderSessions()}catch(e){}},4000);
 /* ============ ASTRA STACK — Pyodide sandbox · vector memory · live research · barge-in ============ */
