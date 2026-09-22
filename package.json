@@ -1,0 +1,10 @@
+{
+  "name": "sourabh-portfolio-root",
+  "private": true,
+  "description": "Wrapper so Render (or any host) can deploy from the repo root: build/start forward into aura-backend/",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "npm --prefix aura-backend install",
+    "start": "node aura-backend/server.js"
+  }
+}
