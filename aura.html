@@ -366,8 +366,12 @@ body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical 
 .panel{
   padding:var(--sp4) var(--sp5);border-radius:var(--r-md);
   border:1px solid var(--line2);
-  box-shadow:var(--sh-1);backdrop-filter:blur(14px) saturate(1.15);
+  box-shadow:var(--sh-1);backdrop-filter:blur(9px) saturate(1.15);
 }
+/* PERF: frosted glass over an animating canvas is the #2 GPU cost after the core.
+   Phones / battery-saver / any low-end device render panels opaque — zero re-blur. */
+@media (max-width:820px){.panel,#stateBox,#q,#tabbar button{backdrop-filter:none}}
+body.perf-saver .panel,body.perf-saver #stateBox,body.perf-saver #tabbar button{backdrop-filter:none}
 .panel h3{
   font-size:10.5px;letter-spacing:3.2px;margin-bottom:var(--sp3);
   padding-bottom:var(--sp2);border-bottom:1px solid var(--line2);
@@ -717,9 +721,13 @@ function setMode(m){mode=m;modeT=0;$("stateText").textContent=STATES[m].label;}
 /* ---------------- 3D particle core ---------------- */
 const cv=$("fx"),cx=cv.getContext("2d");
 let W,H,CX,CY,R;
-function size(){W=cv.width=innerWidth;H=cv.height=innerHeight;CX=W/2;CY=H*.46;R=Math.min(W,H)*.21;}
+/* PERF: auto quality tier — phones & weak hardware get a much lighter render load */
+const __LOWEND=(()=>{try{return (navigator.hardwareConcurrency||4)<=4||innerWidth<820||/Android|iPhone|iPad/i.test(navigator.userAgent)}catch(e){return false}})();
+window.__perfMode="normal"; /* normal | saver — say 'battery saver on' */
+let __battLow=false;
+function size(){W=cv.width=Math.round(innerWidth*.9);H=cv.height=Math.round(innerHeight*.9);cv.style.width="100vw";cv.style.height="100vh";CX=W/2;CY=H*.46;R=Math.min(W,H)*.21;}
 size();addEventListener("resize",size);addEventListener("orientationchange",()=>setTimeout(size,120));
-const N=560,pts=[];
+const NMAX=__LOWEND?200:560;let N=NMAX,pts=[];
 for(let i=0;i<N;i++){
   const y=1-2*(i+.5)/N,r=Math.sqrt(1-y*y),phi=i*2.399963229728653;
   pts.push({x:Math.cos(phi)*r,y,z:Math.sin(phi)*r});
@@ -731,7 +739,10 @@ function setHue(name){
   const fx=document.getElementById("fx");if(!fx)return false;
   if(name==="white"){fx.style.filter="saturate(.15) brightness(1.9)";return true;}
   const h=map[name];if(h===undefined)return false;
-  fx.style.filter="hue-rotate("+Math.round(h-187)+"deg)";return true;
+  /* PERF: cyan is the native palette — no compositor filter. Other hues keep the filter
+     but the FPS governor drops to 30 so the full-screen re-filter cost is halved. */
+  if(h===187){fx.style.filter="none";window.__hueHeavy=false;return true;}
+  fx.style.filter="hue-rotate("+Math.round(h-187)+"deg)";window.__hueHeavy=true;return true;
 }
 const PERSP=3.2;
 
@@ -833,8 +844,12 @@ function drawCore(dt){
 
 /* ---------------- render loop ---------------- */
 let last=performance.now(),fpsN=0,fpsT=0,fpsVal=0,bootT0=performance.now();
+/* PERF governor: 60fps desktop · 30fps phones/saver/filtered-hue · zero work on hidden tabs */
+const FPS_GOAL=()=>(window.__perfMode==="saver"||__LOWEND||__battLow||window.__hueHeavy)?30:60;
 function frame(now){
   requestAnimationFrame(frame);
+  if(document.hidden){last=now;return} /* background tab — no GPU, no battery */
+  if(now-last<1000/FPS_GOAL()-1.2)return; /* frame skip = the biggest single win */
   const dt=clamp((now-last)/1000,0,.05);last=now;modeT+=dt;
   fpsN++;if(now-fpsT>1000){fpsVal=fpsN;fpsN=0;fpsT=now;}
   cx.clearRect(0,0,W,H);
@@ -843,6 +858,14 @@ function frame(now){
   drawCore(dt);
   if(mode==="thinking"&&modeT>40&&!window.__researching&&!window.__thinking){setMode("idle");pushSys("uplink timeout — answering locally");}
 }
+/* PERF: battery saver voice command — drops fps to 30, particles to 100, kills blur */
+window.setPerfMode=function(m){
+  window.__perfMode=m;document.body.classList.toggle("perf-saver",m==="saver");
+  N=m==="saver"?Math.min(N,100):NMAX;
+  if(m==="saver"){for(let i=0;i<pts.length;i++)pts[i].z=Math.abs(pts[i].z)*2+.1}
+  slog(m==="saver"?"⚡ battery saver ON — 30fps, lighter core, no blur":"⚡ performance mode restored — full core at "+FPS_GOAL()+"fps");
+  $("tPts")&&document.body.getAttribute("data-tab")==="system"&&($("tPts").textContent=N+" / "+NMAX);
+};
 requestAnimationFrame(frame);
 
 /* ---------------- audio blips ---------------- */
@@ -2425,6 +2448,15 @@ async function askCore(text0){
      addMsg(msgTag(),dOn?"🧠 DEEP THINK engaged — maximum reasoning + self-check on every answer, in any persona.":"Deep think off — auto reasoning restored.","aura");
      if(voiceAllowed())speak(dOn?"Deep think engaged.":"Deep think off.");
      setMode("idle");busy=false;if(wake)armWake(400);return;}}
+  /* PERF voice commands — 'battery saver on', 'performance mode', 'fast mode on' */
+  {const pl=(text||"").toLowerCase().trim();
+   const pSaver=/\b(battery saver|power saver|low power|battery mode)\b/.test(pl)&&!/\boff\b/.test(pl);
+   const pFast=/\b(performance mode|fast mode|full power|full speed|turbo)\b/.test(pl)||(/\b(battery saver|power saver)\b/.test(pl)&&/\boff\b/.test(pl));
+   if(pSaver||pFast){
+     window.setPerfMode(pSaver?"saver":"normal");
+     addMsg(msgTag(),pSaver?"⚡ BATTERY SAVER engaged — 30fps core, fewer particles, blur off. The lag should vanish on battery. Say 'performance mode' to restore full power.":"⚡ PERFORMANCE MODE — full 60fps core restored. Say 'battery saver on' anytime the machine struggles.","aura");
+     if(voiceAllowed())speak(pSaver?"Battery saver engaged.":"Performance mode restored.");
+     setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* SYSTEM REPORT voice command — 'deep system report' */
   if(/deep system report|optimize (this|my) (system|device|pc|laptop)/i.test((text||""))){
     try{const d=await _fullSystemReport();
@@ -2841,21 +2873,24 @@ addEventListener("offline",()=>{$("tNet").textContent="OFFLINE";$("tNet").classN
 
 /* ---------------- telemetry ---------------- */
 const bootAt=Date.now();
+/* PERF: 1s cadence (was 500ms) and DOM writes only when the SYSTEM tab is visible —
+   the clock/fps text updates were forcing style+layout every half-second on every tab. */
 setInterval(()=>{
   /* busy watchdog — a hung network call must never deadlock the conversation */
   if(busy&&askAt&&Date.now()-askAt>45000){busy=false;setMode("idle");pushSys("recovered from a stalled query — try again")}
+  if(document.body.getAttribute("data-tab")!=="system")return;
   const n=new Date();
   $("clockT").textContent=n.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   $("clockD").textContent=n.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"}).toUpperCase();
   $("tFps").textContent=(fpsVal||"—")+" fps";
-  $("tPts").textContent=N+" / "+N;
+  $("tPts").textContent=N+" / "+NMAX;
   $("tMem").textContent=performance.memory?Math.round(performance.memory.usedJSHeapSize/1048576)+" MB":"—";
   $("tRes").textContent=innerWidth+"×"+innerHeight;
   const up=Math.floor((Date.now()-bootAt)/1000);
   $("tUp").textContent=Math.floor(up/60)+":"+String(up%60).padStart(2,"0");
-},500);
+},1000);
 if(navigator.getBattery)navigator.getBattery().then(b=>{
-  const f=()=>{$("tBat").textContent=Math.round(b.level*100)+"%"+(b.charging?" ⚡":"")};
+  const f=()=>{$("tBat").textContent=Math.round(b.level*100)+"%"+(b.charging?" ⚡":"");try{__battLow=b.level<.2&&!b.charging}catch(e){}};
   f();b.addEventListener("levelchange",f);b.addEventListener("chargingchange",f);
 });else $("tBat").textContent="AC LINK";
 
@@ -3391,12 +3426,12 @@ async function scrAnalyze(qq){
     if(on&&!armed&&recog){armed=true;try{recog.start()}catch(e){}}
     if(!on&&armed){armed=false;try{recog.abort()}catch(e){}}
   };
-  setInterval(tick,450);
+  setInterval(tick,1500); /* PERF: was 450ms — barge-in reacts fine at 1.5s, 70% fewer wakeups */
 })();
 /* ---------- hook: pyodide + vision models on boot ---------- */
 (function(){const iv=setInterval(()=>{if(typeof groqCall==="function"){clearInterval(iv);
   try{const os=window.__origGroqCall;window.__origGroqCall=null}catch(e){}
-}},200)})();
+}},600)})(); /* PERF: was 200ms — a boot hook doesn't need 5 probes/sec */
 /* ---------------- THEME Cycler: Cyan(futuristic) → Gold → Classical(parchment) ---------------- */
 const THEMES=[{id:"cyan",label:"🎨 CYAN"},{id:"gold",label:"🎨 GOLD"},{id:"classical",label:"🎨 CLASSICAL"}];
 function applyTheme(id){
