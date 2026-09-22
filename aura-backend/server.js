@@ -11,14 +11,28 @@ const express = require("express");
 const app = express();
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
+/* KEY BANK — comma-separated keys rotate automatically:
+   primary first; a key that hits its daily/minute limit cools down and the
+   next one takes over transparently. All keys stay server-side. */
+const KEY_POOL = [...new Set([
+  GROQ_API_KEY,
+  ...(process.env.GROQ_API_KEYS || "").split(",").map(s => s.trim())
+].filter(Boolean))];
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 const MODELS = (process.env.MODELS || "openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.8-27b").split(",").map(s => s.trim()).filter(Boolean);
 
-if (!GROQ_API_KEY) {
+if (!KEY_POOL.length) {
   console.error("FATAL: GROQ_API_KEY env var is missing. Set it in the Render dashboard → Environment.");
   process.exit(1);
+}
+/* per-key cooldowns after 429 (10 min) — a cooled key re-enters the pool later */
+const keyCool = new Map();
+function pickKey() {
+  const now = Date.now();
+  for (const k of KEY_POOL) if (!(keyCool.get(k) > now)) return k;
+  return null; // every key is cooling = daily allowance exhausted
 }
 
 app.use(express.json({ limit: "2mb" }));
@@ -58,7 +72,10 @@ app.use((req, res, next) => {
 
 /* health + root */
 app.get("/", (req, res) => res.json({ ok: true, service: "aura-secure-backend", time: new Date().toISOString() }));
-app.get("/health", (req, res) => res.json({ ok: true, uptime: process.uptime() }));
+app.get("/health", (req, res) => {
+  const now = Date.now();
+  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length });
+});
 
 /* THE PROXY — key stays server-side forever */
 app.post("/v1/chat/completions", async (req, res) => {
@@ -70,14 +87,17 @@ app.post("/v1/chat/completions", async (req, res) => {
   const requestedModel = (body.model || MODELS[0]).trim();
   const order = [requestedModel, ...MODELS.filter(m => m !== requestedModel)];
 
+  let sawLimit = false; // at least one key hit a rate/limit error
   for (const model of order) {
     try {
       /* reasoning models (gpt-oss) spend tokens thinking — floor the budget so content is never empty */
       let maxTok = Math.min(body.max_tokens || 1400, 4000);
       if (model.startsWith("openai/gpt-oss") && maxTok < 600) maxTok = 600;
+      const key = pickKey();
+      if (!key) { sawLimit = true; break; }
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: { "Authorization": "Bearer " + GROQ_API_KEY, "Content-Type": "application/json" },
+        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
         body: JSON.stringify({
           model,
           messages,
@@ -86,13 +106,19 @@ app.post("/v1/chat/completions", async (req, res) => {
         }),
         signal: AbortSignal.timeout(45_000)
       });
-      if (r.status === 429 || r.status === 401 || r.status === 403) continue;       // limit/auth → next model
+      if (r.status === 429) { keyCool.set(key, Date.now() + 10 * 60_000); sawLimit = true; continue; }
+      if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); continue; } // dead key → out for a day
       if (r.status === 404 || r.status === 400) continue;                            // retired/invalid model → next model
       if (!r.ok) return res.status(r.status).json({ error: "Groq HTTP " + r.status });
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
       if (t && t.trim()) return res.json({ choices: [{ message: { content: t.trim() } }], model });
     } catch (e) { /* network hiccup → try next model */ }
+  }
+  if (sawLimit) {
+    /* every key is out of its allowance — AURA turns this into a friendly notice */
+    return res.status(429).json({ error: "out_of_tokens", outOfTokens: true,
+      message: "Today's free AI allowance is used up. Full power returns tomorrow — meanwhile the offline core still answers." });
   }
   res.status(502).json({ error: "All models exhausted or rate-limited. Try again shortly." });
 });

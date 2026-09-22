@@ -1739,7 +1739,11 @@ async function backendCall(messages,maxTok,modelOverride){
   const r=await fetch(base+"/v1/chat/completions",{
     method:"POST",headers:headers,signal:AbortSignal.timeout(30000),
     body:JSON.stringify({model:modelOverride||"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||1400,temperature:0.6})});
-  if(!r.ok)throw new Error("HTTP "+r.status);
+  if(!r.ok){
+    let j={};try{j=await r.json()}catch(e2){}
+    if(j&&j.outOfTokens){const err=new Error("out_of_tokens");err.outOfTokens=true;throw err}
+    throw new Error("HTTP "+r.status);
+  }
   const d=await r.json();
   const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||d.content||"";
   if(!t.trim())throw new Error("empty");
@@ -2838,7 +2842,21 @@ async function askCore(text0){
 /* QUEUE WRAPPER — no command is ever silently dropped. While she's thinking,
    new commands line up and run the moment she's free. "Shut up" still jumps the line. */
 async function askRunner(t){
-  try{await askCore(t)}catch(e){setMode("idle")}
+  try{await askCore(t)}catch(e){
+    /* graceful exhaustion: when the primary key's daily allowance is spent AND the backup is drained too,
+       deliver ONE clean notice — no stack noise, no interruption of the offline core */
+    if(e&&e.outOfTokens){
+      setMode("idle");busy=false;
+      const el=document.querySelector("#log .msg:last-child .tx");
+      const msg="🌙 Daily AI limit reached — full power returns tomorrow.\n\nMy cloud brain's free allowance is used up for today. I'm not gone: math, conversions, time, system info and my offline core still work right now, and everything returns to full strength automatically tomorrow.";
+      if(el&&el.textContent==="…"){el.innerHTML=renderMD(msg)}else{addMsg(msgTag(),msg,"aura")}
+      if(typeof voiceAllowed==="function"&&voiceAllowed()&&typeof speak==="function")speak("Daily AI limit reached. Full power returns tomorrow. My offline core still works right now.");
+      pushSys("daily token allowance exhausted — backup drained, offline core active");
+      if(typeof wake!=="undefined"&&wake)armWake(400);
+      return;
+    }
+    setMode("idle")
+  }
   window.__thinking=false;
   /* silent mode: answers land as text — never leave the mode stuck on "thinking" (false watchdog) */
   if(mode==="thinking")setMode("idle");
