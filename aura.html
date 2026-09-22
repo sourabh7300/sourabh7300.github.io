@@ -2458,6 +2458,37 @@ async function askCore(text0){
       addMsg("YOU ▸",text,"user");addMsg(msgTag(),"🗑 Usage ledger cleared — telemetry restarts from zero.","aura");
       setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
     }
+    /* delivery channel setup — hidden owner commands (keys extracted from ORIGINAL text — case-sensitive!) */
+    if(admin&&typeof AuraDelivery!=="undefined"){
+      let m;
+      if((m=(text||"").match(/^set fast2sms key\s+(.+)$/i))){
+        AuraDelivery.set("fast2sms",m[1].trim());
+        addMsg("YOU ▸",text,"user");addMsg(msgTag(),"🔑 Fast2SMS key saved. Owner codes will now arrive as REAL SMS on 7300353703. Say 'test delivery' to verify.","aura");
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      if((m=(text||"").match(/^set telegram token\s+(\S+)\s+(\S+)$/i))){
+        AuraDelivery.set("tgToken",m[1].trim());AuraDelivery.set("tgChat",m[2].trim());
+        addMsg("YOU ▸",text,"user");addMsg(msgTag(),"🤖 Telegram delivery saved. Say 'test delivery' to get a test message in your Telegram.","aura");
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      if((m=(text||"").match(/^set whatsapp key\s+(.+)$/i))){
+        AuraDelivery.set("waKey",m[1].trim());
+        addMsg("YOU ▸",text,"user");addMsg(msgTag(),"💬 WhatsApp delivery saved. Say 'test delivery' to get a test WhatsApp on 7300353703.","aura");
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      if(/^delivery status$/.test(ol)){
+        addMsg("YOU ▸",text,"user");addMsg(msgTag(),"📡 Owner code delivery — "+AuraDelivery.status()+"\n\nSetup (one time):\n1. Fast2SMS — free account at fast2sms.com → API key → say: set fast2sms key <key>\n2. Telegram — create a bot with @BotFather, message it once, then say: set telegram token <bottoken> <chatid>\n3. WhatsApp — one-time activation at callmebot.com → say: set whatsapp key <key>","aura");
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      if(/^test delivery$/.test(ol)){
+        addMsg("YOU ▸",text,"user");
+        addMsg(msgTag(),"📡 Testing all channels to 7300353703 …","aura");
+        AuraDelivery.sendOwnerCode("730035").then(function(d){
+          addMsg(msgTag(),d.ok?"✅ Delivered via "+d.via+" — check your phone now.":"❌ All channels failed — codes will show on-screen for now.","aura");
+        });
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+    }
     try{AuraMetrics.event("question",text)}catch(e){}
   }
   /* instant-silence is an INTERRUPT — it must work even while AURA is busy/speaking */
@@ -3969,6 +4000,90 @@ const AuraMetrics = (function(){
     clear: function(){ localStorage.removeItem(KEY); }
   };
 })();
+/* ============================================================
+   REAL CODE DELIVERY — Fast2SMS (India) + Telegram + WhatsApp
+   Primary: Fast2SMS free tier — true SMS to Indian numbers.
+   Fallback 1: Telegram bot DM (instant, free forever).
+   Fallback 2: WhatsApp via CallMeBot (one-time activation).
+   Last resort: on-screen (previous behavior).
+   Set your gateways once via the hidden voice commands:
+     "set fast2sms key <key>" · "set telegram token <bot:tok> <chatid>"
+     "set whatsapp key <key>" · "delivery status"
+   ============================================================ */
+const AuraDelivery = (function(){
+  function cfg(){
+    try{ return JSON.parse(localStorage.getItem("aura_delivery_cfg") || "{}"); }catch(e){ return {}; }
+  }
+  function set(k, v){ const c = cfg(); c[k] = v; localStorage.setItem("aura_delivery_cfg", JSON.stringify(c)); }
+
+  async function sendFast2Sms(phone, message){
+    const c = cfg();
+    if(!c.fast2sms) return { ok:false, why:"no-key" };
+    try{
+      const r = await fetch("https://www.fast2sms.com/dev/bulkV2", {
+        method: "POST",
+        headers: { "content-type": "application/json", "authorization": c.fast2sms },
+        body: JSON.stringify({ route: "q", message: message, language: "english", flash: 0, numbers: phone })
+      });
+      const j = await r.json().catch(function(){ return {}; });
+      if(j && j.return === true) return { ok:true, via:"fast2sms", id:j.request_id||"" };
+      return { ok:false, why:(j && j.message) || ("http " + r.status) };
+    }catch(e){ return { ok:false, why:e.message }; }
+  }
+
+  async function sendTelegram(message){
+    const c = cfg();
+    if(!c.tgToken || !c.tgChat) return { ok:false, why:"no-key" };
+    try{
+      const r = await fetch("https://api.telegram.org/bot" + c.tgToken + "/sendMessage", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chat_id: c.tgChat, text: message })
+      });
+      const j = await r.json().catch(function(){ return {}; });
+      if(j && j.ok) return { ok:true, via:"telegram" };
+      return { ok:false, why:(j && j.description) || ("http " + r.status) };
+    }catch(e){ return { ok:false, why:e.message }; }
+  }
+
+  async function sendWhatsApp(message){
+    const c = cfg();
+    if(!c.waKey) return { ok:false, why:"no-key" };
+    try{
+      const url = "https://api.callmebot.com/whatsapp.php?phone=917300353703&text=" + encodeURIComponent(message) + "&apikey=" + encodeURIComponent(c.waKey);
+      const r = await fetch(url);
+      if(r.ok) return { ok:true, via:"whatsapp" };
+      return { ok:false, why:"http " + r.status };
+    }catch(e){ return { ok:false, why:e.message }; }
+  }
+
+  /* master chain — admin phone is hard-bound, codes only ever flow to the owner */
+  async function sendOwnerCode(code){
+    const phone = "7300353703";
+    const msg = "AURA access code: " + code + " (expires in 5 min). Never share this code.";
+    const attempts = [];
+    const f = await sendFast2Sms(phone, msg); attempts.push(f);
+    if(f.ok) return { ok:true, via:"sms (Fast2SMS)", attempts:attempts };
+    const t = await sendTelegram(msg); attempts.push(t);
+    if(t.ok) return { ok:true, via:"Telegram", attempts:attempts };
+    const w = await sendWhatsApp(msg); attempts.push(w);
+    if(w.ok) return { ok:true, via:"WhatsApp", attempts:attempts };
+    return { ok:false, via:"none", attempts:attempts, code:code };
+  }
+
+  return {
+    cfg: cfg,
+    set: function(k, v){ set(k, v); return cfg(); },
+    sendOwnerCode: sendOwnerCode,
+    status: function(){
+      const c = cfg();
+      return "Fast2SMS: " + (c.fast2sms ? "✓ key set" : "— not set") +
+           " · Telegram: " + (c.tgToken ? "✓ bot set" : "— not set") +
+           " · WhatsApp: " + (c.waKey ? "✓ key set" : "— not set");
+    }
+  };
+})();
+
 /* instrument common actions (light-touch, no spam) */
 (function(){
   const origPush = window.pushSys;
@@ -3995,17 +4110,37 @@ document.addEventListener("DOMContentLoaded",function(){
       if(!r.ok){ alert(r.why); return; }
       $("authStep1").style.display = "none";
       $("authStep2").style.display = "block";
-      const show = function(c){ $("accOtpHint").innerHTML = "✓ Code dispatched via " + r.channel.toUpperCase() + " — Code: <b style='letter-spacing:4px'>" + c + "</b> <small>(hides in <span id='otpCount'>30</span>s)</small>"; };
-      show(r.code);
-      let s = 30;
-      const iv = setInterval(function(){
-        s--;
-        const c = document.getElementById("otpCount");
-        if(s <= 0 || !c){ clearInterval(iv); $("accOtpHint").textContent = "✓ Code dispatched via " + r.channel.toUpperCase() + " — hidden for safety. Request a new one if needed."; return; }
-        c.textContent = s;
-      }, 1000);
+      /* owner path → try REAL delivery first; the code only shows on-screen if every channel fails */
+      if(r.elevate && typeof AuraDelivery !== "undefined"){
+        AuraDelivery.sendOwnerCode(r.code).then(function(d){
+          if(d.ok){
+            $("accOtpHint").innerHTML = "✓ Code sent to your registered <b>" + d.via + "</b> — check your phone. Expires in 5 minutes.";
+            slog("Code delivered via " + d.via, true);
+            pushSys("📱 Code delivered via " + d.via.toUpperCase());
+          }else{
+            $("accOtpHint").innerHTML = "⚠ Delivery channels offline — Code: <b style='letter-spacing:4px'>" + r.code + "</b> <small>(hides in <span id='otpCount'>30</span>s)</small>";
+            slog("Delivery fallback to screen — " + d.attempts.map(function(a){return a.why}).join(" | "), true);
+            let s = 30;
+            const iv = setInterval(function(){
+              s--;
+              const c = document.getElementById("otpCount");
+              if(s <= 0 || !c){ clearInterval(iv); $("accOtpHint").textContent = "⚠ Delivery offline — code hidden. Say 'delivery status' to configure channels."; return; }
+              c.textContent = s;
+            }, 1000);
+          }
+        });
+      }else{
+        /* regular users: codes show on-screen (no gateway sends to arbitrary numbers) */
+        $("accOtpHint").innerHTML = "✓ Code: <b style='letter-spacing:4px'>" + r.code + "</b> <small>(hides in <span id='otpCount'>30</span>s)</small>";
+        let s = 30;
+        const iv = setInterval(function(){
+          s--;
+          const c = document.getElementById("otpCount");
+          if(s <= 0 || !c){ clearInterval(iv); $("accOtpHint").textContent = "✓ Code hidden for safety. Request a new one if needed."; return; }
+          c.textContent = s;
+        }, 1000);
+      }
       slog("Verification code issued via " + r.channel, true);
-      pushSys("📱 Verification code sent via " + r.channel.toUpperCase() + " — expires in 5 minutes");
     };
   }
 
