@@ -2,7 +2,7 @@
   "name": "aura-secure-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "AURA secure AI key proxy — the Groq key never leaves this server",
+  "description": "AURA secure AI key proxy — credentials live only on this server",
   "main": "server.js",
   "engines": { "node": ">=18" },
   "scripts": {
