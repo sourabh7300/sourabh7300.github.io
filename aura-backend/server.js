@@ -471,33 +471,60 @@ app.post("/v1/chat/stream", async (req, res) => {
 });
 
 /* ============ NEURAL VOICE — server-rendered speech (Orpheus) ============
-   POST /v1/tts { input, voice } → audio/wav. Needs a one-time terms acceptance
-   of canopylabs/orpheus-v1-english by the org admin in the Groq console;
-   until then returns 502 and AURA silently uses the device voice. */
+   POST /v1/tts { input, voice } → audio. Tier 1: premium neural voice (needs a
+   one-time terms acceptance by the org admin in the AI console). Tier 2: free
+   server-rendered neural voice — no key needed, works immediately. The client
+   plays whatever audio bytes come back, so this is invisible to users. */
+const ttsFallback = async (input, voice, res) => {
+  /* server-side neural voice: chunk text ≤190 chars, fetch MP3 parts, join them */
+  const lang = /atlas|gb|uk|brit/i.test(voice) ? "en-gb" : "en";
+  const chunks = [];
+  let rest = input;
+  while (rest.length) {
+    if (rest.length <= 190) { chunks.push(rest); break; }
+    let cut = rest.lastIndexOf(". ", 180); if (cut < 80) cut = rest.lastIndexOf(" ", 180); if (cut < 80) cut = 180;
+    chunks.push(rest.slice(0, cut + 1)); rest = rest.slice(cut + 1).replace(/^\s+/, "");
+  }
+  try {
+    const parts = [];
+    for (const c of chunks) {
+      const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(c);
+      const r = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://translate.google.com/" }, signal: AbortSignal.timeout(20_000) });
+      if (!r.ok) throw new Error("fallback HTTP " + r.status);
+      parts.push(Buffer.from(await r.arrayBuffer()));
+    }
+    const buf = Buffer.concat(parts);
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(buf);
+  } catch (e) { return res.status(502).json({ error: "tts unavailable" }); }
+};
 app.post("/v1/tts", async (req, res) => {
   const body = req.body || {};
   const input = String(body.input || "").trim().slice(0, 900);
   const voice = String(body.voice || "hilda").trim().slice(0, 40);
   if (!input) return res.status(400).json({ error: "input required" });
   const key = pickKey();
-  if (!key) return res.status(503).json({ error: "voice needs a live AI key" });
-  try {
-    const r = await fetch("https://api.groq.com/openai/v1/audio/speech", {
-      method: "POST",
-      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: "canopylabs/orpheus-v1-english", voice, input }),
-      signal: AbortSignal.timeout(60_000)
-    });
-    if (!r.ok) {
+  if (key) {
+    try {
+      const r = await fetch("https://api.groq.com/openai/v1/audio/speech", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "canopylabs/orpheus-v1-english", voice, input }),
+        signal: AbortSignal.timeout(60_000)
+      });
+      if (r.ok) {
+        const buf = Buffer.from(await r.arrayBuffer());
+        res.setHeader("Content-Type", "audio/wav");
+        res.setHeader("Cache-Control", "no-store");
+        return res.send(buf);
+      }
       const t = await r.text().catch(() => "");
       if (r.status === 429) keyCool.set(key, Date.now() + 10 * 60_000);
-      return res.status(502).json({ error: "tts unavailable", detail: t.slice(0, 140) });
-    }
-    const buf = Buffer.from(await r.arrayBuffer());
-    res.setHeader("Content-Type", "audio/wav");
-    res.setHeader("Cache-Control", "no-store");
-    res.send(buf);
-  } catch (e) { res.status(502).json({ error: "tts failed" }); }
+      /* terms not accepted / rate-limited / hiccup → free neural fallback below */
+    } catch (e) { /* fall through to fallback */ }
+  }
+  return ttsFallback(input, voice, res);
 });
 
 app.listen(PORT, () => console.log("AURA secure backend live on :" + PORT));
