@@ -693,6 +693,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   <button class="ibtn" id="agentBtn" title="AGENT MODE: I plan, search the web, read sources, then answer with citations — step by step, visible">🤖 AGENT</button>
   <button class="ibtn" id="jarvisLiveBtn" title="HANDS-FREE: continuous listening — just talk, speak over me to interrupt">🎙 LIVE</button>
   <button class="ibtn" id="remindBtn" title="Reminders — what AURA will notify you about">⏰ REMIND</button>
+  <button class="ibtn" id="neuralBtn" title="Neural voice — server-rendered speech that sounds human (English)">🎙 ROBOT VOICE</button>
   <button class="ibtn" id="themeBtn" title="Switch interface style: Futuristic / Gold / Classical">🎨 CYAN</button>
   </div>
 </div>
@@ -1205,7 +1206,12 @@ function humanSize(b){return b>1048576?(b/1048576).toFixed(1)+" MB":Math.max(1,M
       '<div class="tm-row"><button class="tm-btn" id="tmRecScr">🖥 Record my screen</button><button class="tm-btn" id="tmShotScr">📸 Screen shot → PNG</button></div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmPng">→ PNG</button><button class="tm-btn" id="tmJpg">→ JPG</button><button class="tm-btn" id="tmWebp">→ WEBP</button></div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmShrink">📉 Compress image</button><button class="tm-btn" id="tmClear">🗑 Clear chat memory</button></div>'+
-      '<div class="tm-note">Image tools work on the last attached photo (📎). PDF export opens a print window — choose "Save as PDF". Everything runs offline in your browser.</div>'+
+      '<div class="tm-row"><button class="tm-btn" id="tmImgGen" title="Describe any image — AI draws it free">🎨 Imagine an image…</button></div>'+
+      '<div id="tmImgGenBox" style="display:none">'+
+        '<textarea id="tmImgPrompt" class="tm-input" rows="2" placeholder="Describe it: a neon cyberpunk rickshaw over Mumbai at night…" style="width:100%;margin:8px 0;padding:10px;border-radius:10px;border:1px solid rgba(0,229,255,.35);background:rgba(0,20,30,.6);color:#dff;font:13px system-ui;resize:vertical"></textarea>'+
+        '<div class="tm-row"><button class="tm-btn" id="tmImgGo">✨ Draw it (free)</button></div>'+
+      '</div>'+
+      '<div class="tm-note">Image tools work on the last attached photo (📎). PDF export opens a print window — choose "Save as PDF". Imagine uses a free generator; every style is a fresh idea.</div>'+
       '<div class="tm-row"><button class="tm-btn" id="tmClose">Close</button></div></div>';
     document.body.appendChild(ov);
     const close=()=>ov.remove();
@@ -1214,6 +1220,33 @@ function humanSize(b){return b>1048576?(b/1048576).toFixed(1)+" MB":Math.max(1,M
     ov.querySelector("#tmPdf").onclick=()=>{close();if(!lastAnswer){pushSys("no answer yet — ask me something first");return}docPDF("Answer — "+(lastTopic||PERSONAS[persona()].name),lastAnswer)&&pushSys("PDF window opened — choose Save as PDF")};
     ov.querySelector("#tmPdfAll").onclick=()=>{close();const lines=[...document.querySelectorAll(".msg")].map(m=>m.textContent.replace(/\s+/g," ").trim()).filter(Boolean);if(!lines.length){pushSys("chat is empty");return}docPDF("Conversation with "+PERSONAS[persona()].name,lines.join("\n\n"))&&pushSys("full chat → PDF window opened")};
     ov.querySelector("#tmStudy").onclick=()=>{close();const r=studySheetPDF();if(r.ok)pushSys("study sheet built — I'll ask before opening");else if(r.reason==="blocked")pushSys("popup blocked — allow popups for this site")};
+    const igb=ov.querySelector("#tmImgGen");
+    if(igb)igb.onclick=()=>{const b=ov.querySelector("#tmImgGenBox");if(b)b.style.display=b.style.display==="none"?"block":"none"};
+    const igo=ov.querySelector("#tmImgGo");
+    if(igo)igo.onclick=async()=>{
+      const p=(ov.querySelector("#tmImgPrompt")||{}).value||"";
+      if(!p.trim()){pushSys("describe the image first — one vivid sentence");return}
+      close();
+      addMsg(msgTag(),"🎨 Imagining: “"+p.trim().slice(0,80)+"” — drawing it now…","aura");
+      try{
+        const u="https://image.pollinations.ai/prompt/"+encodeURIComponent(p.trim())+"?width=768&height=768&nologo=true&seed="+((Math.random()*1e6)|0);
+        const r=await fetch(u,{signal:AbortSignal.timeout(90000)});
+        if(!r.ok)throw new Error("HTTP "+r.status);
+        const bl=await r.blob();
+        const ur=URL.createObjectURL(bl);
+        const im=new Image();im.src=ur;
+        const d=document.createElement("div");
+        d.style.cssText="margin-top:6px";
+        im.style.cssText="max-width:100%;border-radius:12px;border:1px solid rgba(0,229,255,.35);display:block;margin-bottom:6px;cursor:pointer";
+        im.title="Click to download";
+        im.onclick=()=>{const a=document.createElement("a");a.download="aura-imagination.png";a.href=ur;a.click()};
+        d.appendChild(im);
+        const tx=Array.from(document.querySelectorAll(".msg.aura .tx")).pop();
+        if(tx)tx.appendChild(d);else dlBlob(bl,"aura-imagination.png");
+        const say="🎨 Done — click the image to download it. Say 'imagine' plus a new idea anytime.";
+        addMsg(msgTag(),say,"aura");if(voiceAllowed())speak(say);
+      }catch(e){addMsg(msgTag(),"The free art engine hiccupped — one more try usually lands it. (It said: "+String(e.message||e).slice(0,60)+")","aura")}
+    };
     ov.querySelector("#tmLocal").onclick=()=>{close();pickLocalFiles()};
     ov.querySelector("#tmRecScr").onclick=async()=>{close();addMsg(msgTag(),"🖥 Pick the screen/window in the dialog — say \"stop recording\" when you're done and the .webm downloads.","aura");const ok=await scrRecStart();if(!ok)addMsg(msgTag(),"Screen recording cancelled — nothing captured.","aura")};
     ov.querySelector("#tmShotScr").onclick=async()=>{close();const r=await scrShot();addMsg(msgTag(),r||"Screen capture cancelled — the browser needs your pick in the dialog.","aura")};
@@ -1278,6 +1311,24 @@ let speakGen=0,ttsActive=false,lastSpoken="",lastSpokeAt=0,voiceSessionUntil=0;
    speak() refuses to run otherwise — no boot chatter, no background voices, ever. */
 function voiceAllowed(){return wake===true||Date.now()<voiceSessionUntil}
 function stopSpeech(){speakGen++;ttsActive=false;try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
+let __neuralVoice=(localStorage.getItem("aura_neural")||"auto")==="on";
+async function speakNeural(t,gen,done){
+  /* NEURAL TIER — server-rendered voice (Orpheus). Returns true if it spoke. */
+  try{
+    if(!backendUrl())return false;
+    const r=await fetch(backendUrl()+"/v1/tts",{method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(30000),body:JSON.stringify({input:String(t).slice(0,900),voice:persona()==="jarvis"?"atlas":"hilda"})});
+    if(!r.ok)return false;
+    const blob=await r.blob();if(!blob.size)return false;
+    const url=URL.createObjectURL(blob);
+    const a=new Audio(url);a.volume=1;
+    a.onended=()=>{URL.revokeObjectURL(url);done()};
+    a.onerror=()=>{URL.revokeObjectURL(url);done()};
+    if(gen!==speakGen){URL.revokeObjectURL(url);return true}
+    ttsActive=true;ampTarget=1;setMode("speaking");try{document.getElementById("stopBtn").classList.add("show")}catch(e){}
+    await a.play();
+    return true;
+  }catch(e){return false}
+}
 function speak(t){
   if(!synth||!soundOn){return}
   if(!voiceAllowed()){return}
@@ -1295,6 +1346,12 @@ function speak(t){
       parts.push(rest.slice(0,cut+1));rest=rest.slice(cut+1).replace(/^\s+/,"");
     }
     const hi=window.__auraLang==="hi"||(window.__auraLang!=="en"&&detectedLang==="hi");
+    /* NEURAL VOICE TIER — English answers try the server-rendered voice first;
+       Hindi falls through to the device voice. Any failure → silent device fallback. */
+    if(__neuralVoice&&!hi&&parts.length){
+      speakNeural(parts.join(" "),gen,()=>{ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}}).then(ok=>{if(ok)return});
+      if(__neuralVoice&&!hi)return; /* neural accepted the job (or is trying) — device chain not started */
+    }
     let i=0;
     const pickVoice=()=>hi?(voices.find(v=>/hi-IN|^hi/i.test(v.lang))||voices.find(v=>/^hi/i.test(v.name))||null):(voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang)));
     const v=pickVoice();
@@ -1533,6 +1590,11 @@ window.AuraEco=(function(){
   if(lb)lb.onclick=()=>AuraLive.toggle();
   const rb=document.getElementById('remindBtn');
   if(rb)rb.onclick=()=>addMsg(msgTag(),AuraRemind.render(),'aura');
+  const nb=document.getElementById('neuralBtn');
+  if(nb){
+    const paint=()=>{nb.textContent=__neuralVoice?'🎙 NEURAL':'🎙 ROBOT VOICE'};paint();
+    nb.onclick=()=>{__neuralVoice=!__neuralVoice;try{localStorage.setItem('aura_neural',__neuralVoice?'on':'off')}catch(e){}paint();pushSys(__neuralVoice?'🎙 neural voice ON — English answers use the server-rendered human voice (falls back silently to the device voice)':'🎙 neural voice OFF — using the built-in device voice')};
+  }
 })();
 /* ---------- matplotlib chart bridge + package auto-install for the Python sandbox ---------- */
 window.__auraChart=function(dataURL){try{const fr=document.getElementById('codeFrame');if(fr)fr.srcdoc='<html><body style="margin:0;background:#0b0f14;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+dataURL+'" style="max-width:100%;height:auto" alt="chart"></body></html>'}catch(e){}};
