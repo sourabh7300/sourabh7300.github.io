@@ -55,17 +55,27 @@
   for(var i=0;i<SEEDED.length;i++){h^=SEEDED.charCodeAt(i);h=Math.imul(h,16777619)}
   document.getElementById("fp").textContent=(h>>>0).toString(36);
 })();
-function check(){
+async function check(){
   var v=document.getElementById("verdict");
-  try{
-    var p=window.__AURA_PROVENANCE__;
-    if(p&&p.seal==="AURA::7300353703::JECRC::PROVENANCE-SEAL-v1"&&p.author==="Sourabh Singh"){
-      v.innerHTML="<span class='ok'>AUTHENTIC — sealed build by Sourabh Singh ✓</span>";
-      v.style.color="#34d399";return;
-    }
-  }catch(e){}
-  v.textContent="NOT AUTHENTIC — this build carries no valid provenance seal";
-  v.style.color="#f87171";
+  v.textContent="fetching the live build…";v.style.color="";
+  /* verify by fetching the served aura.html bytes — the seal must be present in
+     whatever build this site is actually serving (relative path works on /aura/) */
+  var paths=["aura.html","../aura.html","/aura.html","/aura/aura.html"];
+  for(var i=0;i<paths.length;i++){
+    try{
+      var r=await fetch(paths[i]+"?nocache="+Date.now());
+      if(!r.ok)continue;
+      var t=await r.text();
+      if(t.indexOf("AURA::7300353703::JECRC::PROVENANCE-SEAL-v1")>-1&&t.indexOf("Sourabh Singh")>-1&&t.indexOf("__AURA_PROVENANCE__")>-1){
+        v.innerHTML="<span class='ok'>AUTHENTIC — the served build carries the provenance seal ✓</span>";
+        v.style.color="";return;
+      }else{
+        v.textContent="NOT AUTHENTIC — this site's build carries no valid seal";v.style.color="#f87171";return;
+      }
+    }catch(e){}
+  }
+  v.textContent="could not reach an aura.html build from here — open this page next to AURA to verify";
+  v.style.color="#fbbf24";
 }
 check();
 </script>
