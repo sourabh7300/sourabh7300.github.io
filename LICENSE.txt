@@ -1,0 +1,31 @@
+AURA — Adaptive Universal Reasoning Assistant
+Copyright (c) 2026 Sourabh Singh
+https://sourabh7300.github.io · github.com/sourabh7300
+
+Proprietary and confidential. All rights reserved.
+
+Permission is hereby granted to VIEW and DEMO this software for
+educational evaluation and portfolio review purposes only.
+
+You may NOT, without the author's prior written permission:
+  1. copy, clone, fork or re-host this software (in whole or in
+     substantial part) under any name;
+  2. remove, alter or obscure the authorship notices, provenance
+     seal, copyright header or console attestation;
+  3. present this software, or a derivative of it, as your own work
+     or as the work of any party other than the author;
+  4. use this software for commercial purposes.
+
+The companion backend is an integral part of this system and is
+origin-gated: it answers only requests from the author's own
+properties. Copies of the front-end are non-functional by design.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND.
+IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY ARISING FROM THE USE OF THE SOFTWARE.
+
+Authorship is publicly proven by the commit history at
+https://github.com/sourabh7300/aura and by the runtime attestation
+(window.__AURA_PROVENANCE__.verified()) in any authentic build.
+
+Contact: Sourabh Singh · github.com/sourabh7300
