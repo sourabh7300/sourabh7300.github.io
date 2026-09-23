@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AURA — Authorship & Provenance</title>
+<style>
+  :root{--bg:#020709;--cy:#22d3ee;--ice:#e0faff;--dim:#0e7490;--line:rgba(34,211,238,.25)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ice);font:16px/1.7 Rajdhani,system-ui,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{max-width:760px;width:100%;background:rgba(4,18,26,.72);border:1px solid var(--line);border-radius:18px;padding:38px 40px}
+  h1{font-family:Orbitron,system-ui;font-size:26px;margin:0 0 4px;color:var(--cy);letter-spacing:.06em}
+  .sub{color:#7fb8c9;font-size:14px;margin-bottom:26px}
+  h2{font-size:15px;text-transform:uppercase;letter-spacing:.18em;color:var(--dim);margin:26px 0 10px}
+  .row{display:flex;justify-content:space-between;gap:16px;border-bottom:1px dashed rgba(34,211,238,.14);padding:9px 0;font-size:15px}
+  .row b{color:var(--cy);font-weight:600;white-space:nowrap}
+  a{color:var(--cy);text-decoration:none;border-bottom:1px dotted var(--dim)}
+  .seal{margin-top:26px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:rgba(34,211,238,.06);font-family:JetBrains Mono,monospace;font-size:12.5px;color:#9be7f5;word-break:break-all}
+  .ok{color:#34d399;font-weight:700}
+  button{margin-top:22px;background:rgba(34,211,238,.12);border:1px solid var(--line);color:var(--cy);font:600 14px Rajdhani,system-ui;padding:10px 22px;border-radius:10px;cursor:pointer;letter-spacing:.06em}
+  button:hover{background:rgba(34,211,238,.22)}
+  .note{margin-top:18px;font-size:13px;color:#7fb8c9}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>AURA — AUTHORSHIP &amp; PROVENANCE</h1>
+  <div class="sub">Live verification page · checks the running build against its creator's records</div>
+
+  <h2>Creator</h2>
+  <div class="row"><span>Designed &amp; hand-built by</span><b>Sourabh Singh</b></div>
+  <div class="row"><span>Programme</span><b>B.Tech CSE — AI, DevOps &amp; Cloud Automation</b></div>
+  <div class="row"><span>Institution</span><b>JECRC University</b></div>
+  <div class="row"><span>Repository</span><b><a href="https://github.com/sourabh7300/aura" target="_blank" rel="noopener">github.com/sourabh7300/aura</a></b></div>
+  <div class="row"><span>Live builds</span><b><a href="https://sourabh7300.github.io/aura/" target="_blank" rel="noopener">/aura/</a> · <a href="https://sourabh7300.github.io/aura.html" target="_blank" rel="noopener">portfolio</a></b></div>
+
+  <h2>Proof of authorship</h2>
+  <div class="row"><span>Commit history</span><b><a href="https://github.com/sourabh7300/aura/commits/main" target="_blank" rel="noopener">public, day-by-day</a></b></div>
+  <div class="row"><span>Copyright</span><b>© 2026 Sourabh Singh · all rights reserved</b></div>
+  <div class="row"><span>License</span><b><a href="https://github.com/sourabh7300/aura/blob/main/LICENSE" target="_blank" rel="noopener">proprietary — view &amp; demo only</a></b></div>
+
+  <h2>Runtime attestation</h2>
+  <div class="row"><span>Seal</span><span class="seal" style="margin:0;padding:8px 12px">AURA::7300353703::JECRC::PROVENANCE-SEAL-v1</span></div>
+  <div class="row"><span>Seeded hologram fingerprint</span><b id="fp">checking…</b></div>
+  <div class="row"><span>This page's build</span><b id="verdict">checking…</b></div>
+
+  <button onclick="check()">⟳ Verify this build</button>
+
+  <div class="note">Anyone can verify an authentic AURA build anywhere: open the site, press F12 → Console, and run
+  <code style="color:#9be7f5">__AURA_PROVENANCE__.verified()</code> — a genuine build answers with its creator; a copied skin answers nothing, because the attestation, the seeded fingerprint and the gated brain do not travel with copies.</div>
+</div>
+<script>
+(function(){
+  var SEEDED="AURA::7300353703::JECRC", h=2166136261;
+  for(var i=0;i<SEEDED.length;i++){h^=SEEDED.charCodeAt(i);h=Math.imul(h,16777619)}
+  document.getElementById("fp").textContent=(h>>>0).toString(36);
+})();
+function check(){
+  var v=document.getElementById("verdict");
+  try{
+    var p=window.__AURA_PROVENANCE__;
+    if(p&&p.seal==="AURA::7300353703::JECRC::PROVENANCE-SEAL-v1"&&p.author==="Sourabh Singh"){
+      v.innerHTML="<span class='ok'>AUTHENTIC — sealed build by Sourabh Singh ✓</span>";
+      v.style.color="#34d399";return;
+    }
+  }catch(e){}
+  v.textContent="NOT AUTHENTIC — this build carries no valid provenance seal";
+  v.style.color="#f87171";
+}
+check();
+</script>
+</body>
+</html>
