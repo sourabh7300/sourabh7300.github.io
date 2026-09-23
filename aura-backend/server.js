@@ -26,7 +26,7 @@ const KEY_POOL = [...new Set([
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 const GEMINI_API_KEY = envv("AI_KEY_VISION", "GEMINI_API_KEY");            // gives AURA EYES (vision)
-const VISION_MODEL = process.env.VISION_MODEL || atob("Z2VtaW5pLTIuMC1mbGFzaA==");
+const VISION_MODEL = process.env.VISION_MODEL || atob("Z2VtaW5pLTMuNi1mbGFzaA==");
 
 /* RESERVE BRAIN — fires only when the primary key bank has drained (or died),
    so users keep getting real AI answers instead of the out-of-tokens notice.
