@@ -451,4 +451,34 @@ app.post("/v1/chat/stream", async (req, res) => {
   finish();
 });
 
+/* ============ NEURAL VOICE — server-rendered speech (Orpheus) ============
+   POST /v1/tts { input, voice } → audio/wav. Needs a one-time terms acceptance
+   of canopylabs/orpheus-v1-english by the org admin in the Groq console;
+   until then returns 502 and AURA silently uses the device voice. */
+app.post("/v1/tts", async (req, res) => {
+  const body = req.body || {};
+  const input = String(body.input || "").trim().slice(0, 900);
+  const voice = String(body.voice || "hilda").trim().slice(0, 40);
+  if (!input) return res.status(400).json({ error: "input required" });
+  const key = pickKey();
+  if (!key) return res.status(503).json({ error: "tts needs a live groq key" });
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/audio/speech", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "canopylabs/orpheus-v1-english", voice, input }),
+      signal: AbortSignal.timeout(60_000)
+    });
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      if (r.status === 429) keyCool.set(key, Date.now() + 10 * 60_000);
+      return res.status(502).json({ error: "tts unavailable", detail: t.slice(0, 140) });
+    }
+    const buf = Buffer.from(await r.arrayBuffer());
+    res.setHeader("Content-Type", "audio/wav");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buf);
+  } catch (e) { res.status(502).json({ error: "tts failed" }); }
+});
+
 app.listen(PORT, () => console.log("AURA secure backend live on :" + PORT));
