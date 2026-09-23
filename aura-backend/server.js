@@ -197,6 +197,172 @@ app.post("/v1/chat/completions", async (req, res) => {
   res.status(502).json({ error: "All models exhausted or rate-limited. Try again shortly." });
 });
 
+/* ============ AGENT LOOP — she stops answering and starts DOING ============
+   POST /v1/agent  { question, maxSteps }
+   Loop: LLM picks a tool (search / fetch_page / calculator) → backend runs it →
+   result fed back → LLM reasons again → … → final answer with numbered sources.
+   Streams progress as SSE: data:{step:...} → data:{delta:final} → data:[DONE]
+   This is the tool-loop that turns a chatbot into an agent (deep-research style). */
+const MAX_STEPS = 8;
+function llm1(messages, maxTok) {
+  /* one-shot internal LLM call for the loop (uses pickKey directly) */
+  return (async () => {
+    for (const model of MODELS) {
+      const key = pickKey();
+      if (!key) return null;
+      try {
+        const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+          body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok || 700, 4000), temperature: 0.3 }),
+          signal: AbortSignal.timeout(45_000)
+        });
+        if (!r.ok) { if (r.status === 429) keyCool.set(key, Date.now() + 10 * 60_000); continue; }
+        const d = await r.json();
+        const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+        if (t && t.trim()) return t.trim();
+      } catch (e) {}
+    }
+    const mt = await mistralCall(messages, maxTok, 0.3);
+    return mt;
+  })();
+}
+function extractJson(text) {
+  const m = String(text).match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try { return JSON.parse(m[0]); } catch (e) { return null; }
+}
+async function toolSearch(q) {
+  /* live web search via r.jina.ai Google News + DuckDuckGo lite (both CORS-free server-side) */
+  const out = [];
+  try {
+    const r = await fetch("https://r.jina.ai/https://news.google.com/search?q=" + encodeURIComponent(q), { signal: AbortSignal.timeout(15_000) });
+    if (r.ok) {
+      const t = await r.text();
+      const re = /\[([^\]\n]{12,120})\]\((https?:\/\/[^)\s]+)\)/g; let m, n = 0;
+      while ((m = re.exec(t)) && out.length < 5) {
+        const title = m[1].replace(/\s+-\s+[^-]+$/, "").trim();
+        if (/google|news\.google|signin|privacy|terms/i.test(title)) continue;
+        out.push({ title, url: m[2] }); if (++n >= 5) break;
+      }
+    }
+  } catch (e) {}
+  if (out.length < 3) {
+    try {
+      const r2 = await fetch("https://html.duckduckgo.com/html/?q=" + encodeURIComponent(q), { signal: AbortSignal.timeout(15_000) });
+      if (r2.ok) {
+        const t2 = await r2.text();
+        const re2 = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g; let m2;
+        while ((m2 = re2.exec(t2)) && out.length < 6) {
+          let u = m2[1]; const du = u.match(/uddg=([^&]+)/); if (du) u = decodeURIComponent(du[1]);
+          out.push({ title: m2[2].replace(/<[^>]+>/g, "").trim(), url: u });
+        }
+      }
+    } catch (e) {}
+  }
+  return out;
+}
+async function toolFetch(url) {
+  try {
+    const r = await fetch("https://r.jina.ai/" + url, { signal: AbortSignal.timeout(20_000) });
+    if (!r.ok) return null;
+    let t = await r.text();
+    t = t.replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[(.*?)\]\([^)]*\)/g, "$1").replace(/[#*_`>|]/g, " ").replace(/\s+/g, " ");
+    const i = t.indexOf("Markdown Content:"); if (i > -1) t = t.slice(i + 17);
+    return t.slice(0, 6500);
+  } catch (e) { return null; }
+}
+function toolCalc(expr) {
+  try { return String(Function("return (" + expr + ")")()); } catch (e) { return "error: " + e.message; }
+}
+
+app.post("/v1/agent", async (req, res) => {
+  const body = req.body || {};
+  const q = String(body.question || "").trim();
+  if (!q) return res.status(400).json({ error: "question required" });
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+  const send = obj => { try { res.write("data: " + JSON.stringify(obj) + "\n\n"); } catch (e) {} };
+  const finish = () => { try { res.write("data: [DONE]\n\n"); res.end(); } catch (e) {} };
+  if (!pickKey() && !MISTRAL_API_KEY) {
+    send({ step: { icon: "⚠️", label: "no AI keys live on the server — ask the owner to re-arm the key bank" } });
+    finish(); return;
+  }
+  const tools =
+    'You are AURA\'s AGENT CORE. Solve the user\'s request by using tools, step by step.\n' +
+    'Every reply MUST be exactly one JSON object, nothing else:\n' +
+    '{"thought":"one short sentence about what you know/need","tool":"search|fetch|calc|answer","input":"..."}\n' +
+    'tool "search": input = web search query (for news/current facts).\n' +
+    'tool "fetch": input = a URL from earlier search results worth reading fully.\n' +
+    'tool "calc": input = a plain arithmetic expression like 2+2*3.14159.\n' +
+    'tool "answer": input = the FINAL user-facing answer, written normally (not JSON). Cite sources inline as [1], [2] matching the numbered sources provided. If information is missing, say what you found and what is uncertain.\n';
+  const sys = String(body.system || "");
+  const maxSteps = Math.min(Math.max(parseInt(body.maxSteps, 10) || 5, 2), MAX_STEPS);
+  const sources = [];
+  const transcript = [];
+  send({ step: { icon: "🎯", label: "goal locked: " + q.slice(0, 70) } });
+  let finalAnswer = null;
+  for (let step = 0; step < maxSteps && !finalAnswer; step++) {
+    const convo = [
+      { role: "system", content: tools + (sys ? "\nCONTEXT:\n" + sys.slice(0, 1200) : "") },
+      { role: "user", content: "REQUEST: " + q +
+        (sources.length ? "\n\nSOURCES FOUND:\n" + sources.map((s, i) => "[" + (i + 1) + "] " + s.title + " — " + s.url).join("\n") : "") +
+        (transcript.length ? "\n\nWORK SO FAR:\n" + transcript.join("\n").slice(-4000) : "") }
+ ];
+    let raw = await llm1(convo, 500);
+    if (!raw) { send({ step: { icon: "⚠️", label: "brain busy — every key is cooling, retry shortly" } }); finish(); return; }
+    const j = extractJson(raw);
+    if (!j || !j.tool) {
+      /* model spoke prose instead of JSON → treat it as the answer */
+      finalAnswer = raw; break;
+    }
+    send({ step: { icon: "🧠", label: j.thought || "thinking…" } });
+    if (j.tool === "answer") { finalAnswer = String(j.input || ""); break; }
+    if (j.tool === "search") {
+      send({ step: { icon: "🔍", label: "searching the web: “" + String(j.input || "").slice(0, 60) + "”" } });
+      const rs = await toolSearch(String(j.input || q));
+      let added = 0;
+      for (const s of rs) {
+        if (sources.length >= 8) break;
+        if (!sources.some(x => x.url === s.url)) { sources.push(s); added++; }
+      }
+      send({ step: { icon: added ? "📰" : "🌑", label: added ? added + " fresh sources found" : "search came back empty — trying a different angle" } });
+      transcript.push("search(" + j.input + ") → " + (rs.length ? rs.map(s => "[" + (sources.indexOf(s) + 1) + "] " + s.title).join(", ") : "no results"));
+    } else if (j.tool === "fetch") {
+      const u = String(j.input || "");
+      send({ step: { icon: "📄", label: "reading a source in full…" } });
+      const pg = await toolFetch(u);
+      if (pg) transcript.push("fetch(" + u + ") → " + pg.slice(0, 900));
+      else transcript.push("fetch(" + u + ") → failed");
+      send({ step: { icon: pg ? "✅" : "🌑", label: pg ? "page read — key facts extracted" : "page unreadable — moving on" } });
+    } else if (j.tool === "calc") {
+      const val = toolCalc(String(j.input || "0"));
+      send({ step: { icon: "🧮", label: j.input + " = " + val } });
+      transcript.push("calc(" + j.input + ") = " + val);
+    } else { transcript.push("unknown tool — skipping"); }
+  }
+  if (!finalAnswer) {
+    /* step budget spent → force the synthesis */
+    send({ step: { icon: "✍️", label: "synthesizing everything found into the answer…" } });
+    const convo2 = [
+      { role: "system", content: "You are AURA. Write the final user-facing answer to the REQUEST using the WORK SO FAR. Clear, direct, human. Cite sources as [1],[2] where used. No preamble." },
+      { role: "user", content: "REQUEST: " + q + "\n\nSOURCES:\n" + sources.map((s, i) => "[" + (i + 1) + "] " + s.title + " — " + s.url).join("\n") + "\n\nWORK SO FAR:\n" + transcript.join("\n").slice(-4500) }
+    ];
+    finalAnswer = await llm1(convo2, 1400) || "I gathered the pieces but ran out of steps before I could finish — ask me again and I'll get there.";
+  }
+  finalAnswer = String(finalAnswer).trim();
+  if (sources.length) {
+    const used = finalAnswer.match(/\[(\d+)\]/g);
+    const cited = (used ? [...new Set(used.map(s => +s.replace(/\D/g, "")))] : sources.map((_, i) => i + 1)).filter(n => n >= 1 && n <= sources.length);
+    finalAnswer += "\n\nSOURCES:\n" + cited.map(n => "[" + n + "] " + sources[n - 1].title + " — " + sources[n - 1].url).join("\n");
+  }
+  send({ delta: finalAnswer });
+  finish();
+});
+
 /* ============ REAL-TIME STREAMING (SSE) — token-by-token to the browser ============
    Same key bank + model rotation as the completions route, but stream:true to Groq.
    Emits:  data: {"model":...}  →  data: {"delta":"..."}  →  data: [DONE]

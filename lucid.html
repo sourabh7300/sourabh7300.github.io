@@ -2484,9 +2484,13 @@
 
   /* ============================= AURA BRIDGE ============================= */
   /* Deep-link #batch auto-opens the batch processor (AURA 'open lucid batch' flow) */
-  if(location.hash==='#batch'){
+  if(location.hash==='#batch'||/^#batch&/.test(location.hash)){
     const want=(()=>{const m2=location.hash.match(/preset=([^&]+)/);if(!m2)return null;const s=decodeURIComponent(m2[1]).toLowerCase();if(/^cine/.test(s))return 'Cinematic';if(/vivid/.test(s))return 'Vivid Pop';if(/gold/.test(s))return 'Golden Hour';if(/noir/.test(s))return 'Noir';if(/cool/.test(s))return 'Cool Mono';if(/vintage/.test(s))return 'Vintage Fade';if(/faded/.test(s))return 'Faded Film';return null})();
     setTimeout(()=>{try{batchInput.click()}catch(e){}showToast(want?('Batch ready — preset "'+want+'" loaded. Choose your photos'):('Batch processor ready — choose your photos'));try{batchRunBtn&&batchRunBtn.scrollIntoView({behavior:'smooth',block:'center'})}catch(e){}},900);
+  }
+  /* AURA ECOSYSTEM deep link — #aura=open (or any future command) */
+  if(location.hash.indexOf('#aura=')===0){
+    setTimeout(()=>{try{showToast('🤖 AURA sent you here — drop a photo in and edit')}catch(e){}},700);
   }
   /* Same-origin postMessage bridge: AURA-embedded Lucid can be driven by the portfolio page */
   addEventListener('message',function(ev){

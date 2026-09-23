@@ -412,6 +412,25 @@ function openRecipe(name){
 
 render();save();initMap();fillBookRest();renderRecipes();liveCheckNet();liveWatch();
 setInterval(()=>{try{let stored=JSON.parse(localStorage.getItem("foodoraOrders")||"[]");stored.forEach(o=>{if(o.accepted&&Date.now()-new Date(o.time).getTime()>40*60*1000)o.accepted=false});localStorage.setItem("foodoraOrders",JSON.stringify(stored))}catch(e){}},60000);
+/* ================= AURA ECOSYSTEM BRIDGE — #aura=<command> deep links ================= */
+(function(){
+  if(location.hash.indexOf("#aura=")!==0)return;
+  let cmd="";try{cmd=decodeURIComponent(location.hash.slice(6)).trim()}catch(e){return}
+  if(!cmd)return;
+  setTimeout(function(){
+    try{
+      if(/^cart$/i.test(cmd)){if(typeof openCart==="function")openCart();return}
+      const el=document.getElementById("q");
+      if(el){el.value=cmd;if(typeof render==="function")render();}
+      const rst=document.getElementById("restaurants");
+      if(rst&&rst.scrollIntoView)rst.scrollIntoView({behavior:"smooth"});
+      const t=document.createElement("div");
+      t.style.cssText="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#111;color:#fff;padding:11px 20px;border-radius:24px;font:600 14px system-ui;z-index:99999;box-shadow:0 8px 30px rgba(0,0,0,.35)";
+      t.textContent="🤖 AURA sent you here — searching “"+cmd.slice(0,40)+"”";
+      document.body.appendChild(t);setTimeout(()=>t.remove(),5000);
+    }catch(e){}
+  },650);
+})();
 </script>
 </body>
 </html>

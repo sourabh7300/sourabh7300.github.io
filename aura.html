@@ -690,6 +690,9 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
   <button class="ibtn" id="docsBtn" title="Upload your PDFs & notes — answers cite file and page">📚 DOCS</button>
   <button class="ibtn" id="deepThinkBtn" title="DEEP THINK: always engage maximum reasoning, no matter the persona">🧠 DEEP</button>
+  <button class="ibtn" id="agentBtn" title="AGENT MODE: I plan, search the web, read sources, then answer with citations — step by step, visible">🤖 AGENT</button>
+  <button class="ibtn" id="jarvisLiveBtn" title="HANDS-FREE: continuous listening — just talk, speak over me to interrupt">🎙 LIVE</button>
+  <button class="ibtn" id="remindBtn" title="Reminders — what AURA will notify you about">⏰ REMIND</button>
   <button class="ibtn" id="themeBtn" title="Switch interface style: Futuristic / Gold / Classical">🎨 CYAN</button>
   </div>
 </div>
@@ -1410,6 +1413,143 @@ function scheduleMemExtract(q){
   }catch(e){}
 }
 /* ============ DOCUMENT RAG — upload PDFs/notes, answers cite [file · page] ============ */
+/* ================= AGENT-TIER STACK — reminders · agent loop · hands-free · ecosystem OS ================= */
+window.AuraRemind=(function(){
+  const KEY='aura_reminders_v1';
+  function list(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return[]}}
+  function save(a){try{localStorage.setItem(KEY,JSON.stringify(a))}catch(e){}}
+  function add(r){if(!r.at||r.at<Date.now())return false;r.id=Date.now()+''+((Math.random()*1e4)|0);r.done=false;const a=list();a.push(r);save(a);return true}
+  function drop(id){save(list().filter(r=>r.id!==id))}
+  function clear(){try{localStorage.removeItem(KEY)}catch(e){}}
+  function tick(){
+    const now=Date.now();let ch=false;
+    for(const r of list()){
+      if(!r.done&&r.at<=now){
+        r.done=true;ch=true;
+        try{
+          const t='⏰ REMINDER: '+r.label;
+          if(typeof blip==='function'){blip(880,.35);setTimeout(()=>blip(1175,.35),450)}
+          if(typeof addMsg==='function')addMsg(typeof msgTag==='function'?msgTag():'AURA ▸',t,'aura');
+          if(typeof voiceAllowed==='function'&&voiceAllowed()&&typeof speak==='function')speak('Reminder, boss: '+r.label);
+          if('Notification' in window){
+            if(Notification.permission==='granted'){try{new Notification('AURA · Reminder',{body:r.label})}catch(e){}}
+            else if(Notification.permission!=='denied'){Notification.requestPermission().then(p=>{if(p==='granted'){try{new Notification('AURA · Reminder',{body:r.label})}catch(e){}}}).catch(()=>{})}
+          }
+        }catch(e){}
+      }
+    }
+    if(ch)save(list());
+  }
+  function render(){const L=list();if(!L.length)return'No reminders set. Say "remind me to call mom at 6 pm" and I have it.';return'⏰ Your reminders:\n'+L.map((r,i)=>(i+1)+'. '+r.label+' — '+(r.done?'✅ fired':('in '+Math.max(1,Math.round((r.at-Date.now())/60000))+' min'))).join('\n')+(L.some(r=>!r.done)?'\n\nSay "delete reminder 2" or "clear reminders" to manage.':'')}
+  setInterval(tick,15000);
+  return{list:list,add:add,drop:drop,clear:clear,tick:tick,render:render};
+})();
+window.AuraAgent=(function(){
+  function ssePost(url,body,onEvent){
+    return new Promise((resolve,reject)=>{
+      fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>{
+        if(!r.ok||!r.body){r.text().then(t=>reject(new Error('HTTP '+r.status+' '+t.slice(0,80)))).catch(()=>reject(new Error('HTTP '+r.status)));return}
+        const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
+        (async()=>{try{
+          while(true){const {done,value}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});
+            const lines=buf.split('\n');buf=lines.pop()||'';
+            for(const ln of lines){const s=ln.replace(/^data:\s*/,'').trim();if(!s)continue;if(s==='[DONE]')return resolve();
+              try{const j=JSON.parse(s);if(j.error)return reject(new Error(j.error));if(j.step){if(onEvent)onEvent({type:'step',step:j.step})}else if(j.delta){if(onEvent)onEvent({type:'delta',text:j.delta})}}catch(e){}}}
+          resolve();
+        }catch(e){reject(e)}})();
+      }).catch(reject);
+    });
+  }
+  async function run(question,opts){
+    opts=opts||{};let final='';
+    const base=(typeof backendUrl==='function'&&backendUrl())||'';
+    if(!base)throw new Error('no backend URL');
+    await ssePost(base+'/v1/agent',{question:question,maxSteps:6},ev=>{
+      if(ev.type==='step'){if(opts.onStep)opts.onStep(ev.step)}
+      else if(ev.type==='delta')final+=ev.text;
+    });
+    if(!final.trim())throw new Error('empty agent answer');
+    return final.trim();
+  }
+  return{run:run};
+})();
+window.AuraLive=(function(){
+  let r=null,on=false;
+  function label(t){const h=document.getElementById('micHint');if(h)h.textContent=t}
+  function start(){
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){if(typeof pushSys==='function')pushSys('hands-free needs Chrome/Edge — typing works everywhere');return false}
+    on=true;window.__liveOn=true;
+    if('Notification' in window&&Notification.permission==='default'){try{Notification.requestPermission().catch(()=>{})}catch(e){}}
+    try{voiceSessionUntil=Date.now()+86400000}catch(e){}
+    spawn();return true;
+  }
+  function spawn(){
+    if(!on)return;
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    try{
+      r=new SR();r.lang=window.__auraLang==='hi'?'hi-IN':'en-IN';r.interimResults=true;r.maxAlternatives=3;r.continuous=true;
+      r.onstart=()=>{label('🎙 HANDS-FREE — just talk');if(typeof setMode==='function')setMode('listening')};
+      r.onresult=e=>{
+        let ft='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript}
+        if(!ft)return;
+        const c=typeof cleanTranscript==='function'?cleanTranscript(ft):ft.trim();
+        if(typeof isEcho==='function'&&isEcho(c))return;
+        if(typeof ttsActive!=='undefined'&&ttsActive){if(typeof stopSpeech==='function')stopSpeech();return}
+        if(typeof busy!=='undefined'&&busy)return;
+        const m=c.match(/(?:hey |ok |okay )?(?:aura|jarvis|ऑरा)[,.!]?\s*(.*)/i);
+        const cmd=m?m[1]:c;
+        if(cmd.replace(/[\s?!.]/g,'').length<2)return;
+        try{voiceSessionUntil=Date.now()+86400000}catch(e){}
+        if(typeof ask==='function')ask(cmd);
+      };
+      r.onerror=ev=>{if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){stop();if(typeof pushSys==='function')pushSys('mic blocked — hands-free needs microphone permission')}};
+      r.onend=()=>{if(on)setTimeout(spawn,400)};
+      r.start();
+    }catch(e){setTimeout(spawn,900)}
+  }
+  function stop(){on=false;window.__liveOn=false;try{if(r)r.abort()}catch(e){}label(typeof wake!=='undefined'&&wake?'WAKE WORD: \'HEY AURA\'':'TAP TO SPEAK');if(typeof setMode==='function')setMode('idle')}
+  function toggle(){if(on){stop();if(typeof pushSys==='function')pushSys('hands-free OFF — tap-to-talk is back');return}if(start()&&typeof pushSys==='function')pushSys('🎙 HANDS-FREE ON — talk naturally; speak over me to interrupt')}
+  return{toggle:toggle,stop:stop,isOn:function(){return on}};
+})();
+window.AuraEco=(function(){
+  function openApp(file,hash){try{const w=window.open(file+(hash?'#'+hash:''),'_blank');if(!w&&typeof pushSys==='function')pushSys('popup blocked — allow popups for ecosystem commands');return w}catch(e){return null}}
+  function route(q){
+    const t=String(q||'').trim();
+    let m=t.match(/^(?:hey (?:aura|jarvis)[, ]*)?(?:i want to )?(?:order|get|find|search(?: for)?)\s+(?:a |an |some )?(.+?)\s+(?:on|from|in|via)\s+foodora[.!?]*$/i);
+    if(m){const term=m[1].trim();openApp('foodora.html','aura='+encodeURIComponent(term));return 'Opening Foodora 🍜 — searching for "'+term+'" there. Pick a restaurant, add to cart, and checkout sends the order to the restaurant on WhatsApp.'}
+    m=t.match(/^(?:hey (?:aura|jarvis)[, ]*)?open\s+foodora(?:'s)?\s+cart[.!?]*$/i);
+    if(m){openApp('foodora.html','aura=cart');return 'Foodora open — your cart is up.'}
+    m=t.match(/^(?:hey (?:aura|jarvis)[, ]*)?(?:edit|retouch|enhance)\s+(?:my |this |the )?(photos?|images?|pictures?|selfies?|photo|image|picture|selfie)\b[^.!?]*?\b(?:in|with|using)\s+lucid[.!?]*$|^(?:hey (?:aura|jarvis)[, ]*)?open\s+lucid(?:'s)?\s+editor[.!?]*$/i);
+    if(m){if(/photos|images|pictures|batch/i.test(t)){openApp('lucid.html','batch');return 'Lucid batch processor ready 📸 — pick your photos; they all get the look and download as JPEG.'}openApp('lucid.html','aura=open');return 'Lucid is open 📸 — drop your photo in.'}
+    return null;
+  }
+  return{route:route};
+})();
+(function(){
+  const ab=document.getElementById('agentBtn');
+  if(ab)ab.onclick=()=>{const qi=document.getElementById('q');const t=((qi&&qi.value)||'').trim();if(t){window.__agentArmed=true;ask(t)}else{window.__agentArmed=true;addMsg(msgTag(),'🤖 Agent armed. Type or say your question — I will plan, search the web, read sources and answer with citations. (Say "agent mode <question>" anytime.)','aura')}};
+  const lb=document.getElementById('jarvisLiveBtn');
+  if(lb)lb.onclick=()=>AuraLive.toggle();
+  const rb=document.getElementById('remindBtn');
+  if(rb)rb.onclick=()=>addMsg(msgTag(),AuraRemind.render(),'aura');
+})();
+/* ---------- matplotlib chart bridge + package auto-install for the Python sandbox ---------- */
+window.__auraChart=function(dataURL){try{const fr=document.getElementById('codeFrame');if(fr)fr.srcdoc='<html><body style="margin:0;background:#0b0f14;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="'+dataURL+'" style="max-width:100%;height:auto" alt="chart"></body></html>'}catch(e){}};
+const MPL_PREAMBLE="import io, base64\ntry:\n    import matplotlib\n    matplotlib.use('AGG')\n    import matplotlib.pyplot as plt\n    def __aura_show(*a, **k):\n        buf = io.BytesIO()\n        plt.savefig(buf, format='png', dpi=110, bbox_inches='tight')\n        plt.close('all')\n        import js\n        js.window.__auraChart('data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode())\n    plt.show = __aura_show\nexcept Exception:\n    pass";
+async function pyEnsurePkgs(names){
+  for(const p of names){
+    const key='__pip_'+p;
+    if(window[key])continue;
+    codeLog('📦 installing python package: '+p+' …');
+    try{
+      await pyodide.loadPackage('micropip');
+      const micropip=pyodide.pyimport('micropip');
+      await micropip.install(p);
+      window[key]=true;codeLog('✓ '+p+' ready');
+    }catch(e){window[key]='failed';codeLog('⚠ '+p+' unavailable ('+String(e).split('\n')[0].slice(0,90)+')')}
+  }
+}
 window.AuraDocs=(function(){
   const KEY="aura_docs_v1",MAX_DOCS=10,MAX_CHUNKS=460,CH=900,OV=150;
   function all(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
@@ -2644,6 +2784,20 @@ async function aiReply(q){
       return { t:"🗑 Usage ledger cleared — telemetry restarts from zero now.", eng:"owner cockpit" };
     }
   }catch(e){}
+  /* ECOSYSTEM OS — voice commands drive the user's own apps */
+  {const eco=window.AuraEco&&AuraEco.route(q);if(eco)return{t:eco,eng:'ecosystem OS · portfolio apps'};}
+  /* AGENT MODE — armed via 🤖 AGENT button or "agent mode <question>" */
+  if(!window.__agentBusy&&(window.__agentArmed||/^(?:hey (?:aura|jarvis)[, ]*)?(?:agent mode|deep research)\b/i.test((q||'').trim()))){
+    window.__agentArmed=false;
+    const question=(q||'').replace(/^(?:hey (?:aura|jarvis)[, ]*)?(?:agent mode|deep research)\b[,:! ]*/i,'').trim()||q;
+    window.__agentBusy=true;
+    try{
+      pushSys('🤖 agent engaged — goal: '+question.slice(0,60));
+      const ans=await AuraAgent.run(question,{onStep:s=>pushSys('agent '+s.icon+' '+s.label)});
+      return{t:ans,eng:'AGENT LOOP · multi-step research · '+((ans.match(/\[\d+\]/g)||[]).length)+' citations'};
+    }catch(e){return{t:'Agent mode hit a snag ('+(e.message||e)+'). My standard brains are fine though — ask again normally.',eng:'agent (unavailable)'}}
+    finally{window.__agentBusy=false}
+  }
   const P=PERSONAS[persona()];
   const deep=persona()==="jarvis"||/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/i.test(q);
   detectedLang=detectLang(q)==="hi"?"hi":"en";
@@ -3340,6 +3494,21 @@ const TASKS={
     go:m=>{const n=+m[1];const unit=m[2][0].toLowerCase();const ms=unit==="h"?n*3600000:n*60000;const label=m[3]||"timer";
       setTimeout(()=>{blip(880,.35);setTimeout(()=>blip(1175,.35),450);pushSys("⏰ "+label+" done");const t="Time's up, boss — "+label+".";addMsg(msgTag(),t,"aura");if(voiceAllowed())speak(t)},ms);
       return"Timer set — "+n+(unit==="h"?" hour(s)":" minute(s)")+(m[3]?" for "+m[3]:"")+". I'll ping you when it's done."}},
+  remind:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:remind me|set a reminder|reminder)\s+(?:to\s+)?(.+?)(?:\s+(?:in|after)\s+(\d+)\s*(minutes?|mins?|m|hours?|h|days?|d)|\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?[.!?]*$/i,
+    go:m=>{const label=(m[1]||'').trim();let at=0,desc='';
+      if(m[2]){const n=+m[2],u=m[3][0].toLowerCase();at=Date.now()+(u==='h'?n*3600000:u==='d'?n*86400000:n*60000);desc='in '+n+' '+(u==='h'?'hour(s)':u==='d'?'day(s)':'minute(s)')}
+      else if(m[4]){let h=+m[4];const mi=+(m[5]||0),ap=(m[6]||'').toLowerCase();if(ap==='pm'&&h<12)h+=12;if(ap==='am'&&h===12)h=0;const d=new Date();d.setHours(h,mi,0,0);if(d.getTime()<=Date.now())d.setDate(d.getDate()+1);at=d.getTime();desc='at '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
+      if(!at)return null;
+      const ok=window.AuraRemind&&AuraRemind.add({label:label,at:at});
+      if(!ok)return null;
+      return'⏰ Reminder set: "'+label+'" '+desc+'. I will ping you even in a background tab. Say "show reminders" anytime.'},
+    eng:'reminder engine'},
+  remindList:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:(?:show|list|what are)(?: my)? reminders?|(?:my )?reminders?)\??$/i,
+    go:()=>window.AuraRemind?AuraRemind.render():null},
+  remindDel:{re:/^(?:hey (?:aura|jarvis)[, ]*)?delete reminder\s+(\d+)$/i,
+    go:m=>{if(!window.AuraRemind)return null;const L=AuraRemind.list();const i=+m[1]-1;if(!L[i])return'There is no reminder #'+m[1]+'.';AuraRemind.drop(L[i].id);return'🗑 Reminder deleted: "'+L[i].label+'"'}},
+  remindClear:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:clear|delete) (?:all )?(?:my )?reminders$/i,
+    go:()=>{if(!window.AuraRemind)return null;AuraRemind.clear();return'All reminders cleared, boss.'}},
   note:{re:/^(?:hey aura[, ]*)?(?:note|remember|save)(?: (?:this|that|it))?(?: down)?:?\s*(.+)$/i,
     go:m=>{try{const n=JSON.parse(localStorage.getItem("aura_notes")||"[]");n.push({t:m[1].trim(),d:Date.now()});localStorage.setItem("aura_notes",JSON.stringify(n));return"Noted, boss: “"+m[1].trim().slice(0,80)+"” — kept in this browser."}catch(e){return"I couldn't store the note (storage blocked)."}}},
   recap:{re:/^(?:hey aura[, ]*)?(?:what are my notes|read (?:my )?notes|recap notes|show notes)\??$/i,
@@ -3665,7 +3834,15 @@ async function pyRun(src){
   const fr=document.getElementById("codeFrame");if(fr)fr.srcdoc="";
   if(!pyReady){pyQueue.push(()=>pyRun(src));loadPyodideNow();if(!pyReady)return}
   codeLog("▶ running Python…");
-  try{await pyodide.runPythonAsync(src);codeLog("✓ done")}catch(e){codeLog("⛔ "+String(e).split("\n").filter(l=>/Error|error/.test(l)).slice(-3).join("\n")||String(e).slice(0,300))}
+  try{
+    const needs=[];
+    const nm=src.match(/\b(?:import|from)\s+(numpy|pandas|matplotlib|scipy|sklearn|sympy|PIL|requests|bs4|lxml)\b/g)||[];
+    for(const x of nm){const p=x.split(/\s+/)[1];if(!needs.includes(p))needs.push(p)}
+    if(needs.length)await pyEnsurePkgs(needs);
+    if(needs.includes("matplotlib")){try{await pyodide.runPythonAsync(MPL_PREAMBLE)}catch(e){}}
+    await pyodide.runPythonAsync(src);
+    codeLog("✓ done");
+  }catch(e){codeLog("⛔ "+String(e).split("\n").filter(l=>/Error|error/.test(l)).slice(-3).join("\n")||String(e).slice(0,300))}
 }
 async function ensurePy(say){if(!pyReady){say&&say();loadPyodideNow();return false}return true}
 function AICTX(){const a=document.getElementById("codeEditor");return a&&a.value.trim()?("\n\nCurrent code in the editor:\n```\n"+a.value.slice(0,5000)+"\n```"):""}
