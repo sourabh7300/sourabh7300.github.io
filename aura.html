@@ -688,6 +688,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   <button class="ibtn" id="personaBtn" title="One-tap switch between AURA and JARVIS">MODE: AURA</button>
   <button class="ibtn" id="keyBtn">SET AI KEY</button>
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
+  <button class="ibtn" id="docsBtn" title="Upload your PDFs & notes — answers cite file and page">📚 DOCS</button>
   <button class="ibtn" id="deepThinkBtn" title="DEEP THINK: always engage maximum reasoning, no matter the persona">🧠 DEEP</button>
   <button class="ibtn" id="themeBtn" title="Switch interface style: Futuristic / Gold / Classical">🎨 CYAN</button>
   </div>
@@ -945,16 +946,11 @@ function renderMD(t){
 }
 /* ---------------- vision (qwen3.8-27b accepts images) ---------------- */
 async function visionDescribe(dataURL,q){
-  const key=geminiKey().trim();
-  const m=dataURL.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);if(!m)throw new Error("bad image");
+  /* shrink big photos before sending — smaller payload = faster, works on every network */
+  try{if(dataURLBytes(dataURL)>420000)dataURL=await imgConvert(dataURL,"image/jpeg",.82)}catch(e){}
   const messages=[{role:"user",content:[{type:"text",text:(q||"Describe this image in detail: what is shown, any text visible, colors, mood, and anything notable. Plain text.")+" Answer in the persona of "+PERSONAS[persona()].name+"."},{type:"image_url",image_url:{url:dataURL}}]}];
-  const mdl="qwen/qwen3.8-27b";
-  const r=await fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{"Authorization":"Bearer "+key,"Content-Type":"application/json"},signal:AbortSignal.timeout(30000),body:JSON.stringify({model:mdl,messages:messages,max_tokens:900})});
-  if(!r.ok)throw new Error("HTTP "+r.status);
-  const d=await r.json();
-  const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
-  if(!t.trim())throw new Error("empty");
-  return t.trim();
+  /* route through the full brain chain: owner backend → local key bank → fallbacks */
+  return await groqCall(messages,900,"meta-llama/llama-4-scout-17b-16e-instruct");
 }
 /* ---------------- news briefing ---------------- */
 async function newsBrief(){
@@ -1360,6 +1356,168 @@ function setPersona(p,announce){
 /* ---------------- local intelligence (big offline core) ---------------- */
 function memGet(){try{return JSON.parse(localStorage.getItem("aura_memory")||"{}")}catch(e){return{}}}
 function memSet(m){try{localStorage.setItem("aura_memory",JSON.stringify(m))}catch(e){}}
+/* ============ LONG-TERM MEMORY — durable facts about the user, recalled by relevance ============ */
+window.AuraMem=(function(){
+  const KEY="aura_facts_v1";
+  function all(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
+  function save(a){try{localStorage.setItem(KEY,JSON.stringify(a.slice(-140)))}catch(e){}}
+  function norm(s){return String(s).toLowerCase().replace(/[^a-z0-9\u0900-\u097F ]/g,"").trim()}
+  function add(txt,src){
+    const t=String(txt||"").trim().slice(0,240);if(t.length<3)return false;
+    const n=norm(t);if(!n)return false;
+    const a=all();if(a.some(function(f){return f.norm===n}))return false;
+    a.push({id:Date.now()+""+(Math.random()*1e4|0),text:t,norm:n,ts:Date.now(),src:src||"auto"});
+    save(a);return true;
+  }
+  function drop(id){save(all().filter(function(f){return f.id!==id}))}
+  function clear(){try{localStorage.removeItem(KEY)}catch(e){}}
+  function recall(q,k){
+    const a=all();if(!a.length)return[];
+    const qs=new Set(norm(q).split(/\s+/).filter(function(w){return w.length>2}));
+    const now=Date.now();
+    return a.map(function(f){
+      const fs=new Set(norm(f.text).split(/\s+/).filter(function(w){return w.length>2}));
+      let s=0;fs.forEach(function(w){if(qs.has(w))s+=2});
+      s+=Math.max(0,1-(now-f.ts)/2592000000)*0.6;
+      return{f:f,s:s};
+    }).filter(function(x){return x.s>=(x.f.src==="explicit"?0.6:2)}).sort(function(x,y){return y.s-x.s}).slice(0,k||8).map(function(x){return x.f});
+  }
+  function contextFor(q){
+    const f=recall(q);if(!f.length)return"";
+    return"\n\nLONG-TERM MEMORY (durable facts this user told you before — use silently when relevant; never recite the list):\n"+f.map(function(x){return "- "+x.text}).join("\n");
+  }
+  return{all:all,add:add,drop:drop,clear:clear,recall:recall,contextFor:contextFor};
+})();
+/* silent background extraction: every 4th question, pull durable facts from the recent convo */
+function scheduleMemExtract(q){
+  try{
+    if(!q||q.length<8)return;
+    if(/^(remember|forget|what do you remember|wipe my memory)/i.test(q.trim()))return;
+    window.__memQ=(window.__memQ||0)+1;
+    if(window.__memQ%4!==0)return;
+    if(!CONVO.length)return;
+    if(!geminiKey()&&!backendUrl())return;
+    setTimeout(function(){
+      const dump=CONVO.slice(-8).map(function(m){return (m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,300)}).join("\n");
+      const sys="Extract durable facts about the USER (not general knowledge) from this conversation: name, studies, goals, projects, preferences, plans. Reply ONLY with a JSON array of short third-person fact strings (max 5, each under 120 chars). If nothing durable about the user, reply [].";
+      groqCall([{role:"system",content:sys},{role:"user",content:dump}],260).then(function(t){
+        let arr=null;try{const m2=t.match(/\[[\s\S]*\]/);if(m2)arr=JSON.parse(m2[0])}catch(e){}
+        if(!Array.isArray(arr))return;
+        let n=0;arr.forEach(function(s){if(typeof s==="string"&&AuraMem.add(s,"auto"))n++});
+        if(n)slog("long-term memory: "+n+" new fact"+(n>1?"s":"")+" stored");
+      }).catch(function(){});
+    },2500);
+  }catch(e){}
+}
+/* ============ DOCUMENT RAG — upload PDFs/notes, answers cite [file · page] ============ */
+window.AuraDocs=(function(){
+  const KEY="aura_docs_v1",MAX_DOCS=10,MAX_CHUNKS=460,CH=900,OV=150;
+  function all(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
+  function save(a){try{localStorage.setItem(KEY,JSON.stringify(a))}catch(e){}}
+  function norm(s){return String(s).toLowerCase().match(/[a-z0-9\u0900-\u097F]{3,}/g)||[]}
+  function chunkText(t){const out=[];let i=0;while(i<t.length){const c=t.slice(i,i+CH);if(c.trim().length>40)out.push(c);if(i+CH>=t.length)break;i+=CH-OV}return out}
+  function loadPdfJs(){return new Promise(function(res,rej){
+    if(window.pdfjsLib)return res(window.pdfjsLib);
+    const s=document.createElement("script");
+    s.src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
+    s.onload=function(){try{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";res(window.pdfjsLib)}catch(e){rej(e)}};
+    s.onerror=function(){rej(new Error("PDF engine could not load — check internet"))};
+    document.head.appendChild(s);
+  })}
+  async function ingestFiles(files,report){
+    for(const f of Array.from(files||[])){
+      try{
+        let parts=[],pages=0;
+        if(/\.pdf$/i.test(f.name)){
+          if(report)report("📖 reading "+f.name+" — extracting text page by page…");
+          const pdfjs=await loadPdfJs();
+          const buf=await f.arrayBuffer();
+          const pdf=await pdfjs.getDocument({data:buf}).promise;
+          pages=pdf.numPages;
+          for(let p=1;p<=Math.min(pages,150);p++){
+            const pg=await pdf.getPage(p);
+            const tc=await pg.getTextContent();
+            parts.push((tc.items||[]).map(function(i){return i.str}).join(" "));
+          }
+        }else{
+          const t=await f.text();
+          pages=Math.max(1,Math.ceil(t.length/2400));
+          for(let p=1;p<=pages;p++)parts.push(t.slice((p-1)*2400,p*2400));
+        }
+        const text=parts.join("\n").replace(/\s+/g," ").trim();
+        if(!text)throw new Error("no selectable text found (scanned/image-only PDFs need OCR)");
+        const chunks=[];
+        parts.forEach(function(pt,idx){chunkText(pt).forEach(function(c){chunks.push({t:c,p:idx+1})})});
+        if(!chunks.length)throw new Error("too little text to index");
+        let docs=all().filter(function(x){return x.name!==f.name});
+        docs.push({name:f.name,pages:pages,chunks:chunks,ts:Date.now()});
+        while(docs.length>1&&docs.reduce(function(n,x){return n+x.chunks.length},0)>MAX_CHUNKS)docs.shift();
+        if(docs.length>MAX_DOCS)docs=docs.slice(-MAX_DOCS);
+        save(docs);
+        if(report)report("✅ "+f.name+" — "+pages+" pages · "+chunks.length+" chunks indexed. Ask anything about it — I cite the page.");
+      }catch(e){if(report)report("❌ "+f.name+" — "+(e.message||e))}
+    }
+  }
+  function search(q,k){
+    const qs=new Set(norm(q));if(!qs.size)return[];
+    const scored=[];
+    all().forEach(function(d){
+      d.chunks.forEach(function(c){
+        const cs=norm(c.t);let s=0;const seen={};
+        cs.forEach(function(w){if(qs.has(w)&&!seen[w]){seen[w]=1;s+=2}});
+        if(s>0)scored.push({d:d.name,p:c.p,t:c.t,s:s});
+      });
+    });
+    scored.sort(function(a,b){return b.s-a.s});
+    const out=[],used={};
+    for(const x of scored){const kk=x.d+":"+x.p;if(used[kk])continue;used[kk]=1;out.push(x);if(out.length>=(k||6))break}
+    return out;
+  }
+  function contextFor(q){
+    if(!all().length)return"";
+    const hits=search(q,6);if(!hits.length)return"";
+    return"\n\nTHE USER'S OWN DOCUMENTS (files they uploaded — when relevant, answer from these and cite like [notes.pdf p.3]):\n"+hits.map(function(h){return "[ "+h.d+" · p."+h.p+" ] "+h.t.slice(0,700)}).join("\n---\n");
+  }
+  function list(){return all()}
+  function remove(name){save(all().filter(function(x){return x.name!==name}))}
+  function clear(){try{localStorage.removeItem(KEY)}catch(e){}}
+  let inp=null;
+  function pick(){
+    if(!inp){
+      inp=document.createElement("input");inp.type="file";inp.multiple=true;inp.style.display="none";
+      inp.accept=".pdf,.txt,.md,.csv,.json,.log";
+      document.body.appendChild(inp);
+      inp.addEventListener("change",function(){
+        const fl=inp.files;inp.value="";
+        ingestFiles(fl,function(msg){addMsg(msgTag(),msg,"aura")});
+      });
+    }
+    inp.click();
+  }
+  function esc2(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}
+  function modal(){
+    const old=document.getElementById("docsMenu");if(old)old.remove();
+    const ov=document.createElement("div");ov.id="docsMenu";
+    ov.style.cssText="position:fixed;inset:0;background:rgba(2,6,14,.72);backdrop-filter:blur(6px);z-index:9998;display:flex;align-items:center;justify-content:center";
+    const docs=all();
+    ov.innerHTML='<div style="position:relative;background:rgba(10,16,30,.97);border:1px solid rgba(120,220,255,.25);border-radius:16px;padding:22px;width:min(430px,92vw);color:#dfeaff;box-shadow:0 24px 60px rgba(0,0,0,.5)">'+
+      '<button id="docsX" style="position:absolute;top:8px;right:12px;background:none;border:none;color:#9cf;font-size:18px;cursor:pointer">✕</button>'+
+      '<h3 style="margin:0 0 4px;font-size:15px;letter-spacing:.4px">📚 MY DOCUMENTS</h3>'+
+      '<div style="font-size:11.5px;opacity:.65;margin-bottom:14px">Upload PDFs & notes — I read them, and answers cite [file · page]</div>'+
+      '<div style="display:flex;gap:8px;margin:8px 0"><button id="docsAdd" style="flex:1;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);color:#bfefff;border-radius:10px;padding:9px 8px;font-size:12.5px;cursor:pointer;font-weight:600">⬆ ADD PDF / NOTES</button>'+
+      '<button id="docsClear" style="flex:1;background:rgba(255,120,120,.08);border:1px solid rgba(255,120,120,.35);color:#ffb4b4;border-radius:10px;padding:9px 8px;font-size:12.5px;cursor:pointer;font-weight:600">🗑 CLEAR ALL</button></div>'+
+      '<div id="docsList" style="margin-top:10px;max-height:200px;overflow:auto">'+(docs.length?docs.map(function(d){return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px;border:1px solid rgba(120,220,255,.15);border-radius:9px;margin:5px 0;font-size:12px"><span>📄 '+esc2(d.name)+' <span style="opacity:.55">· '+d.pages+'p · '+d.chunks.length+' chunks</span></span><button data-n="'+esc2(d.name)+'" class="docsDel" style="background:none;border:none;color:#ff9c9c;cursor:pointer;font-size:13px">✕</button></div>'}).join(""):'<div style="font-size:12px;opacity:.6;padding:10px 4px">Nothing uploaded yet. Add class notes, syllabus, project reports — then ask “what does my syllabus say about the AI elective?”</div>')+'</div>'+
+      '<div style="font-size:11px;opacity:.6;margin:12px 0 0;line-height:1.5">Everything stays on this device. Voice too: “add a document”, “open my documents”, “clear documents”.</div>';
+    document.body.appendChild(ov);
+    document.getElementById("docsX").onclick=function(){ov.remove()};
+    ov.addEventListener("click",function(e){if(e.target===ov)ov.remove()});
+    document.getElementById("docsAdd").onclick=function(){pick()};
+    document.getElementById("docsClear").onclick=function(){clear();modal()};
+    ov.querySelectorAll(".docsDel").forEach(function(b){b.onclick=function(){remove(b.getAttribute("data-n"));modal()}});
+  }
+  const db=document.getElementById("docsBtn");if(db)db.addEventListener("click",modal);
+  return{all:all,ingestFiles:ingestFiles,search:search,contextFor:contextFor,list:list,remove:remove,clear:clear,pick:pick,modal:modal};
+})();
 /* ---- Hindi identity & small-talk (used when the question is in Hindi/Hinglish) ---- */
 const HI_REPLIES={
   "तुम कौन हो":"मैं AURA हूँ — Adaptive Universal Reasoning Assistant — जिसे Sourabh Singh ने खुद डिज़ाइन और बनाया है। B.Tech CSE, JECRC University। मेरा 3D कोर, आवाज़ और दिमाग़ — सब शुद्ध JavaScript, बिना किसी framework के।",
@@ -2083,18 +2241,54 @@ try{(function(){const list=sessions.all();if(!list.length){const saved=hist.load
 /* ---------------- conversation memory (ChatGPT-style follow-ups) ---------------- */
 const CONVO=[];const CONVO_MAX=12;
 function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX);try{hist.add(role,content)}catch(e){}}
-function convoCtx(){return CONVO.length?"\n\nRECENT CONVERSATION (for context — keep continuity with it; resolve pronouns like he/she/it/that against the current topic; do not repeat it verbatim):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):""}
+function convoCtx(){
+  let s=CONVO.length?"\n\nRECENT CONVERSATION (for context — keep continuity with it; resolve pronouns like he/she/it/that against the current topic; do not repeat it verbatim):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
+  try{if(window.AuraMem&&window.__auraQ){const mc=AuraMem.contextFor(window.__auraQ);if(mc)s+=mc}}catch(e){}
+  try{if(window.AuraDocs&&window.__auraQ){const dc=AuraDocs.contextFor(window.__auraQ);if(dc)s+=dc}}catch(e){}
+  return s;
+}
 function personaName(){try{return (PERSONAS[persona()]||PERSONAS.aura).name}catch(e){return "AURA"}}
 function replyStyle(){return " IMPORTANT — sound like a smart human talking, never like an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; never open with dictionary framing like 'X is a...' or 'X refers to...'; never say 'according to Wikipedia'; if the question is casual, answer casual; if factual, be vivid but precise."}
 /* ---------------- streaming (ChatGPT-style token-by-token) ---------------- */
 let streamAbort=null;
 async function groqStream(messages,maxTok,onChunk){
   const key=(geminiKey()||"").trim();
-  /* ZERO-KEY visitors: no local Groq key → the secure backend answers, revealed
-     progressively so the conversation still feels like live streaming. */
+  /* ZERO-KEY visitors: REAL token-by-token SSE stream from the owner backend;
+     falls back to progressive reveal if the stream route is unavailable. */
   if(!key){
     const ac=new AbortController();streamAbort=ac;
     try{
+      const base=backendUrl();
+      if(base){
+        try{
+          const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
+          const hd={"Content-Type":"application/json"};if(secret)hd["X-AURA-Key"]=secret;
+          const r=await fetch(base+"/v1/chat/stream",{method:"POST",headers:hd,signal:ac.signal,
+            body:JSON.stringify({model:groqModel||GROQ_MODELS[0],messages:messages,max_tokens:maxTok||1600})});
+          if(r.ok&&r.body){
+            const reader=r.body.getReader();const dec=new TextDecoder();let buf="",full="",got=false;
+            while(true){
+              const rd=await reader.read();if(rd.done)break;
+              buf+=dec.decode(rd.value,{stream:true});
+              const blocks=buf.split("\n\n");buf=blocks.pop()||"";
+              for(const blk of blocks){
+                const ln=blk.split("\n").find(function(l){return l.indexOf("data:")===0});if(!ln)continue;
+                const s=ln.slice(5).trim();if(!s||s==="[DONE]")continue;
+                let j=null;try{j=JSON.parse(s)}catch(e2){continue}
+                if(j.outOfTokens){const e2=new Error("out_of_tokens");e2.outOfTokens=true;throw e2}
+                if(j.delta){got=true;full+=j.delta;if(onChunk)onChunk(full)}
+              }
+            }
+            if(!got||!full.trim())throw new Error("empty stream");
+            slog("real-time token stream from owner backend",true);
+            return full.trim();
+          }
+          throw new Error("stream HTTP "+r.status);
+        }catch(se){
+          if(se&&(se.outOfTokens||se.name==="AbortError"))throw se;
+          slog("backend stream unavailable ("+(se.message||se)+") — progressive reveal instead",true);
+        }
+      }
       const t=await backendCall(messages,maxTok);
       const parts=t.split(/(\s+)/);let acc="";
       for(let i=0;i<parts.length;i+=6){
@@ -2495,7 +2689,7 @@ async function aiReply(q){
 /* ---------------- ask pipeline ---------------- */
 let busy=false,askAt=0,qQueue=[];
 async function askCore(text0){
-  let text=autoFix(text0);
+  let text=autoFix(text0);window.__auraQ=text||"";
   /* OWNER COCKPIT — invisible intents, admin-gated, answered before anything else */
   {
     const ol=(text||"").toLowerCase().trim();
@@ -2573,6 +2767,59 @@ async function askCore(text0){
       }
     }
     try{AuraMetrics.event("question",text)}catch(e){}
+  }
+  /* ===== LONG-TERM MEMORY + DOCUMENT RAG intents (before everything else) ===== */
+  {
+    const lqm=(text||"").toLowerCase().trim();let mm;
+    if((mm=(text||"").match(/^remember (?:that )?(.{3,240})$/i))){
+      const ok=AuraMem.add(mm[1].trim(),"explicit");
+      addMsg("YOU ▸",text,"user");
+      addMsg(msgTag(),ok?"🧠 Stored permanently: \""+esc(mm[1].trim())+"\" — I'll carry this across every future conversation.":"🧠 That's already in my memory.","aura");
+      if(voiceAllowed())speak(ok?"Remembered.":"Already known.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(what do you (remember|know) about me|show (my )?memory|memory list|what do you remember)$/.test(lqm)){
+      const f=AuraMem.all();addMsg("YOU ▸",text,"user");
+      addMsg(msgTag(),f.length?"🧠 I remember "+f.length+" thing"+(f.length>1?"s":"")+" about you:\n\n"+f.slice(-12).map(function(x,i){return (i+1)+". "+esc(x.text)}).join("\n"):"🧠 Nothing stored yet — tell me things starting with “remember that …” and I'll keep them across sessions.","aura");
+      if(voiceAllowed())speak(f.length?("I remember "+f.length+" facts about you."):"Tell me things to remember, starting with remember that.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if((mm=(text||"").match(/^forget (?:that )?(.{3,200})$/i))){
+      const needle=mm[1].trim().toLowerCase();
+      const hits=AuraMem.all().filter(function(x){return x.text.toLowerCase().indexOf(needle)>=0});
+      hits.forEach(function(x){AuraMem.drop(x.id)});
+      addMsg("YOU ▸",text,"user");
+      addMsg(msgTag(),hits.length?"🧹 Forgotten "+hits.length+" memor"+(hits.length>1?"ies":"y")+" matching \""+esc(mm[1].trim())+"\".":"I don't have that in my memory.","aura");
+      if(voiceAllowed())speak(hits.length?"Forgotten.":"Nothing to forget.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^wipe my memory$|^forget everything( about me)?$/.test(lqm)){
+      AuraMem.clear();addMsg("YOU ▸",text,"user");
+      addMsg(msgTag(),"🧠 Memory wiped — I start fresh with you. (Saved chats are untouched.)","aura");
+      if(voiceAllowed())speak("Memory wiped.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(open|show|my|view) (my )?(documents|docs)$|^(documents|docs|document library)$/.test(lqm)){
+      addMsg("YOU ▸",text,"user");AuraDocs.modal();
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(add|upload|read|ingest) (a |my |an |some )?(document|documents|pdf|pdfs|doc|note|notes|file|files)$/.test(lqm)||/^upload (a )?pdf$/.test(lqm)){
+      addMsg("YOU ▸",text,"user");
+      addMsg(msgTag(),"📚 File picker opening — choose PDFs or text notes. I'll index every page and cite them in answers.","aura");
+      AuraDocs.pick();
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(clear|delete|remove) (my )?(documents|docs)$/.test(lqm)){
+      AuraDocs.clear();addMsg("YOU ▸",text,"user");
+      addMsg(msgTag(),"📚 Document library cleared.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(my documents|document status|what documents do i have|what pdfs do i have)$/.test(lqm)){
+      const d=AuraDocs.list();addMsg("YOU ▸",text,"user");
+      addMsg(msgTag(),d.length?"📚 "+d.length+" document"+(d.length>1?"s":"")+" indexed: "+d.map(function(x){return x.name+" ("+x.pages+"p, "+x.chunks.length+" chunks)"}).join(" · ")+". Ask anything — I'll cite the page.":"📚 No documents yet — say “add a document” or tap 📚 DOCS.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    scheduleMemExtract(text);
   }
   /* instant-silence is an INTERRUPT — it must work even while AURA is busy/speaking */
   if(/^(?:shut up|stop talking|be quiet|silence|silent mode|chup|chup ho jao|चुप\s*हो\s*जाओ|चुप|रुक\s*जाओ|रुको)\b/i.test((text||'').trim())){

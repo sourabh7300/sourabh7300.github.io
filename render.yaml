@@ -10,6 +10,12 @@ services:
     envVars:
       - key: GROQ_API_KEY
         sync: false          # you paste the key in the Render dashboard — never in this file
+      - key: GROQ_API_KEYS
+        sync: false          # backup Groq key(s), comma-separated
+      - key: MISTRAL_API_KEY
+        sync: false          # reserve brain — answers when every Groq key drains
+      - key: GEMINI_API_KEY
+        sync: false          # vision — AURA's eyes for image questions (aistudio.google.com)
       - key: RATE_LIMIT
         value: "30"
       # Optional hardening:
