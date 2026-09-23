@@ -102,9 +102,24 @@ function pickKey() {
 
 app.use(express.json({ limit: "8mb" })); /* room for base64 photos (vision) */
 
-/* CORS — the portfolio origin (and localhost for dev) */
+/* PRIVATE GATE — the backend is reachable by URL (static sites call it directly
+   from the visitor's browser), but it serves ONLY its own sites: browsers identify
+   themselves with the Origin header, and the owner's tools with X-AURA-Key.
+   curl / scrapers / strangers get a 403. /health stays open for uptime monitors. */
+const ALLOW_ORIGINS = (process.env.ALLOW_ORIGINS || "https://sourabh7300.github.io").split(",").map(s => s.trim());
+const OWNER_SECRET = process.env.SECRET || "";
 app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (req.path === "/health" || req.path === "/") return next();
+  const origin = req.headers.origin || "";
+  const okOrigin = ALLOW_ORIGINS.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  const okSecret = OWNER_SECRET && req.headers["x-aura-key"] === OWNER_SECRET;
+  if (!okOrigin && !okSecret && process.env.OPEN_GATE !== "1") {
+    return res.status(403).json({ error: "forbidden", message: "This AURA backend serves its own sites only." });
+  }
+  if (okOrigin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-AURA-Key, Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(204);
