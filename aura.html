@@ -216,32 +216,63 @@ body[data-tab="chats"] #conv,body[data-tab="system"] #conv,body[data-tab="code"]
 body[data-tab="code"] #dock{opacity:.25;pointer-events:none}
 #codePage{display:none;position:fixed;top:74px;left:22px;right:22px;bottom:130px;z-index:9;flex-direction:column;gap:10px}
 body[data-tab="code"] #codePage{display:flex}
+/* ── toolbar ── */
 #codeTop{display:flex;gap:8px;align-items:center;flex-wrap:nowrap;min-width:0}
-#codeLang{flex:0 0 auto;max-width:44%;background:var(--panel);border:1px solid var(--line);color:var(--cy2);font-family:var(--mono);font-size:12px;padding:9px 10px;border-radius:9px;outline:none;cursor:pointer}
+#codeLang,#codeTpl{flex:0 0 auto;max-width:26%;background:var(--panel);border:1px solid var(--line);color:var(--cy2);font-family:var(--mono);font-size:12px;padding:9px 10px;border-radius:9px;outline:none;cursor:pointer}
 #codePrompt{flex:1 1 auto;min-width:120px;background:var(--panel);border:1px solid var(--line2);color:var(--ice);border-radius:9px;padding:10px 14px;font-size:13.5px;font-family:var(--mono);outline:none}
 #codeGen{flex:0 0 auto;white-space:nowrap}
 #codePrompt:focus{border-color:var(--line)}
 .cbtn{background:rgba(34,211,238,.12);border:1px solid var(--line);color:var(--cy2);border-radius:9px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--mono);letter-spacing:.5px;transition:.2s}
 .cbtn:hover{background:rgba(34,211,238,.25)}
+/* ── file strip ── */
+#codeFiles{display:none;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none;padding:2px 0;flex:0 0 auto}
+#codeFiles.show{display:flex}
+#codeFiles::-webkit-scrollbar{display:none}
+.cfiletab{display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line2);color:var(--dim);font-family:var(--mono);font-size:10.5px;padding:6px 11px;border-radius:8px;cursor:pointer;white-space:nowrap;transition:.15s;user-select:none}
+.cfiletab b{font-weight:500}
+.cfiletab.on{color:var(--cy2);border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.10);box-shadow:0 0 12px rgba(34,211,238,.12)}
+.cfiletab.on b{font-weight:700}
+.cfiletab .fx{opacity:.5;font-size:11px;padding:0 1px}
+.cfiletab .fx:hover{color:#f87171;opacity:1}
+.cfileadd{border-style:dashed;color:#3f7a8a}
+.cfileadd:hover{color:var(--cy2);border-color:var(--cy2)}
+/* ── split panes ── */
 #codeSplit{flex:1;display:flex;gap:10px;min-height:0}
-#codeEdWrap,#codeOutWrap{flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line2);border-radius:12px;overflow:hidden;min-width:0}
+#codeEdWrap,#codeOutWrap{flex:1;display:flex;flex-direction:column;background:linear-gradient(180deg,rgba(7,16,26,.985),rgba(5,12,20,.985));border:1px solid var(--line2);border-radius:12px;overflow:hidden;min-width:0;box-shadow:0 4px 24px rgba(0,0,0,.18)}
+body.theme-classical #codeEdWrap,body.theme-classical #codeOutWrap{background:#fbf5e6}
+#codeEdWrap:focus-within{border-color:rgba(34,211,238,.45)}
 #codeEdWrap h4,#codeOutWrap h4{font-family:'Orbitron';font-size:9.5px;letter-spacing:2px;color:var(--dim);padding:8px 12px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:38px;box-sizing:border-box}
 #codeEdWrap h4 .hbtns,#codeOutWrap h4 .hbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;letter-spacing:0}
+/* editor + gutter + status */
+#codeEdBody{flex:1;display:flex;min-height:0;position:relative}
+#codeGutter{flex:0 0 46px;overflow:hidden;background:rgba(1,8,12,.35);border-right:1px solid rgba(34,211,238,.10);color:#3f7a8a;font-family:var(--mono);font-size:12.5px;line-height:1.55;text-align:right;padding:14px 8px 14px 0;user-select:none;white-space:pre}
 #codeEditor{flex:1;background:rgba(1,8,12,.55);color:#d7fbff;border:none;outline:none;resize:none;padding:14px;font-family:var(--mono);font-size:12.5px;line-height:1.55;white-space:pre;overflow:auto;tab-size:2}
+#codeStatus{flex:0 0 auto;display:flex;gap:16px;align-items:center;padding:6px 14px;border-top:1px solid var(--line2);background:rgba(2,10,16,.6);font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.08em;flex-wrap:wrap}
+#codeStatus b{color:var(--cy2);font-weight:600}
+/* output pane */
+#codeOutBody{flex:1;display:flex;flex-direction:column;min-height:0;position:relative}
+#codeFrame{width:100%;height:100%;border:none;background:#fff;flex:1;min-height:0}
+#codeFrame.mobframe{max-width:390px;margin:10px auto;height:calc(100% - 20px);border-radius:18px;box-shadow:0 0 0 8px #10181f,0 12px 40px rgba(0,0,0,.5)}
+#codeLog{flex:0 0 auto;max-height:32%;min-height:34px;overflow:auto;background:rgba(2,10,16,.985);border-top:1px solid var(--line2);padding:8px 14px;font-family:var(--mono);font-size:11.5px;color:#9fe8f5;white-space:pre-wrap;display:none;line-height:1.6}
+#codeLog.show{display:block}
+#codeLog .lg-ok{color:#34d399}
+#codeLog .lg-err{color:#f87171}
+#codeLog .lg-warn{color:#fbbf24}
+#codeLog .lg-info{color:#9fe8f5}
+#codeLog .lg-sys{color:#7fb3c4}
+#codeLog .lg-dim{color:#3f7a8a}
 #codeRun{flex:1;background:rgba(1,8,12,.55);padding:0;overflow:hidden}
-#codeFrame{width:100%;height:100%;border:none;background:#fff}
-#codeLog{position:absolute;bottom:0;left:0;right:0;max-height:38%;overflow:auto;background:rgba(2,10,16,.92);border-top:1px solid var(--line2);padding:10px 14px;font-family:var(--mono);font-size:11.5px;color:#9fe8f5;white-space:pre-wrap;display:none}
-#codeOutWrap{position:relative}
-@media(max-width:860px){#codeSplit{flex-direction:column}#codePage{top:104px;left:8px;right:8px;bottom:200px}
+@media(max-width:860px){#codeSplit{flex-direction:column}#codePage{top:152px;left:8px;right:8px;bottom:24px}body[data-tab="code"] #dock{display:none}
   #codeSplit{gap:8px}
   #codeEdWrap,#codeOutWrap{min-height:220px;flex:1 1 auto}
-  #codeEdWrap{flex:0 0 240px}
+  #codeEdWrap{flex:0 0 250px}
   #codeEditor{font-size:12px;padding:10px}
-  #codeTop{gap:6px}
-  #codeLang{flex:0 0 auto;max-width:40%;font-size:11px;padding:8px 6px}
-  #codePrompt{min-width:0;flex:1;font-size:12.5px;padding:9px 10px}
-  #codeGen{padding:8px 10px;font-size:11px}
+  #codeTop{gap:6px;flex-wrap:wrap}
+  #codeLang,#codeTpl{max-width:44%;font-size:11px;padding:8px 6px}
+  #codePrompt{min-width:0;flex:1 1 100%;font-size:12.5px;padding:9px 10px}
   #codeGen{padding:10px 14px}
+  #codeStatus{gap:10px;font-size:9px}
+  #codeGutter{flex-basis:34px}
 }
 #sessPanel{display:none;top:74px;right:22px;width:min(440px,40vw);bottom:130px;flex-direction:column;overflow:hidden}
 body[data-tab="chats"] #sessPanel{display:flex}
@@ -669,12 +700,14 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
       <option value="dart">Dart</option><option value="scala">Scala</option><option value="perl">Perl</option><option value="lua">Lua</option>
       <option value="haskell">Haskell</option><option value="css">CSS</option><option value="react">React (JSX)</option>
     </select>
+    <select id="codeTpl"><option value="">📋 templates…</option><option value="login">🔐 login + signup UI</option><option value="dash">📊 mini dashboard</option><option value="game">🎮 arcade game</option><option value="calc">🧮 calculator</option><option value="todo">✅ todo app</option><option value="api">🌐 fetch + async demo</option><option value="pydata">🐍 python data analysis</option></select>
     <input id="codePrompt" placeholder="Describe what to build — e.g. “a python script that renames all photos by date”…">
     <button class="cbtn" id="codeGen">⚡ BUILD</button>
   </div>
+  <div id="codeFiles"></div>
   <div id="codeSplit">
-    <div id="codeEdWrap"><h4><span>CODE</span><span class="hbtns"><button class="cbtn" id="codeRunBtn" style="padding:5px 10px;font-size:10px">▶ RUN</button> <button class="cbtn" id="codeFix" style="padding:5px 10px;font-size:10px;border-color:rgba(251,191,36,.5);color:#fbbf24" title="Paste broken code, hit FIX — I find the bugs, fix them, and prove it by running">🛠 FIX</button> <button class="cbtn" id="codeDl" style="padding:5px 10px;font-size:10px">⤓ SAVE</button> <button class="cbtn" id="codeCopy" style="padding:5px 10px;font-size:10px">⧉</button></span></h4><textarea id="codeEditor" spellcheck="false" placeholder="// your code appears here — write it yourself, or describe it above and hit BUILD"></textarea></div>
-    <div id="codeOutWrap"><h4><span>OUTPUT</span><span class="hbtns"><button class="cbtn" id="codeOutDl" style="padding:5px 10px;font-size:10px;border-color:rgba(52,211,153,.55);color:#34d399" title="Download your work to this laptop — runnable file, ready to keep">⤓ DOWNLOAD</button> <button class="cbtn" id="codeClear" style="padding:5px 10px;font-size:10px">✕ clear</button></span></h4><iframe id="codeFrame" sandbox="allow-scripts allow-modals allow-popups allow-forms"></iframe><div id="codeLog"></div></div>
+    <div id="codeEdWrap"><h4><span>CODE</span><span class="hbtns"><button class="cbtn" id="codeExplain" style="padding:5px 10px;font-size:10px;border-color:rgba(167,139,250,.5);color:#a78bfa" title="AI explains this code in the chat — step by step">💡 EXPLAIN</button> <button class="cbtn" id="codeConvert" style="padding:5px 10px;font-size:10px;border-color:rgba(167,139,250,.5);color:#a78bfa" title="AI converts this code into the language you pick">🔁 CONVERT</button> <button class="cbtn" id="codeRunBtn" style="padding:5px 10px;font-size:10px" title="Ctrl+Enter also runs">▶ RUN</button> <button class="cbtn" id="codeFix" style="padding:5px 10px;font-size:10px;border-color:rgba(251,191,36,.5);color:#fbbf24" title="Paste broken code, hit FIX — I find the bugs, fix them, and prove it by running">🛠 FIX</button> <button class="cbtn" id="codeDl" style="padding:5px 10px;font-size:10px">⤓ SAVE</button> <button class="cbtn" id="codeCopy" style="padding:5px 10px;font-size:10px">⧉</button></span></h4><div id="codeEdBody"><div id="codeGutter">1</div><textarea id="codeEditor" spellcheck="false" placeholder="// your code appears here — write it, BUILD it, or pick a 📋 template above"></textarea></div><div id="codeStatus"><span id="stLang"><b>javascript</b></span><span id="stLines">0 lines</span><span id="stCaret">ln 1, col 1</span><span id="stSaved" style="margin-left:auto">✓ ready</span></div></div>
+    <div id="codeOutWrap"><h4><span>OUTPUT</span><span class="hbtns"><button class="cbtn" id="codePhone" style="padding:5px 10px;font-size:10px" title="Preview your page inside a phone frame">📱 PHONE</button> <button class="cbtn" id="codeOutDl" style="padding:5px 10px;font-size:10px;border-color:rgba(52,211,153,.55);color:#34d399" title="Download your work to this laptop — runnable file, ready to keep">⤓ DOWNLOAD</button> <button class="cbtn" id="codeZip" style="padding:5px 10px;font-size:10px;border-color:rgba(52,211,153,.55);color:#34d399" title="Download the whole multi-file project as one ready-to-run bundle">📦 PROJECT</button> <button class="cbtn" id="codeClear" style="padding:5px 10px;font-size:10px">✕ clear</button></span></h4><div id="codeOutBody"><iframe id="codeFrame" sandbox="allow-scripts allow-modals allow-popups allow-forms"></iframe><div id="codeLog"></div></div></div>
   </div>
 </div>
 
@@ -3722,13 +3755,16 @@ updateEngTag();
 /* ---------------- TAB PAGES wiring ---------------- */
 (function(){
   const bar=document.getElementById("tabbar");if(!bar)return;
-  const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions()};
+  const fitCodePage=()=>{try{const pg=document.getElementById("codePage");if(!pg)return;const b=bar.getBoundingClientRect();pg.style.top=Math.ceil(b.bottom)+12+"px";const dk=document.getElementById("dock");const mh=window.innerWidth<=860?24:132;if(dk){const h=dk.getBoundingClientRect().height;pg.style.bottom=Math.max(mh,Math.ceil(h)+16)+"px"}else pg.style.bottom=mh+"px"}catch(e){}};
+  const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage()};
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>apply(b.dataset.t));
   apply("chat");
+  try{const ro=new ResizeObserver(()=>{if(document.body.dataset.tab==="code")fitCodePage()});ro.observe(bar);const dk=document.getElementById("dock");if(dk)ro.observe(dk)}catch(e){}
+  try{window.addEventListener("resize",()=>{if(document.body.dataset.tab==="code")fitCodePage()})}catch(e){}
 })();
 /* ---------------- CODE FORGE: AI builds code in 25 languages ---------------- */
 const CODE_LANGS={javascript:"js",html:"html",css:"css",python:"py",java:"java",c:"c",cpp:"cpp",csharp:"cs",go:"go",rust:"rs",typescript:"ts",php:"php",ruby:"rb",swift:"swift",kotlin:"kt",sql:"sql",bash:"sh",r:"r",matlab:"m",dart:"dart",scala:"scala",perl:"pl",lua:"lua",haskell:"hs",react:"jsx"};
-function codeLog(t){const el=document.getElementById("codeLog");if(!el)return;el.style.display="block";el.textContent+=t+"\n";el.scrollTop=el.scrollHeight}
+function codeLog(t){const el=document.getElementById("codeLog");if(!el)return;codeLogShow();const ln=document.createElement("span");ln.className=/^⛔|^ERR|^error/i.test(t)?"lg-err":/^✓|^✅/i.test(t)?"lg-ok":/^⚠/i.test(t)?"lg-warn":/^▶|^—|^»/i.test(t)?"lg-dim":"lg-info";ln.textContent=t;el.appendChild(ln);el.appendChild(document.createTextNode("\n"));el.scrollTop=el.scrollHeight}
 /* single global listener — installed once, never accumulates */
 window.addEventListener("message",function h(ev){try{const d=typeof ev.data==="string"?JSON.parse(ev.data):ev.data;if(d&&d.codeLog){codeLog(d.codeLog)}}catch(e){}});
 function runCode(){
@@ -3752,7 +3788,7 @@ function runCode(){
       fr.srcdoc="<!doctype html><html><head><meta charset='utf-8'></head><body><div id='root'></div>"+"<"+"script src='https://unpkg.com/react@18/umd/react.production.min.js'><"+"/"+"script>"+"<"+"script src='https://unpkg.com/react-dom@18/umd/react-dom.production.min.js'><"+"/"+"script>"+"<"+"script src='https://unpkg.com/@babel/standalone/babel.min.js'><"+"/"+"script>"+"<"+"script type='text/babel'>const _send=s=>{try{parent.postMessage({codeLog:String(s)},'*')}catch(e){}};const _ol=console.log;console.log=(...a)=>{_ol(...a);_send(a.join(' '))};window.onerror=m=>_send('ERR '+m);window.addEventListener('unhandledrejection',e=>_send('ERR '+e.reason));try{"+js+"\nif(typeof App!=='undefined'){ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App))}else{_send('ℹ no <App> component found — define one to render')}"+"}catch(e){_send('ERR '+e.message)}<"+String.fromCharCode(47)+"script>";
       codeLog("▶ running React — component mounts in the output pane");return;
     }
-    fr.srcdoc="<!doctype html><html><body style='font-family:monospace;color:#222;background:#fff'><"+"script>"+"const _send=s=>{try{parent.postMessage({codeLog:String(s)},'*')}catch(e){}};"+"const _ol=console.log;console.log=(...a)=>{_ol(...a);_send(a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '))};"+"window.onerror=m=>_send('⛔ '+m);"+"window.addEventListener('unhandledrejection',e=>_send('⛔ '+e.reason));"+"try{"+js+"}catch(e){_send('⛔ '+e.message)}"+"<"+String.fromCharCode(47)+"script>";
+    fr.srcdoc="<!doctype html><html><body style='font-family:monospace;color:#222;background:#fff'><"+"script>"+"const _send=s=>{try{parent.postMessage({codeLog:String(s)},'*')}catch(e){}};"+"const _ol=console.log;console.log=(...a)=>{_ol(...a);_send(a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '))};"+"const _oe=console.error;console.error=(...a)=>{_oe(...a);_send('⛔ '+a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '))};"+"const _ow=console.warn;console.warn=(...a)=>{_ow(...a);_send('⚠ '+a.map(x=>typeof x==='object'?JSON.stringify(x):String(x)).join(' '))};"+"window.onerror=m=>_send('⛔ '+m);"+"window.addEventListener('unhandledrejection',e=>_send('⛔ '+e.reason));"+"try{"+js+"}catch(e){_send('⛔ '+e.message)}"+"<"+String.fromCharCode(47)+"script>";
     codeLog("▶ running JavaScript — console.log streams below");
   } else {
     codeLog("▶ "+lang+" is a compiled/interpreter language — the browser runs JS, HTML & Python natively.");
@@ -3853,6 +3889,377 @@ async function fixCode(){
   codeLog("— fixed code is in the editor now. ▶ RUN it, or ⤓ SAVE.");
   }finally{btn.textContent="🛠 FIX";btn.disabled=false}
 }
+/* ================= CODE FORGE 2.0 ENGINE — gutter · status · workspace · templates · AI explain/convert ================= */
+function codeLogc(t,cls){const el=document.getElementById("codeLog");if(!el)return;codeLogShow();const ln=document.createElement("span");ln.className=cls?"lg-"+cls:"lg-info";ln.textContent=t;el.appendChild(ln);el.appendChild(document.createTextNode("\n"));el.scrollTop=el.scrollHeight}
+function codeLogShow(){const el=document.getElementById("codeLog");if(el)el.classList.add("show")}
+/* ---- multi-file workspace ---- */
+const CWKEY="aura_forge_ws_v1";
+let CWS=null,CWcur=null;
+function wsLoad(){try{CWS=JSON.parse(localStorage.getItem(CWKEY)||"null")}catch(e){CWS=null}if(!CWS||!Array.isArray(CWS.files)||!CWS.files.length){CWS=null}return CWS}
+function wsSave(){try{CWS?localStorage.setItem(CWKEY,JSON.stringify(Object.assign({},CWS,{cur:CWcur}))):localStorage.removeItem(CWKEY)}catch(e){}}
+function wsActive(){return !!(CWS&&CWS.files.length)}
+function wsGet(){const ed=document.getElementById("codeEditor");return ed?ed.value:""}
+function wsPut(v){const ed=document.getElementById("codeEditor");if(ed)ed.value=v}
+function wsStrip(){const f=CWS&&CWS.files.find(x=>x.name===CWcur);if(f)f.code=wsGet()}
+function wsSwitch(name){
+  wsStrip();CWcur=name;
+  const f=CWS.files.find(x=>x.name===name);
+  wsPut(f?f.code:"");
+  const langSel=document.getElementById("codeLang");
+  const ext=(name.split(".").pop()||"").toLowerCase();
+  const MAP={html:"html",htm:"html",js:"javascript",ts:"typescript",jsx:"react",py:"python",css:"css",json:"javascript",md:"html",txt:"javascript"};
+  if(langSel&&MAP[ext])langSel.value=MAP[ext];
+  wsRenderTabs();edSync(true);
+  codeLogc("» opened "+name,"dim")
+}
+function wsRenderTabs(){
+  const bar=document.getElementById("codeFiles");if(!bar)return;
+  bar.classList.add("show");
+  bar.innerHTML=(wsActive()?CWS.files.map(f=>`<span class="cfiletab${f.name===CWcur?" on":""}" data-f="${f.name.replace(/"/g,"&quot;")}"><b>${f.name}</b><span class="fx" data-x="${f.name.replace(/"/g,"&quot;")}" title="close file">✕</span></span>`).join(""):"")+`<span class="cfiletab cfileadd" data-add="1" title="${wsActive()?"add another file":"start a multi-file project — files save automatically in this browser"}">＋ new file</span>`
+}
+function wsStart(){
+  const lang=document.getElementById("codeLang").value;
+  const EXT=CODE_LANGS[lang]||"txt";
+  CWS={files:[{name:"main."+EXT,code:wsGet()}]};CWcur="main."+EXT;wsSave();wsRenderTabs();
+  codeLogc("🗂 project mode — files are saved in this browser automatically. ＋ adds files, ⧉ header buttons act on the open file","sys");
+}
+function wsEnd(){if(CWS){wsStrip()}CWS=null;CWcur=null;wsSave();wsRenderTabs();codeLogc("🗂 back to single-file mode","dim")}
+function wsNewFile(){
+  const n=prompt("File name (with extension — e.g. utils.js, index.html):",suggestFileName());
+  if(!n)return;
+  const name=n.trim();if(!name)return;
+  if(CWS.files.some(f=>f.name===name)){codeLogc("a file with that name already exists","warn");return}
+  wsStrip();CWS.files.push({name,code:""});CWcur=name;wsSave();wsPut("");wsRenderTabs();edSync(true);codeLogc("＋ created "+name,"ok")
+}
+function suggestFileName(){
+  const lang=document.getElementById("codeLang").value;
+  const base={html:"page",javascript:"script",python:"main",css:"style",react:"App"}[lang]||"file";
+  const ext=CODE_LANGS[lang]||"txt";
+  let i=2,name=base+"."+ext;while(CWS&&CWS.files.some(f=>f.name===name)){name=base+i+"."+ext;i++}
+  return name
+}
+/* ---- templates ---- */
+const TPLS={
+login:{lang:"html",name:"login.html",code:`<!doctype html>
+<html><head><meta charset="utf-8"><title>Sign in</title>
+<style>
+*{box-sizing:border-box;margin:0}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);color:#e8fbff}
+.card{background:rgba(255,255,255,.06);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:38px 34px;width:min(380px,92vw);box-shadow:0 24px 60px rgba(0,0,0,.45)}
+h1{font-size:22px;margin-bottom:4px}p.sub{color:#9fc3d2;font-size:13px;margin-bottom:24px}
+label{display:block;font-size:11px;letter-spacing:.12em;color:#7fb3c4;margin:14px 0 6px;text-transform:uppercase}
+input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(0,0,0,.25);color:#fff;font-size:14px;outline:none;transition:.2s}
+input:focus{border-color:#22d3ee;box-shadow:0 0 0 3px rgba(34,211,238,.18)}
+button{width:100%;margin-top:22px;padding:13px;border:0;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#0ea5b7);color:#03212a;font-weight:800;font-size:14px;cursor:pointer;letter-spacing:.04em;transition:.2s}
+button:hover{filter:brightness(1.12);transform:translateY(-1px)}
+.alt{margin-top:16px;font-size:12.5px;color:#9fc3d2;text-align:center}
+.alt a{color:#22d3ee;cursor:pointer}
+.msg{margin-top:12px;font-size:12px;min-height:16px;color:#fbbf24;text-align:center}
+</style></head>
+<body>
+<div class="card">
+  <h1>Welcome back</h1><p class="sub">Sign in to continue your journey</p>
+  <label>email</label><input id="em" type="email" placeholder="you@example.com">
+  <label>password</label><input id="pw" type="password" placeholder="••••••••">
+  <button onclick="go()">Sign in →</button>
+  <div class="msg" id="msg"></div>
+  <p class="alt">New here? <a onclick="signUp()">Create an account</a></p>
+</div>
+<script>
+const users=JSON.parse(localStorage.getItem('demo_users')||'{}');
+function go(){
+  const em=em.value.trim(),pw=pw.value;
+  if(!em||!pw){msg.textContent='Fill both fields to continue';return}
+  if(users[em]&&users[em]===pw){msg.style.color='#34d399';msg.textContent='✓ Welcome, '+em+' — signed in!'}
+  else{msg.textContent='No account with that password — try creating one below'}
+}
+function signUp(){
+  const em=em.value.trim(),pw=pw.value;
+  if(!em||pw.length<4){msg.textContent='Email + a password of 4+ chars, please';return}
+  users[em]=pw;localStorage.setItem('demo_users',JSON.stringify(users));
+  msg.style.color='#34d399';msg.textContent='✓ Account created — you are signed in!';
+}
+</`+`script></body></html>`},
+dash:{lang:"html",name:"dashboard.html",code:`<!doctype html>
+<html><head><meta charset="utf-8"><title>Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0}
+body{font-family:system-ui,sans-serif;background:#0b1220;color:#e2f3ff;padding:28px}
+h1{font-size:20px;margin-bottom:22px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:22px}
+.kpi{background:linear-gradient(160deg,#101b2c,#0b1424);border:1px solid #1e3a4d;border-radius:14px;padding:18px}
+.kpi .n{font-size:26px;font-weight:800;color:#22d3ee;margin-top:6px}
+.kpi .l{font-size:11px;letter-spacing:.14em;color:#7fb3c4;text-transform:uppercase}
+.panel{background:#0e1726;border:1px solid #1e3a4d;border-radius:14px;padding:18px}
+h2{font-size:13px;letter-spacing:.1em;color:#9fc3d2;margin-bottom:14px;text-transform:uppercase}
+.bar{display:flex;align-items:flex-end;gap:8px;height:140px;padding-top:10px}
+.bar div{flex:1;background:linear-gradient(180deg,#22d3ee,#0e7490);border-radius:6px 6px 0 0;transition:height .8s cubic-bezier(.2,.8,.2,1);min-height:4px;position:relative}
+.bar div:hover{filter:brightness(1.25)}
+.bar div span{position:absolute;bottom:-20px;left:0;right:0;text-align:center;font-size:10px;color:#7fb3c4}
+.live{margin-top:34px;font-size:12px;color:#34d399}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;margin-right:6px;animation:p 1.2s infinite}
+@keyframes p{50%{opacity:.3}}
+</style></head>
+<body>
+<h1>📈 Live Dashboard</h1>
+<div class="grid" id="kpis"></div>
+<div class="panel"><h2>Weekly activity</h2><div class="bar" id="bar"></div></div>
+<p class="live"><span class="dot"></span><span id="clock">—</span></p>
+<script>
+const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const vals=days.map(()=>Math.round(30+Math.random()*70));
+document.getElementById('kpis').innerHTML=[
+  ['visitors','12,480'],['sign-ups','1,204'],['revenue','₹86,400'],['uptime','99.98%']
+].map(([l,n])=>'<div class="kpi"><div class="l">'+l+'</div><div class="n">'+n+'</div></div>').join('');
+document.getElementById('bar').innerHTML=vals.map((v,i)=>'<div style="height:0%" data-v="'+v+'"><span>'+days[i]+'</span></div>').join('');
+requestAnimationFrame(()=>document.querySelectorAll('.bar div').forEach((d,i)=>setTimeout(()=>d.style.height=vals[i]+'%',i*90)));
+setInterval(()=>document.getElementById('clock').textContent='live · '+new Date().toLocaleTimeString(),1000);
+</`+`script></body></html>`},
+game:{lang:"html",name:"game.html",code:`<!doctype html>
+<html><head><meta charset="utf-8"><title>Dodge!</title>
+<style>
+body{margin:0;background:#050a10;display:flex;flex-direction:column;align-items:center;font-family:system-ui,sans-serif;color:#9fe8f5}
+h1{font-size:15px;letter-spacing:.2em;margin:14px 0 8px}
+#c{border:1px solid #1e3a4d;border-radius:10px;background:#08111c;touch-action:none;max-width:96vw}
+p{font-size:12px;margin:8px}
+b{color:#22d3ee}
+</style></head>
+<body>
+<h1>🎮 DODGE THE BLOCKS</h1>
+<canvas id="c" width="420" height="520"></canvas>
+<p>← → or drag to move · score: <b id="s">0</b> · best: <b id="b">0</b></p>
+<script>
+const cv=document.getElementById('c'),x=cv.getContext('2d');
+let px=190,keys={},drops=[],score=0,best=+(localStorage.getItem('dodge_best')||0),alive=true,t=0;
+document.getElementById('b').textContent=best;
+addEventListener('keydown',e=>keys[e.key]=1);addEventListener('keyup',e=>keys[e.key]=0);
+let drag=null;cv.addEventListener('pointerdown',e=>drag=e.offsetX-px);cv.addEventListener('pointermove',e=>{if(drag!=null){px=Math.max(0,Math.min(360,e.offsetX-drag))}});addEventListener('pointerup',()=>drag=null);
+function loop(){
+  if(!alive)return;
+  t++;if(keys.ArrowLeft)px-=5;if(keys.ArrowRight)px+=5;px=Math.max(0,Math.min(360,px));
+  if(t%Math.max(18,46-score/40)===0)drops.push({x:Math.random()*400,y:-20,v:2+Math.random()*2+score/300});
+  x.clearRect(0,0,420,520);
+  x.fillStyle='#22d3ee';x.shadowColor='#22d3ee';x.shadowBlur=18;x.fillRect(px,480,60,14);x.shadowBlur=0;
+  x.fillStyle='#f87171';
+  drops.forEach(d=>{d.y+=d.v;x.fillRect(d.x,d.y,22,22);
+    if(d.y>452&&d.y<494&&d.x>px-20&&d.x<px+58){alive=false;best=Math.max(best,score);localStorage.setItem('dodge_best',best);document.getElementById('b').textContent=best;
+      x.fillStyle='#fff';x.font='bold 30px system-ui';x.textAlign='center';x.fillText('GAME OVER',210,240);x.font='14px system-ui';x.fillText('tap or press any key to retry',210,270);}});
+  drops=drops.filter(d=>d.y<540);
+  if(t%6===0){score++;document.getElementById('s').textContent=score}
+  requestAnimationFrame(loop);
+}
+addEventListener('keydown',()=>{if(!alive){drops=[];score=0;alive=true;loop()}});
+cv.addEventListener('pointerdown',()=>{if(!alive){drops=[];score=0;alive=true;loop()}});
+loop();
+</`+`script></body></html>`},
+calc:{lang:"html",name:"calculator.html",code:`<!doctype html>
+<html><head><meta charset="utf-8"><title>Calculator</title>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0b1220;font-family:system-ui,sans-serif}
+.cal{background:#0e1726;border:1px solid #1e3a4d;border-radius:20px;padding:22px;width:300px;box-shadow:0 20px 50px rgba(0,0,0,.5)}
+#scr{background:#08111c;border-radius:12px;padding:16px;text-align:right;font-size:30px;color:#e8fbff;min-height:44px;margin-bottom:14px;font-family:monospace;overflow:hidden}
+.g{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+button{padding:15px 0;border-radius:11px;border:0;font-size:17px;cursor:pointer;background:#16233a;color:#cfe9f3;transition:.12s}
+button:hover{filter:brightness(1.3)}button:active{transform:scale(.94)}
+.op{color:#22d3ee}.eq{background:linear-gradient(135deg,#22d3ee,#0ea5b7);color:#03212a;font-weight:800}.c{color:#f87171}
+</style></head>
+<body>
+<div class="cal"><div id="scr">0</div><div class="g" id="g"></div></div>
+<script>
+let cur='0';
+const keys=['C','←','%','/','7','8','9','*','4','5','6','-','1','2','3','+','0','.','(',')'];
+g.innerHTML=keys.map(k=>'<button class="'+(isNaN(k)&&k!=='.'?'op':'')+(k==='C'?' c':'')+'" data-k="'+k+'">'+k+'</button>').join('')+'<button class="eq" data-k="=" style="grid-column:span 4">=</button>';
+g.onclick=e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;
+  if(k==='C')cur='0';else if(k==='←')cur=cur.slice(0,-1)||'0';
+  else if(k==='='){try{const r=Function('"use strict";return('+cur.replace(/[^0-9+\-*/().% ]/g,'')+')')();cur=String(Math.round(r*1e10)/1e10)}catch(err){cur='error'}}
+  else{if(cur==='0'||cur==='error')cur=k==='.'?'0.':k;else cur+=k}
+  scr.textContent=cur;};
+addEventListener('keydown',e=>{if(/[0-9+\-*/().]/.test(e.key)){if(cur==='0'||cur==='error')cur=e.key;else cur+=e.key}else if(e.key==='Enter'){g.querySelector('.eq').click()}else if(e.key==='Backspace')cur=cur.slice(0,-1)||'0';scr.textContent=cur});
+</`+`script></body></html>`},
+todo:{lang:"html",name:"todo.html",code:`<!doctype html>
+<html><head><meta charset="utf-8"><title>Tasks</title>
+<style>
+body{margin:0;min-height:100vh;background:#0b1220;color:#e2f3ff;font-family:system-ui,sans-serif;display:flex;justify-content:center;padding-top:48px}
+.app{width:min(430px,92vw)}
+h1{font-size:20px;margin-bottom:16px}
+.r{display:flex;gap:8px;margin-bottom:16px}
+input{flex:1;padding:12px 14px;border-radius:10px;border:1px solid #1e3a4d;background:#08111c;color:#fff;font-size:14px;outline:none}
+input:focus{border-color:#22d3ee}
+button.add{padding:12px 18px;border:0;border-radius:10px;background:#22d3ee;color:#03212a;font-weight:800;cursor:pointer}
+.t{display:flex;align-items:center;gap:11px;background:#0e1726;border:1px solid #16283c;border-radius:11px;padding:12px 14px;margin-bottom:8px;transition:.2s}
+.t.done{opacity:.45}.t.done span{text-decoration:line-through}
+.t input[type=checkbox]{width:17px;height:17px;accent-color:#22d3ee;cursor:pointer}
+.t span{flex:1;font-size:14px}.t button{background:none;border:0;color:#f87171;cursor:pointer;font-size:15px}
+.p{margin-top:14px;font-size:12px;color:#7fb3c4}
+</style></head>
+<body>
+<div class="app"><h1>✅ My Tasks</h1>
+<div class="r"><input id="i" placeholder="What needs doing?" autofocus><button class="add" onclick="add()">Add</button></div>
+<div id="L"></div><p class="p" id="p"></p></div>
+<script>
+let T=JSON.parse(localStorage.getItem('tasks2')||'[]');
+function save(){localStorage.setItem('tasks2',JSON.stringify(T));render()}
+function add(){const v=i.value.trim();if(!v)return;T.unshift({v,d:false});i.value='';save()}
+i.addEventListener('keydown',e=>{if(e.key==='Enter')add()});
+function render(){
+  L.innerHTML=T.map((t,x)=>'<div class="t'+(t.d?' done':'')+'"><input type="checkbox" '+(t.d?'checked':'')+' onchange="tog('+x+')"><span>'+t.v.replace(/</g,'&lt;')+'</span><button onclick="del('+x+')">✕</button></div>').join('');
+  p.textContent=T.filter(t=>!t.d).length+' open · '+T.filter(t=>t.d).length+' done';
+}
+function tog(x){T[x].d=!T[x].d;save()}function del(x){T.splice(x,1);save()}
+render();
+</`+`script></body></html>`},
+api:{lang:"javascript",name:"fetch-demo.js",code:`/* Async fetch + Promise demo — press RUN and watch the console below */
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+
+async function getUser(id){
+  await wait(300); // pretend network delay
+  const users={1:'Asha',2:'Ravi',3:'Meera'};
+  if(!users[id])throw new Error('user '+id+' not found');
+  return {id,name:users[id]};
+}
+
+async function main(){
+  console.log('— sequential awaits —');
+  const u1=await getUser(1);
+  console.log('got user:',u1.name);
+
+  console.log('— parallel Promise.all —');
+  const all=await Promise.all([getUser(1),getUser(2),getUser(3)]);
+  all.forEach(u=>console.log(' •',u.id,u.name));
+
+  console.log('— error handling —');
+  try{await getUser(99)}catch(e){console.log('caught:',e.message)}
+
+  console.log('✓ demo complete');
+}
+main();
+`},
+pydata:{lang:"python",name:"analysis.py",code:`# Data analysis starter — press RUN (numpy auto-installs, charts render in the output pane)
+import numpy as np
+
+months=['Jan','Feb','Mar','Apr','May','Jun']
+sales=[42,58,51,73,69,91]
+
+arr=np.array(sales)
+print('monthly sales:',sales)
+print('total:',arr.sum(),'| average:',round(arr.mean(),1))
+print('best month:',months[int(arr.argmax())])
+growth=[round((sales[i]-sales[i-1])/sales[i-1]*100,1) for i in range(1,len(sales))]
+print('month-over-month growth %:',growth)
+
+try:
+    import matplotlib.pyplot as plt
+    plt.bar(months,sales,color='#22d3ee')
+    plt.title('Sales H1')
+    plt.show()
+except Exception as e:
+    print('(chart skipped:',e,')')
+`}
+};
+function loadTpl(id){
+  const t=TPLS[id];if(!t)return;
+  const apply=()=>{
+    wsPut(t.code);
+    const ls=document.getElementById("codeLang");if(ls)ls.value=t.lang;
+    edSync(true);codeLogc("📋 template loaded: "+t.name+" — press ▶ RUN to see it live","ok");
+    if(t.lang==="html"||t.lang==="javascript")runCode();
+  };
+  const src=wsGet();
+  if(src.trim()&&src!==t.code){if(!confirm("Replace the code in the editor with this template?"))return}
+  apply();
+}
+/* ---- AI EXPLAIN + CONVERT ---- */
+async function explainCode(){
+  const src=wsGet();if(!src.trim()){codeLogc("// editor is empty — nothing to explain","warn");return}
+  codeLogc("💡 thinking through your code — the explanation lands in the chat…");
+  try{
+    const lang=document.getElementById("codeLang").value;
+    const sys="You are CODE FORGE's teacher mode. Explain the given "+lang+" code clearly for a student: what it does overall, then walk through each important part step by step in plain language, then list 2–3 things they could try changing to learn. Use short lines and simple words. No markdown fences.";
+    let out="";try{out=await groqCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],1600)}catch(e){out=await openrouterCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],1600)}
+    out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,"").trim();
+    if(out){addMsg(msgTag(),"💡 <b>Code explanation</b>\n"+out.replace(/</g,"&lt;"),"aura");if(typeof speak==="function"&&soundOn)speak("Here is what your code does.")}
+    else codeLogc("// explanation came back empty — try again","warn")
+  }catch(e){codeLogc("// explain failed: "+(e.message||e)+" — check key/quota","err")}
+}
+async function convertCode(){
+  const src=wsGet();if(!src.trim()){codeLogc("// editor is empty — nothing to convert","warn");return}
+  const targets=["javascript","python","typescript","java","c","cpp","csharp","go","rust","php","ruby","swift","kotlin","dart"];
+  const t=prompt("Convert to which language?\n"+targets.join(", "),"python");
+  if(!t)return;
+  const tgt=t.trim().toLowerCase();
+  if(!targets.includes(tgt)){codeLogc("// unknown target language: "+tgt,"warn");return}
+  codeLogc("🔁 converting to "+tgt+"…");
+  const btn=document.getElementById("codeConvert");btn.textContent="⏳ …";btn.disabled=true;
+  try{
+    const from=document.getElementById("codeLang").value;
+    const sys="You are a code translation engine. Convert the given "+from+" code into idiomatic, working "+tgt+". Preserve behavior exactly. Output ONLY the "+tgt+" code — no fences, no prose.";
+    let out="";try{out=await groqCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],6000)}catch(e){out=await openrouterCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],6000)}
+    out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,"").trim();
+    if(out&&out.length>10){
+      if(wsActive()){wsStrip();const name="converted."+(CODE_LANGS[tgt]||"txt");CWS.files.push({name,code:out});CWcur=name;wsSave();wsRenderTabs();wsPut("")}
+      wsPut(out);
+      const ls=document.getElementById("codeLang");if(ls)ls.value=tgt;
+      edSync(true);
+      codeLogc("✓ converted to "+tgt+(wsActive()?" (opened as a new file)":"")+" — review it, then ▶ RUN","ok")
+    }else codeLogc("// conversion came back empty — try again","warn")
+  }catch(e){codeLogc("// convert failed: "+(e.message||e),"err")}
+  finally{btn.textContent="🔁 CONVERT";btn.disabled=false}
+}
+/* ---- run with timer + status ---- */
+const _runCode0=runCode;
+runCode=function(){
+  if(wsActive())wsStrip();
+  const t0=performance.now();
+  try{_runCode0()}finally{
+    const ms=Math.max(1,Math.round(performance.now()-t0));
+    const st=document.getElementById("stSaved");if(st)st.innerHTML="▶ ran in "+ms+"ms";
+  }
+};
+/* ---- editor intelligence: gutter + caret + auto-indent + Ctrl+Enter ---- */
+function edSync(rebuild){
+  const ed=document.getElementById("codeEditor"),gu=document.getElementById("codeGutter");
+  if(!ed||!gu)return;
+  const n=ed.value.split("\n").length;
+  let g="";for(let i=1;i<=n;i++)g+=i+"\n";
+  gu.textContent=g;
+  gu.scrollTop=ed.scrollTop;
+  const lines=document.getElementById("stLines"),caret=document.getElementById("stCaret"),sl=document.getElementById("stLang");
+  if(lines)lines.textContent=n+(n===1?" line":" lines");
+  if(caret){
+    const upto=ed.value.slice(0,ed.selectionStart).split("\n");
+    caret.textContent="ln "+upto.length+", col "+(upto[upto.length-1].length+1)
+  }
+  if(sl){const lang=document.getElementById("codeLang").value;sl.innerHTML="<b>"+lang+"</b>"}
+}
+function edIndent(ed){
+  const s=ed.selectionStart,e=ed.selectionEnd,v=ed.value;
+  if(s!==e){
+    const ls=v.lastIndexOf("\n",s-1)+1;
+    const block=v.slice(ls,e);
+    const ind=block.startsWith("\t")?block.replace(/^\t/gm,""):block.replace(/^/gm,"  ");
+    ed.value=v.slice(0,ls)+ind+v.slice(e);
+    ed.selectionStart=ls;ed.selectionEnd=ls+ind.length;return
+  }
+  const ls=v.lastIndexOf("\n",s-1)+1;
+  const line=v.slice(ls,s);
+  const m=line.match(/^\s*/);
+  let ins="\n"+m[0];
+  if(/[{(:\[]\s*$/.test(line))ins+="  ";
+  ed.setRangeText(ins,s,e,"end");
+  if(/[{(:\[]\s*$/.test(line)){
+    const after=v.slice(e);
+    const cm=after.match(/^\s*[})\]]/);
+    if(cm){
+      const closePos=e+cm[0].indexOf(cm[0].trim());
+      const rest=ed.value;
+      const nl=rest.indexOf("\n",e);
+      if(nl>-1&&/^\s*[})\]]/.test(rest.slice(nl+1))){
+        /* closing brace on next line — add closing at same indent */
+      }
+    }
+  }
+  edSync()
+}
 (function(){
   const g=document.getElementById("codeGen");if(g)g.onclick=function(){
   /* open forge: sandboxed + rate-limited by the backend — every user can build their own code */
@@ -3863,10 +4270,115 @@ async function fixCode(){
     fixCode();
   };
   const p=document.getElementById("codePrompt");if(p)p.addEventListener("keydown",e=>{if(e.key==="Enter"&&!document.getElementById("codeGen").disabled)buildCode()});
-  const ed=document.getElementById("codeEditor");if(ed)ed.addEventListener("keydown",e=>{if(e.key==="Tab"){e.preventDefault();const s=ed.selectionStart;ed.value=ed.value.slice(0,s)+"  "+ed.value.slice(ed.selectionEnd);ed.selectionStart=ed.selectionEnd=s+2}});
-  const dl=document.getElementById("codeDl");if(dl)dl.onclick=()=>{const lang=document.getElementById("codeLang").value;const src=document.getElementById("codeEditor").value;if(!src.trim()){codeLog("// nothing to save");return}const ext=CODE_LANGS[lang]||"txt";const blob=new Blob([src],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="forge-output."+ext;a.click();codeLog("⤓ saved forge-output."+ext)};
+  const ed=document.getElementById("codeEditor");
+  if(ed){
+    ed.addEventListener("keydown",e=>{
+      if(e.key==="Tab"){e.preventDefault();edIndent(ed)}
+      else if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();runCode()}
+      else if(e.key==="Enter"&&!e.ctrlKey&&!e.metaKey){
+        const s=ed.selectionStart;if(s===ed.selectionEnd){
+          const line=ed.value.slice(ed.value.lastIndexOf("\n",s-1)+1,s);
+          if(/[{(:\[]\s*$/.test(line)){e.preventDefault();edIndent(ed)}
+        }
+      }
+    });
+    ed.addEventListener("input",()=>{
+      edSync();
+      if(wsActive()){clearTimeout(window.__wsT);window.__wsT=setTimeout(()=>{wsStrip();wsSave();const st=document.getElementById("stSaved");if(st)st.textContent="✓ saved"},500)}
+    });
+    ed.addEventListener("scroll",()=>{const gu=document.getElementById("codeGutter");if(gu)gu.scrollTop=ed.scrollTop});
+    ed.addEventListener("click",()=>edSync());
+    ed.addEventListener("keyup",()=>edSync());
+    setTimeout(()=>edSync(true),300);
+  }
+  /* templates */
+  const tp=document.getElementById("codeTpl");if(tp)tp.onchange=()=>{if(tp.value){loadTpl(tp.value);tp.value=""}};
+  /* AI buttons */
+  const ex=document.getElementById("codeExplain");if(ex)ex.onclick=explainCode;
+  const cv=document.getElementById("codeConvert");if(cv)cv.onclick=convertCode;
+  /* phone frame */
+  const ph=document.getElementById("codePhone");if(ph)ph.onclick=()=>{const fr=document.getElementById("codeFrame");fr.classList.toggle("mobframe");ph.style.color=fr.classList.contains("mobframe")?"#22d3ee":"";codeLogc(fr.classList.contains("mobframe")?"📱 phone preview on — great for mobile pages":"📱 phone preview off","dim")};
+  /* workspace strip buttons (event delegation — survives re-renders) */
+  const bar=document.getElementById("codeFiles");
+  if(bar)bar.addEventListener("click",e=>{
+    const x=e.target.closest(".fx");
+    if(x){e.stopPropagation();const name=x.dataset.x;
+      const fi=CWS.files.findIndex(z=>z.name===name);
+      if(fi>-1){
+        if(name===CWcur)wsStrip();
+        CWS.files.splice(fi,1);
+        if(CWcur===name){CWcur=CWS.files.length?CWS.files[Math.max(0,fi-1)].name:null;const f2=CWS.files.find(z=>z.name===CWcur);wsPut(f2?f2.code:"")}
+        if(!CWS.files.length)wsEnd();else{wsSave();wsRenderTabs();edSync(true)}
+        codeLogc("✕ closed "+name,"dim")
+      }
+      return
+    }
+    const add=e.target.closest("[data-add]");
+    if(add){if(!wsActive())wsStart();wsNewFile();return}
+    const tab=e.target.closest("[data-f]");
+    if(tab){const name=tab.dataset.f;
+      if(!wsActive()){CWS={files:[{name:"main",code:wsGet()}]};CWcur="main"}
+      if(name!==CWcur)wsSwitch(name)
+    }
+  });
+  /* project zip download — stored CRC32 zlib wrapper, zero dependencies */
+  const CRC_T=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+  const crc32=b=>{let c=0xFFFFFFFF;for(const x of b)c=CRC_T[(c^x)&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0};
+  function zipStore(files){
+    const enc=new TextEncoder(),chunks=[],central=[];let off=0;
+    for(const f of files){
+      const name=enc.encode(f.name),data=enc.encode(f.code),crc=crc32(data);
+      const lh=new DataView(new ArrayBuffer(30));
+      lh.setUint32(0,0x04034b50,true);lh.setUint16(4,20,true);lh.setUint16(6,0,true);lh.setUint16(8,0,true);lh.setUint16(10,0,true);lh.setUint16(12,0,true);
+      lh.setUint32(14,crc,true);lh.setUint32(18,data.length,true);lh.setUint32(22,data.length,true);
+      lh.setUint16(26,name.length,true);lh.setUint16(28,0,true);
+      chunks.push(new Uint8Array(lh.buffer),name,data);
+      const ch=new DataView(new ArrayBuffer(46));
+      ch.setUint32(0,0x02014b50,true);ch.setUint16(4,20,true);ch.setUint16(6,20,true);ch.setUint32(16,crc,true);ch.setUint32(20,data.length,true);ch.setUint32(24,data.length,true);ch.setUint16(28,name.length,true);ch.setUint32(42,off,true);
+      central.push(new Uint8Array(ch.buffer),name);
+      off+=30+name.length+data.length
+    }
+    let cs=0;central.forEach(c=>cs+=c.length);
+    const eocd=new DataView(new ArrayBuffer(22));
+    eocd.setUint32(0,0x06054b50,true);eocd.setUint16(8,files.length,true);eocd.setUint16(10,files.length,true);eocd.setUint32(12,cs,true);eocd.setUint32(16,off,true);
+    return new Blob([...chunks,...central,new Uint8Array(eocd.buffer)],{type:"application/zip"})
+  }
+  const zp=document.getElementById("codeZip");if(zp)zp.onclick=()=>{
+    const src=wsGet();
+    if(!wsActive()&&!src.trim()){codeLogc("// nothing to package yet","warn");return}
+    if(!wsActive())wsStart();
+    wsStrip();wsSave();
+    const files=CWS.files.filter(f=>f.code&&f.code.trim());
+    if(!files.length){codeLogc("// all files are empty","warn");return}
+    const lang=document.getElementById("codeLang").value;
+    if(!files.some(f=>/^readme/i.test(f.name))){
+      const ext=CODE_LANGS[lang]||"txt";
+      const runHint={html:"open index.html in a browser",javascript:"open the .html page or run: node script.js",python:"run: python main.py"}[lang]||"open the files in a suitable editor/runtime";
+      files.unshift({name:"README.txt",code:"AURA CODE FORGE project\n======================\nFiles: "+files.map(f=>f.name).join(", ")+"\n\nHow to run: "+runHint+"\nBuilt with AURA — "+location.href+"\n"})
+    }
+    const blob=zipStore(files);
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="aura-project.zip";document.body.appendChild(a);a.click();a.remove();
+    codeLogc("📦 packaged "+files.length+" files → aura-project.zip — unzip and it runs","ok")
+  };
+  /* initial paint: file strip visible with the ＋ entry point, gutter synced */
+  wsRenderTabs();
+  /* RESTORE: project mode + last code, so work survives refresh */
+  try{
+    const saved=wsLoad();
+    if(saved&&saved.files.length){
+      CWS=saved;CWcur=saved.cur&&saved.files.some(f=>f.name===saved.cur)?saved.cur:saved.files[0].name;
+      const f=CWS.files.find(z=>z.name===CWcur);wsPut(f?f.code:"");
+      setTimeout(()=>{wsRenderTabs();edSync(true);codeLogc("🗂 project restored — "+saved.files.length+" file(s) from your last session","sys")},400)
+    }else{
+      const last=localStorage.getItem("aura_forge_last");
+      if(last){wsPut(last);setTimeout(()=>edSync(true),300)}
+    }
+  }catch(e){}
+  if(!window.__wsSaveLast){window.__wsSaveLast=setInterval(()=>{try{const ed2=document.getElementById("codeEditor");if(ed2&&ed2.value)localStorage.setItem("aura_forge_last",ed2.value)}catch(e){}},4000)}
+})();
+  const dl=document.getElementById("codeDl");if(dl)dl.onclick=()=>{const lang=document.getElementById("codeLang").value;const src=wsGet();if(!src.trim()){codeLog("// nothing to save");return}const ext=CODE_LANGS[lang]||"txt";const blob=new Blob([src],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=wsActive()&&CWcur?CWcur:"forge-output."+ext;a.click();codeLog("⤓ saved "+a.download)};
   const cp=document.getElementById("codeCopy");if(cp)cp.onclick=()=>{const src=document.getElementById("codeEditor").value;navigator.clipboard?navigator.clipboard.writeText(src).then(()=>codeLog("⧉ copied to clipboard")):codeLog("// copy unsupported")};
-  const cc=document.getElementById("codeClear");if(cc)cc.onclick=()=>{const fr=document.getElementById("codeFrame");fr.srcdoc="";const lg=document.getElementById("codeLog");lg.textContent="";lg.style.display="none"};
+  const cc=document.getElementById("codeClear");if(cc)cc.onclick=()=>{const fr=document.getElementById("codeFrame");fr.srcdoc="";fr.classList.remove("mobframe");const lg=document.getElementById("codeLog");lg.textContent="";lg.classList.remove("show")};
   /* ⤵ DOWNLOAD (output header) — saves the work to the user's laptop: JS/TS/React get a
      runnable double-click .html page; every other language downloads in its own extension. */
   const od=document.getElementById("codeOutDl");if(od)od.onclick=()=>{
@@ -3908,7 +4420,6 @@ async function fixCode(){
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name+"."+ext;document.body.appendChild(a);a.click();a.remove();
     codeLog("⤵ downloaded "+name+"."+ext+" — it is on this laptop now, double-click it any time");
   };
-})();
 setInterval(()=>{try{const c=document.getElementById("sessCount");if(c&&document.body.dataset.tab==="chats")renderSessions()}catch(e){}},4000);
 /* ============ ASTRA STACK — Pyodide sandbox · vector memory · live research · barge-in ============ */
 /* ---------- 1. PYODIDE — real Python (3.12) running in the browser ---------- */
