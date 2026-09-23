@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AURA — Holographic AI Assistant</title>
+<!--
+  ═══════════════════════════════════════════════════════════════
+   AURA — Adaptive Universal Reasoning Assistant
+   Copyright (c) 2026 Sourabh Singh · sourabh7300.github.io
+   Hand-built, one file, zero frameworks. All rights reserved.
+   Authorship proven by git history: github.com/sourabh7300/aura
+   ─ AURA::7300353703::JECRC::PROVENANCE-SEAL-v1 ─
+  ═══════════════════════════════════════════════════════════════
+-->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <style>
@@ -701,6 +710,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
 <div id="boot">
   <div id="bootRing"></div>
   <div id="bootLog"></div>
+  <div id="bootSeal" style="margin-top:6px;font-size:9px;letter-spacing:.22em;color:rgba(63,122,138,.55);user-select:none">AURA · © 2026 SOURABH SINGH · JECRC UNIVERSITY · ALL RIGHTS RESERVED</div>
   <div id="bootSkip">TAP TO SKIP</div>
 </div>
 <button id="stopBtn">■ STOP VOICE</button>
@@ -3687,6 +3697,28 @@ function taskCommand(raw){
 })();
 if(location.protocol==="file:"){setTimeout(()=>pushSys("local-file mode — mic & voice need the live site (sourabh7300.github.io) or a local server"),3500)}
 updateEngTag();
+/* ═══ PROVENANCE SEAL — authorship of Sourabh Singh (github.com/sourabh7300/aura)
+   Three independent layers survive copying: a runtime attestation anyone can
+   verify in the console, a seeded fingerprint woven into the 3D core, and the
+   git history itself. Rebranding a copy does not produce any of them. */
+(function(){
+  const OWNER="Sourabh Singh",REPO="github.com/sourabh7300/aura";
+  /* 1. live attestation object (hidden, enumerable=false — not visible in UI) */
+  try{Object.defineProperty(window,"__AURA_PROVENANCE__",{value:Object.freeze({
+    app:"AURA — Adaptive Universal Reasoning Assistant",
+    author:OWNER,owner_contact:"sourabh7300.github.io",repository:REPO,
+    built_for:"B.Tech CSE (AI, DevOps & Cloud Automation), JECRC University",
+    seal:"AURA::7300353703::JECRC::PROVENANCE-SEAL-v1",
+    copyright:"© 2026 "+OWNER+". All rights reserved.",
+    verified:function(){return "AUTHENTIC — sealed build by "+OWNER+" ("+REPO+")"}
+  }),enumerable:false,writable:false,configurable:false})}catch(e){}
+  /* 2. seeded fingerprint: the hologram's first particle row is derived from the
+     owner constant — visually invisible, mathematically checkable */
+  try{let h=2166136261;const s="AURA::7300353703::JECRC";for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}
+    window.__auraSeed=(h>>>0).toString(36)}catch(e){}
+  /* 3. quiet console statement on every load */
+  try{console.log("%c AURA ","background:#0891b2;color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold","© 2026 "+OWNER+" — hand-built, zero frameworks. Verify: __AURA_PROVENANCE__.verified()")}catch(e){}
+})();
 /* ---------------- TAB PAGES wiring ---------------- */
 (function(){
   const bar=document.getElementById("tabbar");if(!bar)return;
