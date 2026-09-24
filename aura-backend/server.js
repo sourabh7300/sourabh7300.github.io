@@ -316,7 +316,8 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => res.json({ ok: true, service: "aura-secure-backend", time: new Date().toISOString() }));
 app.get("/health", (req, res) => {
   const now = Date.now();
-  const fbState = fbTried ? (fbAdmin ? "online" : "failed-init") : (FB_PROJECT ? "pending" : "not-configured");
+  fbInit(); /* eager init so the diagnostic tells the truth immediately */
+  const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
   res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState });
 });
 
