@@ -316,7 +316,8 @@ app.use((req, res, next) => {
 app.get("/", (req, res) => res.json({ ok: true, service: "aura-secure-backend", time: new Date().toISOString() }));
 app.get("/health", (req, res) => {
   const now = Date.now();
-  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, vision: !!GEMINI_API_KEY, stream: true });
+  const fbState = fbTried ? (fbAdmin ? "online" : "failed-init") : (FB_PROJECT ? "pending" : "not-configured");
+  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState });
 });
 
 /* THE PROXY — key stays server-side forever */
