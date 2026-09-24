@@ -3465,8 +3465,7 @@ async function askCore(text0){
   lastAnswer=t;lastSrc=src||"";window.__lastQ=text;
   try{const __u=JSON.parse(localStorage.getItem("aura_usage")||"{\"answers\":0}");__u.answers=(__u.answers||0)+1;localStorage.setItem("aura_usage",JSON.stringify(__u))}catch(e){}
   convoAdd("user",text);convoAdd("assistant",t);try{sessions.sync()}catch(e){}
-  const __label={"local core":"Local core (no internet needed)","web live (ddg)":"Web research · DuckDuckGo","web live (wiki)":"Web research · Wikipedia"}[eng]||eng;
-  if(/backend|groq|llama|gpt-oss/i.test(__label))__label+="";
+  let __label={"local core":"Local core (no internet needed)","web live (ddg)":"Web research · DuckDuckGo","web live (wiki)":"Web research · Wikipedia"}[eng]||eng;
   $("engTag").textContent="engine: "+__label;$("tEng").textContent=__label.toUpperCase().slice(0,16);
   const ms=Math.round(performance.now()-t0);const wps=Math.max(1,Math.round(t.split(/\s+/).length/Math.max(0.4,ms/1000)));
   slog("answered via "+eng+" ("+ms+"ms · ~"+wps+" words/s)",true);
@@ -3501,7 +3500,8 @@ async function askRunner(t){
       if(typeof wake!=="undefined"&&wake)armWake(400);
       return;
     }
-    setMode("idle")
+    setMode("idle");slog("answer pipeline error: "+String(e.message||e).slice(0,80),true);
+    try{const el=document.querySelector("#log .msg:last-child .tx");if(el&&el.textContent==="…")el.textContent="(hit a snag mid-answer — try again)"}catch(e2){}
   }
   window.__thinking=false;
   /* silent mode: answers land as text — never leave the mode stuck on "thinking" (false watchdog) */
