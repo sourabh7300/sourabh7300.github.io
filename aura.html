@@ -487,6 +487,16 @@ body.perf-saver .panel,body.perf-saver #stateBox,body.perf-saver #tabbar button{
 }
 .msg-actions button,.msg-actions a{border-radius:7px;padding:3px 9px;font-size:10.5px}
 .chip{padding:6px 13px;border-radius:16px;font-size:10.5px;transition:all .2s}
+/* MOBILE LAYOUT GUARD — must come AFTER every desktop rule above so phones always win.
+   Restores the full-width conversation card and contains the telemetry panel on small screens. */
+@media(max-width:860px){
+  #tabbar{top:74px;left:8px;right:8px;flex-wrap:wrap}
+  #conv{top:126px;left:8px;right:8px;width:auto;bottom:198px}
+  body[data-tab="system"] #telemetry{top:126px;left:8px;right:8px;width:auto}
+}
+@media(max-width:400px){
+  #conv{top:158px;bottom:190px}
+}
 .chip:hover{transform:translateY(-1px)}
 #chips{gap:8px;margin-top:var(--sp3)}
 /* ---------- dock & input ---------- */
@@ -693,6 +703,8 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
     <div id="adUsersList"><small style="color:var(--dim)">loading…</small></div>
   </div>
 </div>
+
+<div class="panel" id="telemetry">
   <h3>TELEMETRY</h3>
   <div class="trow"><span>UPLINK</span><b id="tNet" class="on">ONLINE</b></div>
   <div class="trow"><span>RENDER</span><b id="tFps">— fps</b></div>
