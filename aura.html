@@ -290,9 +290,12 @@ body[data-tab="chats"] #sessPanel{display:flex}
 .sacts button.sx:hover{color:var(--red)}
 /* per-message delete */
 .msg{position:relative}
-.mdel{position:absolute;top:-4px;right:0;background:none;border:none;color:var(--dim);font-size:10px;cursor:pointer;opacity:0;transition:.15s;padding:2px 5px;border-radius:5px}
-.msg:hover .mdel{opacity:.65}
+.mdel,.mcopy{position:absolute;top:-4px;background:none;border:none;color:var(--dim);font-size:10px;cursor:pointer;opacity:0;transition:.15s;padding:2px 5px;border-radius:5px}
+.mdel{right:0}
+.mcopy{right:24px}
+.msg:hover .mdel,.msg:hover .mcopy{opacity:.65}
 .mdel:hover{color:var(--red);opacity:1}
+.mcopy:hover{color:var(--cy2);opacity:1}
 /* ask-before-open doc modal */
 #docAsk{position:fixed;inset:0;background:rgba(2,6,14,.7);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center}
 #docAsk .da-card{background:rgba(10,16,30,.97);border:1px solid var(--line);border-radius:16px;padding:26px;width:min(380px,90vw);color:var(--ice);text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.5)}
@@ -996,6 +999,15 @@ function addMsg(who,text,cls){
   if(text)d.querySelector(".tx").textContent=text; /* fill immediately — launch/batch replies have no typewriter */
   /* per-message delete (hover) — skips boot/system markers */
   if(cls!=="sys"){
+    if(cls!=="user"){
+      const copy=document.createElement("button");copy.className="mcopy";copy.title="Copy this reply";copy.setAttribute("aria-label","Copy this reply");copy.textContent="⧉";
+      copy.onclick=async()=>{
+        const value=d.querySelector(".tx").innerText||d.querySelector(".tx").textContent||"";
+        try{await navigator.clipboard.writeText(value);copy.textContent="✓";setTimeout(()=>{if(copy.isConnected)copy.textContent="⧉"},1200);}
+        catch(e){pushSys("clipboard access unavailable — select and copy the reply manually");}
+      };
+      d.appendChild(copy);
+    }
     const del=document.createElement("button");del.className="mdel";del.title="Delete this message";del.textContent="✕";
     del.onclick=()=>{d.remove();pushSys("message removed from view")};
     d.appendChild(del);
@@ -1028,7 +1040,9 @@ function renderMD(t){
   /* SOURCES block → tidy citation cards (instead of a raw ugly list) */
   s=s.replace(/(?:<br>)?\s*SOURCES?:(?:[\s\S]*)$/i,function(m){
     const seg=m.replace(/^\s*(?:<br>)*\s*SOURCES?:\s*/i,"");
-    const items=seg.split(/(?:<br>\s*)+|\n+/).map(x=>x.replace(/^\s*(?:<br>)+|\s+$/g,"")).filter(x=>x&&x.replace(/<[^>]+>/g,"").trim().length>3);
+    const raw=seg.split(/(?:<br>\s*)+|\n+/).map(x=>x.replace(/^\s*(?:<br>)+|\s+$/g,""));
+    const items=[];
+    raw.forEach(x=>{const bare=x.replace(/<[^>]+>/g,"").trim();if(/^https?:\/\//.test(bare)&&items.length){items[items.length-1]+=" — "+x.trim()}else if(x&&bare.length>3)items.push(x)});
     if(!items.length)return "";
     const chips=items.map(function(it,i){
       const mm=it.match(/\[(\d+)\]\s*(.*)/);
@@ -2667,7 +2681,11 @@ const FOLLOWUP=/^(tell me more|more|elaborate|expand|continue|go on|why|how|what
 function resolveContext(q){
   const l=q.toLowerCase().trim();
   /* any question that leans on the previous topic via pronouns/demonstratives gets contextualized */
-  const lean=lastTopic&&(/\b(he|she|it|his|her|him|its|their|they|that|this|those|these)\b/i.test(q)||FOLLOWUP.test(l))&&!/^(activate|deactivate|end|stop|clear|new topic|change topic|reset)\b/i.test(l);
+  /* a bare "why?"/"how?" is a follow-up; a FULL question ("why is the sky blue?") is brand new — never hijack it.
+     Also: questions matching the causal map (WHY_MAP) are always fresh topics. */
+  const knownQ=(typeof WHY_MAP!=="undefined")&&Object.keys(WHY_MAP||{}).some(k=>l.includes(k));
+  const bareWHY=/^(why|how)\b/i.test(l)&&l.replace(/\?/g,"").trim().split(/\s+/).length<=3;
+  const lean=lastTopic&&!knownQ&&(/\b(he|she|it|his|her|him|its|their|they|that|this|those|these)\b/i.test(q)||bareWHY||(FOLLOWUP.test(l)&&!/^(why|how)\b/i.test(l)))&&!/^(activate|deactivate|end|stop|clear|new topic|change topic|reset)\b/i.test(l);
   if(lean){
     let nq=q;
     if(/^(tell me more|more|elaborate|expand|continue|go on|details?|explain( more)?|what else)\b/i.test(l))nq=lastTopic+" in detail";
@@ -2835,7 +2853,7 @@ async function gatherEvidence(term){
     (async()=>{try{const hits=await wikiCandidates(term);for(const h of hits.slice(0,2)){try{return{k:"Wikipedia",title:h.title,extract:(await wikiSummary(h.title)).extract,url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(h.title.replace(/ /g,"_"))}}catch(e){}}}catch(e){}return null})(),
     (async()=>{try{const r=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(term)+"&format=json&no_html=1&skip_disambig=1&t=aura",{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;const d=await r.json();const t=(d.AbstractText||"").trim();if(t.length<60)throw 0;return{k:d.AbstractSource||"DuckDuckGo",title:term,extract:t,url:d.AbstractURL}}catch(e){}return null})(),
     (async()=>{try{const r=await fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=1&exchars=2200&redirects=1&format=json&origin=*&titles="+encodeURIComponent(term),{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;const d=await r.json();const p=Object.values(d.query.pages)[0];const ex=(p.extract||"").trim();if(ex.length<80)throw 0;return{k:"Wikipedia (expanded)",title:p.title,extract:ex,url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title.replace(/ /g,"_"))}}catch(e){}return null})(),
-    (async()=>{try{const r=await fetch("https://api.wiktionary.org/api/rest_v1/page/definition/"+encodeURIComponent(term.split(/\s+/).pop()),{signal:AbortSignal.timeout(7000)});if(!r.ok)throw 0;const d=await r.json();const en=d.en&&d.en[0];const def=en&&((en.definitions||[])[0]||{}).definition;if(!def)throw 0;return{k:"Wiktionary",title:term,extract:def.replace(/<[^>]+>/g,"")}}catch(e){}return null})()
+    (async()=>{try{const r=await fetch("https://en.wiktionary.org/api/rest_v1/page/definition/"+encodeURIComponent(term.split(/\s+/).pop()),{signal:AbortSignal.timeout(7000)});if(!r.ok)throw 0;const d=await r.json();const en=d.en&&d.en[0];const def=en&&((en.definitions||[])[0]||{}).definition;if(!def)throw 0;return{k:"Wiktionary",title:term,extract:def.replace(/<[^>]+>/g,"")}}catch(e){}return null})()
   ];
   const res=await Promise.allSettled(jobs);
   /* dedupe: sources that repeat each other add nothing to the reasoning */
@@ -2890,7 +2908,7 @@ function attachCitations(t,evs){
   const used=new Set();
   (out.match(/\[(\d+)\]/g)||[]).forEach(m=>{const n=+m.slice(1,-1);if(n>=1&&n<=evs.length)used.add(n)});
   const idx=used.size?[...used].sort((a,b)=>a-b):evs.slice(0,Math.min(evs.length,3)).map((_,i)=>i+1);
-  const lines=idx.map(n=>{const e=evs[n-1];return "["+n+"] "+e.k+(e.title?" — "+e.title:"")+(e.url?"\n    "+e.url:"")});
+  const lines=idx.map(n=>{const e=evs[n-1];return "["+n+"] "+e.k+(e.title?" — "+e.title:"")+(e.url?" — "+e.url:"")});
   return out+"\n\nSOURCES:\n"+lines.join("\n");
 }
 async function thinkAnswer(q,deep,hi){
@@ -3012,16 +3030,18 @@ async function aiReply(q){
   if(/[\u0900-\u097F]/.test(q)||/\b(namaste|namaskar|hindi mein|hindi me)\b/i.test(q)){const hp=hiPersonalReply(q);if(hp)return{t:hp,eng:"हिंदी कोर"};}
   /* knowledge questions go LIVE first — local core is the offline fallback, not the first answer */
   const personal=/(who|what) (are|r) (you|u)\b|who (built|made|created|designed) you|your name|what can you do|who (is|made) sourabh|about sourabh|tell me about yourself|introduce yourself|open \w+|diagnostic|\bscan\b|joke|flip|roll|what time|time is it|today'?s date|my name|who am i|^(?:तुम|आप)\s+(?:कौन|क्या)|तुम्हें\s+किसने|आपको\s+किसने|तुम्हारा\s+नाम|आपका\s+नाम|किसने\s+बनाया|कौन\s+बनाया|तुम\s+क्या\s+कर\s+सकती|तुम\s+क्या\s+कर\s+सकते|अपने\s+बारे\s+में|अपना\s+परिचय/i;
-  const knowledge=!personal.test(q)&&(isKnowledgeEN(q)||deep||isKnowledgeHI(q));
+  let knowledge=!personal.test(q)&&(isKnowledgeEN(q)||deep||isKnowledgeHI(q));
   const hiMode=detectedLang==="hi";
   const rc=resolveContext(q);if(rc!==q)q=rc;
+  /* safety net: after context resolution the text may have become a full question — recheck before denying the live brain */
+  if(!knowledge&&isKnowledgeEN(q)&&q.split(/\s+/).length>=3){try{if(localReply(q)===undefined)knowledge=true}catch(e){}}
   if(knowledge){
     /* TIME-SENSITIVE → live research path first (real-time web + citations) */
     if(NEED_WEB.test(q)){const rr=await researchReply(q,hiMode);if(rr&&rr.trim())return{t:rr,eng:"live web research · "+personaName()+" · "+((rr.match(/\[\d+\]/g)||[]).length)+" citations"};}
     /* THE THINKING BRAIN FIRST — gather live evidence, then reason over it in human fashion */
     const th=await thinkAnswer(q,deep,hiMode);if(th)return th;
     if(hiMode){const hw=await hiWikiAnswer(q,deep);if(hw)return hw;}
-    if(geminiKey()||backendUrl()){try{const t=await geminiCall(q,deep);return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b (direct)":"gemini 2.0 flash (direct)"};}catch(e){slog("ai uplink failed — trying live web");}}
+    if(geminiKey()||backendUrl()){try{let t=await geminiCall(q,deep);t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
     const d2=await ddgAnswer(q);if(d2)return d2;
@@ -4658,7 +4678,14 @@ async function researchReply(q,hi){
   pushSys("research: "+r.hits.length+" live sources — reading the top page…");
   const src=r.hits.map((h,i)=>"["+(i+1)+"] "+h.t+" — "+h.u).join("\n");
   const sys="You are "+P.name+". Answer the user's question using ONLY the provided live web evidence. Sound human and direct, never encyclopedic. Cite sources inline as [1], [2]. End with a SOURCES: line listing the numbered urls. If evidence is thin, say so honestly and answer from your own knowledge, marking that part clearly."+(hi?" Reply in Hindi (Devanagari).":"");
-  try{return await aiChat([{role:"system",content:sys},{role:"user",content:"Question: "+q+"\n\nLIVE WEB EVIDENCE:\n"+src+"\n\nTOP PAGE TEXT:\n"+(r.txt||"(reader blocked — rely on titles+snippets)")}],1400)}catch(e){return null}}finally{window.__researching=false}}
+  try{let txt=await aiChat([{role:"system",content:sys},{role:"user",content:"Question: "+q+"\n\nLIVE WEB EVIDENCE:\n"+src+"\n\nTOP PAGE TEXT:\n"+(r.txt||"(reader blocked — rely on titles+snippets)")}],1400);
+    if(txt&&String(txt).trim()){
+      /* strip any source list the model invented — attach the REAL pages as tidy numbered sources instead */
+      const body=String(txt).replace(/\n?\s*SOURCES?:[\s\S]*$/i,"").trim();
+      const lines=r.hits.slice(0,5).map((h,i)=>"["+(i+1)+"] "+h.t+" — "+h.u);
+      return body+"\n\nSOURCES:\n"+lines.join("\n");
+    }
+    return null}catch(e){return null}}finally{window.__researching=false}}
 const NEED_WEB=/\b(price|weather|today|current|latest|news|live score|stock|exchange rate|who won|release date|schedule|update on|right now|this week|this month|2024|2025|2026)\b|कीमत|मौसम|आज|ताज़ा|लाइव/i;
 const SAY_PY=/^(run|execute|do) (this|it|the) python|python (run|execute)|run py\b/i;
 const SAY_EXP=/^(explain|walk me through) (this|the) (code|script|python)|explain (this|the) code|what does this code do/i;
@@ -4776,7 +4803,7 @@ async function scrAnalyze(qq){
 /* ---------- KEEP-ALIVE: ping the owner backend every 10 min so Render free tier never sleeps ----------
    Cheap GET /health — no tokens used. Plus a wake-check on boot with local-tier fallback. */
 (function(){
-  const ping=()=>{const u=(typeof backendUrl==="function")&&backendUrl();if(!u)return;fetch(u+"/health",{signal:AbortSignal.timeout(8000)}).then(r=>{if(r.ok){window.__backendUp=true;slog("backend keep-alive ok",true)}}).catch(()=>{window.__backendUp=false})};
+  const ping=()=>{const u=(typeof backendUrl==="function")&&backendUrl();if(!u)return;fetch(u+"/health",{signal:AbortSignal.timeout(45000)}).then(r=>{if(r.ok){window.__backendUp=true;slog("backend keep-alive ok",true)}}).catch(()=>{window.__backendUp=false})};
   setTimeout(ping,4000);setInterval(ping,10*60*1000);
 })();
 /* ---------- hook: pyodide + vision models on boot ---------- */
