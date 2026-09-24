@@ -298,6 +298,20 @@ app.post("/v1/admin/config", async (req, res) => {
   const patch = {};
   const b = req.body || {};
   for (const k of ["aiEngine", "brandLine", "announce"]) if (typeof b[k] === "string") patch[k] = b[k].slice(0, 300);
+  /* SELF-INTEGRATION — shipped upgrade patches (admin-only write, public read).
+     Hard cap: 20 patches × 8000 chars each so the config doc stays tiny. */
+  if (typeof b.selfPatches === "string") {
+    let arr = [];
+    try { arr = JSON.parse(b.selfPatches); } catch (e) {}
+    if (Array.isArray(arr)) {
+      patch.selfPatches = JSON.stringify(arr.slice(-20).map(p => ({
+        ts: +p.ts || Date.now(),
+        task: String(p.task || "").slice(0, 300),
+        patch: String(p.patch || "").slice(0, 8000),
+        note: String(p.note || "").slice(0, 200)
+      })));
+    }
+  }
   if (fbDb) { try { await fbDb.collection("aura_config").doc("public").set(patch, { merge: true }); } catch (e) { Object.assign(memConfig, patch); } }
   else Object.assign(memConfig, patch);
   res.json({ ok: true, config: Object.assign({}, memConfig, patch) });

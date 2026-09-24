@@ -574,6 +574,25 @@ body.perf-saver .panel,body.perf-saver #stateBox,body.perf-saver #tabbar button{
   opacity:.75;font-size:11px;
 }
 .msg-actions button,.msg-actions a{border-radius:7px;padding:3px 9px;font-size:10.5px}
+/* ---------- SELF-INTEGRATION (admin) — describe a change, AURA builds & ships it ---------- */
+#suBox{margin-top:16px;border:1px solid var(--line2);border-radius:12px;padding:14px;background:rgba(2,10,16,.35)}
+#suBox h4{font-family:'Orbitron';font-size:11px;letter-spacing:2px;color:var(--cy2);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+#suBox h4 .live-dot{width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 8px #34d399;animation:pp 1.6s infinite}
+#suPrompt{width:100%;min-height:74px;resize:vertical;background:rgba(3,14,20,.7);border:1px solid var(--line2);border-radius:10px;color:var(--ice);font:13px/1.55 'Rajdhani',sans-serif;padding:11px 13px;outline:0}
+#suPrompt:focus{border-color:var(--cy2);box-shadow:0 0 0 1px var(--cy2)}
+.suRow{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.suBtn{flex:1;min-width:110px;border:1px solid var(--line2);background:rgba(34,211,238,.12);color:var(--cy2);border-radius:10px;padding:10px 12px;font:600 12px 'Rajdhani';letter-spacing:.6px;cursor:pointer;transition:.18s}
+.suBtn:hover{background:rgba(34,211,238,.22);transform:translateY(-1px)}
+.suBtn.go{background:linear-gradient(135deg,#7865E9,#6D5AE0);border-color:#7865E9;color:#fff}
+.suBtn:disabled{opacity:.5;cursor:default;transform:none}
+#suPlan{margin-top:10px;font-size:12.5px;line-height:1.6;color:var(--ice);background:rgba(34,211,238,.06);border:1px dashed var(--line2);border-radius:10px;padding:10px 12px;display:none;white-space:pre-wrap}
+#suDiff{margin-top:10px;display:none;border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+#suDiff header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(2,10,16,.6);font:600 11px 'Rajdhani';letter-spacing:1px;color:var(--dim)}
+#suDiff pre{margin:0;max-height:260px;overflow:auto;padding:12px;background:#050d13;color:#b8f1ff;font:11.5px/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap}
+#suStatus{margin-top:10px;font-size:12px;color:var(--dim);min-height:18px}
+#suPrev{margin-top:10px;display:none;border:1px solid var(--line2);border-radius:12px;overflow:hidden}
+#suPrev iframe{width:100%;height:420px;border:0;background:#fff;display:block}
+@media(max-width:860px){#suPrev iframe{height:340px}}
 .chip{padding:6px 13px;border-radius:16px;font-size:10.5px;transition:all .2s}
 /* MOBILE LAYOUT GUARD — must come AFTER every desktop rule above so phones always win.
    Restores the full-width conversation card and contains the telemetry panel on small screens. */
@@ -789,6 +808,23 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   <div class="admin-card">
     <h4>👥 PEOPLE <span id="adUsersHint" style="color:var(--dim);font-weight:400"></span></h4>
     <div id="adUsersList"><small style="color:var(--dim)">loading…</small></div>
+  </div>
+  <div class="admin-card" id="suCard" style="border-color:rgba(120,101,233,.4)">
+    <h4>🧬 SELF-INTEGRATION <span style="color:var(--dim);font-weight:400">— AURA upgrades herself</span></h4>
+    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:10px">Describe any change in plain words — a new feature, a design tweak, a fix. AURA plans it, writes the code, shows you a live preview, and can ship it to the real site with your approval. You stay the publisher; she stays the engineer.</p>
+    <div id="suBox">
+      <h4><span class="live-dot"></span> BUILD CONSOLE</h4>
+      <textarea id="suPrompt" placeholder="e.g. Add a dark/light quick-toggle in the top bar · Make the mic button pulse green while listening · Add a 'copy chat' button under every answer"></textarea>
+      <div class="suRow">
+        <button class="suBtn" id="suPlanBtn">◈ 1 · PLAN</button>
+        <button class="suBtn" id="suBuildBtn" disabled>⚙ 2 · BUILD &amp; PREVIEW</button>
+        <button class="suBtn go" id="suShipBtn" disabled>🚀 3 · SHIP LIVE</button>
+      </div>
+      <div id="suPlan"></div>
+      <div id="suDiff"><header><b style="color:var(--cy2)">CODE SHE WROTE</b><span style="margin-left:auto" id="suDiffMeta"></span></header><pre id="suDiffCode"></pre></div>
+      <div id="suPrev"><header style="padding:8px 12px;background:rgba(2,10,16,.6);font:600 11px 'Rajdhani';letter-spacing:1px;color:var(--dim)">LIVE PREVIEW — this is your real page with her change applied</header><iframe id="suPrevFrame" title="self-upgrade preview"></iframe></div>
+      <div id="suStatus"></div>
+    </div>
   </div>
 </div>
 
@@ -5854,6 +5890,100 @@ document.addEventListener("DOMContentLoaded",function(){
   const __au=JSON.parse(localStorage.getItem("aura_fb_live")||"null");
   try{
     fetch(backendUrl()+"/v1/usage").then(r=>r.json()).then(u=>{const el=$("adStatAnswers");if(el&&u&&typeof u.answers==="number")el.innerHTML=u.answers+"<small>ANSWERS SERVED</small>"}).catch(()=>{});
+  }catch(e){}
+
+  /* ============================================================
+     SELF-INTEGRATION — AURA modifies her own page under your approval
+     PLAN  : the AI drafts a change plan + integration patch (JS/CSS/HTML)
+     BUILD : the patch runs in a sandboxed copy of the REAL page → live preview
+     SHIP  : the patch is saved to the backend database → every visitor gets it
+     ============================================================ */
+  const suPlan=$("suPlan"),suDiff=$("suDiff"),suDiffCode=$("suDiffCode"),suDiffMeta=$("suDiffMeta"),
+        suPrev=$("suPrev"),suPrevFrame=$("suPrevFrame"),suStatus=$("suStatus"),suPromptEl=$("suPrompt");
+  const suState={plan:"",patch:"",note:""};
+  let __suPatched=null;
+  function applySuPatch(src,patch){
+    /* patch contract: a JS snippet run as fn(document, patchAPI) — she writes DOM/CSS/style changes against the live page structure.
+       In the sandbox we eval it against the cloned document; on ship it runs on page boot for every visitor. */
+    try{
+      const api={
+        css:function(cssText){const s=document.createElement("style");s.setAttribute("data-aura-su","1");s.textContent=cssText;document.head.appendChild(s)},
+        html:function(selector,pos,htmlText){const t=document.querySelector(selector);if(!t)throw new Error("no element: "+selector);t.insertAdjacentHTML(pos||"beforeend",htmlText)},
+        js:function(code){(new Function(code))()},
+        note:function(n){suState.note=String(n||"").slice(0,200)}
+      };
+      (new Function("doc","api",patch))(document,api);
+      return null;
+    }catch(e){return e.message||String(e)}
+  }
+  async function suCall(messages,maxTok){
+    const r=await fetch(backendUrl()+"/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||2600,temperature:0.3}),signal:AbortSignal.timeout(90000)});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const d=await r.json();const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
+    if(!t.trim())throw new Error("empty");return t.trim();
+  }
+  const SU_SYS="You are AURA's self-integration engineer. The page you may modify is a single-file holographic AI app (aura.html). Key structure: #topbar (.wordmark), #tabbar buttons, #conv chat card with #log and .chip buttons, #dock with .iconrow .ibtn buttons (soundBtn,langBtn,personaBtn,toolBtn,docsBtn,themeBtn; some are display:none), #q input, #sendBtn, #micBtn, #telemetry rows, body.theme-nexa light theme / theme-gold / theme-classical, body[data-persona=jarvis]. Available patch API: api.css(cssText) injects a stylesheet; api.html(selector,pos,html) inserts markup (pos: beforebegin/afterbegin/beforeend/afterend); api.js(code) runs code; api.note(text) sets a one-line note. RULES: ONLY use these four calls. Never use fetch, localStorage, eval of remote code, or network. Changes must be pure DOM/CSS (colors, layout, text, animations, new buttons/panels with inline behavior). Keep it under ~80 lines. Output format — exactly this and nothing else:\nPLAN: 2-3 short lines what you will change and why\nPATCH:\n```js\n<the patch code using api.*>\n```\nNOTE: one line describing the effect";
+  const suPlanBtn=$("suPlanBtn"),suBuildBtn=$("suBuildBtn"),suShipBtn=$("suShipBtn");
+  if(suPlanBtn)suPlanBtn.onclick=async function(){
+    const task=suPromptEl.value.trim();
+    if(!task){suStatus.textContent="describe the change first — one clear sentence is enough";return}
+    suPlanBtn.disabled=true;suStatus.textContent="thinking — drafting the integration plan…";suPlan.style.display="none";suDiff.style.display="none";suPrev.style.display="none";suBuildBtn.disabled=true;suShipBtn.disabled=true;
+    try{
+      const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task}]);
+      const pm=out.match(/PLAN:\\s*([\\s\\S]*?)(?:PATCH:|$)/i);
+      suState.plan=pm?pm[1].trim():task;
+      const cm=out.match(/```js\\s*([\\s\\S]*?)```/i);
+      suState.patch=cm?cm[1].trim():"";
+      const nm=out.match(/NOTE:\\s*(.+)/i);suState.note=nm?nm[1].trim():"";
+      suPlan.textContent="◈ PLAN\n"+suState.plan;suPlan.style.display="block";
+      suStatus.textContent=suState.patch?"plan ready — build the preview next":"she returned no patch — rephrase the task and plan again";
+      suBuildBtn.disabled=!suState.patch;
+    }catch(e){suStatus.textContent="brain unreachable ("+(e.message||e)+") — backend warming up? try again in 30s"}
+    suPlanBtn.disabled=false;
+  };
+  if(suBuildBtn)suBuildBtn.onclick=function(){
+    if(!suState.patch)return;
+    suBuildBtn.disabled=true;suStatus.textContent="building — running her patch against a live copy of this page…";
+    const src="<!doctype html>"+document.documentElement.outerHTML
+      .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/g,function(m){return /src=/.test(m)?m:"<script>/* disabled in sandbox */<\\/script>"})
+      .replace("</body>","<script>(function(){try{"+suState.patch.replace(/\\u0000/g,"")+"}catch(e){document.title='PATCH ERROR: '+e.message}})();<\\/script></body>");
+    __suPatched=src;
+    suPrevFrame.srcdoc=src;
+    suPrev.style.display="block";
+    suDiffCode.textContent=suState.patch;suDiffMeta.textContent=(suState.patch.split("\\n").length)+" lines";suDiff.style.display="block";
+    suStatus.textContent="preview running — check it above. Happy? Ship it live.";
+    suShipBtn.disabled=false;suBuildBtn.disabled=false;
+  };
+  if(suShipBtn)suShipBtn.onclick=async function(){
+    if(!suState.patch)return;
+    if(!confirm("Ship this change to EVERY visitor of the live site?\n\n"+(suState.note||suState.plan)))return;
+    suShipBtn.disabled=true;suStatus.textContent="publishing to the live database…";
+    try{
+      /* merge with previous live patches so upgrades stack instead of overwrite */
+      let prev=[];try{const c=await(await __ah("GET",backendUrl()+"/v1/config")).json();prev=JSON.parse(c.selfPatches||"[]")}catch(e){}
+      prev.push({ts:Date.now(),task:suPromptEl.value.trim().slice(0,300),patch:suState.patch,note:(suState.note||"").slice(0,200)});
+      prev=prev.slice(-20);
+      const r=await __ah("POST",backendUrl()+"/v1/admin/config",{announce:undefined,selfPatches:JSON.stringify(prev)});
+      if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error(j.error||("HTTP "+r.status))}
+      suStatus.textContent="🚀 shipped — every visitor receives the upgrade within seconds. History: "+prev.length+" patch(es) live.";
+      pushSys("🧬 self-integration shipped: "+(suState.note||suState.plan).slice(0,60));
+      suShipBtn.disabled=false;
+    }catch(e){suStatus.textContent="ship failed: "+(e.message||e);suShipBtn.disabled=false}
+  };
+  /* APPLIER — on boot, any visitor applies shipped patches (after core is ready) */
+  try{
+    fetch(backendUrl()+"/v1/config").then(r=>r.json()).then(async function(c){
+      let patches=[];try{patches=JSON.parse(c.selfPatches||"[]")}catch(e){}
+      if(!patches.length)return;
+      const api={
+        css:function(t){const s=document.createElement("style");s.setAttribute("data-aura-su","1");s.textContent=t;document.head.appendChild(s)},
+        html:function(sel,pos,h){const t=document.querySelector(sel);if(t)t.insertAdjacentHTML(pos||"beforeend",h)},
+        js:function(code){try{(new Function(code))()}catch(e){}},
+        note:function(){}
+      };
+      for(const p of patches){try{(new Function("doc","api",p.patch))(document,api)}catch(e){}}
+      if(patches.length)slog("self-integration: "+patches.length+" shipped upgrade(s) applied",true);
+    }).catch(()=>{});
   }catch(e){}
 });
 
