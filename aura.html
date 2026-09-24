@@ -62,6 +62,7 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 .panel{position:fixed;z-index:10;background:var(--panel);border:1px solid var(--line2);backdrop-filter:blur(8px);border-radius:12px;padding:14px 16px}
 .panel h3{font-family:'Orbitron';font-size:10px;letter-spacing:3px;color:var(--dim);margin-bottom:10px;font-weight:800}
 #telemetry{top:74px;left:22px;width:225px}
+#aboutCard{top:74px;left:22px;width:225px;display:none;max-height:70vh;overflow:auto}
 .trow{display:flex;justify-content:space-between;font-size:12.5px;padding:5px 0;border-bottom:1px dashed rgba(34,211,238,.12)}
 .trow:last-child{border:0}
 .trow span{color:#5f8f9e;letter-spacing:.5px}
@@ -307,6 +308,7 @@ body[data-tab="chats"] #sessPanel{display:flex}
   #tabbar button{flex:1;padding:7px 4px;font-size:9px;letter-spacing:1px}
   body[data-tab="chats"] #sessPanel{top:88px;left:8px;right:8px;bottom:198px;width:auto;border-radius:14px;background:rgba(2,10,14,.85);backdrop-filter:blur(8px)}
   body[data-tab="system"] #telemetry{display:block;position:fixed;top:88px;left:8px;right:8px;width:auto}
+  body[data-tab="system"] #aboutCard{display:block;position:fixed;top:88px;left:8px;right:8px;width:auto;margin-top:340px}
   body[data-tab="system"] #syslog{display:block;position:fixed;top:auto;bottom:198px;left:8px;right:8px;width:auto;max-height:150px}
   body[data-tab="chats"] #dock,body[data-tab="system"] #dock{opacity:.25;pointer-events:none}
 }
@@ -362,6 +364,20 @@ body.theme-classical .wiz-p,body.theme-classical .wiz-step,body.theme-classical 
 .wiz-wrap{position:relative}
 
 /* ---------- AUTH & RBAC SYSTEM (SOURABH SINGH) ---------- */
+/* ---- Firebase auth modal + admin panel (product upgrade) ---- */
+body[data-tab="admin"] #telemetry,body[data-tab="admin"] #syslog{display:none}
+body[data-tab="admin"] #adminPage{display:flex}
+#adminPage{display:none;position:fixed;top:132px;left:24px;right:24px;bottom:104px;flex-direction:column;gap:10px;overflow:auto;z-index:30;background:rgba(2,8,14,.82);backdrop-filter:blur(7px);border:1px solid var(--line2);border-radius:14px;padding:14px}
+.admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px}
+.admin-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.admin-card h4{margin:0 0 8px;font-size:11px;letter-spacing:1.5px;color:var(--cy2);font-family:'Orbitron',sans-serif}
+.admin-card input,.admin-card textarea{width:100%;box-sizing:border-box;background:rgba(0,0,0,.3);border:1px solid var(--line2);border-radius:8px;color:var(--ice);padding:8px 10px;font-size:12px;margin-bottom:8px;font-family:var(--mono)}
+.admin-card textarea{min-height:52px;resize:vertical}
+.admin-user-row{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line2);border-radius:8px;margin-bottom:6px;font-size:12px}
+.admin-user-row .role-select{margin-left:auto;background:rgba(0,0,0,.35);color:var(--ice);border:1px solid var(--line2);border-radius:6px;padding:3px 6px;font-size:11px;font-family:var(--mono)}
+.admin-stat{font-size:22px;font-family:'Orbitron',sans-serif;color:var(--cy)}
+.admin-stat small{display:block;font-size:10px;letter-spacing:1px;color:var(--dim)}
+@media(max-width:860px){#adminPage{top:118px;left:8px;right:8px;bottom:24px}}
 #authBadge{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line2);border-radius:20px;padding:5px 14px;cursor:pointer;transition:.25s;font-family:var(--mono);font-size:11.5px;color:var(--ice);user-select:none}
 #authBadge:hover{border-color:var(--cy);transform:translateY(-1px);box-shadow:0 0 14px rgba(34,211,238,.35)}
 #authBadge.admin{border-color:rgba(251,191,36,.65);background:linear-gradient(135deg,rgba(251,191,36,.12),rgba(245,158,11,.05));box-shadow:0 0 18px rgba(251,191,36,.25)}
@@ -421,6 +437,7 @@ body.perf-saver .panel,body.perf-saver #stateBox,body.perf-saver #tabbar button{
 }
 .panel h3 span:last-child{margin-left:auto}
 #telemetry{top:86px;left:26px;width:248px;padding:var(--sp4) var(--sp5)}
+#aboutCard{top:86px;left:26px;width:248px;padding:var(--sp4) var(--sp5)}
 #telemetry .trow{padding:8px 0;font-size:13px}
 #telemetry .trow b{font-size:12px}
 #syslog{bottom:132px;left:26px;width:248px;max-height:180px;padding-bottom:var(--sp3)}
@@ -609,23 +626,25 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
 
 </style>
 <script src="https://js.puter.com/v2/"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 </head>
 <body>
 <div class="wiz" id="wiz">
   <div class="wiz-card wiz-wrap">
     <button class="wiz-x" id="wizX" title="Later">✕</button>
     <div class="wiz-tag">system requisition · clearance granted</div>
-    <div class="wiz-h">Unlock full JARVIS mode 🧠</div>
-    <p class="wiz-p">One free key gives me a real reasoning brain — I'll <b>think, plan and speak</b> with full knowledge instead of short web summaries. Takes 60 seconds, no card, no signup beyond your Google account.</p>
+    <div class="wiz-h">Bring your own key — optional power-up</div>
+    <p class="wiz-p">AURA already runs on the house brain — <b>you can chat right now with zero setup</b>. Adding your own free key makes reasoning stronger and removes shared limits entirely. 60 seconds, no card.</p>
     <div class="wiz-step"><span class="wiz-n">1</span><span>Get a free key — <b>console.groq.com/keys</b> (starts <b>gsk_…</b>) or <b>aistudio.google.com/app/apikey</b> (starts <b>AIza…</b>)</span></div>
-    <div class="wiz-step"><span class="wiz-n">2</span><span>Create &amp; copy the key — I detect the provider automatically</span></div>
-    <div class="wiz-step"><span class="wiz-n">3</span><span>Paste it below and hit <b>ACTIVATE</b> — I'll do the rest, boss.</span></div>
+    <div class="wiz-step"><span class="wiz-n">2</span><span>Create &amp; copy the key — provider detected automatically</span></div>
+    <div class="wiz-step"><span class="wiz-n">3</span><span>Paste it below and hit <b>ACTIVATE</b> — or just <b>SKIP</b> and start talking.</span></div>
     <input class="wiz-in" id="wizKey" type="password" placeholder="gsk_… or AIza…" autocomplete="off">
     <div class="wiz-row">
-      <button class="wiz-btn" id="wizGo">⚡ ACTIVATE JARVIS MODE</button>
-      <button class="wiz-btn ghost" id="wizLater">Later</button>
+      <button class="wiz-btn" id="wizGo">⚡ ACTIVATE</button>
+      <button class="wiz-btn ghost" id="wizLater">SKIP — start chatting</button>
     </div>
-    <div class="wiz-why">Why I need this: without it I can still research the web, but the reasoning model sometimes needs a sign-in popup your browser blocks — with your own key I think instantly, every time. The key stays in this browser only.</div>
+    <div class="wiz-why">Your key stays in this browser only. Sign in with Google or phone (top-right badge) to keep chats and memories across all your devices.</div>
   </div>
 </div>
 
@@ -645,9 +664,32 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   <button data-t="chats">📚 CHATS</button>
   <button data-t="code">⌨ CODE</button>
   <button data-t="system">🛠 SYSTEM</button>
+  <button data-t="admin" id="adminTabBtn" style="display:none">👑 ADMIN</button>
 </div>
 
-<div class="panel" id="telemetry">
+<div id="adminPage">
+  <div class="admin-card" style="border-color:rgba(251,191,36,.35)">
+    <h4>⚡ LIVE TELEMETRY</h4>
+    <div class="admin-grid">
+      <div class="admin-stat" id="adStatAnswers">0<small>ANSWERS SERVED</small></div>
+      <div class="admin-stat" id="adStatUsers">0<small>SIGNED-IN PEOPLE</small></div>
+      <div class="admin-stat" id="adStatAdmins">0<small>STAFF (MAKER/CEO)</small></div>
+    </div>
+    <small style="color:var(--dim);font-size:10.5px">Counts come from the backend database — the same numbers the server enforces.</small>
+  </div>
+  <div class="admin-card">
+    <h4>🧠 ENGINE &amp; BRAND (live database)</h4>
+    <input id="adCfgEngine" placeholder="Engine label, e.g. llama-3.3-70b via Groq">
+    <input id="adCfgBrand" placeholder="Brand line, e.g. voice + code AI assistant">
+    <textarea id="adCfgAnnounce" placeholder="Announcement shown once to every user…"></textarea>
+    <button class="auth-btn" id="adCfgSave" style="background:linear-gradient(135deg,#fbbf24,#d97706);color:#1f1500">SAVE TO DATABASE</button>
+    <small id="adCfgMsg" style="color:var(--dim);font-size:10.5px">Saved values appear for every visitor within seconds.</small>
+  </div>
+  <div class="admin-card">
+    <h4>👥 PEOPLE <span id="adUsersHint" style="color:var(--dim);font-weight:400"></span></h4>
+    <div id="adUsersList"><small style="color:var(--dim)">loading…</small></div>
+  </div>
+</div>
   <h3>TELEMETRY</h3>
   <div class="trow"><span>UPLINK</span><b id="tNet" class="on">ONLINE</b></div>
   <div class="trow"><span>RENDER</span><b id="tFps">— fps</b></div>
@@ -657,6 +699,19 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   <div class="trow"><span>DISPLAY</span><b id="tRes">—</b></div>
   <div class="trow"><span>UPTIME</span><b id="tUp">0:00</b></div>
   <div class="trow"><span>ENGINE</span><b id="tEng">—</b></div>
+</div>
+
+<div class="panel" id="aboutCard" style="display:none">
+  <h3>ABOUT AURA</h3>
+  <p style="font-size:11.5px;line-height:1.55;color:var(--ice);margin:4px 0 8px"><b>AURA</b> — Adaptive Universal Reasoning Assistant. A <b>voice + code AI assistant</b> by Sourabh Singh: speak or type, research live web sources with citations, write and run code in the built-in forge, and remember you across devices when signed in.</p>
+  <div class="trow"><span>BRAINS</span><b>LLaMA via Groq · Gemini vision</b></div>
+  <div class="trow"><span>VOICE</span><b>speech in · speech out</b></div>
+  <div class="trow"><span>FORGE</span><b>run · explain · convert · zip</b></div>
+  <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
+    <a href="https://github.com/sourabh7300/aura#readme" target="_blank" rel="noopener" style="font-size:11px;color:var(--cy)">📖 Full guide &amp; screenshots on GitHub</a>
+    <a href="https://sourabh7300.github.io/aura/provenance.html" target="_blank" rel="noopener" style="font-size:11px;color:var(--cy)">🛡 Verify this build (provenance)</a>
+  </div>
+  <small style="display:block;margin-top:8px;font-size:10px;color:var(--dim)">© 2026 Sourabh Singh · JECRC University — all rights reserved.</small>
 </div>
 
 <div class="panel" id="syslog">
@@ -1458,7 +1513,7 @@ function setPersona(p,announce){
 
 /* ---------------- local intelligence (big offline core) ---------------- */
 function memGet(){try{return JSON.parse(localStorage.getItem("aura_memory")||"{}")}catch(e){return{}}}
-function memSet(m){try{localStorage.setItem("aura_memory",JSON.stringify(m))}catch(e){}}
+function memSet(m){try{localStorage.setItem("aura_memory",JSON.stringify(m));try{cloudPushDebounced()}catch(e){}}catch(e){}}
 /* ============ LONG-TERM MEMORY — durable facts about the user, recalled by relevance ============ */
 window.AuraMem=(function(){
   const KEY="aura_facts_v1";
@@ -2160,7 +2215,7 @@ async function backendCall(messages,maxTok,modelOverride){
 async function groqCall(messages,maxTok,modelOverride){
   /* TIER 1 — owner's secure backend (key never leaves the server) */
   if(backendUrl()){
-    try{const t=await backendCall(messages,maxTok,modelOverride);slog("answered via owner backend (server-side key) — most secure tier",true);return t}
+    try{const t=await backendCall(messages,maxTok,modelOverride);slog("answered via owner backend (server-side key) — most secure tier",true);__lastEng="LLaMA via Groq (backend)";return t}
     catch(e){if(e&&e.outOfTokens&&!keyPool().length)throw e;slog("backend unavailable ("+(e.message||e)+") — falling to direct keys",true)}
   }
   /* TIER 2 — direct Groq keys from the local bank */
@@ -2410,7 +2465,7 @@ const sessions={
       const i=list.findIndex(s=>s.id===id);
       const data={id:id||("s"+at),title,at,convo:CONVO.slice(-40),lastTopic};
       if(i>=0){data.id=list[i].id;data.created=list[i].created||at;list[i]=data}else{data.created=at;list.unshift(data)}
-      this.write(list);this.setCurrent(data.id);return data.id;
+      this.write(list);this.setCurrent(data.id);try{cloudPushDebounced()}catch(e){}return data.id;
     }catch(e){return""}
   },
   newChat(){try{this.sync()}catch(e){}CONVO.length=0;lastTopic="";hist.clear();this.setCurrent("s"+Date.now());try{renderSessions()}catch(e){}},
@@ -2426,6 +2481,46 @@ const sessions={
   del(id){try{this.write(this.all().filter(x=>x.id!==id));if(this.currentId()===id){this.setCurrent("");this.newChat()}}catch(e){}try{renderSessions()}catch(e){}},
   rename(id,title){try{const list=this.all();const s=list.find(x=>x.id===id);if(s){s.title=String(title).slice(0,60);this.write(list);renderSessions()}}catch(e){}}
 };
+/* ================= CLOUD SYNC — chats + memory per signed-in account (Firebase token → owner backend → Firestore) ================= */
+let __cloudTimer=0;
+function cloudAuthHeader(){
+  try{const u=JSON.parse(localStorage.getItem("aura_fb_live")||"null");return (u&&u.tok)?{"Authorization":"Bearer "+u.tok}:{}}catch(e){return{}}
+}
+function cloudSignedIn(){return !!cloudAuthHeader().Authorization}
+function cloudPushDebounced(){
+  if(!backendUrl()||!cloudSignedIn())return;
+  clearTimeout(__cloudTimer);
+  __cloudTimer=setTimeout(cloudPushNow,4000);
+}
+async function cloudPushNow(){
+  try{
+    if(!backendUrl()||!cloudSignedIn())return;
+    const blob={convo:CONVO.slice(-120),memory:memGet(),sessions:sessions.all().slice(-30),lastTopic:lastTopic||"",usage:(function(){try{return JSON.parse(localStorage.getItem("aura_usage")||"{}")}catch(e){return{}}})()};
+    await fetch(backendUrl()+"/v1/userdata",{method:"PUT",headers:Object.assign({"Content-Type":"application/json"},cloudAuthHeader()),body:JSON.stringify(blob),signal:AbortSignal.timeout(15000)});
+    slog("☁ synced to your account",true);
+  }catch(e){}
+}
+async function cloudPullAndRestore(){
+  try{
+    if(!backendUrl()||!cloudSignedIn())return false;
+    const r=await fetch(backendUrl()+"/v1/userdata",{headers:cloudAuthHeader(),signal:AbortSignal.timeout(15000)});
+    if(!r.ok)return false;
+    const j=await r.json();const d=j&&j.data;if(!d)return false;
+    /* device-newest wins: this device already has local history → keep it and push it up */
+    const local=(function(){try{return JSON.parse(localStorage.getItem("aura_history_v1")||"null")}catch(e){return null}})();
+    if(local&&local.convo&&local.convo.length){cloudPushDebounced();return false}
+    if(Array.isArray(d.convo)&&d.convo.length&&!CONVO.length){
+      CONVO.push(...d.convo.slice(-CONVO_MAX));lastTopic=d.lastTopic||"";
+      hist.save("convo",d.convo.slice(-40));if(lastTopic)hist.save("lastTopic",lastTopic);
+      if(d.memory&&!memGet().name){try{localStorage.setItem("aura_memory",JSON.stringify(d.memory));memRender()}catch(e){}}
+      if(Array.isArray(d.sessions)&&d.sessions.length){try{sessions.write(d.sessions)}catch(e){}}
+      try{pushSys("☁ your chats and memories arrived from your account — welcome back")}catch(e){}
+      return true;
+    }
+  }catch(e){}
+  return false;
+}
+window.cloudPushDebounced=cloudPushDebounced;window.cloudPullAndRestore=cloudPullAndRestore;
 function replayOnScreen(list){
   try{
     log.innerHTML="";
@@ -3348,8 +3443,11 @@ async function askCore(text0){
     setMode("idle");busy=false;if(wake)armWake(400);return;
   }
   lastAnswer=t;lastSrc=src||"";window.__lastQ=text;
+  try{const __u=JSON.parse(localStorage.getItem("aura_usage")||"{\"answers\":0}");__u.answers=(__u.answers||0)+1;localStorage.setItem("aura_usage",JSON.stringify(__u))}catch(e){}
   convoAdd("user",text);convoAdd("assistant",t);try{sessions.sync()}catch(e){}
-  $("engTag").textContent="engine: "+eng;$("tEng").textContent=eng.toUpperCase().slice(0,16);
+  const __label={"local core":"Local core (no internet needed)","web live (ddg)":"Web research · DuckDuckGo","web live (wiki)":"Web research · Wikipedia"}[eng]||eng;
+  if(/backend|groq|llama|gpt-oss/i.test(__label))__label+="";
+  $("engTag").textContent="engine: "+__label;$("tEng").textContent=__label.toUpperCase().slice(0,16);
   const ms=Math.round(performance.now()-t0);const wps=Math.max(1,Math.round(t.split(/\s+/).length/Math.max(0.4,ms/1000)));
   slog("answered via "+eng+" ("+ms+"ms · ~"+wps+" words/s)",true);
   const el=pre;
@@ -3562,7 +3660,7 @@ const BOOT=persona()==="jarvis"?["> JARVIS OS v4.0 — initializing combat core"
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
   let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;$("boot").classList.add("gone");
-    setTimeout(()=>{const n=memGet().name;const P0=PERSONAS[persona()];const histN=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();const replay=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).slice(-6)}catch(e){return []}})();
+    setTimeout(()=>{try{cloudPullAndRestore()}catch(e){}const n=memGet().name;const P0=PERSONAS[persona()];const histN=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();const replay=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).slice(-6)}catch(e){return []}})();
     if(replay.length){const hd=addMsg("SYS","— previous conversation restored —","sys");hd.style.opacity=".55";
       replay.forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
@@ -3571,6 +3669,24 @@ const BOOT=persona()==="jarvis"?["> JARVIS OS v4.0 — initializing combat core"
   $("boot").addEventListener("click",end,{once:true});
   setTimeout(end,2600);
 })();
+/* ================= PUBLIC CONFIG — maker/ceo edit these values in the database; every visitor receives them ================= */
+const AuraConfig={cache:{},
+apply(){
+  try{
+    const c=this.cache||{};
+    if(c.aiEngine&&$("engTag"))$("engTag").textContent="engine: "+c.aiEngine;
+    if(c.aiEngine&&$("tEng")&&$("tEng").textContent==="—")$("tEng").textContent=String(c.aiEngine).toUpperCase().slice(0,16);
+    if(c.brandLine){const wm=document.querySelector(".wordmark small");if(wm)wm.textContent=c.brandLine;}
+    if(c.announce&&!sessionStorage.getItem("aura_announce_shown")){sessionStorage.setItem("aura_announce_shown","1");setTimeout(()=>pushSys("\ud83d\udce3 "+c.announce),3200)}
+  }catch(e){}
+},
+load(){
+  try{
+    if(!backendUrl())return;
+    fetch(backendUrl()+"/v1/config").then(r=>r.json()).then(c=>{this.cache=c||{};this.apply()}).catch(()=>{});
+  }catch(e){}
+}};
+setTimeout(function(){try{AuraConfig.load()}catch(e){}},2500);
 /* ================= JARVIS TASK ENGINE ================= */
 /* "Do things, don't just say things." — searches, clocks, notes, timers, pages, app launches, unit/math one-shots. */
 /* Tiny LLM helper for task engines: Gemini key if present, else Puter free AI (16s cap) */
@@ -3697,7 +3813,7 @@ function taskCommand(raw){
         if(r.ok)ok="gemini";else err="key rejected (HTTP "+r.status+")";
       }
     }catch(e){err=e.message||"network error"}
-    btn.textContent="⚡ ACTIVATE JARVIS MODE";btn.disabled=false;
+    btn.textContent="⚡ ACTIVATE";btn.disabled=false;
     if(!ok){
       localStorage.removeItem("aura_key");
       inp.style.borderColor="#e23744";setTimeout(()=>inp.style.borderColor="",2500);
@@ -3757,7 +3873,7 @@ updateEngTag();
   const bar=document.getElementById("tabbar");if(!bar)return;
   const fitCodePage=()=>{try{const pg=document.getElementById("codePage");if(!pg)return;const b=bar.getBoundingClientRect();pg.style.top=Math.ceil(b.bottom)+12+"px";const dk=document.getElementById("dock");const mh=window.innerWidth<=860?24:132;if(dk){const h=dk.getBoundingClientRect().height;pg.style.bottom=Math.max(mh,Math.ceil(h)+16)+"px"}else pg.style.bottom=mh+"px"}catch(e){}};
   const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage()};
-  bar.querySelectorAll("button").forEach(b=>b.onclick=()=>apply(b.dataset.t));
+  bar.querySelectorAll("button").forEach(b=>b.onclick=()=>{const t=b.dataset.t;if(t==="admin"&&typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Mission Control","This page is reserved for maker and CEO accounts — roles are verified on the server.");return}apply(t);if(t==="admin"&&window.adminLoad)try{window.adminLoad()}catch(e){}});
   apply("chat");
   try{const ro=new ResizeObserver(()=>{if(document.body.dataset.tab==="code")fitCodePage()});ro.observe(bar);const dk=document.getElementById("dock");if(dk)ro.observe(dk)}catch(e){}
   try{window.addEventListener("resize",()=>{if(document.body.dataset.tab==="code")fitCodePage()})}catch(e){}
@@ -4847,6 +4963,9 @@ function advisorText(q){
    elevates the session. No admin surface is visible anywhere.
    Master: Sourabh Singh
    ============================================================ */
+/* Firebase web config — public by design; paste the real values from your Firebase console
+   (see SETUP-FIREBASE.md). Until then, guest mode + house brain work with zero setup. */
+const FB_CONFIG_PLACEHOLDER = null; /* e.g. {apiKey:"AIza…",authDomain:"…",projectId:"…",appId:"…",messagingSenderId:"…"} */
 const AuraAuth = (function(){
   const ADMIN_IDENTITY = {
     name: "Sourabh Singh",
@@ -4904,7 +5023,15 @@ const AuraAuth = (function(){
 
   function isAdmin(){
     const token = getAdminToken();
-    return !!token && token === "verified_admin_sourabh_singh";
+    if(token === "verified_admin_sourabh_singh") return true;
+    const u = fbUser();
+    return !!(u && u.role && (u.role === "maker" || u.role === "ceo"));
+  }
+  function myRole(){
+    const token = getAdminToken();
+    if(token === "verified_admin_sourabh_singh") return "maker";
+    const u = fbUser();
+    return (u && u.role) ? u.role : "user";
   }
 
   function updateBadge(){
@@ -4924,10 +5051,149 @@ const AuraAuth = (function(){
   let otp = null, otpExp = 0, otpElevate = false;
   let lastDeny = null;
 
+  /* ================= FIREBASE ENGINE — Google sign-in, phone OTP, cloud sessions ================= */
+  const FB_LIVE_KEY = "aura_fb_live";
+  let fbApp = null, fbAuthObj = null, fbConfirm = null, fbCloudOn = false;
+  function fbInit(){
+    if(fbAuthObj) return true;
+    if(typeof firebase === "undefined" || !firebase.auth) return false;
+    try{
+      const FB_CFG = FB_CONFIG_PLACEHOLDER;
+      if(!FB_CFG || !FB_CFG.apiKey){ console.log("%c AURA accounts ","background:#7c3aed;color:#fff;padding:2px 6px;border-radius:3px","Google/phone sign-in not configured yet — see AURA/SETUP-FIREBASE.md (5 min). Guest mode works right now."); return false; }
+      fbApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FB_CFG);
+      fbAuthObj = fbApp.auth();
+      fbAuthObj.useDeviceLanguage();
+      fbAuthObj.onAuthStateChanged(function(u){
+        try{
+          if(u && !u.isAnonymous){
+            u.getIdToken().then(function(tok){
+              localStorage.setItem(FB_LIVE_KEY, JSON.stringify({uid:u.uid, email:u.email||"", phone:u.phoneNumber||"", name:u.displayName||"", tok:tok, ts:Date.now()}));
+              try{ AuraAuth.refreshRole(); }catch(e){}
+            }).catch(function(){});
+          }else if(!u){
+            localStorage.removeItem(FB_LIVE_KEY);
+          }
+          try{ AuraAuth.updateBadge(); }catch(e){}
+        }catch(e){}
+      });
+      fbCloudOn = true;
+      return true;
+    }catch(e){ return false; }
+  }
+  function fbUser(){
+    try{ const u = JSON.parse(localStorage.getItem(FB_LIVE_KEY)||"null"); return (u && u.uid) ? u : null; }catch(e){ return null; }
+  }
+  function fbWait(ms){
+    return new Promise(function(res){
+      const t0 = Date.now();
+      (function poll(){
+        if(fbUser() || Date.now()-t0 > (ms||8000)) return res(!!fbUser());
+        setTimeout(poll, 120);
+      })();
+    });
+  }
+  async function fbGoogle(){
+    if(!fbInit()) return {ok:false, why:"Google sign-in is loading — try again in a moment (offline or blocked network)."};
+    try{
+      const p = new firebase.auth.GoogleAuthProvider();
+      await fbAuthObj.signInWithPopup(p);
+      const ok = await fbWait(8000);
+      return ok ? {ok:true} : {ok:false, why:"Google finished but the session did not stick — check that popups are allowed."};
+    }catch(e){
+      const c = String((e && e.code) || e.message || e);
+      if(/popup-closed|cancelled/i.test(c)) return {ok:false, why:"Google window closed before finishing."};
+      if(/popup-blocked/i.test(c)) return {ok:false, why:"Browser blocked the Google popup — allow popups for this site."};
+      if(/operation-not-allowed|configuration-not-found/i.test(c)) return {ok:false, why:"Google sign-in is not enabled yet in the AURA Firebase console — flip it on (see SETUP-FIREBASE.md)."};
+      if(/unauthorized-domain/i.test(c)) return {ok:false, why:"This domain is not on the Firebase authorized list yet (SETUP-FIREBASE.md, step 5)."};
+      return {ok:false, why:"Google sign-in failed: " + c};
+    }
+  }
+  async function fbSendOtp(phoneE164, boxEl){
+    if(!fbInit()) return {ok:false, why:"Phone sign-in engine is still loading — check your connection and retry."};
+    try{
+      if(boxEl){ fbAuthObj.settings.appVerifier = null; }
+      fbConfirm = await fbAuthObj.signInWithPhoneNumber(phoneE164, window.__auraVerifier);
+      return {ok:true};
+      }catch(e){
+      const c = String((e && e.code) || e.message || e);
+      if(/invalid-phone-number/i.test(c)) return {ok:false, why:"That number does not look valid — use full international format, e.g. +91 73003 53703."};
+      if(/quota-exceeded/i.test(c)) return {ok:false, why:"Firebase's free SMS quota for today is used up — try Google sign-in instead."};
+      if(/invalid-app-credential|operation-not-allowed/i.test(c)) return {ok:false, why:"Phone sign-in is not enabled yet in the AURA Firebase console (SETUP-FIREBASE.md, step 3)."};
+      if(/captcha/i.test(c)) return {ok:false, why:"The human-check did not finish — reload the page and try again."};
+      return {ok:false, why:"Could not send the code: " + c};
+    }
+  }
+  async function fbVerifyOtp(code){
+    if(!fbConfirm) return {ok:false, why:"No code was sent on this device — request one first."};
+    try{
+      await fbConfirm.confirm(code);
+      return await fbWait(8000) ? {ok:true} : {ok:false, why:"Code accepted but the session did not stick — try again."};
+    }catch(e){
+      const c = String((e && e.code) || e.message || e);
+      if(/invalid-code/i.test(c)) return {ok:false, why:"That code is wrong or expired — request a fresh one."};
+      return {ok:false, why:"Verification failed: " + c};
+    }
+  }
+  function fbSignOut(){
+    try{ if(fbAuthObj) fbAuthObj.signOut(); }catch(e){}
+    localStorage.removeItem(FB_LIVE_KEY);
+  }
+  /* admin-tab visibility + badge refresh — reads the STORED role (server-verified when cloud is on) */
+  function applyRoleUi(){
+    try{
+      const btn = document.getElementById("adminTabBtn");
+      if(btn) btn.style.display = isAdmin() ? "" : "none";
+      updateBadge();
+    }catch(e){}
+  }
+
   return {
     identity: ADMIN_IDENTITY,
     denyInfo: function(){ return lastDeny; },
     isAdmin: isAdmin,
+    myRole: myRole,
+    firebaseUser: fbUser,
+    refreshRole: async function(){
+      const u = fbUser();
+      if(!u || !u.tok || !backendUrl()) return null;
+      try{
+        const r = await fetch(backendUrl()+"/v1/me", {headers:{"Authorization":"Bearer "+u.tok}, signal:AbortSignal.timeout(12000)});
+        if(!r.ok) return null;
+        const j = await r.json();
+        if(j && j.role){
+          const rec = fbUser() || {}; rec.role = j.role; rec.tok = u.tok;
+          localStorage.setItem(FB_LIVE_KEY, JSON.stringify(rec));
+          applyRoleUi();
+          return j.role;
+        }
+      }catch(e){}
+      return null;
+    },
+    fbGoogle: async function(){
+      const r = await fbGoogle();
+      if(r.ok) applyRoleUi();
+      return r;
+    },
+    fbSendOtp: function(phoneE164){ return fbSendOtp(phoneE164); },
+    fbVerifyOtp: async function(code){
+      const r = await fbVerifyOtp(code);
+      if(r.ok) applyRoleUi();
+      return r;
+    },
+    fbGuest: function(name){
+      const u = AuraAuth.signInUser((name||"").trim() || "Guest");
+      applyRoleUi();
+      return u;
+    },
+    fbReady: function(){ return fbInit(); },
+    signOutAll: function(){
+      fbSignOut();
+      localStorage.removeItem("aura_admin_token");
+      localStorage.removeItem("aura_admin_remember");
+      updateBadge(); applyRoleUi();
+      slog("Signed out — session returned to standard access");
+      pushSys("Signed out. Guest data stays on this device; cloud data stays in your account.");
+    },
     getCurrentUser: getCurrentUser,
     getUsers: getUsers,
     updateBadge: updateBadge,
@@ -5275,96 +5541,110 @@ document.addEventListener("DOMContentLoaded",function(){
   const x = $("authModalX");
   if(x) x.onclick = function(){ AuraAuth.closeModal(); };
 
-  /* ---- unified sign-in, step 1: request a code (or continue with name only) ---- */
-  const sendBtn = $("sendCodeBtn");
-  if(sendBtn){
-    sendBtn.onclick = function(){
-      const em = $("accEmailInput").value.trim();
-      const ph = $("accPhoneInput").value.trim();
-      if(!em && !ph){ $("accEmailInput").focus(); return; }
-      const r = AuraAuth.requestOtp(em, ph);
-      if(!r.ok){ alert(r.why); return; }
-      $("authStep1").style.display = "none";
-      $("authStep2").style.display = "block";
-      /* owner path → try REAL delivery first; the code only shows on-screen if every channel fails */
-      if(r.elevate && typeof AuraDelivery !== "undefined"){
-        AuraDelivery.sendOwnerCode(r.code).then(function(d){
-          if(d.ok){
-            $("accOtpHint").innerHTML = "✓ Code sent to your registered <b>" + d.via + "</b> — check your phone. Expires in 5 minutes.";
-            slog("Code delivered via " + d.via, true);
-            pushSys("📱 Code delivered via " + d.via.toUpperCase());
-          }else{
-            $("accOtpHint").innerHTML = "⚠ Delivery channels offline — Code: <b style='letter-spacing:4px'>" + r.code + "</b> <small>(hides in <span id='otpCount'>30</span>s)</small>";
-            slog("Delivery fallback to screen — " + d.attempts.map(function(a){return a.why}).join(" | "), true);
-            let s = 30;
-            const iv = setInterval(function(){
-              s--;
-              const c = document.getElementById("otpCount");
-              if(s <= 0 || !c){ clearInterval(iv); $("accOtpHint").textContent = "⚠ Delivery offline — code hidden. Say 'delivery status' to configure channels."; return; }
-              c.textContent = s;
-            }, 1000);
-          }
-        });
-      }else{
-        /* regular users: codes show on-screen (no gateway sends to arbitrary numbers) */
-        $("accOtpHint").innerHTML = "✓ Code: <b style='letter-spacing:4px'>" + r.code + "</b> <small>(hides in <span id='otpCount'>30</span>s)</small>";
-        let s = 30;
-        const iv = setInterval(function(){
-          s--;
-          const c = document.getElementById("otpCount");
-          if(s <= 0 || !c){ clearInterval(iv); $("accOtpHint").textContent = "✓ Code hidden for safety. Request a new one if needed."; return; }
-          c.textContent = s;
-        }, 1000);
-      }
-      slog("Verification code issued via " + r.channel, true);
-    };
-  }
+  /* ---- Firebase sign-in: Google popup, phone OTP, guest (real accounts, cloud sync) ---- */
+  const gBtn = $("googleSignInBtn");
+  if(gBtn) gBtn.onclick = async function(){
+    gBtn.disabled = true; const t0 = gBtn.textContent; gBtn.textContent = "Connecting to Google…";
+    const r = await AuraAuth.fbGoogle();
+    gBtn.textContent = t0; gBtn.disabled = false;
+    if(!r.ok){ pushSys("⚠ " + r.why); return; }
+    const u = AuraAuth.firebaseUser() || {};
+    $("doneAvatar").innerHTML = "&#128100;";
+    $("doneTitle").textContent = (u.name || (u.email || "User").split("@")[0]).toUpperCase();
+    $("doneSub").textContent = "Signed in with Google — chats and memories now follow you to every device.";
+    $("authStep1").style.display = "none";
+    $("authStep2").style.display = "none";
+    $("authDone").style.display = "block";
+    pushSys("Signed in with Google" + (u.email ? " — " + u.email : ""));
+  };
 
-  /* ---- step 2: verify the code ---- */
-  const verifyBtn = $("verifyCodeBtn");
-  if(verifyBtn){
-    verifyBtn.onclick = async function(){
-      const code = $("accOtpInput").value.trim();
-      if(!code){ $("accOtpInput").focus(); return; }
-      /* hidden elevation: exact registered email + phone together silently unlock everything */
-      const em = $("accEmailInput").value.trim();
-      const ph = $("accPhoneInput").value.trim();
-      if(em && ph){
-        const elev = await AuraAuth.elevate(em, ph, code);
-        if(elev){
-          updateAfterAuth(true);
-          return;
-        }
-      }
-      if(AuraAuth.verifyOtp(code)){
-        updateAfterAuth(false);
-      } else {
-        $("accOtpInput").style.borderColor = "#f87171";
-        setTimeout(function(){ $("accOtpInput").style.borderColor = ""; }, 1800);
-        alert("Invalid or expired code (max 5 tries per code). Request a new one if needed.");
-      }
-    };
-  }
+  const sendBtn2 = $("sendCodeBtn");
+  if(sendBtn2) sendBtn2.onclick = async function(){
+    const raw = $("accPhoneInput").value.trim();
+    const digits = raw.replace(/\D/g,"");
+    let e164 = raw.startsWith("+") ? "+" + digits : (digits.length === 10 ? "+91" + digits : "+" + digits);
+    if(digits.length < 10){ pushSys("⚠ Enter a full mobile number, e.g. +91 98765 43210"); $("accPhoneInput").focus(); return; }
+    sendBtn2.disabled = true; sendBtn2.textContent = "Sending…";
+    if(!window.__auraVerifier){
+      try{ window.__auraVerifier = new firebase.auth.RecaptchaVerifier("recaptchaBox", {size:"normal", callback:function(){ pushSys("✓ verified human — sending code…"); }}); }catch(e){}
+    }
+    try{ if(window.__auraVerifier) { /* verifier persists across sends */ } }catch(e){}
+    const r = await AuraAuth.fbSendOtp(e164);
+    sendBtn2.disabled = false; sendBtn2.textContent = "\ud83d\udcf8 SEND OTP CODE";
+    if(!r.ok){ pushSys("⚠ " + r.why); return; }
+    $("authStep1").style.display = "none";
+    $("authStep2").style.display = "block";
+    pushSys("📱 Code sent to " + e164 + " — it expires in 5 minutes");
+  };
 
-  /* ---- name-only light sign-in ---- */
-  const skipBtn = $("skipNameBtn");
-  if(skipBtn){
-    skipBtn.onclick = function(){
-      const name = $("userNameInput").value.trim();
-      if(!name){ $("userNameInput").focus(); return; }
-      AuraAuth.signInUser(name);
-      $("userNameInput").value = "";
-      AuraAuth.closeModal();
-    };
-  }
+  const verifyBtn2 = $("verifyCodeBtn");
+  if(verifyBtn2) verifyBtn2.onclick = async function(){
+    const code = $("accOtpInput").value.trim();
+    if(!code){ $("accOtpInput").focus(); return; }
+    verifyBtn2.disabled = true;
+    const r = await AuraAuth.fbVerifyOtp(code);
+    verifyBtn2.disabled = false;
+    if(!r.ok){
+      $("accOtpInput").style.borderColor = "#f87171";
+      setTimeout(function(){ $("accOtpInput").style.borderColor = ""; }, 1800);
+      pushSys("⚠ " + r.why);
+      return;
+    }
+    const u = AuraAuth.firebaseUser() || {};
+    $("doneAvatar").innerHTML = "&#128241;";
+    $("doneTitle").textContent = (u.name || (u.phone || "Phone user")).toUpperCase();
+    $("doneSub").textContent = "Signed in with your number — chats and memories sync across your devices.";
+    $("authStep1").style.display = "none";
+    $("authStep2").style.display = "none";
+    $("authDone").style.display = "block";
+    pushSys("Signed in via phone OTP" + (u.phone ? " — " + u.phone : ""));
+  };
+
+  const otpBack = $("otpBackBtn");
+  if(otpBack) otpBack.onclick = function(){
+    $("authStep2").style.display = "none";
+    $("authStep1").style.display = "block";
+    try{ if(window.__auraVerifier && window.__auraVerifier.clear) window.__auraVerifier.clear(); }catch(e){}
+    window.__auraVerifier = null;
+    fbConfirm = null;
+  };
+
+  const guestBtn = $("skipNameBtn");
+  if(guestBtn) guestBtn.onclick = function(){
+    AuraAuth.fbGuest("");
+    AuraAuth.closeModal();
+    pushSys("Guest mode — saved on this device only. Sign in later to take your data to the cloud.");
+  };
+
+  /* done-screen actions: export / delete my data */
+  const expBtn = $("exportDataBtn");
+  if(expBtn) expBtn.onclick = async function(){
+    let blob = null;
+    try{ blob = {convo:CONVO, memory:memGet(), sessions:sessions.all()}; }catch(e){}
+    const payload = {exported:new Date().toISOString(), device:"browser", data:blob};
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
+    a.download = "aura-my-data.json"; a.click();
+    pushSys("⤓ Your data exported as JSON — it is yours, always.");
+  };
+  const delBtn = $("deleteDataBtn");
+  if(delBtn) delBtn.onclick = function(){
+    if(!confirm("Delete ALL your AURA data on this device and in your cloud account? This cannot be undone.")) return;
+    try{ localStorage.removeItem(AuraAuth.getSessionsKey()); localStorage.removeItem(AuraAuth.getMemKey()); localStorage.removeItem("aura_memory"); localStorage.removeItem("aura_history_v1"); }catch(e){}
+    try{ CONVO.length = 0; log.innerHTML = ""; }catch(e){}
+    try{ if(backendUrl()) fetch(backendUrl()+"/v1/userdata",{method:"DELETE"}).catch(function(){}); }catch(e){}
+    pushSys("🗑 All local data wiped. Cloud copy erases when cloud sync is live.");
+    AuraAuth.closeModal();
+  };
+
 
   /* ---- done screen ---- */
   const doneBtn = $("doneContinueBtn");
   if(doneBtn) doneBtn.onclick = function(){ AuraAuth.closeModal(); };
   const outBtn = $("signOutBtn");
   if(outBtn) outBtn.onclick = function(){
-    AuraAuth.signOut();
-    AuraAuth.openModal();
+    AuraAuth.signOutAll();
+    AuraAuth.closeModal();
   };
 
   function updateAfterAuth(admin){
@@ -5396,8 +5676,57 @@ document.addEventListener("DOMContentLoaded",function(){
     }
   }
 
-  // Initial badge update
+  // Initial badge update + role-driven UI
   AuraAuth.updateBadge();
+  setTimeout(function(){ try{ applyRoleUi(); }catch(e){} }, 800);
+
+  /* ================= ADMIN PAGE — server-verified maker/ceo only; edits live database config ================= */
+  function __ah(method,url,body){
+    const u=AuraAuth.firebaseUser()||{};
+    return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});
+  }
+  window.adminLoad=adminLoad;
+  async function adminLoad(){
+    if(!backendUrl())return;
+    try{
+      const cr=await(await __ah("GET",backendUrl()+"/v1/config")).json();
+      const e=$("adCfgEngine"),b=$("adCfgBrand"),a=$("adCfgAnnounce");
+      if(e&&!e.value)e.value=cr.aiEngine||"";if(b&&!b.value)b.value=cr.brandLine||"";if(a&&!a.value)a.value=cr.announce||"";
+    }catch(e){}
+    try{
+      const ur=await __ah("GET",backendUrl()+"/v1/admin/users");
+      if(!ur.ok){ $("adUsersList").innerHTML='<small style="color:#f87171">'+(await ur.json().catch(()=>({}))).error+"</small>"; return; }
+      const j=await ur.json();const users=j.users||[];
+      const st=$("adStatUsers"),sa=$("adStatAdmins");
+      if(st)st.innerHTML=users.length+"<small>SIGNED-IN PEOPLE</small>";
+      if(sa)sa.innerHTML=users.filter(x=>x.role==="maker"||x.role==="ceo").length+"<small>STAFF (MAKER/CEO)</small>";
+      $("adUsersList").innerHTML=users.map(function(u){
+        return '<div class="admin-user-row"><span>'+(u.role==="maker"?"\ud83d\udc51 ":u.role==="ceo"?"\ud83c\udfc6 ":"\ud83d\udc64 ")+(u.name||"(unnamed)")+'</span><small style="color:var(--dim)">'+(u.email||u.uid.slice(0,10))+'</small><select class="role-select" data-uid="'+u.uid+'">'+["user","ceo","maker"].map(r=>'<option '+(u.role===r?"selected":"")+'>'+r+'</option>').join("")+"</select></div>";
+      }).join("")||'<small style="color:var(--dim)">no signed-in people yet</small>';
+      $("adUsersList").querySelectorAll(".role-select").forEach(function(s){
+        s.onchange=async function(){
+          const r=await __ah("POST",backendUrl()+"/v1/admin/setrole",{uid:s.getAttribute("data-uid"),role:s.value});
+          pushSys(r.ok?("\u2705 role updated — verified on the server"):("\u26a0 "+(await r.json().catch(()=>({}))).error));
+        };
+      });
+    }catch(e){ $("adUsersList").innerHTML='<small style="color:var(--dim)">registry offline — backend warming up, retry in a minute</small>' }
+  }
+  const adCfgSave=$("adCfgSave");
+  if(adCfgSave)adCfgSave.onclick=async function(){
+    adCfgSave.disabled=true;
+    try{
+      const r=await __ah("POST",backendUrl()+"/v1/admin/config",{aiEngine:$("adCfgEngine").value.trim(),brandLine:$("adCfgBrand").value.trim(),announce:$("adCfgAnnounce").value.trim()});
+      const j=await r.json().catch(()=>({}));
+      $("adCfgMsg").textContent=r.ok?"\u2705 saved to the live database — every visitor receives it":"\u26a0 "+(j.error||"save failed");
+      if(r.ok&&j.config){AuraConfig.cache=j.config;AuraConfig.apply()}
+      pushSys(r.ok?"\ud83d\udcc3 config published to every visitor":"config save failed");
+    }catch(e){ $("adCfgMsg").textContent="\u26a0 backend unreachable" }
+    adCfgSave.disabled=false;
+  };
+  const __au=JSON.parse(localStorage.getItem("aura_fb_live")||"null");
+  try{
+    fetch(backendUrl()+"/v1/usage").then(r=>r.json()).then(u=>{const el=$("adStatAnswers");if(el&&u&&typeof u.answers==="number")el.innerHTML=u.answers+"<small>ANSWERS SERVED</small>"}).catch(()=>{});
+  }catch(e){}
 });
 
 
@@ -5407,33 +5736,59 @@ document.addEventListener("DOMContentLoaded",function(){
 <div class="auth-modal-card">
 <div class="wiz-head">
 <div><h2 style="font-family:'Orbitron',sans-serif;font-size:18px;letter-spacing:2px;color:#67e8f9">AURA ACCOUNT</h2>
-<p style="font-size:11.5px;color:#67e8f9;margin-top:2px">Sign in to keep your chats, history and memories on your profile</p></div>
+<p style="font-size:11.5px;color:#67e8f9;margin-top:2px">Sign in to keep your chats, history and memories across devices</p></div>
 <button class="wiz-x" id="authModalX">&#x2715;</button>
 </div>
 <div id="authStep1">
-<div class="auth-status-box">One account across the whole interface — chat, code and voice stay yours.</div>
-<div class="auth-field"><label>Email</label><input id="accEmailInput" placeholder="you@example.com" autocomplete="off"></div>
-<div class="auth-field"><label>Mobile number</label><input id="accPhoneInput" placeholder="+91 98765 43210" autocomplete="off"></div>
-<button class="auth-btn" id="sendCodeBtn">&#128242; SEND VERIFICATION CODE</button>
-<div style="margin-top:14px;font-size:11px;color:#4b5563;text-align:center">Prefer to stay light? Continue with just a display name.</div>
-<div class="auth-field" style="margin-top:10px"><label>Display name</label><input id="userNameInput" placeholder="e.g. Alex" autocomplete="off"></div>
-<button class="auth-btn" id="skipNameBtn" style="background:transparent;border:1px solid var(--line2);color:var(--ice)">&#9889; CONTINUE WITH NAME ONLY</button>
+<div class="auth-status-box">One account across the whole interface — chat, code and voice stay yours, on every device.</div>
+<button class="auth-btn" id="googleSignInBtn" style="background:#fff;color:#1f2937;border:1px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>
+<div style="display:flex;align-items:center;gap:10px;margin:14px 0"><div style="flex:1;height:1px;background:var(--line2)"></div><span style="font-size:10px;color:var(--dim)">or sign in with phone</span><div style="flex:1;height:1px;background:var(--line2)"></div></div>
+<div class="auth-field"><label>Mobile number</label><input id="accPhoneInput" placeholder="+91 98765 43210" autocomplete="tel"></div>
+<div id="recaptchaBox" style="margin:6px 0"></div>
+<button class="auth-btn" id="sendCodeBtn">&#128242; SEND OTP CODE</button>
+<div style="margin-top:14px;font-size:11px;color:#4b5563;text-align:center">Just trying her out?</div>
+<button class="auth-btn" id="skipNameBtn" style="background:transparent;border:1px solid var(--line2);color:var(--ice)">&#9889; CONTINUE AS GUEST</button>
+<small style="display:block;margin-top:8px;text-align:center;font-size:10px;color:var(--dim)">Guest mode saves only on this device — sign in to sync everywhere.</small>
 </div>
 <div id="authStep2" style="display:none">
-<div class="auth-status-box"><b>Verification code sent.</b> Enter the 6-digit code to continue.</div>
+<div class="auth-status-box"><b>OTP sent to your phone.</b> Enter the 6-digit code to continue.</div>
 <div class="auth-field"><label>6-Digit Code</label>
 <input id="accOtpInput" placeholder="000000" maxlength="6" style="letter-spacing:4px;font-size:18px;text-align:center" autocomplete="one-time-code">
 <small id="accOtpHint" style="display:block;margin-top:5px;color:#34d399;font-family:monospace;font-size:11px"></small></div>
 <button class="auth-btn" id="verifyCodeBtn">&#10003; VERIFY &amp; CONTINUE</button>
+<button class="auth-btn" id="otpBackBtn" style="background:transparent;border:1px solid var(--line2);color:var(--ice);margin-top:6px">← use a different number</button>
 </div>
 <div id="authDone" style="display:none">
 <div style="text-align:center;padding:14px 0">
 <div style="font-size:40px" id="doneAvatar">&#128100;</div>
 <h3 id="doneTitle" style="font-family:'Orbitron',sans-serif;color:#67e8f9;letter-spacing:2px;margin:8px 0 4px">SIGNED IN</h3>
-<p id="doneSub" style="font-size:12px">Your chats and history are saved to your profile.</p>
+<p id="doneSub" style="font-size:12px">Your chats and history sync across your devices.</p>
+<div id="dataCtrlRow" style="display:flex;gap:8px;margin-top:14px">
+<button class="auth-btn" id="exportDataBtn" style="flex:1;background:transparent;border:1px solid var(--line);color:var(--cy2);font-size:11px;padding:9px">⤓ EXPORT MY DATA</button>
+<button class="auth-btn" id="deleteDataBtn" style="flex:1;background:transparent;border:1px solid rgba(239,68,68,.5);color:#f87171;font-size:11px;padding:9px">🗑 DELETE MY DATA</button>
+</div>
 </div>
 <button class="auth-btn" id="doneContinueBtn">CONTINUE</button>
 <button class="auth-btn" id="signOutBtn" style="background:transparent;border:1px solid #ef4444;color:#ef4444;margin-top:6px">SIGN OUT</button>
+</div>
+</div>
+</div>
+
+<div class="wiz" id="adminModal" style="display:none;z-index:10001">
+<div class="auth-modal-card" style="max-height:86vh;overflow:auto">
+<div class="wiz-head">
+<div><h2 style="font-family:'Orbitron',sans-serif;font-size:16px;letter-spacing:2px;color:#fbbf24">⚙ MISSION CONTROL</h2>
+<p style="font-size:11px;color:#fbbf24;margin-top:2px" id="adminRoleLine">staff access</p></div>
+<button class="wiz-x" id="adminModalX">&#x2715;</button>
+</div>
+<div class="auth-status-box" style="border-color:rgba(251,191,36,.4)">Everything here edits the live database — no redeploys, no code changes.</div>
+<div class="auth-field"><label>Engine label (shown in telemetry + neural link)</label><input id="cfgEngine" placeholder="e.g. llama-3.3-70b via Groq"></div>
+<div class="auth-field"><label>Brand line (what AURA calls herself)</label><input id="cfgBrand" placeholder="e.g. voice + code AI assistant"></div>
+<div class="auth-field"><label>Announcement (shown once to every user)</label><input id="cfgAnnounce" placeholder="e.g. New: project download in the CODE forge"></div>
+<button class="auth-btn" id="cfgSaveBtn" style="background:linear-gradient(135deg,#fbbf24,#d97706);color:#1f1500">SAVE TO DATABASE</button>
+<div style="margin-top:16px">
+<h3 style="font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:2px;color:#fbbf24;margin-bottom:8px">PEOPLE <span id="adminUsersCount" style="color:var(--dim)"></span></h3>
+<div id="adminUsersList" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto"><small style="color:var(--dim)">loading…</small></div>
 </div>
 </div>
 </div>
