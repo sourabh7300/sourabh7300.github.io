@@ -126,19 +126,174 @@ app.use((req, res, next) => {
   next();
 });
 
-/* simple per-IP rate limit: 30 req / min (configurable) */
+/* simple per-IP rate limit: 30 req / min (configurable) — signed-in users get
+   their own generous bucket keyed by uid instead of their shared IP */
 const hits = new Map();
 app.use((req, res, next) => {
   const now = Date.now();
-  const k = req.ip || "anon";
+  const k = req.__uid || req.ip || "anon";
+  const limit = req.__uid ? parseInt(process.env.USER_RATE_LIMIT || "60", 10) : parseInt(process.env.RATE_LIMIT || "30", 10);
   const rec = hits.get(k) || { n: 0, win: now };
   if (now - rec.win > 60_000) { rec.n = 0; rec.win = now; }
   rec.n++;
   hits.set(k, rec);
-  if (rec.n > (parseInt(process.env.RATE_LIMIT || "30", 10))) {
+  if (rec.n > limit) {
     return res.status(429).json({ error: "Slow down — try again in a minute." });
   }
   next();
+});
+
+/* ============ FIREBASE ACCOUNTS — real auth, roles, cloud data ============
+   Configure privately in the dashboard: FB_PROJECT, FB_EMAIL, FB_PRIVATE_KEY
+   (service-account credentials — never in this repo), MAKER_UIDS (comma list).
+   Until configured, every accounts endpoint degrades gracefully and the site
+   keeps working exactly as before. */
+let fbAdmin = null, fbAuth = null, fbDb = null, fbTried = false;
+const FB_PROJECT = process.env.FB_PROJECT || "";
+const FB_EMAIL = process.env.FB_EMAIL || "";
+const FB_PRIVATE_KEY = (process.env.FB_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+function fbInit() {
+  if (fbTried) return fbAdmin;
+  fbTried = true;
+  if (!FB_PROJECT || !FB_EMAIL || !FB_PRIVATE_KEY) return null;
+  try {
+    fbAdmin = require("firebase-admin");
+    fbAdmin.initializeApp({ credential: fbAdmin.credential.cert({ projectId: FB_PROJECT, clientEmail: FB_EMAIL, privateKey: FB_PRIVATE_KEY }) });
+    fbAuth = fbAdmin.auth();
+    try { fbDb = fbAdmin.firestore(); } catch (e) { fbDb = null; }
+    console.log("accounts backend: online");
+  } catch (e) { console.log("accounts backend: package missing —", e.message); fbAdmin = null; }
+  return fbAdmin;
+}
+const tokCache = new Map(); /* uid → {role, exp} — verified tokens, never client claims */
+async function verifyUser(req) {
+  if (!fbInit()) return null;
+  const h = req.headers["authorization"] || "";
+  const m = h.match(/^Bearer\s+(.+)$/i);
+  if (!m) return null;
+  try {
+    const dec = fbAdmin ? JSON.parse(Buffer.from(m[1].split(".")[1], "base64").toString()).sub : null;
+    const ck = tokCache.get(dec);
+    if (ck && ck.exp > Date.now()) return ck;
+  } catch (e) {}
+  try {
+    const u = await fbAuth.verifyIdToken(m[1], true);
+    let profile = null;
+    if (fbDb) { try { profile = (await fbDb.collection("aura_users").doc(u.uid).get()).data() || null; } catch (e) {} }
+    const makers = (process.env.MAKER_UIDS || "").split(",").map(s => s.trim()).filter(Boolean);
+    let role = (u.role || (profile && profile.role) || "user");
+    if (makers.includes(u.uid)) role = "maker";
+    const rec = { uid: u.uid, email: u.email || "", name: u.name || (profile && profile.name) || (u.email ? u.email.split("@")[0] : "User"), phone: u.phone_number || "", role, exp: u.exp * 1000 };
+    tokCache.set(rec.uid, rec);
+    return rec;
+  } catch (e) { return null; }
+}
+async function requireRole(req, res, roles) {
+  const u = await verifyUser(req);
+  if (!u) { res.status(401).json({ error: "Sign in to use this." }); return null; }
+  if (!roles.includes(u.role)) { res.status(403).json({ error: "This control is reserved for " + roles.join("/") + " accounts." }); return null; }
+  return u;
+}
+/* attach identity (if any) early so the rate limiter can key on uid */
+app.use(async (req, res, next) => {
+  if (req.path === "/health" || req.path === "/") return next();
+  const u = await verifyUser(req).catch(() => null);
+  if (u) req.__uid = u.uid;
+  next();
+});
+
+/* ---- public config (brand + engine label + web config) — editable by maker/ceo in the DB ---- */
+let memConfig = { aiEngine: "llama-3.3-70b · gpt-oss-120b", brandLine: "voice + code AI assistant", announce: "" };
+app.get("/v1/config", async (req, res) => {
+  const out = Object.assign({}, memConfig);
+  if (process.env.FIREBASE_WEB_CONFIG) { try { out.firebaseWebConfig = JSON.parse(process.env.FIREBASE_WEB_CONFIG); } catch (e) {} }
+  if (fbDb) { try { const d = await fbDb.collection("aura_config").doc("public").get(); if (d.exists) Object.assign(out, d.data()); } catch (e) {} }
+  res.json(out);
+});
+
+/* ---- public totals for the admin telemetry (no secrets, no personal data) ---- */
+app.get("/v1/usage", async (req, res) => {
+  let answers = memConfig.__answers || 0, users = 0, staff = 0;
+  if (fbDb) {
+    try {
+      const snap = await fbDb.collection("aura_users").limit(200).get();
+      users = snap.size;
+      snap.forEach(d => { const v = d.data() || {}; if (v.role === "maker" || v.role === "ceo") staff++; answers += (v.blob && v.blob.usage && v.blob.usage.answers) || 0; });
+    } catch (e) {}
+  }
+  res.json({ ok: true, answers, users, staff });
+});
+
+/* ---- who am I (role comes from the VERIFIED token, never the client) ---- */
+app.get("/v1/me", async (req, res) => {
+  const u = await verifyUser(req);
+  if (!u) return res.status(401).json({ error: "no session" });
+  res.json({ uid: u.uid, email: u.email, name: u.name, phone: u.phone, role: u.role });
+});
+
+/* ---- per-user cloud storage: chats + memory blob (export & delete supported) ---- */
+app.get("/v1/userdata", async (req, res) => {
+  const u = await verifyUser(req);
+  if (!u) return res.status(401).json({ error: "Sign in to sync your data." });
+  if (!fbDb) return res.status(503).json({ error: "Cloud sync is warming up — data still saves on this device." });
+  try {
+    const d = await fbDb.collection("aura_users").doc(u.uid).get();
+    res.json({ ok: true, data: d.exists ? (d.data().blob || null) : null, updated: d.exists ? d.data().updated : 0 });
+  } catch (e) { res.status(500).json({ error: "sync read failed" }); }
+});
+app.put("/v1/userdata", async (req, res) => {
+  const u = await verifyUser(req);
+  if (!u) return res.status(401).json({ error: "Sign in to sync your data." });
+  if (!fbDb) return res.status(503).json({ error: "Cloud sync is warming up — data still saves on this device." });
+  const blob = req.body || {};
+  if (JSON.stringify(blob).length > 900_000) return res.status(413).json({ error: "Data too large to sync." });
+  try {
+    await fbDb.collection("aura_users").doc(u.uid).set({ blob, updated: Date.now(), name: u.name, email: u.email }, { merge: true });
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: "sync write failed" }); }
+});
+app.delete("/v1/userdata", async (req, res) => {
+  const u = await verifyUser(req);
+  if (!u) return res.status(401).json({ error: "Sign in first." });
+  if (!fbDb) return res.status(503).json({ error: "Cloud sync is warming up." });
+  try { await fbDb.collection("aura_users").doc(u.uid).set({ blob: {}, updated: Date.now() }, { merge: true }); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: "delete failed" }); }
+});
+
+/* ---- ADMIN — server-verified maker/ceo only (never trust the page) ---- */
+app.get("/v1/admin/users", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  if (!fbDb) return res.status(503).json({ error: "User registry needs the database enabled." });
+  try {
+    const snap = await fbDb.collection("aura_users").limit(200).get();
+    const users = snap.docs.map(d => { const v = d.data() || {}; return { uid: d.id, name: v.name || "", email: v.email || "", role: v.role || "user", updated: v.updated || 0, msgs: (v.blob && v.blob.usage && v.blob.usage.answers) || 0 }; });
+    res.json({ ok: true, users });
+  } catch (e) { res.status(500).json({ error: "registry read failed" }); }
+});
+app.post("/v1/admin/setrole", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  const target = String((req.body || {}).uid || "");
+  const role = String((req.body || {}).role || "");
+  if (!target || !["user", "ceo", "maker"].includes(role)) return res.status(400).json({ error: "uid + role(user|ceo|maker) required" });
+  if (!fbAuth) return res.status(503).json({ error: "accounts backend warming up" });
+  try {
+    await fbAuth.setCustomUserClaims(target, { role });
+    if (fbDb) await fbDb.collection("aura_users").doc(target).set({ role }, { merge: true });
+    tokCache.delete(target);
+    res.json({ ok: true });
+  } catch (e) { res.status(500).json({ error: "could not set role" }); }
+});
+app.post("/v1/admin/config", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  const patch = {};
+  const b = req.body || {};
+  for (const k of ["aiEngine", "brandLine", "announce"]) if (typeof b[k] === "string") patch[k] = b[k].slice(0, 300);
+  if (fbDb) { try { await fbDb.collection("aura_config").doc("public").set(patch, { merge: true }); } catch (e) { Object.assign(memConfig, patch); } }
+  else Object.assign(memConfig, patch);
+  res.json({ ok: true, config: Object.assign({}, memConfig, patch) });
 });
 
 /* optional shared-secret gate */
