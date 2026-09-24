@@ -109,9 +109,16 @@ app.use(express.json({ limit: "8mb" })); /* room for base64 photos (vision) */
 const ALLOW_ORIGINS = (process.env.ALLOW_ORIGINS || "https://sourabh7300.github.io").split(",").map(s => s.trim());
 const OWNER_SECRET = process.env.SECRET || "";
 app.use((req, res, next) => {
-  if (req.path === "/health" || req.path === "/") return next();
   const origin = req.headers.origin || "";
   const okOrigin = ALLOW_ORIGINS.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  if (req.path === "/health" || req.path === "/") {
+    /* public paths still need CORS headers or browsers block the boot ping */
+    if (okOrigin) { res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Vary", "Origin"); }
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-AURA-Key, Authorization");
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+    return next();
+  }
   const okSecret = OWNER_SECRET && req.headers["x-aura-key"] === OWNER_SECRET;
   if (!okOrigin && !okSecret && process.env.OPEN_GATE !== "1") {
     return res.status(403).json({ error: "forbidden", message: "This AURA backend serves its own sites only." });
