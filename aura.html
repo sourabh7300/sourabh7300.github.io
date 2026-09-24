@@ -14,7 +14,7 @@
   ═══════════════════════════════════════════════════════════════
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#020709;--cy:#22d3ee;--cy2:#67e8f9;--dim:#0e7490;--ice:#e0faff;
@@ -143,6 +143,94 @@ body.theme-classical .srcbox{background:rgba(139,94,52,.06);border-color:rgba(13
 body.theme-classical .src-card{background:rgba(139,94,52,.08);border-color:rgba(139,94,52,.28);color:#3d2c18}
 body.theme-classical .src-card .srcn{background:rgba(139,94,52,.16);color:#6b4226}
 body.theme-classical .src-card .srch{color:#a08662}
+
+/* ============================================================
+   NEXA THEME — clean light workspace skin (DM Sans + Manrope,
+   #F7F8FC canvas, indigo sidebar tones, violet #7865E9 accent)
+   Same AURA engine underneath — every control keeps working.
+   ============================================================ */
+body.theme-nexa{
+  --bg:#F7F8FC;--cy:#7865E9;--cy2:#6D5AE0;--dim:#727A8E;--ice:#172033;
+  --panel:rgba(255,255,255,.92);--line:#E9EBF2;--line2:#E9EBF2;
+  --amber:#B08D00;
+}
+body.theme-nexa{font-family:'DM Sans',system-ui,sans-serif}
+body.theme-nexa ::selection{background:#D6D1FF;color:#172033}
+body.theme-nexa ::-webkit-scrollbar-thumb{background:#D5D9E6;border-radius:4px}
+/* canvas: hide the holographic particle field & scanner — light airy canvas instead */
+body.theme-nexa canvas#fx{opacity:.16;filter:none}
+body.theme-nexa #scan,body.theme-nexa #vig{display:none}
+body.theme-nexa .corner{border-color:#E9EBF2}
+/* typography shift: Manrope headings, DM Sans body */
+body.theme-nexa .wordmark{font-family:'Manrope';font-weight:800;letter-spacing:3px;color:#172033;text-shadow:none}
+body.theme-nexa .wordmark small{color:#A6ACC0}
+body.theme-nexa #stateBox{background:#fff;border:1px solid #E9EBF2;box-shadow:0 1px 2px rgba(23,32,51,.05)}
+body.theme-nexa #stateDot{background:#0E9F6E;box-shadow:0 0 8px rgba(14,159,110,.5)}
+body.theme-nexa #stateText{color:#0E9F6E}
+body.theme-nexa #clock{color:#A6ACC0}
+body.theme-nexa #clock b{color:#172033}
+/* panels → white cards with soft shadow */
+body.theme-nexa .panel{background:#fff;border:1px solid #E9EBF2;border-radius:14px;box-shadow:0 1px 2px rgba(23,32,51,.05),0 8px 28px rgba(23,32,51,.06);backdrop-filter:none}
+body.theme-nexa .panel h3{color:#172033;border-bottom-color:#EEF0F6;letter-spacing:2px}
+body.theme-nexa .panel h3 span:last-child{color:#A6ACC0}
+body.theme-nexa #telemetry .trow{color:#727A8E;border-bottom:1px solid #F3F4F9}
+body.theme-nexa #telemetry .trow b{color:#172033}
+/* tab bar → pill tabs */
+body.theme-nexa #tabbar button{background:#fff;border:1px solid #E9EBF2;color:#727A8E;border-radius:10px;font-family:'DM Sans';letter-spacing:.6px;font-weight:600;box-shadow:0 1px 2px rgba(23,32,51,.04)}
+body.theme-nexa #tabbar button:hover{color:#6D5AE0;border-color:#D8D2FA;background:#F4F2FF}
+body.theme-nexa #tabbar button.on{color:#6D5AE0;border-color:#D8D2FA;background:#EDEAFF;box-shadow:none}
+/* conversation card */
+body.theme-nexa #conv{background:linear-gradient(180deg,#fff,#FBFBFE);box-shadow:0 1px 2px rgba(23,32,51,.05),0 10px 34px rgba(23,32,51,.07)}
+body.theme-nexa #conv h3{color:#172033}
+body.theme-nexa #engTag{color:#A6ACC0;letter-spacing:.4px;text-transform:none;font-family:'DM Sans'}
+body.theme-nexa .msg{font-family:'DM Sans'}
+body.theme-nexa .msg.aura{background:#F4F2FF;border:1px solid #E4DEFC;border-radius:14px;border-top-left-radius:4px}
+body.theme-nexa .msg.aura .who{color:#6D5AE0}
+body.theme-nexa .msg .tx b{color:#4A3F99}
+body.theme-nexa .msg.user{background:#172033;color:#fff;border:none;border-radius:14px;border-top-right-radius:4px}
+body.theme-nexa .msg.user .who{color:#B3A7F5}
+body.theme-nexa .msg.sys{color:#A6ACC0}
+body.theme-nexa .msg .tx code{background:#F4F2FF;border-color:#E4DEFC;color:#4A3F99}
+body.theme-nexa .msg .tx pre{background:#1E2037;border-color:#1E2037;color:#E6E4F7}
+body.theme-nexa .msg .tx h4{color:#6D5AE0;letter-spacing:.6px;font-family:'Manrope'}
+body.theme-nexa .mdlink{color:#6D5AE0}
+/* chips */
+body.theme-nexa .chip{background:#fff;border:1px solid #E9EBF2;color:#727A8E;border-radius:16px;font-family:'DM Sans';letter-spacing:.4px;font-weight:500}
+body.theme-nexa .chip:hover{color:#6D5AE0;border-color:#D8D2FA;background:#F4F2FF}
+/* composer + dock */
+body.theme-nexa #q{background:#fff;border:1px solid #E9EBF2;color:#172033;border-radius:22px;font-family:'DM Sans';box-shadow:0 1px 2px rgba(23,32,51,.05)}
+body.theme-nexa #q::placeholder{color:#A6ACC0}
+body.theme-nexa #q:focus{border-color:#B9AEF5;box-shadow:0 0 0 3px rgba(120,101,233,.12)}
+body.theme-nexa #sendBtn{background:#7865E9;border-color:#7865E9;color:#fff}
+body.theme-nexa #sendBtn:hover{background:#6D5AE0}
+body.theme-nexa .ibtn{background:#fff;border-color:#E9EBF2;color:#727A8E;font-family:'DM Sans';letter-spacing:.5px}
+body.theme-nexa .ibtn:hover{color:#6D5AE0;border-color:#D8D2FA}
+body.theme-nexa .cbtn{background:#fff;border:1px solid #E9EBF2;color:#727A8E;font-family:'DM Sans'}
+body.theme-nexa .cbtn:hover{color:#6D5AE0;border-color:#D8D2FA}
+body.theme-nexa .cbtn.on{background:#EDEAFF;border-color:#D8D2FA;color:#6D5AE0}
+body.theme-nexa #micBtn{background:#7865E9;color:#fff;border-color:#7865E9;box-shadow:0 6px 20px rgba(120,101,233,.35)}
+/* telemetry + syslog chips */
+body.theme-nexa #syslog{background:#fff}
+body.theme-nexa #syslogLines{color:#727A8E}
+body.theme-nexa #syslogLines .hot{color:#6D5AE0}
+/* source cards */
+body.theme-nexa .srcbox{background:#F8F7FE;border-color:#E4DEFC}
+body.theme-nexa .srcbox-t{color:#6D5AE0}
+body.theme-nexa .src-card{background:#fff;border-color:#E4DEFC;color:#172033}
+body.theme-nexa a.src-card:hover{border-color:#B9AEF5;background:#F4F2FF}
+body.theme-nexa .src-card .srcn{background:#EDEAFF;color:#6D5AE0}
+body.theme-nexa .src-card .srch{color:#A6ACC0}
+/* admin/auth pages */
+body.theme-nexa .admin-card,body.theme-nexa .auth-card{background:#fff;border-color:#E9EBF2;color:#172033}
+body.theme-nexa .auth-btn{font-family:'DM Sans'}
+body.theme-nexa input,body.theme-nexa textarea,select{font-family:'DM Sans'}
+/* boot ring */
+body.theme-nexa #bootRing{border-color:#DDD6FA;border-top-color:#7865E9}
+body.theme-nexa #bootRing::after{color:#6D5AE0}
+body.theme-nexa #bootLog{color:#A6ACC0}
+body.theme-nexa #bootLog .ok{color:#0E9F6E}
+/* stop bar */
+body.theme-nexa #stopBtn{background:rgba(239,68,68,.08);border-color:#FCA5A5;color:#B91C1C;box-shadow:0 6px 20px rgba(239,68,68,.15)}
 /* STOP voice bar — prominent, obvious, tappable */
 .clipwrap{position:relative;display:inline-flex}
 #imgInput{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
@@ -4823,21 +4911,23 @@ async function scrAnalyze(qq){
 (function(){const iv=setInterval(()=>{if(typeof groqCall==="function"){clearInterval(iv);
   try{const os=window.__origGroqCall;window.__origGroqCall=null}catch(e){}
 }},600)})(); /* PERF: was 200ms — a boot hook doesn't need 5 probes/sec */
-/* ---------------- THEME Cycler: Cyan(futuristic) → Gold → Classical(parchment) ---------------- */
-const THEMES=[{id:"cyan",label:"🎨 CYAN"},{id:"gold",label:"🎨 GOLD"},{id:"classical",label:"🎨 CLASSICAL"}];
+/* ---------------- THEME Cycler: NEXA(light workspace, default) → Cyan → Gold → Classical ---------------- */
+const THEMES=[{id:"nexa",label:"🎨 NEXA"},{id:"cyan",label:"🎨 CYAN"},{id:"gold",label:"🎨 GOLD"},{id:"classical",label:"🎨 CLASSICAL"}];
 function applyTheme(id){
   document.body.classList.toggle("theme-classical",id==="classical");
   document.body.classList.toggle("theme-gold",id==="gold");
+  document.body.classList.toggle("theme-nexa",id==="nexa");
   const tb=document.getElementById("themeBtn");if(tb)tb.textContent=THEMES.find(t=>t.id===id).label;
   try{localStorage.setItem("aura_theme",id)}catch(e){}
   if(id==="gold"&&!document.body.dataset.persona)setHue("gold");
   if(id==="cyan"&&persona()!=="jarvis")setHue("cyan");
   if(id==="classical")setHue("gold");
+  if(id==="nexa")setHue("violet");
 }
 (function(){
   const tb=document.getElementById("themeBtn");if(!tb)return;
-  let cur="cyan";try{cur=localStorage.getItem("aura_theme")||"cyan"}catch(e){}
-  if(cur==="classical"||cur==="gold")setTimeout(()=>applyTheme(cur),150);
+  let cur="nexa";try{cur=localStorage.getItem("aura_theme")||"nexa"}catch(e){}
+  setTimeout(()=>applyTheme(cur),150);
   tb.onclick=()=>{const i=THEMES.findIndex(t=>t.id===cur);cur=THEMES[(i+1)%THEMES.length].id;applyTheme(cur);pushSys("theme → "+cur.toUpperCase()+(cur==="classical"?" — parchment & ink, as the old engineers preferred":""))};
   /* DEEP THINK toggle — maximum reasoning in every persona */
   const db=document.getElementById("deepThinkBtn");
