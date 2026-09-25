@@ -317,6 +317,123 @@ app.post("/v1/admin/config", async (req, res) => {
   res.json({ ok: true, config: Object.assign({}, memConfig, patch) });
 });
 
+/* ================= SELF-INTEGRATION: SOURCE EDIT MODE =================
+   AURA reads and rewrites her OWN source file in her GitHub repo.
+   The GitHub token lives ONLY here (Render env) — never in the browser. */
+const GH_TOKEN = envv("GH_TOKEN", "GITHUB_TOKEN");
+const GH_REPO = process.env.GH_REPO || "sourabh7300/aura";
+const GH_FILE = process.env.GH_FILE || "aura.html";
+const GH_BRANCH = process.env.GH_BRANCH || "main";
+const GH_API = "https://api.github.com";
+async function ghFetchRaw() {
+  try {
+    const r = await fetch(`https://raw.githubusercontent.com/${GH_REPO}/${GH_BRANCH}/${GH_FILE}?t=${Date.now()}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "Accept": "text/plain", "User-Agent": "aura-self-integration" }, signal: AbortSignal.timeout(30000) });
+    if (r.ok) return r.text();
+  } catch (e) {}
+  /* fallback: Contents API (works with every token type, incl. fine-grained) */
+  const r2 = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(30000) });
+  if (!r2.ok) throw new Error("source read failed: HTTP " + r2.status);
+  const j = await r2.json();
+  if (!j.content) throw new Error("source read failed: empty content");
+  return Buffer.from(j.content, "base64").toString("utf8");
+}
+app.get("/v1/dev/status", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  const out = { connected: !!GH_TOKEN, repo: GH_REPO, file: GH_FILE, branch: GH_BRANCH };
+  if (GH_TOKEN) {
+    try {
+      const r = await fetch(`${GH_API}/repos/${GH_REPO}/commits?sha=${GH_BRANCH}&per_page=1`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(20000) });
+      if (r.ok) { const j = await r.json(); const c = j[0] || {}; out.lastCommit = { sha: (c.sha || "").slice(0, 7), message: ((c.commit && c.commit.message) || "").slice(0, 120), when: c.commit && c.commit.author && c.commit.author.date }; }
+      else out.lastCommit = { error: "HTTP " + r.status };
+    } catch (e) { out.lastCommit = { error: e.message || String(e) }; }
+  }
+  res.json(out);
+});
+app.get("/v1/dev/source", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  try {
+    const src = await ghFetchRaw();
+    const lines = src.split("\n");
+    const q = String(req.query.q || "").trim();
+    const out = { ok: true, bytes: src.length, lines: lines.length, matches: [] };
+    if (q) {
+      let re = null;
+      try { re = new RegExp(q, "i"); } catch (e) { re = null; }
+      for (let i = 0; i < lines.length && out.matches.length < 30; i++) {
+        const hit = (re && re.test(lines[i])) || lines[i].includes(q);
+        if (hit) out.matches.push({ line: i + 1, text: lines[i].slice(0, 300) });
+      }
+      out.matchCount = out.matches.length;
+    }
+    res.json(out);
+  } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
+});
+app.post("/v1/dev/commit", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  if (!GH_TOKEN) return res.status(503).json({ error: "GitHub not connected — add GH_TOKEN to the backend env." });
+  const b = req.body || {};
+  const edits = Array.isArray(b.edits) ? b.edits.slice(0, 12) : [];
+  const message = String(b.message || "AURA self-upgrade").slice(0, 200);
+  if (!edits.length || edits.some(e => !e || !String(e.find).length)) return res.status(400).json({ error: "edits array with non-empty find strings required" });
+  try {
+    let src = await ghFetchRaw();
+    const applied = [];
+    for (const ed of edits) {
+      const find = String(ed.find), replace = String(ed.replace == null ? "" : ed.replace);
+      const count = src.split(find).length - 1;
+      if (count === 0) return res.status(409).json({ ok: false, error: "find-string not found in current file", failedEdit: find.slice(0, 120), appliedSoFar: applied.length });
+      if (count > 1 && !ed.replaceAll) return res.status(409).json({ ok: false, error: `find-string matches ${count} locations — make it longer or send replaceAll:true`, failedEdit: find.slice(0, 120), appliedSoFar: applied.length });
+      const i0 = src.indexOf(find);
+      src = count > 1 ? src.split(find).join(replace) : src.slice(0, i0) + replace + src.slice(i0 + find.length);
+      applied.push({ count: count > 1 ? count : 1, atLine: src.slice(0, i0).split("\n").length });
+    }
+    const meta = await (await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(30000) })).json();
+    if (!meta || !meta.sha) return res.status(502).json({ error: "could not read file metadata from GitHub" });
+    if (b.dryRun) return res.json({ ok: true, dryRun: true, edits: applied.length, occurrences: applied.map(a => a.count), firstChangeAtLine: applied[0] && applied[0].atLine, newBytes: Buffer.byteLength(src), commitSha: meta.sha.slice(0, 7) });
+    const put = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_FILE}`, { method: "PUT", headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json", "Content-Type": "application/json" }, body: JSON.stringify({ message, content: Buffer.from(src).toString("base64"), sha: meta.sha, branch: GH_BRANCH }), signal: AbortSignal.timeout(60000) });
+    const pj = await put.json().catch(() => ({}));
+    if (!put.ok) return res.status(502).json({ error: "GitHub commit failed: " + (pj && pj.message || "HTTP " + put.status) });
+    res.json({ ok: true, commit: (pj.commit && pj.commit.sha || "").slice(0, 7), edits: applied.length, url: pj.content && pj.content.html_url, liveIn: "~60 seconds (GitHub Pages rebuild)" });
+  } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
+});
+
+/* STAFF BRAIN — completions reserved for verified maker/ceo accounts.
+   Self-integration planning runs through HERE, never through the public
+   proxy, so guests can never borrow admin prompts or model budgets. */
+app.post("/v1/staff/brain", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  const body = req.body || {};
+  const messages = Array.isArray(body.messages) ? body.messages.slice(-12) : null;
+  if (!messages || messages.some(m => !m || typeof m.content !== "string")) return res.status(400).json({ error: "messages required" });
+  const baseTok = Math.min(body.max_tokens || 1400, 4000);
+  for (const model of MODELS) {
+    try {
+      const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 600) : baseTok;
+      const key = pickKey();
+      if (!key) break;
+      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3 }),
+        signal: AbortSignal.timeout(60_000)
+      });
+      if (r.status === 429) { keyCool.set(key, Date.now() + 10 * 60_000); continue; }
+      if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); continue; }
+      if (r.status === 404 || r.status === 400) continue;
+      if (!r.ok) return res.status(r.status).json({ error: "Upstream HTTP " + r.status });
+      const d = await r.json();
+      const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+      if (t && t.trim()) return res.json({ choices: [{ message: { content: t.trim() } }], model });
+    } catch (e) {}
+  }
+  try { const rt = await reserveCall(messages, baseTok, body.temperature != null ? body.temperature : 0.3); if (rt) return res.json({ choices: [{ message: { content: rt } }], model: "reserve" }); } catch (e) {}
+  res.status(503).json({ error: "All brains busy — try again shortly." });
+});
+
 /* optional shared-secret gate */
 app.use((req, res, next) => {
   if (!REQUIRE_SECRET) return next();
