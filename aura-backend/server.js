@@ -471,6 +471,46 @@ app.get("/v1/dev/windows", async (req, res) => {
   } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
 });
 
+/* UPGRADE HISTORY — her self-upgrade commits, newest first (admin-only) */
+app.get("/v1/dev/history", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  if (!GH_TOKEN) return res.status(503).json({ error: "GitHub not connected." });
+  try {
+    const r = await fetch(`${GH_API}/repos/${GH_REPO}/commits?sha=${GH_BRANCH}&per_page=30`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(20000) });
+    if (!r.ok) return res.status(502).json({ error: "GitHub HTTP " + r.status });
+    const j = await r.json();
+    const commits = (Array.isArray(j) ? j : []).map(c => ({
+      sha: (c.sha || "").slice(0, 7),
+      message: ((c.commit && c.commit.message) || "").split("\n")[0].slice(0, 120),
+      when: c.commit && c.commit.author && c.commit.author.date,
+      author: c.author && c.author.login || (c.commit && c.commit.author && c.commit.author.name) || "",
+      selfUpgrade: /^AURA self-upgrade:/i.test((c.commit && c.commit.message) || "")
+    }));
+    res.json({ ok: true, commits });
+  } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
+});
+
+/* REVERT — undo any commit by SHA (uses GitHub's native revert → always safe, no find/replace guessing) */
+app.post("/v1/dev/revert", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  if (!GH_TOKEN) return res.status(503).json({ error: "GitHub not connected." });
+  const sha = String((req.body || {}).sha || "").trim();
+  if (!/^[0-9a-f]{7,40}$/i.test(sha)) return res.status(400).json({ error: "valid commit sha required" });
+  try {
+    const r = await fetch(`${GH_API}/repos/${GH_REPO}/commits/${sha}/reverts`, {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json", "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(60000)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return res.status(502).json({ error: "revert failed: " + ((j && j.message) || "HTTP " + r.status) });
+    res.json({ ok: true, revertCommit: (j && j.sha || "").slice(0, 7), undone: sha, liveIn: "~60 seconds (GitHub Pages rebuild)" });
+  } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
+});
+
 /* optional shared-secret gate */
 app.use((req, res, next) => {
   if (!REQUIRE_SECRET) return next();
