@@ -5188,8 +5188,15 @@ const AuraAuth = (function(){
   }
 
   function isAdmin(){
-    const token = getAdminToken();
-    if(token === "verified_admin_sourabh_singh") return true;
+    /* only a server-verified role grants admin — the legacy local token is
+       accepted during a grace window but NEVER grants self-integration power */
+    if(localStorage.getItem("aura_admin_token")==="verified_admin_sourabh_singh") return true;
+    const u = fbUser();
+    return !!(u && u.role && (u.role === "maker" || u.role === "ceo"));
+  }
+  function suAllowed(){
+    /* SELF-INTEGRATION GATE: server-verified maker/ceo ONLY. The legacy
+       passkey token deliberately does NOT unlock her code-writing powers. */
     const u = fbUser();
     return !!(u && u.role && (u.role === "maker" || u.role === "ceo"));
   }
@@ -5317,6 +5324,7 @@ const AuraAuth = (function(){
     identity: ADMIN_IDENTITY,
     denyInfo: function(){ return lastDeny; },
     isAdmin: isAdmin,
+    suAllowed: suAllowed,
     myRole: myRole,
     firebaseUser: fbUser,
     refreshRole: async function(){
@@ -5919,7 +5927,9 @@ document.addEventListener("DOMContentLoaded",function(){
     }catch(e){return e.message||String(e)}
   }
   async function suCall(messages,maxTok){
-    const r=await fetch(backendUrl()+"/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||2600,temperature:0.3}),signal:AbortSignal.timeout(90000)});
+    const u=AuraAuth.firebaseUser()||{};
+    const r=await fetch(backendUrl()+"/v1/staff/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||2600,temperature:0.3}),signal:AbortSignal.timeout(90000)});
+    if(r.status===401||r.status===403)throw new Error("admin-only: sign in with your maker account");
     if(!r.ok)throw new Error("HTTP "+r.status);
     const d=await r.json();const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
     if(!t.trim())throw new Error("empty");return t.trim();
@@ -5927,6 +5937,8 @@ document.addEventListener("DOMContentLoaded",function(){
   const SU_SYS="You are AURA's self-integration engineer with two modes.\n\nMODE DECISION: if the task is pure appearance/animation/short-lived decoration (colors, glow, pulse, spacing, tooltip text) → RUNTIME mode. If the task adds or changes a FEATURE, panel, button behavior, workflow, or anything users interact with functionally → SOURCE mode (edits the real aura.html in the GitHub repo — permanent, survives redeploys, ships in ~60s).\n\n== RUNTIME FORMAT (appearance only) ==\nPLAN: 2-3 short lines\nPATCH:\n```js\n<js code using api.css(cssText), api.html(selector,pos,html), api.js(code), api.note(text)>\n```\nNOTE: one line. RULES: only those four api calls; no fetch/localStorage/network; pure DOM/CSS; under ~80 lines.\n\n== SOURCE FORMAT (features & real changes) ==\nPLAN: 2-3 short lines\nEDITS:\n```json\n[{\"find\":\"<exact literal code copied VERBATIM from aura.html, 15-120 chars, unique in file, includes closing brace/semicolon if needed>\",\"replace\":\"<full replacement code, same language/style, complete and balanced>\"}]\n```\nNOTE: one line.\nRULES for EDITS: find must be copied EXACTLY character-for-character from the real file — no paraphrasing, no added comments, no invented variable names. replace must be complete balanced code (every { has }, every statement ends properly). Keep the whole change under ~120 lines. Never reformat unrelated code. Never touch auth, keys, or the backend URL.";
   const suPlanBtn=$("suPlanBtn"),suBuildBtn=$("suBuildBtn"),suShipBtn=$("suShipBtn");
   if(suPlanBtn)suPlanBtn.onclick=async function(){
+    if(!AuraAuth.suAllowed){suStatus.textContent="admin only — this console is part of your maker access";return}
+    if(!AuraAuth.suAllowed()){suStatus.textContent="⛔ self-integration is maker-only — sign in with your verified account first";suPlanBtn.disabled=false;return}
     const task=suPromptEl.value.trim();
     if(!task){suStatus.textContent="describe the change first — one clear sentence is enough";return}
     suPlanBtn.disabled=true;suStatus.textContent="thinking — drafting the integration plan…";suPlan.style.display="none";suDiff.style.display="none";suPrev.style.display="none";suBuildBtn.disabled=true;suShipBtn.disabled=true;
@@ -5951,6 +5963,7 @@ document.addEventListener("DOMContentLoaded",function(){
     suPlanBtn.disabled=false;
   };
   if(suBuildBtn)suBuildBtn.onclick=async function(){
+    if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){suStatus.textContent="⛔ maker access required";return}
     if(!suState.patch&&!suState.edits)return;
     suBuildBtn.disabled=true;
     if(suState.edits){
@@ -5991,6 +6004,7 @@ document.addEventListener("DOMContentLoaded",function(){
     }catch(e){}},800);
   };
   if(suShipBtn)suShipBtn.onclick=async function(){
+    if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){suStatus.textContent="⛔ maker access required";return}
     if(!suState.patch&&!suState.edits)return;
     if(suState.edits){await suShipSource();return}
     if(!confirm("Ship this change to EVERY visitor of the live site?\n\n"+(suState.note||suState.plan)))return;
@@ -6027,7 +6041,9 @@ document.addEventListener("DOMContentLoaded",function(){
   /* GitHub connection bar + SOURCE/RUNTIME mode toggle */
   (function(){
     const dot=$("suGhDot"),txt=$("suGhText"),mb=$("suModeBtn");
-    async function ghCheck(){let r;try{r=await __ah("GET",backendUrl()+"/v1/dev/status")}catch(e){dot.style.background="#f59e0b";txt.textContent="backend unreachable — is Render awake?";return}
+    async function ghCheck(){
+      if(AuraAuth.suAllowed&&!AuraAuth.suAllowed()){dot.style.background="#f59e0b";txt.textContent="admin only — sign in with your maker account to use self-integration";return}
+      let r;try{r=await __ah("GET",backendUrl()+"/v1/dev/status")}catch(e){dot.style.background="#f59e0b";txt.textContent="backend unreachable — is Render awake?";return}
       if(r.status===401||r.status===403){dot.style.background="#f59e0b";txt.textContent="admin only — sign in with your maker account to use self-integration";return}
       try{const s=await r.json();
       if(!s.connected){dot.style.background="#f59e0b";txt.innerHTML="GitHub not connected — add <b>GH_TOKEN</b> on Render (Environment) to unlock SOURCE EDIT";return}
