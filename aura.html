@@ -5944,15 +5944,22 @@ document.addEventListener("DOMContentLoaded",function(){
   if(suBuildBtn)suBuildBtn.onclick=function(){
     if(!suState.patch)return;
     suBuildBtn.disabled=true;suStatus.textContent="building — running her patch against a live copy of this page…";
-    const src="<!doctype html>"+document.documentElement.outerHTML
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/g,function(m){return /src=/.test(m)?m:"<script>/* disabled in sandbox */<\/script>"})
-      .replace("</body>","<script>(function(){try{"+suState.patch.replace(/\\u0000/g,"")+"}catch(e){document.title='PATCH ERROR: '+e.message}})();<\/script></body>");
+    let src="<!doctype html>"+document.documentElement.outerHTML
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/g,function(m){return /src=/.test(m)?m:"<script>/* disabled in sandbox */<\/script>"});
+    const li=src.lastIndexOf("</body>");
+    if(li<0){suStatus.textContent="build failed: page structure unreadable";suBuildBtn.disabled=false;return}
+    src=src.slice(0,li)+"<script>(function(){try{"+suState.patch.replace(/\\u0000/g,"")+"}catch(e){document.title='PATCH ERROR: '+e.message}document.title+=' · SU OK'})();<\/script>"+src.slice(li);
     __suPatched=src;
     suPrevFrame.srcdoc=src;
     suPrev.style.display="block";
     suDiffCode.textContent=suState.patch;suDiffMeta.textContent=(suState.patch.split("\n").length)+" lines";suDiff.style.display="block";
     suStatus.textContent="preview running — check it above. Happy? Ship it live.";
     suShipBtn.disabled=false;suBuildBtn.disabled=false;
+    setTimeout(function(){try{
+      const t=(suPrevFrame.contentDocument&&suPrevFrame.contentDocument.title)||"";
+      if(t.indexOf("PATCH ERROR")>-1){suStatus.textContent="⚠ the patch threw: "+t.replace("PATCH ERROR: ","").replace(" · SU OK","")+" — preview shows the broken state. Plan again; do not ship.";suShipBtn.disabled=true}
+      else if(t.indexOf("SU OK")>-1){suStatus.textContent="✓ preview ran clean — check it above. Happy? Ship it live."}
+    }catch(e){}},800);
   };
   if(suShipBtn)suShipBtn.onclick=async function(){
     if(!suState.patch)return;
