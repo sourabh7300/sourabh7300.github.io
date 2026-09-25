@@ -813,6 +813,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
     <h4>🧬 SELF-INTEGRATION <span style="color:var(--dim);font-weight:400">— AURA upgrades herself</span></h4>
     <p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:10px">Describe any change in plain words — a new feature, a design tweak, a fix. AURA plans it, writes the code, shows you a live preview, and can ship it to the real site with your approval. You stay the publisher; she stays the engineer.</p>
     <div id="suBox">
+      <div id="suGhBar"><span id="suGhDot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span><span id="suGhText">checking GitHub connection…</span><button class="suBtn" id="suModeBtn" style="margin-left:auto;padding:4px 10px;font-size:10px">SOURCE EDIT: OFF</button></div>
       <h4><span class="live-dot"></span> BUILD CONSOLE</h4>
       <textarea id="suPrompt" placeholder="e.g. Add a dark/light quick-toggle in the top bar · Make the mic button pulse green while listening · Add a 'copy chat' button under every answer"></textarea>
       <div class="suRow">
@@ -824,6 +825,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
       <div id="suDiff"><header><b style="color:var(--cy2)">CODE SHE WROTE</b><span style="margin-left:auto" id="suDiffMeta"></span></header><pre id="suDiffCode"></pre></div>
       <div id="suPrev"><header style="padding:8px 12px;background:rgba(2,10,16,.6);font:600 11px 'Rajdhani';letter-spacing:1px;color:var(--dim)">LIVE PREVIEW — this is your real page with her change applied</header><iframe id="suPrevFrame" title="self-upgrade preview"></iframe></div>
       <div id="suStatus"></div>
+      <style>#suGhBar{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(120,101,233,.35);border-radius:10px;margin-bottom:10px;font:11px 'Rajdhani';letter-spacing:.5px;color:var(--dim)}#suDiff pre{max-height:340px;overflow:auto;white-space:pre-wrap}</style>
     </div>
   </div>
 </div>
@@ -5900,7 +5902,7 @@ document.addEventListener("DOMContentLoaded",function(){
      ============================================================ */
   const suPlan=$("suPlan"),suDiff=$("suDiff"),suDiffCode=$("suDiffCode"),suDiffMeta=$("suDiffMeta"),
         suPrev=$("suPrev"),suPrevFrame=$("suPrevFrame"),suStatus=$("suStatus"),suPromptEl=$("suPrompt");
-  const suState={plan:"",patch:"",note:""};
+  const suState={plan:"",patch:"",note:"",edits:null,mode:"runtime",gh:null};
   let __suPatched=null;
   function applySuPatch(src,patch){
     /* patch contract: a JS snippet run as fn(document, patchAPI) — she writes DOM/CSS/style changes against the live page structure.
@@ -5922,28 +5924,55 @@ document.addEventListener("DOMContentLoaded",function(){
     const d=await r.json();const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
     if(!t.trim())throw new Error("empty");return t.trim();
   }
-  const SU_SYS="You are AURA's self-integration engineer. The page you may modify is a single-file holographic AI app (aura.html). Key structure: #topbar (.wordmark), #tabbar buttons, #conv chat card with #log and .chip buttons, #dock with .iconrow .ibtn buttons (soundBtn,langBtn,personaBtn,toolBtn,docsBtn,themeBtn; some are display:none), #q input, #sendBtn, #micBtn, #telemetry rows, body.theme-nexa light theme / theme-gold / theme-classical, body[data-persona=jarvis]. Available patch API: api.css(cssText) injects a stylesheet; api.html(selector,pos,html) inserts markup (pos: beforebegin/afterbegin/beforeend/afterend); api.js(code) runs code; api.note(text) sets a one-line note. RULES: ONLY use these four calls. Never use fetch, localStorage, eval of remote code, or network. Changes must be pure DOM/CSS (colors, layout, text, animations, new buttons/panels with inline behavior). Keep it under ~80 lines. Output format — exactly this and nothing else:\nPLAN: 2-3 short lines what you will change and why\nPATCH:\n```js\n<the patch code using api.*>\n```\nNOTE: one line describing the effect";
+  const SU_SYS="You are AURA's self-integration engineer with two modes.\n\nMODE DECISION: if the task is pure appearance/animation/short-lived decoration (colors, glow, pulse, spacing, tooltip text) → RUNTIME mode. If the task adds or changes a FEATURE, panel, button behavior, workflow, or anything users interact with functionally → SOURCE mode (edits the real aura.html in the GitHub repo — permanent, survives redeploys, ships in ~60s).\n\n== RUNTIME FORMAT (appearance only) ==\nPLAN: 2-3 short lines\nPATCH:\n```js\n<js code using api.css(cssText), api.html(selector,pos,html), api.js(code), api.note(text)>\n```\nNOTE: one line. RULES: only those four api calls; no fetch/localStorage/network; pure DOM/CSS; under ~80 lines.\n\n== SOURCE FORMAT (features & real changes) ==\nPLAN: 2-3 short lines\nEDITS:\n```json\n[{\"find\":\"<exact literal code copied VERBATIM from aura.html, 15-120 chars, unique in file, includes closing brace/semicolon if needed>\",\"replace\":\"<full replacement code, same language/style, complete and balanced>\"}]\n```\nNOTE: one line.\nRULES for EDITS: find must be copied EXACTLY character-for-character from the real file — no paraphrasing, no added comments, no invented variable names. replace must be complete balanced code (every { has }, every statement ends properly). Keep the whole change under ~120 lines. Never reformat unrelated code. Never touch auth, keys, or the backend URL.";
   const suPlanBtn=$("suPlanBtn"),suBuildBtn=$("suBuildBtn"),suShipBtn=$("suShipBtn");
   if(suPlanBtn)suPlanBtn.onclick=async function(){
     const task=suPromptEl.value.trim();
     if(!task){suStatus.textContent="describe the change first — one clear sentence is enough";return}
     suPlanBtn.disabled=true;suStatus.textContent="thinking — drafting the integration plan…";suPlan.style.display="none";suDiff.style.display="none";suPrev.style.display="none";suBuildBtn.disabled=true;suShipBtn.disabled=true;
+    suState.patch="";suState.edits=null;
     try{
-      const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task}]);
-      const pm=out.match(/PLAN:\s*([\s\S]*?)(?:PATCH:|$)/i);
+      const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+(suState.mode==="source"?"\n\nPreferred mode: SOURCE (edit the real aura.html).":"\n\nPreferred mode: RUNTIME (appearance patch).")}]);
+      const pm=out.match(/PLAN:\s*([\s\S]*?)(?:PATCH:|EDITS:|$)/i);
       suState.plan=pm?pm[1].trim():task;
+      const em=out.match(/```json\s*([\s\S]*?)```/i);
+      let edits=null;
+      if(em){try{edits=JSON.parse(em[1].trim());if(!Array.isArray(edits)||!edits.length||!edits.every(function(e){return e&&typeof e.find==="string"&&e.find.length}))edits=null}catch(e){edits=null}}
+      suState.edits=edits;
       const cm=out.match(/```js\s*([\s\S]*?)```/i);
-      suState.patch=cm?cm[1].trim():"";
+      suState.patch=(!edits&&cm)?cm[1].trim():"";
       const nm=out.match(/NOTE:\s*(.+)/i);suState.note=nm?nm[1].trim():"";
       suPlan.textContent="◈ PLAN\n"+suState.plan;suPlan.style.display="block";
-      suStatus.textContent=suState.patch?"plan ready — build the preview next":"she returned no patch — rephrase the task and plan again";
-      suBuildBtn.disabled=!suState.patch;
+      if(edits)suStatus.textContent="plan ready — she wrote "+edits.length+" source edit(s) for the real file · build to verify against GitHub";
+      else if(suState.patch)suStatus.textContent="plan ready — build the preview next";
+      else suStatus.textContent="she returned no code — rephrase the task and plan again";
+      suBuildBtn.disabled=!(suState.patch||suState.edits);
     }catch(e){suStatus.textContent="brain unreachable ("+(e.message||e)+") — backend warming up? try again in 30s"}
     suPlanBtn.disabled=false;
   };
-  if(suBuildBtn)suBuildBtn.onclick=function(){
-    if(!suState.patch)return;
-    suBuildBtn.disabled=true;suStatus.textContent="building — running her patch against a live copy of this page…";
+  if(suBuildBtn)suBuildBtn.onclick=async function(){
+    if(!suState.patch&&!suState.edits)return;
+    suBuildBtn.disabled=true;
+    if(suState.edits){
+      suStatus.textContent="verifying her edits against the real aura.html on GitHub…";
+      suPrev.style.display="none";
+      try{
+        const st=await(await __ah("GET",backendUrl()+"/v1/dev/source")).json();
+        if(st.error)throw new Error(st.error);
+        suState.gh=st;
+        let h="";
+        suState.edits.forEach(function(ed,i){
+          h+='<div style="margin:0 0 14px"><div style="font:600 10px Rajdhani,monospace;letter-spacing:1px;color:#f87171;margin-bottom:3px">EDIT '+(i+1)+' · FIND ('+(ed.find.split("\n").length)+' ln)</div><pre style="margin:0 0 6px;color:#fca5a5;white-space:pre-wrap">'+ed.find.replace(/</g,"&lt;")+'</pre><div style="font:600 10px Rajdhani,monospace;letter-spacing:1px;color:#34d399;margin-bottom:3px">REPLACE WITH</div><pre style="margin:0;color:#6ee7b7;white-space:pre-wrap">'+String(ed.replace==null?"":ed.replace).replace(/</g,"&lt;")+'</pre></div>';
+        });
+        suDiffCode.innerHTML=h;
+        suDiffMeta.textContent=suState.edits.length+" edit(s) · live repo: "+(st.lines||"?")+" lines / "+Math.round((st.bytes||0)/1024)+" KB";
+        suDiff.style.display="block";
+        suStatus.textContent="✓ her edits, shown against the real "+(st.lines||"?")+"-line source. SHIP dry-runs every find-string first, then commits to GitHub (live in ~60s).";
+        suShipBtn.disabled=false;
+      }catch(e){suStatus.textContent="could not read the repo ("+(e.message||e)+") — is GH_TOKEN set on Render?";suShipBtn.disabled=true}
+      suBuildBtn.disabled=false;return;
+    }
+    suStatus.textContent="building — running her patch against a live copy of this page…";
     let src="<!doctype html>"+document.documentElement.outerHTML
       .replace(/<script[^>]*>[\s\S]*?<\/script>/g,function(m){return /src=/.test(m)?m:"<script>/* disabled in sandbox */<\/script>"});
     const li=src.lastIndexOf("</body>");
@@ -5962,7 +5991,8 @@ document.addEventListener("DOMContentLoaded",function(){
     }catch(e){}},800);
   };
   if(suShipBtn)suShipBtn.onclick=async function(){
-    if(!suState.patch)return;
+    if(!suState.patch&&!suState.edits)return;
+    if(suState.edits){await suShipSource();return}
     if(!confirm("Ship this change to EVERY visitor of the live site?\n\n"+(suState.note||suState.plan)))return;
     suShipBtn.disabled=true;suStatus.textContent="publishing to the live database…";
     try{
@@ -5977,6 +6007,39 @@ document.addEventListener("DOMContentLoaded",function(){
       suShipBtn.disabled=false;
     }catch(e){suStatus.textContent="ship failed: "+(e.message||e);suShipBtn.disabled=false}
   };
+  async function suShipSource(){
+    if(!confirm("Commit her "+suState.edits.length+" edit(s) to the REAL aura.html on GitHub?\n\n"+(suState.note||suState.plan)+"\n\nThe live site updates ~60 seconds after the commit."))return;
+    suShipBtn.disabled=true;suStatus.textContent="dry-run: verifying every find-string against the current file…";
+    function ah(method,url,body){const u=AuraAuth.firebaseUser()||{};return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(120000)})}
+    try{
+      const d=await(await ah("POST",backendUrl()+"/v1/dev/commit",{edits:suState.edits,message:"AURA self-upgrade: "+(suState.note||suState.plan).slice(0,120),dryRun:true})).json();
+      if(d.error)throw new Error(d.error+(d.failedEdit?" — her find-string didn't match the file: \""+d.failedEdit+"\"":""));
+      if(!d.ok)throw new Error(d.error||"dry-run failed");
+      suStatus.textContent="dry-run clean ("+d.edits+" edit(s) located) — committing to her repository…";
+      const r=await ah("POST",backendUrl()+"/v1/dev/commit",{edits:suState.edits,message:"AURA self-upgrade: "+(suState.note||suState.plan).slice(0,120)});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok||!j.ok)throw new Error(j.error||("HTTP "+r.status)+(j.failedEdit?" — find-string missed: \""+j.failedEdit+"\"":""));
+      suStatus.textContent="🚀 COMMITTED "+j.edits+" edit(s) to her own repository (commit "+(j.commit||"?")+") — the real site updates in ~60 seconds. Ctrl+Shift+R to meet her new version.";
+      pushSys("🧬 self-integration committed "+j.edits+" source edit(s) — commit "+(j.commit||""));
+      suShipBtn.disabled=false;
+    }catch(e){suStatus.textContent="ship failed: "+(e.message||e);suShipBtn.disabled=false}
+  }
+  /* GitHub connection bar + SOURCE/RUNTIME mode toggle */
+  (function(){
+    const dot=$("suGhDot"),txt=$("suGhText"),mb=$("suModeBtn");
+    async function ghCheck(){try{
+      const s=await(await __ah("GET",backendUrl()+"/v1/dev/status")).json();
+      if(!s.connected){dot.style.background="#f59e0b";txt.innerHTML="GitHub not connected — add <b>GH_TOKEN</b> on Render (Environment) to unlock SOURCE EDIT";return}
+      dot.style.background="#34d399";txt.textContent="repo "+s.repo+" · "+s.branch+" · last commit "+(s.lastCommit&&s.lastCommit.sha?s.lastCommit.sha:"?");
+    }catch(e){dot.style.background="#f59e0b";txt.textContent="GitHub status unreachable — backend warming up?"}}
+    ghCheck();
+    if(mb)mb.onclick=function(){
+      suState.mode=suState.mode==="source"?"runtime":"source";
+      mb.textContent="SOURCE EDIT: "+(suState.mode==="source"?"ON":"OFF");
+      mb.style.background=suState.mode==="source"?"rgba(120,101,233,.35)":"";
+      suStatus.textContent=suState.mode==="source"?"SOURCE EDIT armed — she will edit the real aura.html in her GitHub repository (permanent, survives redeploys).":"RUNTIME mode — appearance patches only (live in seconds, nothing committed).";
+    };
+  })();
   /* APPLIER — on boot, any visitor applies shipped patches (after core is ready) */
   try{
     fetch(backendUrl()+"/v1/config").then(r=>r.json()).then(async function(c){
