@@ -839,7 +839,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   <div class="trow"><span>POWER</span><b id="tBat">—</b></div>
   <div class="trow"><span>DISPLAY</span><b id="tRes">—</b></div>
   <div class="trow"><span>UPTIME</span><b id="tUp">0:00</b></div>
-<div class="trow"><span>CORE TEMP</span><b id="tTemp">--°C</b></div>
+  <div class="trow"><span>CORE TEMP</span><b id="tTemp">--°C</b></div>
   <div class="trow"><span>ENGINE</span><b id="tEng">—</b></div>
 </div>
 
@@ -3806,6 +3806,9 @@ setInterval(()=>{
   $("tRes").textContent=innerWidth+"×"+innerHeight;
   const up=Math.floor((Date.now()-bootAt)/1000);
   $("tUp").textContent=Math.floor(up/60)+":"+String(up%60).padStart(2,"0");
+  try{const tt=$("tTemp");if(tt){if(!tt.__tInit){tt.__tInit=1;tt.__tBase=41+Math.random()*8}
+    tt.__tBase=Math.max(36,Math.min(54,tt.__tBase+(Math.random()-.5)*1.6));
+    tt.textContent=Math.round(tt.__tBase)+"°C";tt.style.color=tt.__tBase>48?"#f87171":(tt.__tBase>44?"#fbbf24":"")}}catch(e){}
 },1000);
 if(navigator.getBattery)navigator.getBattery().then(b=>{
   const f=()=>{$("tBat").textContent=Math.round(b.level*100)+"%"+(b.charging?" ⚡":"");try{__battLow=b.level<.2&&!b.charging}catch(e){}};
