@@ -499,14 +499,37 @@ app.post("/v1/dev/revert", async (req, res) => {
   const sha = String((req.body || {}).sha || "").trim();
   if (!/^[0-9a-f]{7,40}$/i.test(sha)) return res.status(400).json({ error: "valid commit sha required" });
   try {
-    const r = await fetch(`${GH_API}/repos/${GH_REPO}/commits/${sha}/reverts`, {
+    /* Preferred: GitHub's native revert endpoint */
+    let r = await fetch(`${GH_API}/repos/${GH_REPO}/commits/${sha}/reverts`, {
       method: "POST",
       headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json", "Content-Type": "application/json" },
       body: JSON.stringify({}),
       signal: AbortSignal.timeout(60000)
     });
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) return res.status(502).json({ error: "revert failed: " + ((j && j.message) || "HTTP " + r.status) });
+    let j = await r.json().catch(() => ({}));
+    /* Fallback: native endpoint unavailable on this token → restore the file from the commit's PARENT via the Contents API.
+       Same mechanism her normal commits use (proven to work), just with the parent's file content. */
+    if (!r.ok) {
+      const meta = await (await fetch(`${GH_API}/repos/${GH_REPO}/commits/${sha}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(30000) })).json();
+      const parents = (meta && meta.parents) || [];
+      if (!parents.length) return res.status(502).json({ error: "revert failed: commit has no parent (root commit cannot be reverted)" });
+      const parentSha = parents[0].sha;
+      const pr = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_FILE}?ref=${parentSha}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(30000) });
+      if (!pr.ok) return res.status(502).json({ error: "revert failed: cannot read parent file (HTTP " + pr.status + ")" });
+      const pj = await pr.json();
+      const contentB64 = pj.content.replace(/\n/g, "");
+      const curMeta = await (await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(30000) })).json();
+      if (!curMeta || !curMeta.sha) return res.status(502).json({ error: "revert failed: cannot read current file metadata" });
+      const put = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_FILE}`, {
+        method: "PUT",
+        headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json", "Content-Type": "application/json" },
+        body: JSON.stringify({ message: "AURA revert: restore " + GH_FILE + " to state before " + sha.slice(0, 7), content: contentB64, sha: curMeta.sha, branch: GH_BRANCH }),
+        signal: AbortSignal.timeout(60000)
+      });
+      const puj = await put.json().catch(() => ({}));
+      if (!put.ok) return res.status(502).json({ error: "revert commit failed: " + ((puj && puj.message) || "HTTP " + put.status) });
+      return res.json({ ok: true, revertCommit: ((puj.commit && puj.commit.sha) || "").slice(0, 7), undone: sha.slice(0, 7), method: "parent-restore", liveIn: "~60 seconds (GitHub Pages rebuild)" });
+    }
     res.json({ ok: true, revertCommit: (j && j.sha || "").slice(0, 7), undone: sha, liveIn: "~60 seconds (GitHub Pages rebuild)" });
   } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
 });
