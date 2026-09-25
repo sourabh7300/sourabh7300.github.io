@@ -395,10 +395,11 @@ body[data-tab="chats"] #sessPanel{display:flex}
 #docAsk #daYes:hover{background:rgba(34,211,238,.3)}
 #docAsk #daNo{background:none;color:var(--dim)}
 @media(max-width:860px){
-  #tabbar{top:52px;left:8px;right:8px;gap:6px}
-  #tabbar button{flex:1;padding:7px 4px;font-size:9px;letter-spacing:1px}
+  #tabbar{top:52px;left:8px;right:8px;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  #tabbar::-webkit-scrollbar{display:none}
+  #tabbar button{flex:1 0 auto;padding:7px 10px;font-size:9px;letter-spacing:1px;white-space:nowrap}
   body[data-tab="chats"] #sessPanel{top:88px;left:8px;right:8px;bottom:198px;width:auto;border-radius:14px;background:rgba(2,10,14,.85);backdrop-filter:blur(8px)}
-  body[data-tab="system"] #telemetry{display:block;position:fixed;top:88px;left:8px;right:8px;width:auto}
+  body[data-tab="system"] #telemetry{display:block;position:fixed;top:88px;left:8px;right:8px;width:auto;max-height:calc(100vh - 330px);overflow:auto}
   body[data-tab="system"] #aboutCard{display:block;position:fixed;top:88px;left:8px;right:8px;width:auto;margin-top:340px}
   body[data-tab="system"] #syslog{display:block;position:fixed;top:auto;bottom:198px;left:8px;right:8px;width:auto;max-height:150px}
   body[data-tab="chats"] #dock,body[data-tab="system"] #dock{opacity:.25;pointer-events:none}
@@ -600,7 +601,7 @@ body.perf-saver .panel,body.perf-saver #stateBox,body.perf-saver #tabbar button{
   #tabbar{top:74px;left:8px;right:8px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   #tabbar button{flex:1 0 auto;white-space:nowrap}
   #conv{top:126px;left:8px;right:8px;width:auto;bottom:212px}
-  body[data-tab="system"] #telemetry{top:126px;left:8px;right:8px;width:auto;max-height:calc(100vh - 350px);overflow:auto}
+  body[data-tab="system"] #telemetry{top:88px !important;left:8px;right:8px;width:auto;max-height:calc(100vh - 330px);overflow:auto}
 }
 @media(max-width:400px){
   #conv{top:158px;bottom:190px}
