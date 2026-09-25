@@ -6027,11 +6027,12 @@ document.addEventListener("DOMContentLoaded",function(){
   /* GitHub connection bar + SOURCE/RUNTIME mode toggle */
   (function(){
     const dot=$("suGhDot"),txt=$("suGhText"),mb=$("suModeBtn");
-    async function ghCheck(){try{
-      const s=await(await __ah("GET",backendUrl()+"/v1/dev/status")).json();
+    async function ghCheck(){let r;try{r=await __ah("GET",backendUrl()+"/v1/dev/status")}catch(e){dot.style.background="#f59e0b";txt.textContent="backend unreachable — is Render awake?";return}
+      if(r.status===401||r.status===403){dot.style.background="#f59e0b";txt.textContent="admin only — sign in with your maker account to use self-integration";return}
+      try{const s=await r.json();
       if(!s.connected){dot.style.background="#f59e0b";txt.innerHTML="GitHub not connected — add <b>GH_TOKEN</b> on Render (Environment) to unlock SOURCE EDIT";return}
       dot.style.background="#34d399";txt.textContent="repo "+s.repo+" · "+s.branch+" · last commit "+(s.lastCommit&&s.lastCommit.sha?s.lastCommit.sha:"?");
-    }catch(e){dot.style.background="#f59e0b";txt.textContent="GitHub status unreachable — backend warming up?"}}
+      }catch(e){dot.style.background="#f59e0b";txt.textContent="GitHub status unreadable"}}
     ghCheck();
     if(mb)mb.onclick=function(){
       suState.mode=suState.mode==="source"?"runtime":"source";
