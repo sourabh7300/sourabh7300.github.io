@@ -105,6 +105,10 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 #chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
 .chip{font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:var(--cy2);border:1px solid var(--line);background:rgba(34,211,238,.06);border-radius:14px;padding:5px 11px;cursor:pointer;transition:.2s}
 .chip:hover{background:rgba(34,211,238,.18);box-shadow:0 0 12px rgba(34,211,238,.25)}
+#topbar,#tabbar,#dock,#telemetry,#chips{transition:opacity .25s ease}
+body.focus-mode #topbar,body.focus-mode #tabbar,body.focus-mode #dock,body.focus-mode #telemetry,body.focus-mode #chips{opacity:.35}
+#chipFocus.on{background:rgba(34,211,238,.28);border-color:var(--cy);color:var(--ice);box-shadow:0 0 14px rgba(34,211,238,.45)}
+body.theme-nexa #chipFocus.on{background:#EDEAFF;border-color:#D8D2FA;color:#6D5AE0;box-shadow:0 0 14px rgba(120,101,233,.25)}
 
 /* ---------- bottom controls ---------- */
 #dock{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(640px,92vw)}
@@ -1139,6 +1143,30 @@ function slog(msg,hot){const el=$("syslogLines"),d=document.createElement("div")
   d.textContent="▸ "+msg;if(hot)d.className="hot";el.appendChild(d);
   while(el.children.length>7)el.firstChild.remove();}
 slog("aura kernel v3.1 loaded");slog("particle core: 560 nodes",true);slog("voice interface ready");
+/* focus mode quick chip */
+(function(){
+  function init(){
+    if(document.getElementById("chipFocus"))return;
+    const chips=document.getElementById("chips");
+    if(!chips)return;
+    const c=document.createElement("button");
+    c.id="chipFocus";
+    c.type="button";
+    c.className="chip";
+    c.textContent="FOCUS MODE";
+    c.setAttribute("aria-pressed","false");
+    c.addEventListener("click",function(){
+      const on=document.body.classList.toggle("focus-mode");
+      c.classList.toggle("on",on);
+      c.textContent=on?"FOCUS ON":"FOCUS MODE";
+      c.setAttribute("aria-pressed",on?"true":"false");
+      pushSys(on?"focus mode on":"focus mode off");
+    });
+    chips.appendChild(c);
+  }
+  if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}
+  else{init();}
+})();
 
 /* ---------------- conversation ---------------- */
 const log=$("log");
