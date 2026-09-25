@@ -5948,7 +5948,7 @@ document.addEventListener("DOMContentLoaded",function(){
       .replace(/<script[^>]*>[\s\S]*?<\/script>/g,function(m){return /src=/.test(m)?m:"<script>/* disabled in sandbox */<\/script>"});
     const li=src.lastIndexOf("</body>");
     if(li<0){suStatus.textContent="build failed: page structure unreadable";suBuildBtn.disabled=false;return}
-    src=src.slice(0,li)+"<script>(function(){try{"+suState.patch.replace(/\\u0000/g,"")+"}catch(e){document.title='PATCH ERROR: '+e.message}document.title+=' · SU OK'})();<\/script>"+src.slice(li);
+    src=src.slice(0,li)+"<script>(function(){var api={css:function(t){var s=document.createElement('style');s.setAttribute('data-aura-su','1');s.textContent=t;document.head.appendChild(s)},html:function(sel,pos,h){var t=document.querySelector(sel);if(!t)throw new Error('no element: '+sel);t.insertAdjacentHTML(pos||'beforeend',h)},js:function(c){(new Function(c))()},note:function(n){}};var doc=document;try{"+suState.patch.replace(/\\u0000/g,"")+"}catch(e){document.title='PATCH ERROR: '+e.message}document.title+=' · SU OK'})();<\/script>"+src.slice(li);
     __suPatched=src;
     suPrevFrame.srcdoc=src;
     suPrev.style.display="block";
