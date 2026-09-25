@@ -840,6 +840,10 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
       <div id="suDiff"><header><b style="color:var(--cy2)">CODE SHE WROTE</b><span style="margin-left:auto" id="suDiffMeta"></span></header><pre id="suDiffCode"></pre></div>
       <div id="suPrev"><header style="padding:8px 12px;background:rgba(2,10,16,.6);font:600 11px 'Rajdhani';letter-spacing:1px;color:var(--dim)">LIVE PREVIEW — this is your real page with her change applied</header><iframe id="suPrevFrame" title="self-upgrade preview"></iframe></div>
       <div id="suStatus"></div>
+      <div id="suHist" style="display:none;margin-top:14px;border:1px solid rgba(120,101,233,.35);border-radius:10px;padding:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="font:600 10px Rajdhani;letter-spacing:1px;color:var(--cy2)">📜 HER UPGRADE HISTORY</b><span style="margin-left:auto;font:10px Rajdhani;color:var(--dim)" id="suHistMeta"></span><button class="suBtn" id="suHistBtn" style="padding:3px 8px;font-size:9px">REFRESH</button></div>
+        <div id="suHistList" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto"></div>
+      </div>
       <style>#suGhBar{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(120,101,233,.35);border-radius:10px;margin-bottom:10px;font:11px 'Rajdhani';letter-spacing:.5px;color:var(--dim)}#suDiff pre{max-height:340px;overflow:auto;white-space:pre-wrap}</style>
     </div>
   </div>
@@ -6127,6 +6131,45 @@ document.addEventListener("DOMContentLoaded",function(){
   /* GitHub connection bar + SOURCE/RUNTIME mode toggle */
   (function(){
     const dot=$("suGhDot"),txt=$("suGhText"),mb=$("suModeBtn");
+    /* ---- UPGRADE HISTORY + one-click REVERT (admin-only) ---- */
+    const histBox=$("suHist"),histList=$("suHistList"),histMeta=$("suHistMeta"),histBtn=$("suHistBtn");
+    function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+    async function loadHist(){
+      if(!AuraAuth.suAllowed||!AuraAuth.suAllowed())return;
+      histBox.style.display="block";
+      histList.innerHTML='<small style="color:var(--dim)">loading her commits…</small>';
+      try{
+        const j=await(await __ah("GET",backendUrl()+"/v1/dev/history")).json();
+        if(j.error)throw new Error(j.error);
+        const cs=j.commits||[];
+        const her=cs.filter(function(c){return c.selfUpgrade});
+        histMeta.textContent=her.length+" self-upgrade(s) · "+cs.length+" commits shown";
+        if(!cs.length){histList.innerHTML='<small style="color:var(--dim)">no commits yet</small>';return}
+        histList.innerHTML=cs.map(function(c){
+          const d=c.when?new Date(c.when).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+          const tag=c.selfUpgrade?'<span style="color:#34d399;font-weight:700">🧬 HER UPGRADE</span>':'';
+          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:rgba(120,101,233,.05)"><code style="font:11px monospace;color:var(--cy2)">'+esc(c.sha)+'</code><div style="flex:1;min-width:0"><div style="font:12px Rajdhani;color:var(--ice);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+tag+' '+esc(c.message)+'</div><small style="color:var(--dim)">'+esc(d)+' · '+esc(c.author||"unknown")+'</small></div><button class="suBtn" data-revert="'+esc(c.sha)+'" title="Undo this commit with GitHub revert" style="padding:4px 9px;font-size:9px;background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.45)">↩ REVERT</button></div>';
+        }).join("");
+        [].slice.call(histList.querySelectorAll("[data-revert]")).forEach(function(b){
+          b.onclick=async function(){
+            const sha=b.getAttribute("data-revert");
+            if(!confirm("Revert commit "+sha+"?\n\nGitHub will create a NEW commit that undoes it — nothing is destroyed, and the live site updates ~60s after."))return;
+            b.disabled=true;b.textContent="undoing…";
+            try{
+              const r=await __ah("POST",backendUrl()+"/v1/dev/revert",{sha:sha});
+              const j2=await r.json().catch(()=>({}));
+              if(!r.ok||!j2.ok)throw new Error(j2.error||("HTTP "+r.status));
+              b.textContent="↩ reverted "+j2.revertCommit;
+              suStatus.textContent="↩ reverted "+sha+" (new commit "+j2.revertCommit+") — live in ~60 seconds.";
+              pushSys("↩ self-upgrade revert: "+sha+" → "+j2.revertCommit);
+              setTimeout(loadHist,3000);
+            }catch(e){b.disabled=false;b.textContent="↩ REVERT";suStatus.textContent="revert failed: "+(e.message||e)}
+          };
+        });
+      }catch(e){histList.innerHTML='<small style="color:#f87171">history unavailable: '+esc(e.message||e)+'</small>'}
+    }
+    if(histBtn)histBtn.onclick=loadHist;
+    setTimeout(function(){if(AuraAuth.suAllowed&&AuraAuth.suAllowed())loadHist()},1200);
     async function ghCheck(){
       if(AuraAuth.suAllowed&&!AuraAuth.suAllowed()){dot.style.background="#f59e0b";txt.textContent="admin only — sign in with your maker account to use self-integration";return}
       let r;try{r=await __ah("GET",backendUrl()+"/v1/dev/status")}catch(e){dot.style.background="#f59e0b";txt.textContent="backend unreachable — is Render awake?";return}
