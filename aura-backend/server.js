@@ -420,7 +420,7 @@ app.post("/v1/staff/brain", async (req, res) => {
   const body = req.body || {};
   const messages = Array.isArray(body.messages) ? body.messages.slice(-12) : null;
   if (!messages || messages.some(m => !m || typeof m.content !== "string")) return res.status(400).json({ error: "messages required" });
-  const baseTok = Math.min(body.max_tokens || 1400, 4000);
+  const baseTok = Math.min(body.max_tokens || 3000, 8000); /* she needs room to build big */
   for (const model of MODELS) {
     try {
       const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 600) : baseTok;
@@ -429,8 +429,8 @@ app.post("/v1/staff/brain", async (req, res) => {
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3 }),
-        signal: AbortSignal.timeout(60_000)
+        body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3, reasoning_effort: body.reasoning_effort || "high" }),
+        signal: AbortSignal.timeout(120_000)
       });
       if (r.status === 429) { keyCool.set(key, Date.now() + 10 * 60_000); continue; }
       if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); continue; }
@@ -443,6 +443,32 @@ app.post("/v1/staff/brain", async (req, res) => {
   }
   try { const rt = await reserveCall(messages, baseTok, body.temperature != null ? body.temperature : 0.3); if (rt) return res.json({ choices: [{ message: { content: rt } }], model: "reserve" }); } catch (e) {}
   res.status(503).json({ error: "All brains busy — try again shortly." });
+});
+
+/* SOURCE WINDOWS — give her the real code around her search terms, so she codes WITH context
+   (like a real engineer: search the file, read the surrounding lines, then write the edit) */
+app.get("/v1/dev/windows", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  try {
+    const src = await ghFetchRaw();
+    const lines = src.split("\n");
+    const terms = String(req.query.terms || "").split(",").map(s => s.trim()).filter(Boolean).slice(0, 6);
+    const taken = [];
+    const windows = [];
+    for (const term of terms) {
+      let re = null; try { re = new RegExp(term, "i"); } catch (e) {}
+      for (let i = 0; i < lines.length; i++) {
+        if (!((re && re.test(lines[i])) || lines[i].includes(term))) continue;
+        const start = Math.max(0, i - 18), end = Math.min(lines.length, i + 26);
+        if (taken.some(t => start < t.end && end > t.start)) { windows.push({ term, merged: true, aroundLine: i + 1 }); break; }
+        taken.push({ start, end });
+        windows.push({ term, startLine: start + 1, endLine: end, code: lines.slice(start, end).join("\n").slice(0, 7000) });
+        break;
+      }
+    }
+    res.json({ ok: true, fileLines: lines.length, windows });
+  } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
 });
 
 /* optional shared-secret gate */

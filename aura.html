@@ -5941,25 +5941,49 @@ document.addEventListener("DOMContentLoaded",function(){
       return null;
     }catch(e){return e.message||String(e)}
   }
-  async function suCall(messages,maxTok){
+  async function suCall(messages,maxTok,reasoning){
     const u=AuraAuth.firebaseUser()||{};
-    const r=await fetch(backendUrl()+"/v1/staff/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||2600,temperature:0.3}),signal:AbortSignal.timeout(90000)});
+    const r=await fetch(backendUrl()+"/v1/staff/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||6500,temperature:0.3,reasoning_effort:reasoning||"high"}),signal:AbortSignal.timeout(150000)});
     if(r.status===401||r.status===403)throw new Error("admin-only: sign in with your maker account");
     if(!r.ok)throw new Error("HTTP "+r.status);
     const d=await r.json();const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
     if(!t.trim())throw new Error("empty");return t.trim();
   }
-  const SU_SYS="You are AURA's self-integration engineer with two modes.\n\nMODE DECISION: if the task is pure appearance/animation/short-lived decoration (colors, glow, pulse, spacing, tooltip text) → RUNTIME mode. If the task adds or changes a FEATURE, panel, button behavior, workflow, or anything users interact with functionally → SOURCE mode (edits the real aura.html in the GitHub repo — permanent, survives redeploys, ships in ~60s).\n\n== RUNTIME FORMAT (appearance only) ==\nPLAN: 2-3 short lines\nPATCH:\n```js\n<js code using api.css(cssText), api.html(selector,pos,html), api.js(code), api.note(text)>\n```\nNOTE: one line. RULES: only those four api calls; no fetch/localStorage/network; pure DOM/CSS; under ~80 lines.\n\n== SOURCE FORMAT (features & real changes) ==\nPLAN: 2-3 short lines\nEDITS:\n```json\n[{\"find\":\"<exact literal code copied VERBATIM from aura.html, 15-120 chars, unique in file, includes closing brace/semicolon if needed>\",\"replace\":\"<full replacement code, same language/style, complete and balanced>\"}]\n```\nNOTE: one line.\nRULES for EDITS: find must be copied EXACTLY character-for-character from the real file — no paraphrasing, no added comments, no invented variable names. replace must be complete balanced code (every { has }, every statement ends properly). Keep the whole change under ~120 lines. Never reformat unrelated code. Never touch auth, keys, or the backend URL.";
+  /* THINK support — pull real source windows from her repo for the task's key terms,
+     exactly how a human engineer works: search the codebase, read around the hits, then write. */
+  async function suFetchWindows(task){
+    try{
+      const stop=new Set(["add","the","a","an","to","in","of","for","with","and","or","make","build","create","change","update","when","that","this","it","she","aura","please","should","give","new","some","into","on","my","me","can","want","need","like","panel","button"]);
+      const words=task.toLowerCase().replace(/[^a-z0-9\s#_-]/g," ").split(/\s+/).filter(w=>w.length>3&&!stop.has(w));
+      const terms=[...new Set(words)].slice(0,6);
+      if(!terms.length)return null;
+      const r=await __ah("GET",backendUrl()+"/v1/dev/windows?terms="+encodeURIComponent(terms.join(",")));
+      if(!r.ok)return null;
+      const j=await r.json();
+      return (j.windows||[]).filter(w=>w.code).length?j:null;
+    }catch(e){return null}
+  }
+  const SU_SYS="You are AURA's self-integration engineer — a senior full-stack engineer rebuilding your own product. You think first, then write REAL, COMPLETE code. You have two modes.\n\nMODE DECISION: pure appearance/animation/decoration → RUNTIME mode. Anything functional (feature, panel, button behavior, workflow, logic) → SOURCE mode (edits the real aura.html in your GitHub repo — permanent, ships in ~60s).\n\n== RUNTIME FORMAT (appearance only) ==\nPLAN: 2-3 short lines\nPATCH:\n```js\n<js code using api.css(cssText), api.html(selector,pos,html), api.js(code), api.note(text)>\n```\nNOTE: one line. RULES: only those four api calls; no fetch/localStorage/network; pure DOM/CSS; under ~120 lines.\n\n== SOURCE FORMAT (features & real changes) ==\nYou will receive REAL excerpts of the current file (with line numbers) — anchor every edit in them.\nPLAN: 2-4 short lines (your engineering reasoning: what, where, why)\nEDITS:\n```json\n[{\"find\":\"<exact literal code copied VERBATIM from the excerpts, 15-200 chars, unique in file>\",\"replace\":\"<the COMPLETE new code — full functions, full markup, full logic. No placeholders, no '...rest stays same', no TODOs>\"}]\n```\nNOTE: one line.\nRULES for EDITS: (1) find copied character-for-character from the excerpts. (2) replace is complete, balanced, production-quality code — if you add a function, write the whole function; if you add markup, write every element. (3) Wire everything: every new id gets its JS behavior, every button gets its handler, every panel gets its show/hide logic. (4) Match the file's existing style (var(--cy2), Rajdhani/Orbitron fonts, $() helper, pushSys() for log lines). (5) Split large features into MANY edits (3-10 is normal) — one per anchor point. (6) Never touch auth, keys, or the backend URL. (7) A build/dry-run failure report may follow — if the user message starts with FIX-ROUND, your previous find-string missed: rewrite it more verbatim from the excerpt shown.";
   const suPlanBtn=$("suPlanBtn"),suBuildBtn=$("suBuildBtn"),suShipBtn=$("suShipBtn");
   if(suPlanBtn)suPlanBtn.onclick=async function(){
     if(!AuraAuth.suAllowed){suStatus.textContent="admin only — this console is part of your maker access";return}
     if(!AuraAuth.suAllowed()){suStatus.textContent="⛔ self-integration is maker-only — sign in with your verified account first";suPlanBtn.disabled=false;return}
     const task=suPromptEl.value.trim();
     if(!task){suStatus.textContent="describe the change first — one clear sentence is enough";return}
-    suPlanBtn.disabled=true;suStatus.textContent="thinking — drafting the integration plan…";suPlan.style.display="none";suDiff.style.display="none";suPrev.style.display="none";suBuildBtn.disabled=true;suShipBtn.disabled=true;
+    suPlanBtn.disabled=true;suStatus.textContent="THINK 1/3 — reading her own source code for relevant parts…";suPlan.style.display="none";suDiff.style.display="none";suPrev.style.display="none";suBuildBtn.disabled=true;suShipBtn.disabled=true;
     suState.patch="";suState.edits=null;
     try{
-      const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+(suState.mode==="source"?"\n\nPreferred mode: SOURCE (edit the real aura.html).":"\n\nPreferred mode: RUNTIME (appearance patch).")}]);
+      /* THINK like an engineer: pull real code windows for this task from her repo */
+      let windowsBlock="";
+      const wins=await suFetchWindows(task);
+      if(wins){
+        suState.gh=wins;
+        windowsBlock="\n\nREAL EXCERPTS OF THE CURRENT FILE (line numbers included — anchor your find-strings EXACTLY in these):\n"+wins.windows.filter(w=>w.code).map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+(w.term?" (matched: "+w.term+")":"")+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n");
+        suStatus.textContent="THINK 2/3 — source read ("+wins.windows.filter(w=>w.code).length+" windows, "+wins.fileLines+"-line file). Now writing the full code…";
+      }else{
+        suStatus.textContent="THINK 2/3 — no windows matched; writing from architecture knowledge…";
+      }
+      const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+(suState.mode==="source"?"\n\nPreferred mode: SOURCE (edit the real aura.html).":"\n\nPreferred mode: RUNTIME (appearance patch).")+windowsBlock}],6500,"high");
       const pm=out.match(/PLAN:\s*([\s\S]*?)(?:PATCH:|EDITS:|$)/i);
       suState.plan=pm?pm[1].trim():task;
       const em=out.match(/```json\s*([\s\S]*?)```/i);
@@ -5970,8 +5994,8 @@ document.addEventListener("DOMContentLoaded",function(){
       suState.patch=(!edits&&cm)?cm[1].trim():"";
       const nm=out.match(/NOTE:\s*(.+)/i);suState.note=nm?nm[1].trim():"";
       suPlan.textContent="◈ PLAN\n"+suState.plan;suPlan.style.display="block";
-      if(edits)suStatus.textContent="plan ready — she wrote "+edits.length+" source edit(s) for the real file · build to verify against GitHub";
-      else if(suState.patch)suStatus.textContent="plan ready — build the preview next";
+      if(edits)suStatus.textContent="✓ THINK complete — she wrote "+edits.length+" source edit(s), anchored in the real code. BUILD to verify against GitHub.";
+      else if(suState.patch)suStatus.textContent="✓ THINK complete — patch ready. BUILD to preview it.";
       else suStatus.textContent="she returned no code — rephrase the task and plan again";
       suBuildBtn.disabled=!(suState.patch||suState.edits);
     }catch(e){suStatus.textContent="brain unreachable ("+(e.message||e)+") — backend warming up? try again in 30s"}
@@ -6038,18 +6062,37 @@ document.addEventListener("DOMContentLoaded",function(){
   };
   async function suShipSource(){
     if(!confirm("Commit her "+suState.edits.length+" edit(s) to the REAL aura.html on GitHub?\n\n"+(suState.note||suState.plan)+"\n\nThe live site updates ~60 seconds after the commit."))return;
-    suShipBtn.disabled=true;suStatus.textContent="dry-run: verifying every find-string against the current file…";
-    function ah(method,url,body){const u=AuraAuth.firebaseUser()||{};return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(120000)})}
+    suShipBtn.disabled=true;
+    function ah(method,url,body){const u=AuraAuth.firebaseUser()||{};return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(150000)})}
+    const msg="AURA self-upgrade: "+(suState.note||suState.plan).slice(0,120);
     try{
-      const d=await(await ah("POST",backendUrl()+"/v1/dev/commit",{edits:suState.edits,message:"AURA self-upgrade: "+(suState.note||suState.plan).slice(0,120),dryRun:true})).json();
-      if(d.error)throw new Error(d.error+(d.failedEdit?" — her find-string didn't match the file: \""+d.failedEdit+"\"":""));
-      if(!d.ok)throw new Error(d.error||"dry-run failed");
-      suStatus.textContent="dry-run clean ("+d.edits+" edit(s) located) — committing to her repository…";
-      const r=await ah("POST",backendUrl()+"/v1/dev/commit",{edits:suState.edits,message:"AURA self-upgrade: "+(suState.note||suState.plan).slice(0,120)});
+      /* SELF-REPAIR LOOP — like a real CI: dry-run → if her find-string missed, show her the real
+         code around that spot and let her rewrite her own edit. Up to 3 repair rounds. */
+      let round=0,edits=suState.edits;
+      while(true){
+        round++;
+        suStatus.textContent="dry-run (round "+round+"): verifying every find-string against the current file…";
+        const d=await(await ah("POST",backendUrl()+"/v1/dev/commit",{edits,message:msg,dryRun:true})).json();
+        if(d.ok&&d.dryRun){suStatus.textContent="dry-run clean ("+d.edits+" edit(s) located at line "+d.firstChangeAtLine+") — committing…";break}
+        const failed=d.failedEdit||"";
+        if(!d.ok&&round>=3)throw new Error(d.error+(failed?" — find-string: \""+failed.slice(0,80)+"\"":""));
+        if(!d.ok){
+          suStatus.textContent="her edit "+round+" missed the file — THINK repair round "+round+"/3: re-reading the real code…";
+          const wins=await suFetchWindows(suPromptEl.value.trim()+" "+failed.slice(0,60));
+          const ctx=wins?"\n\nREAL EXCERPTS (line numbers included):\n"+wins.windows.filter(w=>w.code).map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n"):"";
+          const fixOut=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"FIX-ROUND "+round+": your previous find-string did not exist in the file:\n\""+failed.slice(0,200)+"\"\n\nRewrite ONLY the failing edit(s) — copy find-strings EXACTLY from the real excerpts.\n\nORIGINAL TASK: "+suPromptEl.value.trim()+ctx+"\n\nReturn the COMPLETE corrected EDITS list (all edits, not just the failed one)."}],6500,"high");
+          const em=fixOut.match(/```json\s*([\s\S]*?)```/i);
+          if(!em)throw new Error("she could not produce a corrected edit list");
+          let fixed=null;try{fixed=JSON.parse(em[1].trim())}catch(e){}
+          if(!Array.isArray(fixed)||!fixed.length||!fixed.every(function(e){return e&&typeof e.find==="string"&&e.find.length}))throw new Error("her corrected edits were malformed");
+          edits=fixed;suState.edits=fixed;
+        }
+      }
+      const r=await ah("POST",backendUrl()+"/v1/dev/commit",{edits,message:msg});
       const j=await r.json().catch(()=>({}));
-      if(!r.ok||!j.ok)throw new Error(j.error||("HTTP "+r.status)+(j.failedEdit?" — find-string missed: \""+j.failedEdit+"\"":""));
-      suStatus.textContent="🚀 COMMITTED "+j.edits+" edit(s) to her own repository (commit "+(j.commit||"?")+") — the real site updates in ~60 seconds. Ctrl+Shift+R to meet her new version.";
-      pushSys("🧬 self-integration committed "+j.edits+" source edit(s) — commit "+(j.commit||""));
+      if(!r.ok||!j.ok)throw new Error(j.error||("HTTP "+r.status));
+      suStatus.textContent="🚀 COMMITTED "+j.edits+" edit(s) to her own repository (commit "+(j.commit||"?")+") — live in ~60s. Watch the deploy: github.com/sourabh7300/aura/actions";
+      pushSys("🧬 self-integration committed "+j.edits+" source edit(s) — commit "+(j.commit||"")+(round>1?" ("+round+" repair rounds)":""));
       suShipBtn.disabled=false;
     }catch(e){suStatus.textContent="ship failed: "+(e.message||e);suShipBtn.disabled=false}
   }
