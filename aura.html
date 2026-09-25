@@ -597,9 +597,10 @@ body.perf-saver .panel,body.perf-saver #stateBox,body.perf-saver #tabbar button{
 /* MOBILE LAYOUT GUARD — must come AFTER every desktop rule above so phones always win.
    Restores the full-width conversation card and contains the telemetry panel on small screens. */
 @media(max-width:860px){
-  #tabbar{top:74px;left:8px;right:8px;flex-wrap:wrap}
-  #conv{top:126px;left:8px;right:8px;width:auto;bottom:198px}
-  body[data-tab="system"] #telemetry{top:126px;left:8px;right:8px;width:auto}
+  #tabbar{top:74px;left:8px;right:8px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  #tabbar button{flex:1 0 auto;white-space:nowrap}
+  #conv{top:126px;left:8px;right:8px;width:auto;bottom:212px}
+  body[data-tab="system"] #telemetry{top:126px;left:8px;right:8px;width:auto;max-height:calc(100vh - 350px);overflow:auto}
 }
 @media(max-width:400px){
   #conv{top:158px;bottom:190px}
