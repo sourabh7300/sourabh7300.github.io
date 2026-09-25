@@ -337,6 +337,17 @@ async function ghFetchRaw() {
   if (!j.content) throw new Error("source read failed: empty content");
   return Buffer.from(j.content, "base64").toString("utf8");
 }
+/* GitHub token health — safe booleans only, cached 10 min (used by /health) */
+let ghCheckCache = { at: 0, state: "unchecked" };
+async function ghCheck() {
+  if (!GH_TOKEN) return "missing";
+  if (Date.now() - ghCheckCache.at < 10 * 60_000) return ghCheckCache.state;
+  try {
+    const r = await fetch(`${GH_API}/repos/${GH_REPO}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(15000) });
+    ghCheckCache = { at: Date.now(), state: r.status === 200 ? "ok" : (r.status === 401 || r.status === 403 ? "invalid" : "error:" + r.status) };
+  } catch (e) { ghCheckCache = { at: Date.now(), state: "unreachable" }; }
+  return ghCheckCache.state;
+}
 app.get("/v1/dev/status", async (req, res) => {
   const u = await requireRole(req, res, ["maker", "ceo"]);
   if (!u) return;
@@ -445,11 +456,11 @@ app.use((req, res, next) => {
 
 /* health + root */
 app.get("/", (req, res) => res.json({ ok: true, service: "aura-secure-backend", time: new Date().toISOString() }));
-app.get("/health", (req, res) => {
+app.get("/health", async (req, res) => {
   const now = Date.now();
   fbInit(); /* eager init so the diagnostic tells the truth immediately */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState });
+  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck() });
 });
 
 /* THE PROXY — key stays server-side forever */
