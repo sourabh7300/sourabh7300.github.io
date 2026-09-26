@@ -247,6 +247,11 @@ async function requireRole(req, res, roles) {
   const u = await verifyUser(req);
   if (!u) { res.status(401).json({ error: "Sign in to use this." }); return null; }
   if (!roles.includes(u.role)) { res.status(403).json({ error: "This control is reserved for " + roles.join("/") + " accounts." }); return null; }
+  /* SINGLE-OWNER LOCK — this app has exactly one owner. Even a role claim is not
+     enough: the uid itself must be on the owner list (MAKER_UIDS in the dashboard).
+     Every admin write route flows through here, so the lock is server-side. */
+  const owners = (process.env.MAKER_UIDS || "").split(",").map(s => s.trim()).filter(Boolean);
+  if (owners.length && !owners.includes(u.uid)) { res.status(403).json({ error: "owner-only: this console answers to exactly one account" }); return null; }
   return u;
 }
 /* attach identity (if any) early so the rate limiter can key on uid */
@@ -276,7 +281,7 @@ app.get("/v1/usage", async (req, res) => {
       snap.forEach(d => { const v = d.data() || {}; if (v.role === "maker" || v.role === "ceo") staff++; answers += (v.blob && v.blob.usage && v.blob.usage.answers) || 0; });
     } catch (e) {}
   }
-  res.json({ ok: true, answers, users, staff });
+  res.json({ ok: true, answers, users, staff, cacheSize: answerCache.size, dailyCap: DAILY_CAP || 0 });
 });
 
 /* ---- who am I (role comes from the VERIFIED token, never the client) ---- */
@@ -311,8 +316,18 @@ app.delete("/v1/userdata", async (req, res) => {
   const u = await verifyUser(req);
   if (!u) return res.status(401).json({ error: "Sign in first." });
   if (!fbDb) return res.status(503).json({ error: "Cloud sync is warming up." });
-  try { await fbDb.collection("aura_users").doc(u.uid).set({ blob: {}, updated: Date.now() }, { merge: true }); res.json({ ok: true }); }
-  catch (e) { res.status(500).json({ error: "delete failed" }); }
+  try {
+    /* HARD DELETE — the account's document (chats, memory, sessions, usage) is
+       removed from the database entirely, not blanked. Any Firestore rule must
+       allow delete on aura_users/{uid} for its own signed-in uid. */
+    await fbDb.collection("aura_users").doc(u.uid).delete();
+    res.json({ ok: true, deleted: true });
+  }
+  catch (e) {
+    /* rules that forbid delete fall back to a blanked doc — still private to the caller */
+    try { await fbDb.collection("aura_users").doc(u.uid).set({ blob: {}, updated: Date.now() }, { merge: true }); res.json({ ok: true, deleted: "blanked" }); }
+    catch (e2) { res.status(500).json({ error: "delete failed" }); }
+  }
 });
 
 /* ---- ADMIN — server-verified maker/ceo only (never trust the page) ---- */
@@ -327,11 +342,14 @@ app.get("/v1/admin/users", async (req, res) => {
   } catch (e) { res.status(500).json({ error: "registry read failed" }); }
 });
 app.post("/v1/admin/setrole", async (req, res) => {
-  const u = await requireRole(req, res, ["maker", "ceo"]);
+  const u = await requireRole(req, res, ["maker"]);
   if (!u) return;
   const target = String((req.body || {}).uid || "");
   const role = String((req.body || {}).role || "");
   if (!target || !["user", "ceo", "maker"].includes(role)) return res.status(400).json({ error: "uid + role(user|ceo|maker) required" });
+  /* nobody can re-role the owner, and only the owner can hand out roles at all */
+  const owners = (process.env.MAKER_UIDS || "").split(",").map(s => s.trim()).filter(Boolean);
+  if (owners.includes(target) && target !== u.uid) return res.status(403).json({ error: "the owner account cannot be re-roled" });
   if (!fbAuth) return res.status(503).json({ error: "accounts backend warming up" });
   try {
     await fbAuth.setCustomUserClaims(target, { role });
