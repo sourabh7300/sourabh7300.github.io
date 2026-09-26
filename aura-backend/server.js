@@ -429,20 +429,23 @@ app.post("/v1/staff/brain", async (req, res) => {
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3, reasoning_effort: body.reasoning_effort || "high" }),
-        signal: AbortSignal.timeout(120_000)
+        body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3, reasoning_effort: body.reasoning_effort || "medium" }),
+        signal: AbortSignal.timeout(60_000)
       });
-      if (r.status === 429) { keyCool.set(key, Date.now() + 10 * 60_000); continue; }
+      if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); continue; }
       if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); continue; }
-      if (r.status === 404 || r.status === 400) continue;
-      if (!r.ok) return res.status(r.status).json({ error: "Upstream HTTP " + r.status });
+      if (!r.ok) continue; /* one model hiccuping must not kill the loop — try the next brain */
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
       if (t && t.trim()) return res.json({ choices: [{ message: { content: t.trim() } }], model });
     } catch (e) {}
   }
   try { const rt = await reserveCall(messages, baseTok, body.temperature != null ? body.temperature : 0.3); if (rt) return res.json({ choices: [{ message: { content: rt } }], model: "reserve" }); } catch (e) {}
-  res.status(503).json({ error: "All brains busy — try again shortly." });
+  const live = KEY_POOL.filter(k => !(keyCool.get(k) > Date.now())).length;
+  const hint = !KEY_POOL.length ? "no AI keys configured on the backend"
+    : live === 0 ? "all " + KEY_POOL.length + " AI keys are cooling/drained (free-tier limit) — add a fresh Groq key in the Render dashboard or retry in ~1 min"
+    : "upstream models refused — retry shortly";
+  res.status(503).json({ error: "All brains busy — try again shortly.", hint, keysLive: live, keysTotal: KEY_POOL.length });
 });
 
 /* SOURCE WINDOWS — give her the real code around her search terms, so she codes WITH context
@@ -591,7 +594,7 @@ app.post("/v1/chat/completions", async (req, res) => {
         }),
         signal: AbortSignal.timeout(45_000)
       });
-      if (r.status === 429) { keyCool.set(key, Date.now() + 10 * 60_000); sawLimit = true; continue; }
+      if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); sawLimit = true; continue; }
       if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); sawLimit = true; continue; } // dead key → reserve will cover
       if (r.status === 404 || r.status === 400) continue;                            // retired/invalid model → next model
       if (!r.ok) return res.status(r.status).json({ error: "Upstream HTTP " + r.status });
@@ -631,7 +634,7 @@ function llm1(messages, maxTok) {
           body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok || 700, 4000), temperature: 0.3 }),
           signal: AbortSignal.timeout(45_000)
         });
-      if (!r.ok) { if (r.status === 429) keyCool.set(key, Date.now() + 10 * 60_000); continue; }
+      if (!r.ok) { if (r.status === 429) keyCool.set(key, Date.now() + 70_000); continue; }
         const d = await r.json();
         const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
         if (t && t.trim()) return t.trim();
@@ -823,7 +826,7 @@ app.post("/v1/chat/stream", async (req, res) => {
           }),
           signal: AbortSignal.timeout(120_000)
         });
-        if (r.status === 429) { keyCool.set(key, Date.now() + 10 * 60_000); sawLimit = true; continue; }
+        if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); sawLimit = true; continue; }
         if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); sawLimit = true; continue; }
         if (r.status === 404 || r.status === 400) break; /* retired/invalid model → next model */
         if (!r.ok || !r.body) break;
@@ -915,7 +918,7 @@ app.post("/v1/tts", async (req, res) => {
         return res.send(buf);
       }
       const t = await r.text().catch(() => "");
-      if (r.status === 429) keyCool.set(key, Date.now() + 10 * 60_000);
+      if (r.status === 429) keyCool.set(key, Date.now() + 70_000);
       /* terms not accepted / rate-limited / hiccup → free neural fallback below */
     } catch (e) { /* fall through to fallback */ }
   }
