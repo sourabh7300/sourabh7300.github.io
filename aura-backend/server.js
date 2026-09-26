@@ -487,6 +487,85 @@ app.post("/v1/staff/brain", async (req, res) => {
   const messages = Array.isArray(body.messages) ? body.messages.slice(-12) : null;
   if (!messages || messages.some(m => !m || typeof m.content !== "string")) return res.status(400).json({ error: "messages required" });
   const baseTok = Math.min(body.max_tokens || 3000, 8000); /* she needs room to build big */
+
+  /* STREAM MODE — the maker watches the code materialize live.
+     Watchdogs are IDLE-based: a model only dies if it stops producing tokens
+     (25s to first token, 45s between tokens) — a long healthy generation
+     is never killed for being slow. A good partial (>200 chars) is rescued
+     rather than thrown away. */
+  if (body.stream === true) {
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    if (typeof res.flushHeaders === "function") res.flushHeaders();
+    const send = o => { try { res.write("data: " + JSON.stringify(o) + "\n\n"); } catch (e) {} };
+    const finish = () => { try { res.write("data: [DONE]\n\n"); res.end(); } catch (e) {} };
+    let closed = false;
+    req.on("close", () => { closed = true; });
+    try {
+      for (const model of MODELS) {
+        if (closed) return;
+        const key = pickKey(true); /* maker-reserved key */
+        if (!key) break;
+        const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 600) : baseTok;
+        let r;
+        try {
+          r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+            body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3, reasoning_effort: body.reasoning_effort || "medium", stream: true }),
+            signal: AbortSignal.timeout(30_000) /* connect + first response headers only */
+          });
+        } catch (e) { continue; }
+        if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); continue; }
+        if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); continue; }
+        if (!r.ok || !r.body) continue;
+        let full = "", announced = false;
+        try {
+          const reader = r.body.getReader();
+          const dec = new TextDecoder();
+          let buf = "";
+          while (!closed) {
+            const chunk = await Promise.race([
+              reader.read(),
+              new Promise((_, rej) => setTimeout(() => rej(new Error("idle")), full ? 45_000 : 25_000))
+            ]);
+            if (chunk.done) break;
+            buf += dec.decode(chunk.value, { stream: true });
+            const lines = buf.split("\n"); buf = lines.pop() || "";
+            for (const ln of lines) {
+              const s = ln.replace(/^data:\s*/, "").trim();
+              if (!s || s === "[DONE]") continue;
+              try {
+                const j = JSON.parse(s);
+                const delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+                if (delta) { if (!announced) { send({ model }); announced = true; } full += delta; send({ delta }); }
+              } catch (e) {}
+            }
+          }
+        } catch (idleErr) {
+          /* stalled — rescue a decent partial, otherwise move to the next brain */
+          if (full.length > 200) { send({ partial: true }); finish(); return; }
+          send({ reset: true });
+          continue;
+        }
+        if (closed) return;
+        if (full.trim()) { finish(); return; }
+        send({ reset: true });
+      }
+      try { const rt = await reserveCall(messages, baseTok, body.temperature != null ? body.temperature : 0.3); if (rt) { send({ model: "reserve" }); send({ delta: rt }); finish(); return; } } catch (e) {}
+      const live = KEY_POOL.filter(k => !(keyCool.get(k) > Date.now())).length;
+      const hint = !KEY_POOL.length ? "no AI keys configured on the backend"
+        : live === 0 ? "all " + KEY_POOL.length + " AI keys are cooling/drained (free-tier limit) — add a fresh Groq key in the Render dashboard or retry in ~1 min"
+        : "upstream models refused — retry shortly";
+      send({ error: "All brains busy — try again shortly.", hint, keysLive: live });
+      finish();
+    } catch (e) { send({ error: e.message || String(e) }); finish(); }
+    return;
+  }
+
+  /* JSON MODE — unchanged contract for tooling and tests */
   for (const model of MODELS) {
     try {
       const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 600) : baseTok;
