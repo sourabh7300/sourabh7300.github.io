@@ -5975,11 +5975,27 @@ document.addEventListener("DOMContentLoaded",function(){
   }
   async function suCall(messages,maxTok,reasoning){
     const u=AuraAuth.firebaseUser()||{};
-    const r=await fetch(backendUrl()+"/v1/staff/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||6500,temperature:0.3,reasoning_effort:reasoning||"high"}),signal:AbortSignal.timeout(150000)});
-    if(r.status===401||r.status===403)throw new Error("admin-only: sign in with your maker account");
-    if(!r.ok)throw new Error("HTTP "+r.status);
-    const d=await r.json();const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
-    if(!t.trim())throw new Error("empty");return t.trim();
+    let lastErr="";
+    for(let attempt=1;attempt<=2;attempt++){
+      try{
+        const r=await fetch(backendUrl()+"/v1/staff/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||6500,temperature:0.3,reasoning_effort:reasoning||"medium"}),signal:AbortSignal.timeout(105000)});
+        if(r.status===401||r.status===403)throw new Error("admin-only: sign in with your maker account");
+        if(!r.ok){
+          const j=await r.json().catch(()=>({}));
+          lastErr=(j.error||"HTTP "+r.status)+((j.hint)?" — "+j.hint:"");
+          if(attempt<2&&r.status>=500){await new Promise(function(rs){setTimeout(rs,4000)});continue}
+          throw new Error(lastErr);
+        }
+        const d=await r.json();const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
+        if(!t.trim())throw new Error("empty");return t.trim();
+      }catch(e){
+        if(e.message&&e.message.indexOf("admin-only")===0)throw e;
+        lastErr=(e.name==="TimeoutError"||e.name==="AbortError")?"brain timed out — the plan is still too heavy, try a shorter task":(e.message||String(e));
+        if(attempt<2){await new Promise(function(rs){setTimeout(rs,4000)});continue}
+        throw new Error(lastErr);
+      }
+    }
+    throw new Error(lastErr||"brain unreachable");
   }
   /* THINK support — pull real source windows from her repo for the task's key terms,
      exactly how a human engineer works: search the codebase, read around the hits, then write. */
@@ -6010,12 +6026,15 @@ document.addEventListener("DOMContentLoaded",function(){
       const wins=await suFetchWindows(task);
       if(wins){
         suState.gh=wins;
-        windowsBlock="\n\nREAL EXCERPTS OF THE CURRENT FILE (line numbers included — anchor your find-strings EXACTLY in these):\n"+wins.windows.filter(w=>w.code).map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+(w.term?" (matched: "+w.term+")":"")+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n");
-        suStatus.textContent="THINK 2/3 — source read ("+wins.windows.filter(w=>w.code).length+" windows, "+wins.fileLines+"-line file). Now writing the full code…";
+        var ws=wins.windows.filter(function(w){return w.code}).slice(0,4);
+        ws.forEach(function(w){if(w.code.length>4200)w.code=w.code.slice(0,4200)});
+        windowsBlock="\n\nREAL EXCERPTS OF THE CURRENT FILE (line numbers included — anchor your find-strings EXACTLY in these):\n"+ws.map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+(w.term?" (matched: "+w.term+")":"")+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n");
+        suStatus.textContent="THINK 2/3 — source read ("+ws.length+" windows, "+wins.fileLines+"-line file). Now writing the full code… (usually 15–45s)";
       }else{
         suStatus.textContent="THINK 2/3 — no windows matched; writing from architecture knowledge…";
       }
-      const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+(suState.mode==="source"?"\n\nPreferred mode: SOURCE (edit the real aura.html).":"\n\nPreferred mode: RUNTIME (appearance patch).")+windowsBlock}],6500,"high");
+      suStatus.textContent="THINK 3/3 — writing the full code… (usually 15–45s)";
+      const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+(suState.mode==="source"?"\n\nPreferred mode: SOURCE (edit the real aura.html).":"\n\nPreferred mode: RUNTIME (appearance patch).")+windowsBlock}],6500,"medium");
       const pm=out.match(/PLAN:\s*([\s\S]*?)(?:PATCH:|EDITS:|$)/i);
       suState.plan=pm?pm[1].trim():task;
       const em=out.match(/```json\s*([\s\S]*?)```/i);
@@ -6030,7 +6049,10 @@ document.addEventListener("DOMContentLoaded",function(){
       else if(suState.patch)suStatus.textContent="✓ THINK complete — patch ready. BUILD to preview it.";
       else suStatus.textContent="she returned no code — rephrase the task and plan again";
       suBuildBtn.disabled=!(suState.patch||suState.edits);
-    }catch(e){suStatus.textContent="brain unreachable ("+(e.message||e)+") — backend warming up? try again in 30s"}
+    }catch(e){
+      const m=e.message||String(e);
+      suStatus.textContent=/keys|drained|cooling/i.test(m)?"⛔ "+m:("⚠ THINK failed: "+m+" — just hit PLAN again (it auto-retries)");
+    }
     suPlanBtn.disabled=false;
   };
   if(suBuildBtn)suBuildBtn.onclick=async function(){
@@ -6111,8 +6133,10 @@ document.addEventListener("DOMContentLoaded",function(){
         if(!d.ok){
           suStatus.textContent="her edit "+round+" missed the file — THINK repair round "+round+"/3: re-reading the real code…";
           const wins=await suFetchWindows(suPromptEl.value.trim()+" "+failed.slice(0,60));
-          const ctx=wins?"\n\nREAL EXCERPTS (line numbers included):\n"+wins.windows.filter(w=>w.code).map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n"):"";
-          const fixOut=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"FIX-ROUND "+round+": your previous find-string did not exist in the file:\n\""+failed.slice(0,200)+"\"\n\nRewrite ONLY the failing edit(s) — copy find-strings EXACTLY from the real excerpts.\n\nORIGINAL TASK: "+suPromptEl.value.trim()+ctx+"\n\nReturn the COMPLETE corrected EDITS list (all edits, not just the failed one)."}],6500,"high");
+          var fws=wins?wins.windows.filter(function(w){return w.code}).slice(0,4):[];
+          fws.forEach(function(w){if(w.code.length>4200)w.code=w.code.slice(0,4200)});
+          const ctx=fws.length?"\n\nREAL EXCERPTS (line numbers included):\n"+fws.map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n"):"";
+          const fixOut=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"FIX-ROUND "+round+": your previous find-string did not exist in the file:\n\""+failed.slice(0,200)+"\"\n\nRewrite ONLY the failing edit(s) — copy find-strings EXACTLY from the real excerpts.\n\nORIGINAL TASK: "+suPromptEl.value.trim()+ctx+"\n\nReturn the COMPLETE corrected EDITS list (all edits, not just the failed one)."}],6500,"medium");
           const em=fixOut.match(/```json\s*([\s\S]*?)```/i);
           if(!em)throw new Error("she could not produce a corrected edit list");
           let fixed=null;try{fixed=JSON.parse(em[1].trim())}catch(e){}
