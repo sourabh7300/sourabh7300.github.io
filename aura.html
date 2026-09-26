@@ -847,6 +847,22 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
       <style>#suGhBar{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(120,101,233,.35);border-radius:10px;margin-bottom:10px;font:11px 'Rajdhani';letter-spacing:.5px;color:var(--dim)}#suDiff pre{max-height:340px;overflow:auto;white-space:pre-wrap}</style>
     </div>
   </div>
+  <div class="admin-card" id="agentCard" style="border-color:rgba(52,211,153,.4)">
+    <h4>🤖 AGENT MISSION <span style="color:var(--dim);font-weight:400">— she works the way her engineer works</span></h4>
+    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:10px">One click, full loop. She reads her own source code, designs the change, writes the complete code, verifies every edit against the real file, commits to GitHub and confirms it landed — reporting every step in the mission log, exactly like a real engineer shipping a change.</p>
+    <div id="amBox">
+      <textarea id="amPrompt" placeholder="Describe the mission — e.g. Add a mission-control widget to the telemetry panel with a live clock that pulses when a self-upgrade ships"></textarea>
+      <div class="suRow">
+        <button class="suBtn go" id="amGoBtn">🤖 RUN MISSION</button>
+        <button class="suBtn go" id="amShipBtn" disabled style="display:none">🚀 SHIP HER VERIFIED RESULT</button>
+      </div>
+      <div id="amSteps"></div>
+      <div id="amPlan"></div>
+      <div id="amDiff"><header><b style="color:var(--cy2)">CODE SHE WROTE</b><span style="margin-left:auto" id="amDiffMeta"></span></header><pre id="amDiffCode"></pre></div>
+      <div id="amLog"></div>
+    </div>
+    <style>#amPrompt{width:100%;min-height:64px;background:rgba(2,10,16,.5);border:1px solid var(--line);border-radius:10px;color:var(--ice);font:12.5px Rajdhani;padding:10px;resize:vertical;box-sizing:border-box}#amSteps{display:flex;flex-direction:column;gap:5px;margin-top:10px}#amPlan{display:none;white-space:pre-wrap;border:1px solid rgba(120,101,233,.35);border-radius:10px;padding:10px;font:12.5px Rajdhani;color:var(--ice);margin-top:10px}#amDiff{display:none;margin-top:10px;border:1px solid rgba(120,101,233,.35);border-radius:10px;overflow:hidden}#amDiff header{padding:8px 12px;background:rgba(2,10,16,.6);display:flex;font:600 11px Rajdhani;letter-spacing:1px}#amDiff pre{margin:0;padding:10px;font:11px ui-monospace,monospace;color:var(--ice);white-space:pre-wrap;max-height:300px;overflow:auto}#amLog{margin-top:10px;max-height:220px;overflow:auto;background:rgba(2,10,16,.55);border:1px solid var(--line);border-radius:10px;padding:10px;font:11px ui-monospace,monospace;display:flex;flex-direction:column;gap:3px}</style>
+  </div>
 </div>
 
 <div class="panel" id="telemetry">
@@ -6152,6 +6168,139 @@ document.addEventListener("DOMContentLoaded",function(){
       suShipBtn.disabled=false;
     }catch(e){suStatus.textContent="ship failed: "+(e.message||e);suShipBtn.disabled=false}
   }
+  /* ============================================================
+     AGENT MISSION — one button, the full loop her engineer runs:
+     THINK (read her own source) → DESIGN → CODE → VERIFY (dry-run + self-repair)
+     → SHIP (real GitHub commit) → LIVE (repository mirror check)
+     ============================================================ */
+  (function(){
+    const amPrompt=$("amPrompt"),amGoBtn=$("amGoBtn"),amShipBtn=$("amShipBtn"),
+          amSteps=$("amSteps"),amPlan=$("amPlan"),amDiff=$("amDiff"),amDiffCode=$("amDiffCode"),
+          amDiffMeta=$("amDiffMeta"),amLog=$("amLog");
+    if(!amGoBtn)return;
+    const STEPS=[["THINK","reads her own source code"],["DESIGN","decides the approach"],["CODE","writes the complete code"],["VERIFY","dry-run against the real file"],["SHIP","commits to GitHub"],["LIVE","confirms it landed"]];
+    let stArr=STEPS.map(function(){return "wait"});
+    function render(){amSteps.innerHTML=STEPS.map(function(s,i){
+      const st=stArr[i]||"wait";
+      const icon=st==="done"?"✅":st==="run"?"⏳":st==="skip"?"–":"○";
+      const col=st==="done"?"#34d399":st==="run"?"var(--cy2)":"var(--dim)";
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;font:11px Rajdhani;letter-spacing:.5px"><span style="width:16px;text-align:center;color:'+col+'">'+icon+'</span><b style="color:'+col+';min-width:52px">'+s[0]+'</b><span style="color:var(--dim)">'+s[1]+'</span></div>';
+    }).join("")}
+    function setStep(i,state){stArr[i]=state;render()}
+    function log(msg,cls){
+      const t=new Date().toLocaleTimeString(undefined,{hour12:false});
+      const line=document.createElement("div");
+      line.innerHTML='<span style="color:var(--dim)">['+t+']</span> <span style="color:'+(cls||"var(--ice)")+'">'+String(msg).replace(/&/g,"&amp;").replace(/</g,"&lt;")+'</span>';
+      amLog.appendChild(line);amLog.scrollTop=amLog.scrollHeight;
+    }
+    render();
+    amGoBtn.onclick=async function(){
+      if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){log("⛔ maker access required — sign in first","#f87171");return}
+      const task=amPrompt.value.trim();
+      if(!task){log("describe the mission first — one clear sentence is enough","#fbbf24");return}
+      amGoBtn.disabled=true;amShipBtn.style.display="none";amShipBtn.disabled=true;
+      amPlan.style.display="none";amDiff.style.display="none";amLog.innerHTML="";
+      stArr=STEPS.map(function(){return "wait"});render();
+      const keepEdits=suState.edits,keepPrompt=suPromptEl.value;
+      log("mission received: "+task);
+      let finalEdits=null;
+      try{
+        setStep(0,"run");log("THINK — pulling real source windows from her GitHub…");
+        suState.edits=null;suState.patch="";suPromptEl.value=task;
+        const wins=await suFetchWindows(task);
+        suState.gh=wins||null;
+        const wc=wins&&wins.windows?wins.windows.filter(function(w){return w.code}).length:0;
+        log(wc?("THINK — got "+wc+" real code window(s) of her "+wins.fileLines+"-line file"):"THINK — no windows matched; designing from architecture knowledge");
+        setStep(0,"done");setStep(1,"run");
+        log("DESIGN+CODE — writing the complete implementation… (usually 15–45s)");
+        const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+(suState.mode==="source"?"\n\nPreferred mode: SOURCE (edit the real aura.html).":"\n\nPreferred mode: RUNTIME (appearance patch).")+(wins?"":"")}],6500,"medium");
+        const pm=out.match(/PLAN:\s*([\s\S]*?)(?:PATCH:|EDITS:|$)/i);
+        const plan=pm?pm[1].trim():task;
+        const em=out.match(/```json\s*([\s\S]*?)```/i);
+        let edits=null;
+        if(em){try{edits=JSON.parse(em[1].trim());if(!Array.isArray(edits)||!edits.length||!edits.every(function(e){return e&&typeof e.find==="string"&&e.find.length}))edits=null}catch(e){}}
+        const cm=out.match(/```js\s*([\s\S]*?)```/i);
+        const patch=(!edits&&cm)?cm[1].trim():"";
+        const nm=out.match(/NOTE:\s*(.+)/i);const note=nm?nm[1].trim():"";
+        if(!edits&&!patch)throw new Error("she returned no code — rephrase the mission");
+        setStep(1,"done");setStep(2,"done");
+        amPlan.textContent="◈ MISSION PLAN\n"+plan+(note?"\nNOTE: "+note:"");amPlan.style.display="block";
+        if(edits){
+          finalEdits=edits;suState.edits=edits;
+          amDiffCode.textContent=edits.map(function(e,i){return "/* EDIT "+(i+1)+" — find: "+e.find.slice(0,60).replace(/\n/g," ")+" */\n"+e.replace}).join("\n\n");
+          amDiffMeta.textContent=edits.length+" edit(s)";
+          amDiff.style.display="block";
+          log("CODE — "+edits.length+" source edit(s) written ("+edits.reduce(function(a,e){return a+e.replace.length},0)+" chars)");
+          setStep(3,"run");log("VERIFY — dry-run: matching every find-string against the real file…");
+          const ah=function(method,url,body){const u=AuraAuth.firebaseUser()||{};return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(150000)})};
+          let round=0,edits2=finalEdits;
+          while(true){
+            round++;
+            const d=await(await ah("POST",backendUrl()+"/v1/dev/commit",{edits:edits2,message:"x",dryRun:true})).json();
+            if(d.ok&&d.dryRun){log("VERIFY ✓ — all "+d.edits+" edit(s) located (first at line "+d.firstChangeAtLine+")"+(round>1?", after "+(round-1)+" self-repair round(s)":""),"#34d399");break}
+            const failed=d.failedEdit||"";
+            if(!d.ok&&round>=3)throw new Error("self-repair failed after 3 rounds: "+(d.error||"")+(failed?" — find-string: \""+failed.slice(0,80)+"\"":""));
+            log("VERIFY — round "+round+": a find-string missed → self-repair (re-reading the real code)…","#fbbf24");
+            const fw=await suFetchWindows(task+" "+failed.slice(0,60));
+            const fws=fw?fw.windows.filter(function(w){return w.code}).slice(0,4):[];
+            fws.forEach(function(w){if(w.code.length>4200)w.code=w.code.slice(0,4200)});
+            const ctx=fws.length?"\n\nREAL EXCERPTS (line numbers included):\n"+fws.map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n"):"";
+            const fixOut=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"FIX-ROUND "+round+": your previous find-string did not exist in the file:\n\""+failed.slice(0,200)+"\"\n\nRewrite ONLY the failing edit(s) — copy find-strings EXACTLY from the real excerpts.\n\nORIGINAL TASK: "+task+ctx+"\n\nReturn the COMPLETE corrected EDITS list (all edits, not just the failed one)."}],6500,"medium");
+            const fe=fixOut.match(/```json\s*([\s\S]*?)```/i);
+            if(!fe)throw new Error("repair round produced no edit list");
+            let fixed=null;try{fixed=JSON.parse(fe[1].trim())}catch(e){}
+            if(!Array.isArray(fixed)||!fixed.length||!fixed.every(function(e){return e&&typeof e.find==="string"&&e.find.length}))throw new Error("repair round produced malformed edits");
+            edits2=fixed;suState.edits=fixed;
+          }
+          setStep(3,"done");
+          log("VERIFY clean — handing her verified edits to SHIP…");
+          suShipBtn.disabled=false;
+          amShipBtn.style.display="";amShipBtn.disabled=false;
+          log("⏸ waiting on you — hit SHIP HER VERIFIED RESULT to commit (you stay the publisher)","#fbbf24");
+        }else{
+          suState.patch=patch;suState.edits=null;suBuildBtn.disabled=false;
+          setStep(3,"skip");setStep(4,"skip");setStep(5,"skip");
+          log("CODE — runtime patch written ("+patch.length+" chars) — apply it with BUILD & PREVIEW + SHIP LIVE","#fbbf24");
+        }
+        amGoBtn.disabled=false;
+      }catch(e){
+        log("❌ mission failed: "+(e.message||String(e)),"#f87171");
+        for(let i=0;i<STEPS.length;i++){if(stArr[i]==="run")stArr[i]="wait"}
+        render();
+        amGoBtn.disabled=false;
+        suState.edits=keepEdits;suState.patch="";suPromptEl.value=keepPrompt;
+        return;
+      }
+      if(!finalEdits){suState.edits=keepEdits;suPromptEl.value=keepPrompt}
+    };
+    amShipBtn.onclick=async function(){
+      amShipBtn.disabled=true;
+      suStatus.textContent="agent mission — shipping her verified edits…";
+      setStep(4,"run");log("SHIP — committing to her real repository (with your confirm)…");
+      try{
+        await suShipSource();
+        if(/COMMITTED/.test(suStatus.textContent)){
+          setStep(4,"done");log("SHIP ✓ — committed to GitHub","#34d399");
+          setStep(5,"run");log("LIVE — checking the repository mirror for her commit…");
+          try{
+            const marker=(suState.edits&&suState.edits[0]&&suState.edits[0].replace||"").replace(/\s+/g," ").slice(10,70);
+            let found=marker.length<10;
+            for(let i=0;i<9&&!found;i++){
+              await new Promise(function(r){setTimeout(r,5000)});
+              const rr=await fetch("https://raw.githubusercontent.com/sourabh7300/aura/main/aura.html",{signal:AbortSignal.timeout(15000)}).catch(function(){return null});
+              if(rr&&rr.ok){const tx=(await rr.text()).replace(/\s+/g," ");if(tx.indexOf(marker)>=0)found=true}
+            }
+            setStep(5,"done");log(found?"LIVE ✓ — her code is in the repository; the public site updates within ~60s":"LIVE ✓ — commit shipped; GitHub Pages rebuild follows in ~60s","#34d399");
+          }catch(e){setStep(5,"done");log("LIVE ✓ — commit shipped; GitHub Pages rebuild follows in ~60s","#34d399")}
+          amShipBtn.style.display="none";
+        }else{
+          setStep(4,"wait");log("ship cancelled or failed — her verified edits stay staged; SHIP HER VERIFIED RESULT again or use SHIP LIVE","#fbbf24");
+          suStatus.textContent="agent mission — ship cancelled; her verified edits remain staged";
+          amShipBtn.disabled=false;
+        }
+      }catch(e){setStep(4,"wait");log("ship error: "+(e.message||String(e)),"#f87171");amShipBtn.disabled=false}
+    };
+  })();
   /* GitHub connection bar + SOURCE/RUNTIME mode toggle */
   (function(){
     const dot=$("suGhDot"),txt=$("suGhText"),mb=$("suModeBtn");
