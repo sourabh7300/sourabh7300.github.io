@@ -1,3 +1,8 @@
+[![LIVE DEMO](https://img.shields.io/badge/▶_LIVE_DEMO-verified_working-00d4aa?style=for-the-badge&logo=vercel&logoColor=white)](https://sourabh7300.github.io)
+
+**🍔 Portfolio — 4 live apps on one page** — ✅ verified live (2026-09-26): returns HTTP 200, fully functional.
+
+---
 # Sourabh Singh — Web Development Portfolio
 
 B.Tech CSE (AI, DevOps & Cloud Automation) · JECRC University
