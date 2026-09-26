@@ -855,6 +855,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
       <div class="suRow">
         <button class="suBtn go" id="amGoBtn">🤖 RUN MISSION</button>
         <button class="suBtn go" id="amShipBtn" disabled style="display:none">🚀 SHIP HER VERIFIED RESULT</button>
+        <label id="amAutoWrap" style="display:none;align-items:center;gap:6px;font:10.5px Rajdhani;letter-spacing:.5px;color:var(--dim);cursor:pointer"><input type="checkbox" id="amAuto" style="accent-color:#34d399"> AUTOPILOT</label>
       </div>
       <div id="amSteps"></div>
       <div id="amPlan"></div>
@@ -5918,10 +5919,32 @@ document.addEventListener("DOMContentLoaded",function(){
   setTimeout(function(){ try{ applyRoleUi(); }catch(e){} }, 800);
 
   /* ================= ADMIN PAGE — server-verified maker/ceo only; edits live database config ================= */
-  function __ah(method,url,body){
-    const u=AuraAuth.firebaseUser()||{};
-    return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(15000)});
+  /* FIREBASE TOKENS EXPIRE AFTER 1 HOUR — every admin call now force-refreshes a
+     fresh token first, so the console never dies with "sign in" while you ARE
+     signed in. On a 401 it refreshes once more and retries automatically. */
+  let __tokPromise=null;
+  async function __freshTok(){
+    try{
+      if(typeof firebase==="undefined"||!firebase.auth)throw new Error("noauth");
+      const cu=firebase.auth().currentUser;
+      if(!cu)throw new Error("noauth");
+      if(!__tokPromise)__tokPromise=cu.getIdToken(true).then(function(t){__tokPromise=null;return t}).catch(function(e){__tokPromise=null;throw e});
+      return await __tokPromise;
+    }catch(e){
+      try{const u=JSON.parse(localStorage.getItem("aura_fb_live")||"null");if(u&&u.tok)return u.tok}catch(e2){}
+      return "";
+    }
   }
+  async function __ah(method,url,body){
+    const tok=await __freshTok();
+    return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(tok?{"Authorization":"Bearer "+tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(60000)});
+  }
+  async function __ahRetry(method,url,body){
+    let r=await __ah(method,url,body);
+    if(r.status===401){const tok=await __freshTok();if(tok)r=await fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},{Authorization:"Bearer "+tok}),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(60000)})}
+    return r;
+  }
+  window.__ahRetry=__ahRetry;
   window.adminLoad=adminLoad;
   async function adminLoad(){
     if(!backendUrl())return;
@@ -5992,22 +6015,26 @@ document.addEventListener("DOMContentLoaded",function(){
   async function suCall(messages,maxTok,reasoning){
     const u=AuraAuth.firebaseUser()||{};
     let lastErr="";
-    for(let attempt=1;attempt<=2;attempt++){
+    for(let attempt=1;attempt<=3;attempt++){
       try{
-        const r=await fetch(backendUrl()+"/v1/staff/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||6500,temperature:0.3,reasoning_effort:reasoning||"medium"}),signal:AbortSignal.timeout(105000)});
+        const tok=await __freshTok();
+        const r=await fetch(backendUrl()+"/v1/staff/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},((tok||(u.tok||""))?{"Authorization":"Bearer "+(tok||u.tok)}:{})),body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||6500,temperature:0.3,reasoning_effort:reasoning||"medium"}),signal:AbortSignal.timeout(105000)});
         if(r.status===401||r.status===403)throw new Error("admin-only: sign in with your maker account");
         if(!r.ok){
           const j=await r.json().catch(()=>({}));
           lastErr=(j.error||"HTTP "+r.status)+((j.hint)?" — "+j.hint:"");
-          if(attempt<2&&r.status>=500){await new Promise(function(rs){setTimeout(rs,4000)});continue}
+          if(attempt<3&&r.status>=500){await new Promise(function(rs){setTimeout(rs,4000)});continue}
           throw new Error(lastErr);
         }
         const d=await r.json();const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||"";
         if(!t.trim())throw new Error("empty");return t.trim();
       }catch(e){
-        if(e.message&&e.message.indexOf("admin-only")===0)throw e;
+        if(e.message&&e.message.indexOf("admin-only")===0){
+          if(attempt<2){await __freshTok();continue} /* token was stale — refresh and try once more */
+          throw e;
+        }
         lastErr=(e.name==="TimeoutError"||e.name==="AbortError")?"brain timed out — the plan is still too heavy, try a shorter task":(e.message||String(e));
-        if(attempt<2){await new Promise(function(rs){setTimeout(rs,4000)});continue}
+        if(attempt<3){await new Promise(function(rs){setTimeout(rs,4000)});continue}
         throw new Error(lastErr);
       }
     }
@@ -6031,7 +6058,7 @@ document.addEventListener("DOMContentLoaded",function(){
   const suPlanBtn=$("suPlanBtn"),suBuildBtn=$("suBuildBtn"),suShipBtn=$("suShipBtn");
   if(suPlanBtn)suPlanBtn.onclick=async function(){
     if(!AuraAuth.suAllowed){suStatus.textContent="admin only — this console is part of your maker access";return}
-    if(!AuraAuth.suAllowed()){suStatus.textContent="⛔ self-integration is maker-only — sign in with your verified account first";suPlanBtn.disabled=false;return}
+    if(!AuraAuth.suAllowed()){suStatus.textContent="⛔ self-integration is maker-only — sign in with your verified account first (session may have expired — sign in again)";suPlanBtn.disabled=false;return}
     const task=suPromptEl.value.trim();
     if(!task){suStatus.textContent="describe the change first — one clear sentence is enough";return}
     suPlanBtn.disabled=true;suStatus.textContent="THINK 1/3 — reading her own source code for relevant parts…";suPlan.style.display="none";suDiff.style.display="none";suPrev.style.display="none";suBuildBtn.disabled=true;suShipBtn.disabled=true;
@@ -6072,7 +6099,7 @@ document.addEventListener("DOMContentLoaded",function(){
     suPlanBtn.disabled=false;
   };
   if(suBuildBtn)suBuildBtn.onclick=async function(){
-    if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){suStatus.textContent="⛔ maker access required";return}
+    if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){suStatus.textContent="⛔ maker access required — session expired? sign in again";return}
     if(!suState.patch&&!suState.edits)return;
     suBuildBtn.disabled=true;
     if(suState.edits){
@@ -6113,7 +6140,7 @@ document.addEventListener("DOMContentLoaded",function(){
     }catch(e){}},800);
   };
   if(suShipBtn)suShipBtn.onclick=async function(){
-    if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){suStatus.textContent="⛔ maker access required";return}
+    if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){suStatus.textContent="⛔ maker access required — session expired? sign in again";return}
     if(!suState.patch&&!suState.edits)return;
     if(suState.edits){await suShipSource();return}
     if(!confirm("Ship this change to EVERY visitor of the live site?\n\n"+(suState.note||suState.plan)))return;
@@ -6131,9 +6158,8 @@ document.addEventListener("DOMContentLoaded",function(){
     }catch(e){suStatus.textContent="ship failed: "+(e.message||e);suShipBtn.disabled=false}
   };
   async function suShipSource(){
-    if(!confirm("Commit her "+suState.edits.length+" edit(s) to the REAL aura.html on GitHub?\n\n"+(suState.note||suState.plan)+"\n\nThe live site updates ~60 seconds after the commit."))return;
-    suShipBtn.disabled=true;
-    function ah(method,url,body){const u=AuraAuth.firebaseUser()||{};return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(150000)})}
+    if(!(window.__amAuto||confirm("Commit her "+suState.edits.length+" edit(s) to the REAL aura.html on GitHub?\n\n"+(suState.note||suState.plan)+"\n\nThe live site updates ~60 seconds after the commit.")))return;
+    suShipBtn.disabled=true;    async function ah(method,url,body){const tok=await __freshTok();const u=AuraAuth.firebaseUser()||{};const t=tok||u.tok;return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(t?{"Authorization":"Bearer "+t}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(150000)})}
     const msg="AURA self-upgrade: "+(suState.note||suState.plan).slice(0,120);
     try{
       /* SELF-REPAIR LOOP — like a real CI: dry-run → if her find-string missed, show her the real
@@ -6178,6 +6204,8 @@ document.addEventListener("DOMContentLoaded",function(){
           amSteps=$("amSteps"),amPlan=$("amPlan"),amDiff=$("amDiff"),amDiffCode=$("amDiffCode"),
           amDiffMeta=$("amDiffMeta"),amLog=$("amLog");
     if(!amGoBtn)return;
+    const amAuto=$("amAuto");
+    if(AuraAuth.suAllowed&&AuraAuth.suAllowed()){const w=$("amAutoWrap");if(w)w.style.display="inline-flex"}
     const STEPS=[["THINK","reads her own source code"],["DESIGN","decides the approach"],["CODE","writes the complete code"],["VERIFY","dry-run against the real file"],["SHIP","commits to GitHub"],["LIVE","confirms it landed"]];
     let stArr=STEPS.map(function(){return "wait"});
     function render(){amSteps.innerHTML=STEPS.map(function(s,i){
@@ -6195,7 +6223,7 @@ document.addEventListener("DOMContentLoaded",function(){
     }
     render();
     amGoBtn.onclick=async function(){
-      if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){log("⛔ maker access required — sign in first","#f87171");return}
+      if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){log("⛔ maker access required — session expired? sign in again","#f87171");return}
       const task=amPrompt.value.trim();
       if(!task){log("describe the mission first — one clear sentence is enough","#fbbf24");return}
       amGoBtn.disabled=true;amShipBtn.style.display="none";amShipBtn.disabled=true;
@@ -6256,7 +6284,12 @@ document.addEventListener("DOMContentLoaded",function(){
           log("VERIFY clean — handing her verified edits to SHIP…");
           suShipBtn.disabled=false;
           amShipBtn.style.display="";amShipBtn.disabled=false;
-          log("⏸ waiting on you — hit SHIP HER VERIFIED RESULT to commit (you stay the publisher)","#fbbf24");
+          if(amAuto.checked){
+            log("🛸 AUTOPILOT ON — committing her verified edits without waiting…","#34d399");
+            window.__amAuto=true;amShipBtn.click();window.__amAuto=false;
+          }else{
+            log("⏸ waiting on you — hit SHIP HER VERIFIED RESULT to commit (you stay the publisher)","#fbbf24");
+          }
         }else{
           suState.patch=patch;suState.edits=null;suBuildBtn.disabled=false;
           setStep(3,"skip");setStep(4,"skip");setStep(5,"skip");
