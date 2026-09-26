@@ -5858,7 +5858,14 @@ document.addEventListener("DOMContentLoaded",function(){
   if(expBtn) expBtn.onclick = async function(){
     let blob = null;
     try{ blob = {convo:CONVO, memory:memGet(), sessions:sessions.all()}; }catch(e){}
-    const payload = {exported:new Date().toISOString(), device:"browser", data:blob};
+    let cloud=null;
+    try{
+      if(backendUrl() && cloudSignedIn()){
+        const cr=await __ahRetry("GET",backendUrl()+"/v1/userdata");
+        if(cr.ok){const cj=await cr.json();cloud=cj.data||null}
+      }
+    }catch(e){}
+    const payload = {exported:new Date().toISOString(), device:"browser", data:blob, cloudCopy:cloud};
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}));
     a.download = "aura-my-data.json"; a.click();
@@ -5955,7 +5962,10 @@ document.addEventListener("DOMContentLoaded",function(){
   window.__ahRetry=__ahRetry;
   window.adminLoad=adminLoad;
   async function adminLoad(){
-    if(!backendUrl())return;
+    /* backendUrl() can be empty while config is still loading — wait for it instead
+       of returning silently and leaving PEOPLE stuck on "loading…" forever */
+    for(let i=0;i<20&&!backendUrl();i++){await new Promise(function(r){setTimeout(r,500)})}
+    if(!backendUrl()){const el=$("adUsersList");if(el)el.innerHTML='<small style="color:#f87171">backend not reachable — reload the page</small>';return}
     try{const me=await(await __ah("GET",backendUrl()+"/v1/me")).json();const rl=$("adminRoleLine");if(rl&&me&&me.role)rl.textContent=me.role+" access · "+(me.email||me.uid.slice(0,10))}catch(e){}
     try{
       const cr=await(await __ah("GET",backendUrl()+"/v1/config")).json();
