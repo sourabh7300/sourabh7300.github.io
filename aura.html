@@ -810,7 +810,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
       <div class="admin-stat" id="adStatUsers">0<small>SIGNED-IN PEOPLE</small></div>
       <div class="admin-stat" id="adStatAdmins">0<small>STAFF (MAKER/CEO)</small></div>
     </div>
-    <small style="color:var(--dim);font-size:10.5px">Counts come from the backend database — the same numbers the server enforces.</small>
+    <small style="color:var(--dim);font-size:10.5px">Counts come from the backend database — the same numbers the server enforces. <span id="adUsageHint" style="color:var(--cy2)"></span></small>
   </div>
   <div class="admin-card">
     <h4>🧠 ENGINE &amp; BRAND (live database)</h4>
@@ -855,7 +855,6 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
       <div class="suRow">
         <button class="suBtn go" id="amGoBtn">🤖 RUN MISSION</button>
         <button class="suBtn go" id="amShipBtn" disabled style="display:none">🚀 SHIP HER VERIFIED RESULT</button>
-        <label id="amAutoWrap" style="display:none;align-items:center;gap:6px;font:10.5px Rajdhani;letter-spacing:.5px;color:var(--dim);cursor:pointer"><input type="checkbox" id="amAuto" style="accent-color:#34d399"> AUTOPILOT</label>
       </div>
       <div id="amSteps"></div>
       <div id="amPlan"></div>
@@ -3861,6 +3860,7 @@ setInterval(()=>{
   $("clockT").textContent=n.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   $("clockD").textContent=n.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"}).toUpperCase();
   $("tFps").textContent=(fpsVal||"—")+" fps";
+  try{const te=$("tEng");if(te&&AuraConfig&&AuraConfig.cache&&AuraConfig.cache.aiEngine)te.textContent=AuraConfig.cache.aiEngine}catch(e){}
   $("tPts").textContent=N+" / "+NMAX;
   $("tMem").textContent=performance.memory?Math.round(performance.memory.usedJSHeapSize/1048576)+" MB":"—";
   $("tRes").textContent=innerWidth+"×"+innerHeight;
@@ -5854,8 +5854,7 @@ document.addEventListener("DOMContentLoaded",function(){
     pushSys("Guest mode — saved on this device only. Sign in later to take your data to the cloud.");
   };
 
-  /* done-screen actions: export / delete my data */
-  const expBtn = $("exportDataBtn");
+  /* done-screen actions: export / delete my data */const expBtn = $("exportDataBtn");
   if(expBtn) expBtn.onclick = async function(){
     let blob = null;
     try{ blob = {convo:CONVO, memory:memGet(), sessions:sessions.all()}; }catch(e){}
@@ -5866,12 +5865,21 @@ document.addEventListener("DOMContentLoaded",function(){
     pushSys("⤓ Your data exported as JSON — it is yours, always.");
   };
   const delBtn = $("deleteDataBtn");
-  if(delBtn) delBtn.onclick = function(){
+  if(delBtn) delBtn.onclick = async function(){
     if(!confirm("Delete ALL your AURA data on this device and in your cloud account? This cannot be undone.")) return;
     try{ localStorage.removeItem(AuraAuth.getSessionsKey()); localStorage.removeItem(AuraAuth.getMemKey()); localStorage.removeItem("aura_memory"); localStorage.removeItem("aura_history_v1"); }catch(e){}
     try{ CONVO.length = 0; log.innerHTML = ""; }catch(e){}
-    try{ if(backendUrl()) fetch(backendUrl()+"/v1/userdata",{method:"DELETE"}).catch(function(){}); }catch(e){}
-    pushSys("🗑 All local data wiped. Cloud copy erases when cloud sync is live.");
+    try{ if(backendUrl()) fetch(backendUrl()+"/v1/userdata",{method:"DELETE",headers:cloudAuthHeader()}).catch(function(){}); }catch(e){}
+    let cloudWiped=false;
+    try{
+      if(backendUrl() && cloudSignedIn()){
+        const tok=await __freshTok();
+        const rr=await fetch(backendUrl()+"/v1/userdata",{method:"DELETE",headers:Object.assign({"Content-Type":"application/json"},(tok?{"Authorization":"Bearer "+tok}:{})),signal:AbortSignal.timeout(20000)});
+        cloudWiped=rr.ok;
+      }
+    }catch(e){}
+    try{ cloudPushDebounced(); }catch(e){}
+    pushSys(cloudWiped?"🗑 All data wiped — device AND cloud copy removed from the database":"🗑 All local data wiped. Cloud copy erases when cloud sync is live.");
     AuraAuth.closeModal();
   };
 
@@ -5948,6 +5956,7 @@ document.addEventListener("DOMContentLoaded",function(){
   window.adminLoad=adminLoad;
   async function adminLoad(){
     if(!backendUrl())return;
+    try{const me=await(await __ah("GET",backendUrl()+"/v1/me")).json();const rl=$("adminRoleLine");if(rl&&me&&me.role)rl.textContent=me.role+" access · "+(me.email||me.uid.slice(0,10))}catch(e){}
     try{
       const cr=await(await __ah("GET",backendUrl()+"/v1/config")).json();
       const e=$("adCfgEngine"),b=$("adCfgBrand"),a=$("adCfgAnnounce");
@@ -5978,14 +5987,14 @@ document.addEventListener("DOMContentLoaded",function(){
       const r=await __ah("POST",backendUrl()+"/v1/admin/config",{aiEngine:$("adCfgEngine").value.trim(),brandLine:$("adCfgBrand").value.trim(),announce:$("adCfgAnnounce").value.trim()});
       const j=await r.json().catch(()=>({}));
       $("adCfgMsg").textContent=r.ok?"\u2705 saved to the live database — every visitor receives it":"\u26a0 "+(j.error||"save failed");
-      if(r.ok&&j.config){AuraConfig.cache=j.config;AuraConfig.apply()}
+  if(r.ok&&j.config){AuraConfig.cache=j.config;AuraConfig.apply()}
       pushSys(r.ok?"\ud83d\udcc3 config published to every visitor":"config save failed");
     }catch(e){ $("adCfgMsg").textContent="\u26a0 backend unreachable" }
     adCfgSave.disabled=false;
   };
   const __au=JSON.parse(localStorage.getItem("aura_fb_live")||"null");
   try{
-    fetch(backendUrl()+"/v1/usage").then(r=>r.json()).then(u=>{const el=$("adStatAnswers");if(el&&u&&typeof u.answers==="number")el.innerHTML=u.answers+"<small>ANSWERS SERVED</small>"}).catch(()=>{});
+    fetch(backendUrl()+"/v1/usage").then(r=>r.json()).then(u=>{const el=$("adStatAnswers");if(el&&u&&typeof u.answers==="number")el.innerHTML=u.answers+"<small>ANSWERS SERVED</small>";const hint=$("adUsageHint");if(hint&&u&&typeof u.cacheSize==="number")hint.textContent=" · cache holding "+u.cacheSize+" answer(s)"+(u.dailyCap?" · visitor cap "+u.dailyCap+"/day":"")}).catch(()=>{});
   }catch(e){}
 
   /* ============================================================
@@ -6158,7 +6167,7 @@ document.addEventListener("DOMContentLoaded",function(){
     }catch(e){suStatus.textContent="ship failed: "+(e.message||e);suShipBtn.disabled=false}
   };
   async function suShipSource(){
-    if(!(window.__amAuto||confirm("Commit her "+suState.edits.length+" edit(s) to the REAL aura.html on GitHub?\n\n"+(suState.note||suState.plan)+"\n\nThe live site updates ~60 seconds after the commit.")))return;
+    if(!confirm("Commit her "+suState.edits.length+" edit(s) to the REAL aura.html on GitHub?\n\n"+(suState.note||suState.plan)+"\n\nThe live site updates ~60 seconds after the commit."))return;
     suShipBtn.disabled=true;    async function ah(method,url,body){const tok=await __freshTok();const u=AuraAuth.firebaseUser()||{};const t=tok||u.tok;return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(t?{"Authorization":"Bearer "+t}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(150000)})}
     const msg="AURA self-upgrade: "+(suState.note||suState.plan).slice(0,120);
     try{
@@ -6204,8 +6213,6 @@ document.addEventListener("DOMContentLoaded",function(){
           amSteps=$("amSteps"),amPlan=$("amPlan"),amDiff=$("amDiff"),amDiffCode=$("amDiffCode"),
           amDiffMeta=$("amDiffMeta"),amLog=$("amLog");
     if(!amGoBtn)return;
-    const amAuto=$("amAuto");
-    if(AuraAuth.suAllowed&&AuraAuth.suAllowed()){const w=$("amAutoWrap");if(w)w.style.display="inline-flex"}
     const STEPS=[["THINK","reads her own source code"],["DESIGN","decides the approach"],["CODE","writes the complete code"],["VERIFY","dry-run against the real file"],["SHIP","commits to GitHub"],["LIVE","confirms it landed"]];
     let stArr=STEPS.map(function(){return "wait"});
     function render(){amSteps.innerHTML=STEPS.map(function(s,i){
@@ -6284,12 +6291,7 @@ document.addEventListener("DOMContentLoaded",function(){
           log("VERIFY clean — handing her verified edits to SHIP…");
           suShipBtn.disabled=false;
           amShipBtn.style.display="";amShipBtn.disabled=false;
-          if(amAuto.checked){
-            log("🛸 AUTOPILOT ON — committing her verified edits without waiting…","#34d399");
-            window.__amAuto=true;amShipBtn.click();window.__amAuto=false;
-          }else{
-            log("⏸ waiting on you — hit SHIP HER VERIFIED RESULT to commit (you stay the publisher)","#fbbf24");
-          }
+          log("⏸ waiting on you — nothing ships without your explicit approval (hit SHIP HER VERIFIED RESULT)","#fbbf24");
         }else{
           suState.patch=patch;suState.edits=null;suBuildBtn.disabled=false;
           setStep(3,"skip");setStep(4,"skip");setStep(5,"skip");
@@ -6307,11 +6309,17 @@ document.addEventListener("DOMContentLoaded",function(){
       if(!finalEdits){suState.edits=keepEdits;suPromptEl.value=keepPrompt}
     };
     amShipBtn.onclick=async function(){
+      if(!confirm("Commit her "+(suState.edits?suState.edits.length:0)+" verified edit(s) to the REAL aura.html on GitHub?\n\nThe live site updates ~60 seconds after.")){amShipBtn.disabled=false;log("ship cancelled — her verified edits stay staged","#fbbf24");return}
       amShipBtn.disabled=true;
       suStatus.textContent="agent mission — shipping her verified edits…";
       setStep(4,"run");log("SHIP — committing to her real repository (with your confirm)…");
       try{
-        await suShipSource();
+        const r=await __ahRetry("POST",backendUrl()+"/v1/dev/commit",{edits:suState.edits,message:"AURA self-upgrade: "+(suState.note||suState.plan||"agent mission").slice(0,120)});
+        const j=await r.json().catch(()=>({}));
+        if(!r.ok||!j.ok)throw new Error(j.error||("HTTP "+r.status));
+        suStatus.textContent="🚀 COMMITTED "+j.edits+" edit(s) to her own repository (commit "+(j.commit||"?")+") — live in ~60s. Watch the deploy: github.com/sourabh7300/aura/actions";
+        pushSys("🧬 self-integration committed "+j.edits+" source edit(s) — commit "+(j.commit||""));
+        try{const hb=$("suHistBtn");if(hb)hb.click()}catch(e){}
         if(/COMMITTED/.test(suStatus.textContent)){
           setStep(4,"done");log("SHIP ✓ — committed to GitHub","#34d399");
           setStep(5,"run");log("LIVE — checking the repository mirror for her commit…");
