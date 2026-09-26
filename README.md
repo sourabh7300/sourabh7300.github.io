@@ -37,3 +37,7 @@ Plain HTML, CSS and JavaScript — no frameworks, no build tools.
 Leaflet/OpenStreetMap for maps, Web Speech for voice, Canvas for everything visual.
 
 Every line hand-written. If it can't run offline, it doesn't ship.
+
+## Elsewhere on GitHub
+
+- **[Nexa AI](https://github.com/sourabh7300/Nexa-AI)** — Google-signed-in AI workspace: streaming chat, PDF/image understanding, web search with citations, Groq→Gemini failover. Node backend, Render-ready.
