@@ -94,10 +94,16 @@ if (!KEY_POOL.length) {
 }
 /* per-key cooldowns after 429 (10 min) — a cooled key re-enters the pool later */
 const keyCool = new Map();
-function pickKey() {
+/* PUBLIC vs MAKER pools — the LAST key in the bank is RESERVED for the maker's
+   admin brain (staff/plan/build/agent missions), so visitors can never drain the
+   quota her self-upgrades depend on. Public chat shares the remaining keys. */
+const PUBLIC_KEYS = KEY_POOL.length > 1 ? KEY_POOL.slice(0, KEY_POOL.length - 1) : KEY_POOL;
+function pickKey(reserve) {
   const now = Date.now();
-  for (const k of KEY_POOL) if (!(keyCool.get(k) > now)) return k;
-  return null; // every key is cooling = daily allowance exhausted
+  const pool = reserve ? KEY_POOL : PUBLIC_KEYS;
+  for (const k of pool) if (!(keyCool.get(k) > now)) return k;
+  if (reserve) { for (const k of PUBLIC_KEYS) if (!(keyCool.get(k) > now)) return k; } /* maker may borrow when his reserved key cools */
+  return null; // every usable key is cooling = daily allowance exhausted
 }
 
 app.use(express.json({ limit: "8mb" })); /* room for base64 photos (vision) */
@@ -424,7 +430,7 @@ app.post("/v1/staff/brain", async (req, res) => {
   for (const model of MODELS) {
     try {
       const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 600) : baseTok;
-      const key = pickKey();
+      const key = pickKey(true); /* maker-reserved key — public traffic never touches this one */
       if (!key) break;
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -552,7 +558,7 @@ app.get("/health", async (req, res) => {
   const now = Date.now();
   fbInit(); /* eager init so the diagnostic tells the truth immediately */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck() });
+  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck() });
 });
 
 /* THE PROXY — key stays server-side forever */
