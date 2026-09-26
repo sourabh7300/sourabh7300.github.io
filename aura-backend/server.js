@@ -98,12 +98,54 @@ const keyCool = new Map();
    admin brain (staff/plan/build/agent missions), so visitors can never drain the
    quota her self-upgrades depend on. Public chat shares the remaining keys. */
 const PUBLIC_KEYS = KEY_POOL.length > 1 ? KEY_POOL.slice(0, KEY_POOL.length - 1) : KEY_POOL;
+/* public chat prefers lighter, higher-quota models; the flagship stays at the
+   tail as a last-resort fallback. The maker always gets the full flagship list. */
+const PUBLIC_MODELS = (process.env.PUBLIC_MODELS || "openai/gpt-oss-20b,qwen/qwen3.8-27b,meta-llama/llama-4-scout-17b-16e-instruct,openai/gpt-oss-120b").split(",").map(s => s.trim()).filter(Boolean);
 function pickKey(reserve) {
   const now = Date.now();
   const pool = reserve ? KEY_POOL : PUBLIC_KEYS;
   for (const k of pool) if (!(keyCool.get(k) > now)) return k;
   if (reserve) { for (const k of PUBLIC_KEYS) if (!(keyCool.get(k) > now)) return k; } /* maker may borrow when his reserved key cools */
   return null; // every usable key is cooling = daily allowance exhausted
+}
+
+/* QUOTA STRETCHERS — make the free key bank last far longer:
+   1) ANSWER CACHE — repeated questions answered from memory, zero tokens burned
+   2) VISITOR DAILY CAP — one heavy user can never solo-drain the public pool
+   3) PUBLIC_MODELS — public chat runs on lighter, higher-quota models (below) */
+const answerCache = new Map(); /* normalized question → { answer, model, t } */
+const ANSWER_CACHE_TTL = parseInt(process.env.ANSWER_CACHE_TTL || "3600000", 10); /* 1h */
+function normQ(messages) {
+  const last = [...messages].reverse().find(m => m.role === "user" && typeof m.content === "string");
+  return last ? last.content.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 300) : "";
+}
+function cacheGet(messages) {
+  const k = normQ(messages); if (!k) return null;
+  const hit = answerCache.get(k);
+  if (hit && Date.now() - hit.t < ANSWER_CACHE_TTL) return hit;
+  if (hit) answerCache.delete(k);
+  return null;
+}
+function cachePut(messages, answer, model) {
+  const k = normQ(messages); if (!k || !answer) return;
+  if (answerCache.size > 400) answerCache.clear(); /* tiny footprint, self-healing */
+  answerCache.set(k, { answer, model, t: Date.now() });
+}
+const DAILY_CAP = parseInt(process.env.VISITOR_DAILY_CAP || "40", 10); /* answers/visitor/day */
+const dailyCap = new Map(); /* uid-or-IP → { day, n } */
+function overCap(req) {
+  if (!DAILY_CAP) return false;
+  const id = req.__uid || req.ip || "anon";
+  const rec = dailyCap.get(id);
+  return !!(rec && rec.day === new Date().toISOString().slice(0, 10) && rec.n >= DAILY_CAP);
+}
+function countAnswer(req) {
+  const id = req.__uid || req.ip || "anon";
+  const day = new Date().toISOString().slice(0, 10);
+  const rec = dailyCap.get(id);
+  if (rec && rec.day === day) rec.n++;
+  else dailyCap.set(id, { day, n: 1 });
+  if (dailyCap.size > 5000) for (const [k, v] of dailyCap) if (v.day !== day) dailyCap.delete(k);
 }
 
 app.use(express.json({ limit: "8mb" })); /* room for base64 photos (vision) */
@@ -211,7 +253,7 @@ async function requireRole(req, res, roles) {
 app.use(async (req, res, next) => {
   if (req.path === "/health" || req.path === "/") return next();
   const u = await verifyUser(req).catch(() => null);
-  if (u) req.__uid = u.uid;
+  if (u) { req.__uid = u.uid; req.__role = u.role; }
   next();
 });
 
@@ -568,8 +610,22 @@ app.post("/v1/chat/completions", async (req, res) => {
   if (!Array.isArray(messages) || !messages.length) {
     return res.status(400).json({ error: "messages[] required" });
   }
-  const requestedModel = (body.model || MODELS[0]).trim();
-  const order = [requestedModel, ...MODELS.filter(m => m !== requestedModel)];
+  const makerHere = req.__role === "maker" || req.__role === "ceo";
+  /* makers choose any model (flagship first); public requests are served the lighter
+     tier regardless of what the browser asks for — that's the quota saver */
+  const requestedModel = makerHere ? (body.model || MODELS[0]).trim() : "";
+  const modelList = makerHere ? MODELS : PUBLIC_MODELS;
+  const order = makerHere ? [requestedModel, ...MODELS.filter(m => m !== requestedModel)] : PUBLIC_MODELS.slice();
+
+  /* ANSWER CACHE — makers bypass; identical visitor questions cost zero tokens */
+  if (!makerHere && !body.stream) {
+    const hit = cacheGet(messages);
+    if (hit) return res.json({ choices: [{ message: { content: hit.answer } }], model: hit.model + " (cached)" });
+  }
+  /* VISITOR DAILY CAP — signed-in users count against their uid, guests against IP; makers exempt */
+  if (!makerHere && overCap(req)) {
+    return res.status(429).json({ outOfTokens: true, message: "You've hit today's free-answer limit for this site. Come back tomorrow — or bring your own key with SET AI KEY for unlimited chats." });
+  }
 
   /* VISION: messages that carry an image route to the vision brain */
   if (msgHasImage(messages)) {
@@ -606,7 +662,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       if (!r.ok) return res.status(r.status).json({ error: "Upstream HTTP " + r.status });
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-      if (t && t.trim()) return res.json({ choices: [{ message: { content: t.trim() } }], model });
+      if (t && t.trim()) { if (!makerHere) { cachePut(messages, t.trim(), model); countAnswer(req); } return res.json({ choices: [{ message: { content: t.trim() } }], model }); }
     } catch (e) { /* network hiccup → try next model */ }
   }
   if (sawLimit) {
@@ -803,7 +859,10 @@ app.post("/v1/chat/stream", async (req, res) => {
   if (typeof res.flushHeaders === "function") res.flushHeaders();
   const send = obj => { try { res.write("data: " + JSON.stringify(obj) + "\n\n"); } catch (e) {} };
   const finish = () => { try { res.write("data: [DONE]\n\n"); res.end(); } catch (e) {} };
-  const requestedModel = (body.model || MODELS[0]).trim();  const order = [requestedModel, ...MODELS.filter(m => m !== requestedModel)];
+  const makerHere = req.__role === "maker" || req.__role === "ceo";
+  const requestedModel = makerHere ? (body.model || MODELS[0]).trim() : "";
+  const modelList = makerHere ? MODELS : PUBLIC_MODELS;
+  const order = makerHere ? [requestedModel, ...MODELS.filter(m => m !== requestedModel)] : PUBLIC_MODELS.slice();
 
   /* VISION over stream: image messages resolve via Gemini, delivered as one delta */
   if (msgHasImage(messages)) {
@@ -838,6 +897,7 @@ app.post("/v1/chat/stream", async (req, res) => {
         if (!r.ok || !r.body) break;
         send({ model });
         served = true;
+        let full = ""; /* accumulated for the answer cache */
         const dec = new TextDecoder();
         let buf = "", closed = false;
         req.on("close", () => { closed = true; });
@@ -850,14 +910,15 @@ app.post("/v1/chat/stream", async (req, res) => {
           for (const ln of lines) {
             const s = ln.replace(/^data:\s*/, "").trim();
             if (!s) continue;
-            if (s === "[DONE]") { finish(); return; }
+            if (s === "[DONE]") { if (!makerHere && full.trim()) { cachePut(messages, full.trim(), model); countAnswer(req); } finish(); return; }
             try {
               const j = JSON.parse(s);
               const delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
-              if (delta) send({ delta });
+              if (delta) { full += delta; send({ delta }); }
             } catch (e) {}
           }
         }
+        if (!makerHere && full.trim()) { cachePut(messages, full.trim(), model); countAnswer(req); }
         finish();
         return;
       } catch (e) { /* network hiccup → try next key */ }
