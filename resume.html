@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sourabh Singh — Resume</title>
+<meta name="description" content="Sourabh Singh — B.Tech CSE. Builder of hand-written, live-running web applications.">
+<style>
+:root{--ink:#1a2332;--dim:#5b6b7d;--acc:#0e7490;--line:#d8e1e8}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font:14px/1.55 'Segoe UI',system-ui,sans-serif;color:var(--ink);background:#f2f5f7}
+.page{max-width:820px;margin:24px auto;background:#fff;padding:48px 56px;box-shadow:0 2px 18px rgba(0,0,0,.08)}
+@media print{body{background:#fff}.page{margin:0;box-shadow:none;padding:28px 34px;max-width:none}.noprint{display:none}}
+header{text-align:center;border-bottom:3px solid var(--acc);padding-bottom:16px;margin-bottom:20px}
+h1{font-size:27px;letter-spacing:1px;color:var(--ink)}
+.tag{color:var(--dim);font-size:13.5px;margin-top:4px}
+.contact{margin-top:9px;font-size:12.5px;color:var(--acc)}
+.contact a{color:var(--acc);text-decoration:none;font-weight:600;margin:0 7px}
+h2{font-size:13px;letter-spacing:2.5px;text-transform:uppercase;color:var(--acc);margin:22px 0 9px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.item{margin-bottom:11px}
+.item .head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.item .head b{font-size:14.5px}
+.item .head .where{color:var(--dim);font-size:12px;white-space:nowrap}
+.item p{color:var(--ink);font-size:13px;margin-top:2px}
+.item ul{margin:4px 0 0 18px;font-size:13px}
+.item li{margin-bottom:3px}
+a{color:var(--acc)}
+.links{font-size:12px;color:var(--dim)}
+.links a{font-weight:600;text-decoration:none}
+.sum{font-size:13.5px;color:var(--ink)}
+.skills{display:flex;flex-wrap:wrap;gap:6px}
+.skills span{font-size:11.5px;background:#eef6f8;border:1px solid #cfe4e9;color:var(--acc);border-radius:999px;padding:3px 10px}
+.foot{margin-top:20px;font-size:11px;color:var(--dim);text-align:center;border-top:1px solid var(--line);padding-top:10px}
+.btnbar{text-align:center;margin-bottom:18px}
+.btnbar button{font:600 13px 'Segoe UI';padding:9px 22px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="noprint btnbar"><button onclick="window.print()">⤓ Save as PDF / Print</button></div>
+<div class="page">
+<header>
+<h1>SOURABH SINGH</h1>
+<div class="tag">B.Tech CSE (AI · DevOps · Cloud) — JECRC University, Jaipur · Graduating 2028</div>
+<div class="contact">
+<a href="https://github.com/sourabh7300">github.com/sourabh7300</a>·<a href="https://sourabh7300.github.io">sourabh7300.github.io</a>·<a href="https://sourabh7300.github.io/project-web.html">project-web.html</a>
+</div>
+</header>
+
+<h2>Summary</h2>
+<p class="sum">I build web applications from scratch — no frameworks, no templates: the rendering, the AI plumbing, the infrastructure thinking, all hand-written and <b>running live</b>. My flagship is <a href="https://sourabh7300.github.io/aura/aura.html">AURA</a>, a holographic AI assistant that reads and upgrades its own source code through owner-gated commits with rollback. Every project below is a working demo, verified live — a recruiter can click every claim on this page.</p>
+
+<h2>Projects — all live, all verified</h2>
+
+<div class="item">
+<div class="head"><b>🧬 AURA — Adaptive Universal Reasoning Assistant</b><span class="where"><a href="https://sourabh7300.github.io/aura/aura.html">demo</a> · <a href="https://github.com/sourabh7300/aura">code</a></span></div>
+<ul>
+<li>Single-file holographic AI assistant: hand-rolled 3D particle core, voice in/out, vision, document RAG, long-term memory, reminders — zero frameworks.</li>
+<li>Designed a <b>self-upgrade pipeline</b>: the assistant reads its own source via a GitHub Contents-API backend, writes find/replace code edits, dry-runs them, and commits after explicit owner approval — with one-click rollback through its upgrade history.</li>
+<li>Operated the production stack personally: Render Node.js proxy (multi-key rotation, quota tiers, answer caching, visitor rate caps), Firebase Auth + Firestore, GitHub Pages deploys from two mirrored repositories.</li>
+</ul>
+</div>
+
+<div class="item">
+<div class="head"><b>🌐 sourabh7300.github.io — live portfolio platform</b><span class="where"><a href="https://sourabh7300.github.io">demo</a> · <a href="https://github.com/sourabh7300/sourabh7300.github.io">code</a></span></div>
+<ul>
+<li>FOODORA: food-delivery platform with 12 restaurants, multi-language recipes (EN/HI/ES), live GPS maps, cart & checkout. Lucid: photo studio with 50+ hand-coded pixel engines (curves, HSL, convolution clarity, bloom).</li>
+<li>Apps run embedded on the page itself — the portfolio is the product.</li>
+</ul>
+</div>
+
+<div class="item">
+<div class="head"><b>🛡️ Autonomous SRE Lab — 15+ single-file operations apps</b><span class="where"><a href="https://sourabh7300.github.io/autonomus-SRE.html/">demo</a> · <a href="https://github.com/sourabh7300/autonomus-SRE.html">code</a></span></div>
+<ul>
+<li>Multi-agent incident responder (detection → triage → remediation), CloudPilot IaC console, JARVIS ops console, Kin copilot, DevOps math visualizer.</li>
+</ul>
+</div>
+
+<div class="item">
+<div class="head"><b>⚙️ CI/CD Pipeline Dashboard · 📈 LLMOps GPU-scaling view · 🌪️ Ephemeral Playgrounds (IaC sandboxes)</b><span class="where"><a href="https://sourabh7300.github.io/CICD-web-app/pipeline-dashboard.html">demo 1</a> · <a href="https://sourabh7300.github.io/llmops-pipelines/llmops-pipeline.html">demo 2</a> · <a href="https://sourabh7300.github.io/Ephemeral-Playgrounds/ephemeral-playgrounds.html">demo 3</a></span></div>
+<ul>
+<li>Interactive, dependency-free visualizations of builds→deploys, prompt→tokens GPU scaling, and sandboxed infrastructure lifecycles.</li>
+</ul>
+</div>
+
+<h2>Skills</h2>
+<div class="skills">
+<span>JavaScript (ES2023, vanilla)</span><span>HTML5 / CSS3</span><span>Web Speech &amp; WebRTC-adjacent APIs</span><span>Canvas / WebGL-lite rendering</span><span>REST API design</span><span>Node.js (Express, proxies)</span><span>Firebase Auth + Firestore</span><span>GitHub Actions &amp; Pages</span><span>Render deployment</span><span>AI integration (Groq, Mistral, Gemini — RAG, vision, TTS)</span><span>CI/CD concepts</span><span>IaC / SRE concepts</span><span>Git (multi-repo ops)</span>
+</div>
+
+<h2>Education</h2>
+<div class="item">
+<div class="head"><b>B.Tech, Computer Science &amp; Engineering (AI · DevOps · Cloud Automation)</b><span class="where">JECRC University, Jaipur · 2024 – 2028</span></div>
+</div>
+
+<h2>Links</h2>
+<p class="links">
+GitHub profile with verified live demos: <a href="https://github.com/sourabh7300">github.com/sourabh7300</a> ·
+Project hub: <a href="https://sourabh7300.github.io/project-web.html">sourabh7300.github.io/project-web.html</a> ·
+Flagship: <a href="https://sourabh7300.github.io/aura/aura.html">AURA</a>
+</p>
+<div class="foot">Every project link on this page was live (HTTP 200) on 26 Sep 2026 — verification dates are stamped in each repository's README.</div>
+</div>
+</body>
+</html>
