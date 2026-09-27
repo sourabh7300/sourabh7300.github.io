@@ -153,10 +153,14 @@ async function laneCall(laneName, laneKey, mistralModels, messages, maxTok, temp
         body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok, 8000), temperature: temperature != null ? temperature : 0.3 }),
         signal: AbortSignal.timeout(90_000)
       });
-      if (r.status === 429) { keyCool.set(laneKey, Date.now() + 70_000); laneErr[laneName] = "rate-limited (429) — cooling 70s"; return null; }
-      if (r.status === 401) { keyCool.set(laneKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key invalid (401) — check AI_KEY_" + laneName.toUpperCase(); return null; }
-      if (r.status === 403) { laneErr[laneName] = "model " + model + " not allowed on this key's plan (403) — trying the next Mistral model"; continue; }
-      if (!r.ok) { laneErr[laneName] = "model " + model + " unavailable (HTTP " + r.status + ")"; continue; }
+      if (!r.ok) {
+        const bodyTxt = await r.text().catch(() => "");
+        const detail = (bodyTxt.match(/"(message|type|detail)"\s*:\s*"([^"]{3,140})"/) || [])[2] || bodyTxt.slice(0, 100);
+        if (r.status === 429) { keyCool.set(laneKey, Date.now() + 70_000); laneErr[laneName] = "429 on " + model + ": " + detail; return null; }
+        if (r.status === 401) { keyCool.set(laneKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "401 key invalid — check AI_KEY_" + laneName.toUpperCase() + ": " + detail; return null; }
+        laneErr[laneName] = "HTTP " + r.status + " on " + model + ": " + detail;
+        continue;
+      }
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
       if (t && t.trim()) { laneErr[laneName] = ""; recordUse(req, laneKey, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
