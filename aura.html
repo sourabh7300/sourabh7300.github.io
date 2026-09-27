@@ -5258,11 +5258,21 @@ const AuraAuth = (function(){
     const u = fbUser();
     return !!(u && u.role && (u.role === "maker" || u.role === "ceo"));
   }
+  async function suRoleRescue(){
+    /* session restored from localStorage but the server-verified role is missing
+       (backend cold start ate the refresh) → re-verify once, right now */
+    try{ if(AuraAuth.refreshRole) await AuraAuth.refreshRole(); }catch(e){}
+  }
   function suAllowed(){
     /* SELF-INTEGRATION GATE: server-verified maker/ceo ONLY. The legacy
        passkey token deliberately does NOT unlock her code-writing powers. */
     const u = fbUser();
     return !!(u && u.role && (u.role === "maker" || u.role === "ceo"));
+  }
+  async function suAllowedAsync(){
+    if(suAllowed()) return true;
+    await suRoleRescue();
+    return suAllowed();
   }
   function myRole(){
     const token = getAdminToken();
@@ -5304,7 +5314,10 @@ const AuraAuth = (function(){
         try{
           if(u && !u.isAnonymous){
             u.getIdToken().then(function(tok){
-              localStorage.setItem(FB_LIVE_KEY, JSON.stringify({uid:u.uid, email:u.email||"", phone:u.phoneNumber||"", name:u.displayName||"", tok:tok, ts:Date.now()}));
+              /* keep any previously verified role — wiping it here made every SHIP
+                 button silently die after a page reload until this fix */
+              const __prev=(function(){try{return JSON.parse(localStorage.getItem(FB_LIVE_KEY)||"null")}catch(e){return null}})()||{};
+              localStorage.setItem(FB_LIVE_KEY, JSON.stringify({uid:u.uid, email:u.email||"", phone:u.phoneNumber||"", name:u.displayName||"", tok:tok, role:__prev.role, ts:Date.now()}));
               try{ AuraAuth.refreshRole(); }catch(e){}
             }).catch(function(){});
           }else if(!u){
@@ -5382,8 +5395,8 @@ const AuraAuth = (function(){
       if(btn) btn.style.display = isAdmin() ? "" : "none";
       updateBadge();
     }catch(e){}
-  }
-
+  }  /* role refresh retry chain — one background loop, never a pile-up */
+  let __roleRetry=null;
   return {
     identity: ADMIN_IDENTITY,
     denyInfo: function(){ return lastDeny; },
@@ -5395,8 +5408,9 @@ const AuraAuth = (function(){
       const u = fbUser();
       if(!u || !u.tok || !backendUrl()) return null;
       try{
-        const r = await fetch(backendUrl()+"/v1/me", {headers:{"Authorization":"Bearer "+u.tok}, signal:AbortSignal.timeout(12000)});
-        if(!r.ok) return null;
+        /* 30s budget — the backend can take ~50s to wake on Render's free tier */
+        const r = await fetch(backendUrl()+"/v1/me", {headers:{"Authorization":"Bearer "+u.tok}, signal:AbortSignal.timeout(30000)});
+        if(!r.ok) throw new Error("HTTP "+r.status);
         const j = await r.json();
         if(j && j.role){
           const rec = fbUser() || {}; rec.role = j.role; rec.tok = u.tok;
@@ -5405,6 +5419,18 @@ const AuraAuth = (function(){
           return j.role;
         }
       }catch(e){}
+      /* cold start / hiccup → keep retrying in the background (~2 min) so a
+         restored session ALWAYS regains its role and SHIP never silently dies */
+      if(!__roleRetry){
+        __roleRetry=(async function(){
+          for(let i=0;i<12;i++){
+            await new Promise(function(r){setTimeout(r,10000)});
+            const cur=fbUser(); if(!cur||cur.role) return;
+            try{ if(await AuraAuth.refreshRole()) return; }catch(e){}
+          }
+          __roleRetry=null;
+        })();
+      }
       return null;
     },
     fbGoogle: async function(){
@@ -6105,7 +6131,7 @@ document.addEventListener("DOMContentLoaded",function(){
   const suPlanBtn=$("suPlanBtn"),suBuildBtn=$("suBuildBtn"),suShipBtn=$("suShipBtn");
   if(suPlanBtn)suPlanBtn.onclick=async function(){
     if(!AuraAuth.suAllowed){suStatus.textContent="admin only — this console is part of your maker access";return}
-    if(!AuraAuth.suAllowed()){suStatus.textContent="⛔ self-integration is maker-only — sign in with your verified account first (session may have expired — sign in again)";suPlanBtn.disabled=false;return}
+    if(!AuraAuth.suAllowed()&&!(await suAllowedAsync())){suStatus.textContent="⛔ self-integration is maker-only — sign in with your verified account first (session may have expired — sign in again)";suPlanBtn.disabled=false;return}
     const task=suPromptEl.value.trim();
     if(!task){suStatus.textContent="describe the change first — one clear sentence is enough";return}
     suPlanBtn.disabled=true;suStatus.textContent="THINK 1/3 — reading her own source code for relevant parts…";suPlan.style.display="none";suDiff.style.display="none";suPrev.style.display="none";suBuildBtn.disabled=true;suShipBtn.disabled=true;
@@ -6153,7 +6179,7 @@ document.addEventListener("DOMContentLoaded",function(){
     suPlanBtn.disabled=false;
   };
   if(suBuildBtn)suBuildBtn.onclick=async function(){
-    if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){suStatus.textContent="⛔ maker access required — session expired? sign in again";return}
+    if(!AuraAuth.suAllowed||!(AuraAuth.suAllowed()||await suAllowedAsync())){suStatus.textContent="⛔ maker access required — session expired? sign in again";return}
     if(!suState.patch&&!suState.edits)return;
     suBuildBtn.disabled=true;
     if(suState.edits){
@@ -6193,8 +6219,8 @@ document.addEventListener("DOMContentLoaded",function(){
       else if(t.indexOf("SU OK")>-1){suStatus.textContent="✓ preview ran clean — check it above. Happy? Ship it live."}
     }catch(e){}},800);
   };
-  if(suShipBtn)suShipBtn.onclick=async function(){
-    if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){suStatus.textContent="⛔ maker access required — session expired? sign in again";return}
+  if(suShipBtn)    suShipBtn.onclick=async function(){
+    if(!AuraAuth.suAllowed||!(AuraAuth.suAllowed()||await suAllowedAsync())){suStatus.textContent="⛔ maker access required — session expired? sign in again";return}
     if(!suState.patch&&!suState.edits)return;
     if(suState.edits){await suShipSource();return}
     if(!confirm("Ship this change to EVERY visitor of the live site?\n\n"+(suState.note||suState.plan)))return;
@@ -6275,7 +6301,7 @@ document.addEventListener("DOMContentLoaded",function(){
     }
     render();
     amGoBtn.onclick=async function(){
-      if(!AuraAuth.suAllowed||!AuraAuth.suAllowed()){log("⛔ maker access required — session expired? sign in again","#f87171");return}
+      if(!AuraAuth.suAllowed||!(AuraAuth.suAllowed()||await suAllowedAsync())){log("⛔ maker access required — session expired? sign in again","#f87171");return}
       const task=amPrompt.value.trim();
       if(!task){log("describe the mission first — one clear sentence is enough","#fbbf24");return}
       amGoBtn.disabled=true;amShipBtn.style.display="none";amShipBtn.disabled=true;
@@ -6319,7 +6345,7 @@ document.addEventListener("DOMContentLoaded",function(){
           amDiff.style.display="block";
           log("CODE — "+edits.length+" source edit(s) written ("+edits.reduce(function(a,e){return a+e.replace.length},0)+" chars)");
           setStep(3,"run");log("VERIFY — dry-run: matching every find-string against the real file…");
-          const ah=function(method,url,body){const u=AuraAuth.firebaseUser()||{};return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(u.tok?{"Authorization":"Bearer "+u.tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(150000)})};
+          const ah=__ahRetry;
           let round=0,edits2=finalEdits;
           while(true){
             round++;
@@ -6361,6 +6387,7 @@ document.addEventListener("DOMContentLoaded",function(){
       if(!finalEdits){suState.edits=keepEdits;suPromptEl.value=keepPrompt}
     };
     amShipBtn.onclick=async function(){
+      if(!AuraAuth.suAllowed||!(AuraAuth.suAllowed()||await suAllowedAsync())){log("⛔ maker access required — session expired? sign in again","#f87171");amShipBtn.disabled=false;return}
       if(!confirm("Commit her "+(suState.edits?suState.edits.length:0)+" verified edit(s) to the REAL aura.html on GitHub?\n\nThe live site updates ~60 seconds after.")){amShipBtn.disabled=false;log("ship cancelled — her verified edits stay staged","#fbbf24");return}
       amShipBtn.disabled=true;
       suStatus.textContent="agent mission — shipping her verified edits…";
