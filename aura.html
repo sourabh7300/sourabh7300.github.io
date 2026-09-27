@@ -1169,6 +1169,14 @@ function slog(msg,hot){const el=$("syslogLines"),d=document.createElement("div")
   d.textContent="▸ "+msg;if(hot)d.className="hot";el.appendChild(d);
   while(el.children.length>7)el.firstChild.remove();}
 slog("aura kernel v3.1 loaded");slog("particle core: 560 nodes",true);slog("voice interface ready");
+// Build version tag
+(function(){
+  const footer=document.createElement("footer");
+  footer.id="pageFooter";
+  footer.style.cssText="position:fixed;bottom:0;left:0;width:100%;text-align:center;padding:4px 0;font-size:10px;color:#888;background:rgba(0,0,0,0.6);pointer-events:none;";
+  footer.textContent="Build: 2026-09-27";
+  document.body.appendChild(footer);
+})();
 /* focus mode quick chip */
 (function(){
   function init(){
