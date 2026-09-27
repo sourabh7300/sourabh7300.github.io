@@ -329,7 +329,7 @@ const OWNER_SECRET = process.env.SECRET || "";
 app.use((req, res, next) => {
   const origin = req.headers.origin || "";
   const okOrigin = ALLOW_ORIGINS.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-  if (req.path === "/health" || req.path === "/") {
+  if (req.path === "/health" || req.path === "/" || req.path === "/v1/ping") {
     /* public paths still need CORS headers or browsers block the boot ping */
     if (okOrigin) { res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Vary", "Origin"); }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -888,33 +888,10 @@ app.post("/v1/dev/revert", async (req, res) => {
   } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
 });
 
-/* ---- PWA + keep-warm: app install, offline shell, and a no-sleep whisper ---- */
+/* keep-warm whisper — public by design (a heartbeat needs no secrets, reveals none) */
 app.get("/v1/ping", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.json({ ok: true, pong: Date.now() });
-});
-app.get("/manifest.webmanifest", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.json({
-    name: "AURA — AI Assistant", short_name: "AURA",
-    description: "Adaptive Universal Reasoning Assistant by Sourabh Singh",
-    start_url: "https://sourabh7300.github.io/aura/aura.html", scope: "https://sourabh7300.github.io/aura/",
-    display: "standalone", orientation: "any", background_color: "#020709", theme_color: "#020709",
-    icons: [
-      { src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E%F0%9F%A4%96%3C/text%3E%3C/svg%3E", sizes: "any", type: "image/svg+xml", purpose: "any" }
-    ]
-  });
-});
-app.get("/sw.js", (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Content-Type", "text/javascript; charset=utf-8");
-  res.send("/* AURA keep-warm worker — keeps the brain endpoint cozy so answers stay fast */\n" +
-    "const BRAIN='https://aura-backend-jomj.onrender.com';\n" +
-    "self.addEventListener('install',e=>{self.skipWaiting()});\n" +
-    "self.addEventListener('activate',e=>{e.waitUntil(self.clients.claim())});\n" +
-    "function nap(){fetch(BRAIN+'/v1/ping',{mode:'no-cors'}).catch(()=>{})}\n" +
-    "setInterval(nap,240000);nap();\n" +
-    "self.addEventListener('message',e=>{if(e.data==='ping')nap()});\n");
 });
 
 /* optional shared-secret gate */
