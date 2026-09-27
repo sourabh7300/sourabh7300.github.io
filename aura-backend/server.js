@@ -136,9 +136,15 @@ const MISTRAL_CODE_MODELS = (process.env.MISTRAL_CODE_MODELS || "codestral-lates
 const MISTRAL_ADMIN_MODELS = (process.env.MISTRAL_ADMIN_MODELS || "mistral-large-latest,mistral-small-latest").split(",").map(s => s.trim()).filter(Boolean);
 const isMistral = k => !!k && !/^gsk_/.test(k);
 
+/* Lane health — silent fallbacks hide broken keys, so every miss is recorded
+   and shown to the owner in /v1/admin/usage + the KEY BANK panel. */
+const laneErr = { code: "", admin: "" };
+
 /* Non-streaming lane attempt — returns text or null (null = fall through to the shared bank) */
-async function laneCall(laneKey, mistralModels, messages, maxTok, temperature, req) {
-  if (!laneKey || !isMistral(laneKey) || (keyCool.get(laneKey) > Date.now())) return null;
+async function laneCall(laneName, laneKey, mistralModels, messages, maxTok, temperature, req) {
+  if (!laneKey) { laneErr[laneName] = "key not set"; return null; }
+  if (!isMistral(laneKey)) return null;
+  if (keyCool.get(laneKey) > Date.now()) { laneErr[laneName] = "cooling down (rate limit / rejected)"; return null; }
   for (const model of mistralModels) {
     try {
       const r = await fetch(MISTRAL_API, {
@@ -147,13 +153,13 @@ async function laneCall(laneKey, mistralModels, messages, maxTok, temperature, r
         body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok, 8000), temperature: temperature != null ? temperature : 0.3 }),
         signal: AbortSignal.timeout(90_000)
       });
-      if (r.status === 429) { keyCool.set(laneKey, Date.now() + 70_000); return null; }
-      if (r.status === 401 || r.status === 403) { keyCool.set(laneKey, Date.now() + 24 * 3600_000); return null; }
-      if (!r.ok) continue;
+      if (r.status === 429) { keyCool.set(laneKey, Date.now() + 70_000); laneErr[laneName] = "rate-limited (429) — cooling 70s"; return null; }
+      if (r.status === 401 || r.status === 403) { keyCool.set(laneKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key rejected (" + r.status + ") — check AI_KEY_" + laneName.toUpperCase(); return null; }
+      if (!r.ok) { laneErr[laneName] = "model " + model + " unavailable (HTTP " + r.status + ")"; continue; }
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-      if (t && t.trim()) { recordUse(req, laneKey, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
-    } catch (e) {}
+      if (t && t.trim()) { laneErr[laneName] = ""; recordUse(req, laneKey, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
+    } catch (e) { laneErr[laneName] = "network: " + (e.message || String(e)); }
   }
   return null;
 }
@@ -161,8 +167,10 @@ async function laneCall(laneKey, mistralModels, messages, maxTok, temperature, r
 /* Streaming lane attempt — re-emits OpenAI-style SSE deltas in AURA's event format.
    Returns "served" (caller finishes), "partial" (caller sends partial + finishes), or "miss". */
 async function streamLane(opts) {
-  const { apiKey, mistralModels, messages, maxTok, temperature, send, isClosed, req } = opts;
-  if (!apiKey || !isMistral(apiKey) || !mistralModels.length || (keyCool.get(apiKey) > Date.now())) return "miss";
+  const { laneName, apiKey, mistralModels, messages, maxTok, temperature, send, isClosed, req } = opts;
+  if (!apiKey) { laneErr[laneName] = "key not set"; return "miss"; }
+  if (!isMistral(apiKey) || !mistralModels.length) return "miss";
+  if (keyCool.get(apiKey) > Date.now()) { laneErr[laneName] = "cooling down (rate limit / rejected)"; return "miss"; }
   for (const model of mistralModels) {
     if (isClosed()) return "miss";
     let r;
@@ -173,10 +181,10 @@ async function streamLane(opts) {
         body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok, 8000), temperature: temperature != null ? temperature : 0.3, stream: true }),
         signal: AbortSignal.timeout(30_000)
       });
-    } catch (e) { continue; }
-    if (r.status === 429) { keyCool.set(apiKey, Date.now() + 70_000); return "miss"; }
-    if (r.status === 401 || r.status === 403) { keyCool.set(apiKey, Date.now() + 24 * 3600_000); return "miss"; }
-    if (!r.ok || !r.body) continue;
+    } catch (e) { laneErr[laneName] = "network: " + (e.message || String(e)); continue; }
+    if (r.status === 429) { keyCool.set(apiKey, Date.now() + 70_000); laneErr[laneName] = "rate-limited (429) — cooling 70s"; return "miss"; }
+    if (r.status === 401 || r.status === 403) { keyCool.set(apiKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key rejected (" + r.status + ") — check AI_KEY_" + laneName.toUpperCase(); return "miss"; }
+    if (!r.ok || !r.body) { laneErr[laneName] = "model " + model + " unavailable (HTTP " + r.status + ")"; continue; }
     let full = "", announced = false;
     try {
       const reader = r.body.getReader();
@@ -205,7 +213,7 @@ async function streamLane(opts) {
       send({ reset: true }); continue;
     }
     if (isClosed()) return "miss";
-    if (full.trim()) { recordUse(req, apiKey, Math.round(full.length / 4), model); return "served"; }
+    if (full.trim()) { laneErr[laneName] = ""; recordUse(req, apiKey, Math.round(full.length / 4), model); return "served"; }
     send({ reset: true });
   }
   return "miss";
@@ -543,7 +551,7 @@ app.get("/v1/admin/usage", async (req, res) => {
   res.json({
     ok: true, day,
     keyBank: { total: KEY_POOL.length, liveNow: KEY_POOL.filter(k => !(keyCool.get(k) > Date.now())).length },
-    lanes: { code: !!CODE_KEY, admin: !!ADMIN_KEY },
+    lanes: { code: !!CODE_KEY, admin: !!ADMIN_KEY, health: { code: laneErr.code || "ok", admin: laneErr.admin || "ok" } },
     spendByKey: keys.length ? keys : [{ key: "(no AI calls yet today)", aiCalls: 0, tokens: 0 }],
     biggestSpenders: who.length ? who : [{ who: "(no AI traffic yet today)", aiCalls: 0 }],
     guestAgentRunsPerDay: AGENT_DAILY_CAP
@@ -686,7 +694,7 @@ app.post("/v1/staff/brain", async (req, res) => {
     try {
       /* ADMIN LANE — a Mistral key in AI_KEY_ADMIN streams FIRST (her upgrade brain),
          so upgradation never competes with the Groq bank. Any miss falls through to Groq. */
-      const __laneRes = await streamLane({ apiKey: ADMIN_KEY, mistralModels: MISTRAL_ADMIN_MODELS, messages, maxTok: baseTok, temperature: body.temperature, send, isClosed: () => closed, req });
+      const __laneRes = await streamLane({ laneName: "admin", apiKey: ADMIN_KEY, mistralModels: MISTRAL_ADMIN_MODELS, messages, maxTok: baseTok, temperature: body.temperature, send, isClosed: () => closed, req });
       if (__laneRes === "served") { finish(); return; }
       if (__laneRes === "partial") { send({ partial: true }); finish(); return; }
       for (const model of MODELS) {
@@ -751,7 +759,7 @@ app.post("/v1/staff/brain", async (req, res) => {
   }
 
   /* JSON MODE — unchanged contract for tooling and tests */
-  { const __lt = await laneCall(ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, baseTok, body.temperature != null ? body.temperature : 0.3, req); if (__lt) return res.json({ choices: [{ message: { content: __lt } }], model: "admin-lane" }); }
+  { const __lt = await laneCall("admin", ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, baseTok, body.temperature != null ? body.temperature : 0.3, req); if (__lt) return res.json({ choices: [{ message: { content: __lt } }], model: "admin-lane" }); }
   for (const model of MODELS) {
     try {
       const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 12000) : baseTok;
@@ -924,7 +932,7 @@ app.post("/v1/chat/completions", async (req, res) => {
   const __lane = body.lane === "code" ? "code" : "";
   if (__lane === "code") {
     /* CODE LANE — a Mistral key in AI_KEY_CODE powers the forge with Codestral first */
-    const __ct = await laneCall(CODE_KEY, MISTRAL_CODE_MODELS, messages, Math.min(body.max_tokens || 4000, 8000), body.temperature, req);
+    const __ct = await laneCall("code", CODE_KEY, MISTRAL_CODE_MODELS, messages, Math.min(body.max_tokens || 4000, 8000), body.temperature, req);
     if (__ct) return res.json({ choices: [{ message: { content: __ct } }], model: "code-lane" });
   }
   for (const model of order) {
@@ -979,7 +987,7 @@ function llm1(messages, maxTok, req) {
   return (async () => {
     const __admLane = req && (req.__role === "maker" || req.__role === "ceo");
     /* ADMIN LANE — a Mistral key in AI_KEY_ADMIN powers maker agent loops first */
-    if (__admLane) { const __at = await laneCall(ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, Math.min(maxTok || 700, 4000), 0.3, req); if (__at) return __at; }
+    if (__admLane) { const __at = await laneCall("admin", ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, Math.min(maxTok || 700, 4000), 0.3, req); if (__at) return __at; }
     for (const model of MODELS) {
       const key = __admLane ? pickLaneKey(ADMIN_KEY, true) : pickKey();
       if (!key) return null;
@@ -1177,7 +1185,7 @@ app.post("/v1/chat/stream", async (req, res) => {
   let sawLimit = false, served = false;
   if (body.lane === "code") {
     /* CODE LANE over stream — Mistral/Codestral first, shared bank on any miss */
-    const __lr = await streamLane({ apiKey: CODE_KEY, mistralModels: MISTRAL_CODE_MODELS, messages, maxTok: Math.min(body.max_tokens || 4000, 8000), temperature: body.temperature, send, isClosed: () => false, req });
+    const __lr = await streamLane({ laneName: "code", apiKey: CODE_KEY, mistralModels: MISTRAL_CODE_MODELS, messages, maxTok: Math.min(body.max_tokens || 4000, 8000), temperature: body.temperature, send, isClosed: () => false, req });
     if (__lr === "served" || __lr === "partial") { if (__lr === "partial") send({ partial: true }); finish(); return; }
   }
   outer:
