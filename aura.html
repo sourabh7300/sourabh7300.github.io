@@ -1819,7 +1819,8 @@ window.AuraRemind=(function(){
 window.AuraAgent=(function(){
   function ssePost(url,body,onEvent){
     return new Promise((resolve,reject)=>{
-      fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>{
+    const __ua=(function(){try{return JSON.parse(localStorage.getItem("aura_fb_live")||"null")}catch(e){return null}})();
+      fetch(url,{method:'POST',headers:Object.assign({'Content-Type':'application/json'},(__ua&&__ua.tok)?{'Authorization':'Bearer '+__ua.tok}:{}),body:JSON.stringify(body)}).then(r=>{
         if(!r.ok||!r.body){r.text().then(t=>reject(new Error('HTTP '+r.status+' '+t.slice(0,80)))).catch(()=>reject(new Error('HTTP '+r.status)));return}
         const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
         (async()=>{try{
@@ -6103,7 +6104,7 @@ document.addEventListener("DOMContentLoaded",function(){
     for(let attempt=1;attempt<=3;attempt++){
       try{
         const tok=await __freshTok();
-        const r=await fetch(backendUrl()+"/v1/staff/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},((tok||(u.tok||""))?{"Authorization":"Bearer "+(tok||u.tok)}:{})),body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||6500,temperature:0.3,reasoning_effort:reasoning||"medium",stream:true}),signal:AbortSignal.timeout(420000)});
+        const r=await fetch(backendUrl()+"/v1/staff/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},((tok||(u.tok||""))?{"Authorization":"Bearer "+(tok||u.tok)}:{})),body:JSON.stringify({model:"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||16000,temperature:0.3,reasoning_effort:reasoning||"high",stream:true}),signal:AbortSignal.timeout(420000)});
         if(r.status===401||r.status===403){
           if(attempt<2){await __freshTok();continue} /* token was stale — refresh and retry */
           throw new Error("admin-only: sign in with your maker account");
@@ -6163,7 +6164,7 @@ document.addEventListener("DOMContentLoaded",function(){
       return (j.windows||[]).filter(w=>w.code).length?j:null;
     }catch(e){return null}
   }
-  const SU_SYS="You are AURA's self-integration engineer — a senior full-stack engineer rebuilding your own product. You think first, then write REAL, COMPLETE code. You have two modes.\n\nMODE DECISION: pure appearance/animation/decoration → RUNTIME mode. Anything functional (feature, panel, button behavior, workflow, logic) → SOURCE mode (edits the real aura.html in your GitHub repo — permanent, ships in ~60s).\n\n== RUNTIME FORMAT (appearance only) ==\nPLAN: 2-3 short lines\nPATCH:\n```js\n<js code using api.css(cssText), api.html(selector,pos,html), api.js(code), api.note(text)>\n```\nNOTE: one line. RULES: only those four api calls; no fetch/localStorage/network; pure DOM/CSS; under ~120 lines.\n\n== SOURCE FORMAT (features & real changes) ==\nYou will receive REAL excerpts of the current file (with line numbers) — anchor every edit in them.\nPLAN: 2-4 short lines (your engineering reasoning: what, where, why)\nEDITS:\n```json\n[{\"find\":\"<exact literal code copied VERBATIM from the excerpts, 15-200 chars, unique in file>\",\"replace\":\"<the COMPLETE new code — full functions, full markup, full logic. No placeholders, no '...rest stays same', no TODOs>\"}]\n```\nNOTE: one line.\nRULES for EDITS: (1) find copied character-for-character from the excerpts. (2) replace is complete, balanced, production-quality code — if you add a function, write the whole function; if you add markup, write every element. (3) Wire everything: every new id gets its JS behavior, every button gets its handler, every panel gets its show/hide logic. (4) Match the file's existing style (var(--cy2), Rajdhani/Orbitron fonts, $() helper, pushSys() for log lines). (5) Split large features into MANY edits (3-10 is normal) — one per anchor point. (6) Never touch auth, keys, or the backend URL. (7) A build/dry-run failure report may follow — if the user message starts with FIX-ROUND, your previous find-string missed: rewrite it more verbatim from the excerpt shown.";
+  const SU_SYS="You are AURA's self-integration engineer — a senior full-stack engineer rebuilding your own product. You think first, then write REAL, COMPLETE code. You have two modes.\n\nMODE DECISION (OVERRIDE everything else): the maker's command asks for a FEATURE or functional change → you are ALWAYS in SOURCE mode. RUNTIME mode exists ONLY for pure looks (color, spacing, animation, decorative text). Editing the real aura.html in your GitHub repo IS your job — a dry-run miss is normal first-draft feedback you fix, never a reason to give up.\n\n== RUNTIME FORMAT (appearance only) ==\nPLAN: 2-3 short lines\nPATCH:\n```js\n<js code using api.css(cssText), api.html(selector,pos,html), api.js(code), api.note(text)>\n```\nNOTE: one line. RULES: only those four api calls; no fetch/localStorage/network; pure DOM/CSS; under ~120 lines.\n\n== SOURCE FORMAT (features & real changes) ==\nYou will receive REAL excerpts of the current file (with line numbers) — anchor every edit in them.\nPLAN: 2-4 short lines (your engineering reasoning: what, where, why)\nEDITS:\n```json\n[{\"find\":\"<exact literal code copied VERBATIM from the excerpts, 15-200 chars, unique in file>\",\"replace\":\"<the COMPLETE new code — full functions, full markup, full logic. No placeholders, no '...rest stays same', no TODOs>\"}]\n```\nNOTE: one line.\nRULES for EDITS: (1) find copied character-for-character from the excerpts. (2) replace is complete, balanced, production-quality code — if you add a function, write the whole function; if you add markup, write every element. (3) Wire everything: every new id gets its JS behavior, every button gets its handler, every panel gets its show/hide logic. (4) Match the file's existing style (var(--cy2), Rajdhani/Orbitron fonts, $() helper, pushSys() for log lines). (5) Split large features into MANY edits (3-10 is normal) — one per anchor point. (6) Never touch auth, keys, or the backend URL. (7) A build/dry-run failure report may follow — if the user message starts with FIX-ROUND, your previous find-string missed: rewrite it more verbatim from the excerpt shown.";
   const suPlanBtn=$("suPlanBtn"),suBuildBtn=$("suBuildBtn"),suShipBtn=$("suShipBtn");
   if(suPlanBtn)suPlanBtn.onclick=async function(){
     if(!AuraAuth.suAllowed){suStatus.textContent="admin only — this console is part of your maker access";return}
@@ -6188,7 +6189,7 @@ document.addEventListener("DOMContentLoaded",function(){
       suStatus.textContent="THINK 3/3 — writing the full code… watch it materialize below";
       suPlan.style.display="block";suPlan.style.maxHeight="300px";suPlan.style.overflow="auto";suPlan.textContent="⌛ connecting to her brain…";
       let __saw=0;
-      const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+(suState.mode==="source"?"\n\nPreferred mode: SOURCE (edit the real aura.html).":"\n\nPreferred mode: RUNTIME (appearance patch).")+windowsBlock}],6500,"medium",function(delta,model){
+      const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+(suState.mode==="source"?"\n\nPreferred mode: SOURCE (edit the real aura.html).":"\n\nPreferred mode: RUNTIME (appearance patch).")+windowsBlock}],16000,"high",function(delta,model){
         if(model==="__reset__"){suPlan.textContent="↻ that brain stalled — switching models, rewriting…";return}
         if(model){suPlan.textContent=(suPlan.textContent||"")+"\n— brain: "+model+" —\n";return}
         __saw++;if(__saw%40===1)suStatus.textContent="THINK 3/3 — writing… "+__saw+" chunks so far";
@@ -6294,7 +6295,7 @@ document.addEventListener("DOMContentLoaded",function(){
           var fws=wins?wins.windows.filter(function(w){return w.code}).slice(0,4):[];
           fws.forEach(function(w){if(w.code.length>4200)w.code=w.code.slice(0,4200)});
           const ctx=fws.length?"\n\nREAL EXCERPTS (line numbers included):\n"+fws.map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n"):"";
-          const fixOut=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"FIX-ROUND "+round+": your previous find-string did not exist in the file:\n\""+failed.slice(0,200)+"\"\n\nRewrite ONLY the failing edit(s) — copy find-strings EXACTLY from the real excerpts.\n\nORIGINAL TASK: "+suPromptEl.value.trim()+ctx+"\n\nReturn the COMPLETE corrected EDITS list (all edits, not just the failed one)."}],6500,"medium");
+          const fixOut=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"FIX-ROUND "+round+": your previous find-string did not exist in the file:\n\""+failed.slice(0,200)+"\"\n\nRewrite ONLY the failing edit(s) — copy find-strings EXACTLY from the real excerpts.\n\nORIGINAL TASK: "+suPromptEl.value.trim()+ctx+"\n\nReturn the COMPLETE corrected EDITS list (all edits, not just the failed one)."}],16000,"high");
           const em=fixOut.match(/```json\s*([\s\S]*?)```/i);
           if(!em)throw new Error("she could not produce a corrected edit list");
           let fixed=null;try{fixed=JSON.parse(em[1].trim())}catch(e){}
@@ -6357,7 +6358,7 @@ document.addEventListener("DOMContentLoaded",function(){
         log("DESIGN+CODE — writing the complete implementation… watch it materialize in MISSION PLAN");
         amPlan.style.display="block";amPlan.style.maxHeight="300px";amPlan.style.overflow="auto";amPlan.textContent="⌛ connecting to her brain…";
         let __saw=0;
-        const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+(suState.mode==="source"?"\n\nPreferred mode: SOURCE (edit the real aura.html).":"\n\nPreferred mode: RUNTIME (appearance patch).")}],6500,"medium",function(delta,model){
+        const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+"\n\nPreferred mode: SOURCE (edit the real aura.html)."}],16000,"high",function(delta,model){
           if(model==="__reset__"){amPlan.textContent="↻ that brain stalled — switching models, rewriting…";log("↻ brain stalled mid-write — auto-switched to the next model","#fbbf24");return}
           if(model){amPlan.textContent+="\n— brain: "+model+" —\n";log("brain online: "+model);return}
           __saw++;if(__saw%120===1)log("writing… "+__saw+" chunks so far");
@@ -6394,7 +6395,7 @@ document.addEventListener("DOMContentLoaded",function(){
             const fws=fw?fw.windows.filter(function(w){return w.code}).slice(0,4):[];
             fws.forEach(function(w){if(w.code.length>4200)w.code=w.code.slice(0,4200)});
             const ctx=fws.length?"\n\nREAL EXCERPTS (line numbers included):\n"+fws.map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n"):"";
-            const fixOut=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"FIX-ROUND "+round+": your previous find-string did not exist in the file:\n\""+failed.slice(0,200)+"\"\n\nRewrite ONLY the failing edit(s) — copy find-strings EXACTLY from the real excerpts.\n\nORIGINAL TASK: "+task+ctx+"\n\nReturn the COMPLETE corrected EDITS list (all edits, not just the failed one)."}],6500,"medium");
+            const fixOut=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"FIX-ROUND "+round+": your previous find-string did not exist in the file:\n\""+failed.slice(0,200)+"\"\n\nRewrite ONLY the failing edit(s) — copy find-strings EXACTLY from the real excerpts.\n\nORIGINAL TASK: "+task+ctx+"\n\nReturn the COMPLETE corrected EDITS list (all edits, not just the failed one)."}],16000,"high");
             const fe=fixOut.match(/```json\s*([\s\S]*?)```/i);
             if(!fe)throw new Error("repair round produced no edit list");
             let fixed=null;try{fixed=JSON.parse(fe[1].trim())}catch(e){}
