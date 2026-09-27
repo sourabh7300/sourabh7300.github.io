@@ -834,7 +834,7 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
     <h4>🧬 SELF-INTEGRATION <span style="color:var(--dim);font-weight:400">— AURA upgrades herself</span></h4>
     <p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:10px">Describe any change in plain words — a new feature, a design tweak, a fix. AURA plans it, writes the code, shows you a live preview, and can ship it to the real site with your approval. You stay the publisher; she stays the engineer.</p>
     <div id="suBox">
-      <div id="suGhBar"><span id="suGhDot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span><span id="suGhText">checking GitHub connection…</span><button class="suBtn" id="suModeBtn" style="margin-left:auto;padding:4px 10px;font-size:10px">SOURCE EDIT: OFF</button></div>
+      <div id="suGhBar"><span id="suGhDot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span><span id="suGhText">checking GitHub connection…</span><button class="suBtn" id="suModeBtn" style="margin-left:auto;padding:4px 10px;font-size:10px;background:rgba(120,101,233,.35)">SOURCE EDIT: ON</button><button class="suBtn" id="suHealthBtn" style="padding:4px 10px;font-size:10px;margin-left:6px">SHIP HEALTH</button></div>
       <h4><span class="live-dot"></span> BUILD CONSOLE</h4>
       <textarea id="suPrompt" placeholder="e.g. Add a dark/light quick-toggle in the top bar · Make the mic button pulse green while listening · Add a 'copy chat' button under every answer"></textarea>
       <div class="suRow">
@@ -6078,7 +6078,7 @@ document.addEventListener("DOMContentLoaded",function(){
      ============================================================ */
   const suPlan=$("suPlan"),suDiff=$("suDiff"),suDiffCode=$("suDiffCode"),suDiffMeta=$("suDiffMeta"),
         suPrev=$("suPrev"),suPrevFrame=$("suPrevFrame"),suStatus=$("suStatus"),suPromptEl=$("suPrompt");
-  const suState={plan:"",patch:"",note:"",edits:null,mode:"runtime",gh:null};
+  const suState={plan:"",patch:"",note:"",edits:null,mode:"source",gh:null};
   let __suPatched=null;
   function applySuPatch(src,patch){
     /* patch contract: a JS snippet run as fn(document, patchAPI) — she writes DOM/CSS/style changes against the live page structure.
@@ -6514,6 +6514,17 @@ document.addEventListener("DOMContentLoaded",function(){
       mb.textContent="SOURCE EDIT: "+(suState.mode==="source"?"ON":"OFF");
       mb.style.background=suState.mode==="source"?"rgba(120,101,233,.35)":"";
       suStatus.textContent=suState.mode==="source"?"SOURCE EDIT armed — she will edit the real aura.html in her GitHub repository (permanent, survives redeploys).":"RUNTIME mode — appearance patches only (live in seconds, nothing committed).";
+    };
+    const hb2=$("suHealthBtn");
+    if(hb2)hb2.onclick=async function(){
+      hb2.disabled=true;dot.style.background="#f59e0b";txt.textContent="SHIP health check — dry-running one probe edit against her real repo…";
+      try{
+        const r=await __ahRetry("POST",backendUrl()+"/v1/dev/commit",{edits:[{find:"const SU_SYS=",replace:"const SU_SYS="}],message:"health probe",dryRun:true});
+        const j=await r.json().catch(()=>({}));
+        if(r.ok&&j.ok&&j.dryRun){dot.style.background="#34d399";txt.textContent="SHIP HEALTHY ✓ — auth, owner lock, GitHub access and the applier all verified (probe at line "+j.firstChangeAtLine+")";}
+        else{dot.style.background="#ef4444";txt.textContent="SHIP UNHEALTHY ✗ — "+(j.error||("HTTP "+r.status));}
+      }catch(e){dot.style.background="#ef4444";txt.textContent="SHIP UNHEALTHY ✗ — "+(e.message||e);}
+      hb2.disabled=false;
     };
   })();
   /* APPLIER — on boot, any visitor applies shipped patches (after core is ready) */
