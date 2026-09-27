@@ -133,7 +133,7 @@ function pickLaneKey(laneKey, reserve) {
    and routed to api.mistral.ai with provider-appropriate models. */
 const MISTRAL_API = "https://api.mistral.ai/v1/chat/completions";
 const MISTRAL_CODE_MODELS = (process.env.MISTRAL_CODE_MODELS || "codestral-latest,mistral-small-latest").split(",").map(s => s.trim()).filter(Boolean);
-const MISTRAL_ADMIN_MODELS = (process.env.MISTRAL_ADMIN_MODELS || "mistral-large-latest,mistral-small-latest").split(",").map(s => s.trim()).filter(Boolean);
+const MISTRAL_ADMIN_MODELS = (process.env.MISTRAL_ADMIN_MODELS || "mistral-large-latest,mistral-medium-latest,mistral-small-latest").split(",").map(s => s.trim()).filter(Boolean);
 const isMistral = k => !!k && !/^gsk_/.test(k);
 
 /* Lane health — silent fallbacks hide broken keys, so every miss is recorded
@@ -154,7 +154,8 @@ async function laneCall(laneName, laneKey, mistralModels, messages, maxTok, temp
         signal: AbortSignal.timeout(90_000)
       });
       if (r.status === 429) { keyCool.set(laneKey, Date.now() + 70_000); laneErr[laneName] = "rate-limited (429) — cooling 70s"; return null; }
-      if (r.status === 401 || r.status === 403) { keyCool.set(laneKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key rejected (" + r.status + ") — check AI_KEY_" + laneName.toUpperCase(); return null; }
+      if (r.status === 401) { keyCool.set(laneKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key invalid (401) — check AI_KEY_" + laneName.toUpperCase(); return null; }
+      if (r.status === 403) { laneErr[laneName] = "model " + model + " not allowed on this key's plan (403) — trying the next Mistral model"; continue; }
       if (!r.ok) { laneErr[laneName] = "model " + model + " unavailable (HTTP " + r.status + ")"; continue; }
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
@@ -183,7 +184,8 @@ async function streamLane(opts) {
       });
     } catch (e) { laneErr[laneName] = "network: " + (e.message || String(e)); continue; }
     if (r.status === 429) { keyCool.set(apiKey, Date.now() + 70_000); laneErr[laneName] = "rate-limited (429) — cooling 70s"; return "miss"; }
-    if (r.status === 401 || r.status === 403) { keyCool.set(apiKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key rejected (" + r.status + ") — check AI_KEY_" + laneName.toUpperCase(); return "miss"; }
+    if (r.status === 401) { keyCool.set(apiKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key invalid (401) — check AI_KEY_" + laneName.toUpperCase(); return "miss"; }
+    if (r.status === 403) { laneErr[laneName] = "model " + model + " not allowed on this key's plan (403) — trying the next Mistral model"; continue; }
     if (!r.ok || !r.body) { laneErr[laneName] = "model " + model + " unavailable (HTTP " + r.status + ")"; continue; }
     let full = "", announced = false;
     try {
