@@ -117,6 +117,18 @@ function pickKey(reserve) {
   return null; // every usable key is cooling = daily allowance exhausted
 }
 
+/* DEDICATED KEY LANES — one key just for the CODE forge, one just for the
+   maker's admin/upgradation brain. Set AI_KEY_CODE / AI_KEY_ADMIN in the
+   hosting dashboard. A lane always falls back to the shared bank when its
+   own key is drained or unset, so nothing ever hard-dies. */
+const CODE_KEY = envv("AI_KEY_CODE", "CODE_KEY");
+const ADMIN_KEY = envv("AI_KEY_ADMIN", "ADMIN_KEY");
+function pickLaneKey(laneKey, reserve) {
+  const now = Date.now();
+  if (laneKey && !(keyCool.get(laneKey) > now)) return laneKey;
+  return pickKey(reserve);
+}
+
 /* QUOTA STRETCHERS — make the free key bank last far longer:
    1) ANSWER CACHE — repeated questions answered from memory, zero tokens burned
    2) VISITOR DAILY CAP — one heavy user can never solo-drain the public pool
@@ -166,6 +178,8 @@ function keyLabel(k) {
   if (!k) return "none";
   if (k === "vision") return "vision";
   if (k === RESERVE_KEY) return "reserve";
+  if (k === CODE_KEY) return "code-lane";
+  if (k === ADMIN_KEY) return "admin-lane";
   const i = KEY_POOL.indexOf(k);
   return i >= 0 ? "k" + (i + 1) + "…" + k.slice(-4) : "ext…" + k.slice(-4);
 }
@@ -447,6 +461,7 @@ app.get("/v1/admin/usage", async (req, res) => {
   res.json({
     ok: true, day,
     keyBank: { total: KEY_POOL.length, liveNow: KEY_POOL.filter(k => !(keyCool.get(k) > Date.now())).length },
+    lanes: { code: !!CODE_KEY, admin: !!ADMIN_KEY },
     spendByKey: keys.length ? keys : [{ key: "(no AI calls yet today)", aiCalls: 0, tokens: 0 }],
     biggestSpenders: who.length ? who : [{ who: "(no AI traffic yet today)", aiCalls: 0 }],
     guestAgentRunsPerDay: AGENT_DAILY_CAP
@@ -589,7 +604,7 @@ app.post("/v1/staff/brain", async (req, res) => {
     try {
       for (const model of MODELS) {
         if (closed) return;
-        const key = pickKey(true); /* maker-reserved key */
+        const key = pickLaneKey(ADMIN_KEY, true); /* dedicated admin-upgrade lane, falls back to the maker bank */
         if (!key) break;
         const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 12000) : baseTok;
         let r;
@@ -652,7 +667,7 @@ app.post("/v1/staff/brain", async (req, res) => {
   for (const model of MODELS) {
     try {
       const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 12000) : baseTok;
-      const key = pickKey(true); /* maker-reserved key — public traffic never touches this one */
+      const key = pickLaneKey(ADMIN_KEY, true); /* dedicated admin-upgrade lane — public traffic never touches it */
       if (!key) break;
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
@@ -780,7 +795,7 @@ app.get("/health", async (req, res) => {
   const now = Date.now();
   fbInit(); /* eager init so the diagnostic tells the truth immediately */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck() });
+  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck() });
 });
 
 /* THE PROXY — key stays server-side forever */
@@ -816,12 +831,15 @@ app.post("/v1/chat/completions", async (req, res) => {
   }
 
   let sawLimit = false; // at least one key hit a rate/limit error
+  /* KEY LANE — the CODE forge tags its requests with lane:"code" so they burn
+     the dedicated code key (fallback: shared bank) and never starve chat quota */
+  const __lane = body.lane === "code" ? "code" : "";
   for (const model of order) {
     try {
       /* reasoning models (gpt-oss) spend tokens thinking — floor the budget so content is never empty */
       let maxTok = Math.min(body.max_tokens || 1400, 4000);
       if (model.startsWith("openai/gpt-oss") && maxTok < 600) maxTok = 600;
-      const key = pickKey();
+      const key = __lane === "code" ? pickLaneKey(CODE_KEY, false) : pickKey();
       if (!key) {
         sawLimit = true; break; // no live key → the Mistral reserve covers below
       }
@@ -864,10 +882,11 @@ app.post("/v1/chat/completions", async (req, res) => {
    This is the tool-loop that turns a chatbot into an agent (deep-research style). */
 const MAX_STEPS = 8;
 function llm1(messages, maxTok, req) {
-  /* one-shot internal LLM call for the loop (uses pickKey directly) */
+  /* one-shot internal LLM call for the loop — the maker's missions burn the admin lane */
   return (async () => {
+    const __admLane = req && (req.__role === "maker" || req.__role === "ceo");
     for (const model of MODELS) {
-      const key = pickKey();
+      const key = __admLane ? pickLaneKey(ADMIN_KEY, true) : pickKey();
       if (!key) return null;
       try {
         const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {

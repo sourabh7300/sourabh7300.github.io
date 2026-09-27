@@ -2421,13 +2421,13 @@ return {total:p.length,live:p.filter(k=>!(__KEY_COOL[k]>now)).length,cooling:p.l
    Can be overridden locally: owner says 'set backend url <url>'. */
 const AURA_DEFAULT_BACKEND="https://aura-backend-jomj.onrender.com";
 function backendUrl(){return (localStorage.getItem("aura_backend_url")||AURA_DEFAULT_BACKEND).trim().replace(/\/+$/,"")}
-async function backendCall(messages,maxTok,modelOverride){
+async function backendCall(messages,maxTok,modelOverride,lane){
   const base=backendUrl();if(!base)throw new Error("no backend");
   const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
   const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
   const r=await fetch(base+"/v1/chat/completions",{
     method:"POST",headers:headers,signal:AbortSignal.timeout(30000),
-    body:JSON.stringify({model:modelOverride||"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||1400,temperature:0.6})});
+    body:JSON.stringify({model:modelOverride||"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||1400,temperature:0.6,lane:lane||undefined})});
   if(!r.ok){
     let j={};try{j=await r.json()}catch(e2){}
     if(j&&j.outOfTokens){const err=new Error("out_of_tokens");err.outOfTokens=true;throw err}
@@ -2438,10 +2438,10 @@ async function backendCall(messages,maxTok,modelOverride){
   if(!t.trim())throw new Error("empty");
   return t.trim();
 }
-async function groqCall(messages,maxTok,modelOverride){
-  /* TIER 1 — owner's secure backend (key never leaves the server) */
+async function groqCall(messages,maxTok,modelOverride,lane){
+  /* TIER 1 — owner's secure backend (key never leaves the server). lane:"code" burns the dedicated CODE key on the server. */
   if(backendUrl()){
-    try{const t=await backendCall(messages,maxTok,modelOverride);slog("answered via owner backend (server-side key) — most secure tier",true);__lastEng="LLaMA via Groq (backend)";return t}
+    try{const t=await backendCall(messages,maxTok,modelOverride,lane);slog("answered via owner backend"+(lane==="code"?" (code lane — dedicated key)":" (server-side key)")+" — most secure tier",true);__lastEng="LLaMA via Groq (backend)";return t}
     catch(e){if(e&&e.outOfTokens&&!keyPool().length)throw e;slog("backend unavailable ("+(e.message||e)+") — falling to direct keys",true)}
   }
   /* TIER 2 — direct Groq keys from the local bank */
@@ -4169,9 +4169,9 @@ async function buildCode(){
   const sys="You are CODE FORGE, an elite senior engineer inside JARVIS/AURA. The user gives an idea — possibly short or vague: silently expand it into a sensible, complete interpretation (pick reasonable features) rather than asking questions. Produce COMPLETE, WORKING code that runs on the first try — never TODOs, never placeholders, never 'rest of the code here'. "+tip+" Output ONLY the code — no markdown fences, no prose before or after.";
   let out="";
   try{
-    try{out=await groqCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000)}
+    try{out=await groqCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000,null,"code")}
     catch(e1){codeLog("// groq busy/failed — switching to the OpenRouter backup brain…");out=await openrouterCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000)}
-    if(!out||out.length<40){codeLog("// first pass thin — re-forging with more room…");out=await groqCall([{role:"system",content:sys+" The previous attempt came back empty — output the full code now."},{role:"user",content:"Build request: "+q}],6000)}
+    if(!out||out.length<40){codeLog("// first pass thin — re-forging with more room…");out=await groqCall([{role:"system",content:sys+" The previous attempt came back empty — output the full code now."},{role:"user",content:"Build request: "+q}],6000,null,"code")}
   }catch(e){try{out=await openrouterCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000)}catch(e2){codeLog("// forge failed: "+(e2.message||e2)+" — check key/quota in SET AI KEY")}}
   out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,'').trim();
   if(out){
@@ -4220,7 +4220,7 @@ async function fixCode(){
   const user=(errs.length?"REAL RUNTIME ERRORS (from actually executing it):\n"+errs.join("\n")+"\n\n":"NO HARD CRASH — look for logic bugs, wrong results, edge cases.\n\n")+"CODE:\n"+src.slice(0,9000);
   let fixed="";
   try{
-    try{fixed=await groqCall([{role:"system",content:sys},{role:"user",content:user}],6000)}
+    try{fixed=await groqCall([{role:"system",content:sys},{role:"user",content:user}],6000,null,"code")}
     catch(e1){codeLog("// groq down — using the OpenRouter backup brain…");fixed=await openrouterCall([{role:"system",content:sys},{role:"user",content:user}],6000)}
   }catch(e){codeLog("// fix failed: "+(e.message||e)+" — check key/quota")}
   fixed=String(fixed||"").replace(/^```[a-z]*\\n?/i,"").replace(/\\n?```$/,'').trim();
@@ -4527,7 +4527,7 @@ async function explainCode(){
   try{
     const lang=document.getElementById("codeLang").value;
     const sys="You are CODE FORGE's teacher mode. Explain the given "+lang+" code clearly for a student: what it does overall, then walk through each important part step by step in plain language, then list 2–3 things they could try changing to learn. Use short lines and simple words. No markdown fences.";
-    let out="";try{out=await groqCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],1600)}catch(e){out=await openrouterCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],1600)}
+    let out="";try{out=await groqCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],1600,null,"code")}catch(e){out=await openrouterCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],1600)}
     out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,"").trim();
     if(out){addMsg(msgTag(),"💡 <b>Code explanation</b>\n"+out.replace(/</g,"&lt;"),"aura");if(typeof speak==="function"&&soundOn)speak("Here is what your code does.")}
     else codeLogc("// explanation came back empty — try again","warn")
@@ -4545,7 +4545,7 @@ async function convertCode(){
   try{
     const from=document.getElementById("codeLang").value;
     const sys="You are a code translation engine. Convert the given "+from+" code into idiomatic, working "+tgt+". Preserve behavior exactly. Output ONLY the "+tgt+" code — no fences, no prose.";
-    let out="";try{out=await groqCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],6000)}catch(e){out=await openrouterCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],6000)}
+    let out="";try{out=await groqCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],6000,null,"code")}catch(e){out=await openrouterCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],6000)}
     out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,"").trim();
     if(out&&out.length>10){
       if(wsActive()){wsStrip();const name="converted."+(CODE_LANGS[tgt]||"txt");CWS.files.push({name,code:out});CWcur=name;wsSave();wsRenderTabs();wsPut("")}
@@ -6067,7 +6067,7 @@ document.addEventListener("DOMContentLoaded",function(){
       const rows=(j.spendByKey||[]).map(k=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px"><span style="font:12px monospace;color:var(--cy2)">'+kbEsc(k.key)+'</span><span style="font:11px Rajdhani;color:var(--ice)">'+k.aiCalls+' calls · '+k.tokens+' tok</span></div>').join("");
       const who=(j.biggestSpenders||[]).slice(0,5).map(w=>'<div style="display:flex;justify-content:space-between;padding:4px 9px;font:11.5px Rajdhani"><span style="color:var(--dim)">'+kbEsc(w.who)+'</span><span style="color:var(--ice)">'+w.aiCalls+' AI calls</span></div>').join("");
       body.innerHTML=alert
-        +'<div style="font:600 10px Rajdhani;letter-spacing:1px;color:var(--dim);margin:2px 0 6px">KEY BANK — '+(kb.liveNow||0)+'/'+(kb.total||0)+' live now</div>'
+        +'<div style="font:600 10px Rajdhani;letter-spacing:1px;color:var(--dim);margin:2px 0 6px">KEY BANK — '+(kb.liveNow||0)+'/'+(kb.total||0)+' live now'+((j.lanes&&(j.lanes.code||j.lanes.admin))?' · LANES: '+(j.lanes.code?'CODE ✓':'CODE —')+' / '+(j.lanes.admin?'ADMIN ✓':'ADMIN —'):'')+'</div>'
         +(rows||'<small style="color:var(--dim)">no keys reported</small>')
         +'<div style="font:600 10px Rajdhani;letter-spacing:1px;color:var(--dim);margin:9px 0 3px">TOP SPENDERS TODAY</div>'
         +(who||'<small style="color:var(--dim)">quiet day — zero AI spend</small>')
