@@ -20,7 +20,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E🤖%3C/text%3E%3C/svg%3E">
-<link rel="manifest" href="https://aura-backend-jomj.onrender.com/manifest.webmanifest">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
 :root{
   --bg:#020709;--cy:#22d3ee;--cy2:#67e8f9;--dim:#0e7490;--ice:#e0faff;
@@ -6604,7 +6604,7 @@ document.addEventListener("DOMContentLoaded",function(){
      kills the ~50s cold-start lag completely while any AURA tab is open */
   try{setInterval(function(){fetch(backendUrl()+"/health",{signal:AbortSignal.timeout(8000)}).catch(function(){})},240000)}catch(e){}
   /* PWA — installable app + a background worker that keeps her brain warm even when the tab naps */
-  try{if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register(backendUrl()+'/sw.js').catch(function(){})}}catch(e){}
+  try{if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register('sw.js').catch(function(){})}}catch(e){}
   /* APPLIER — on boot, any visitor applies shipped patches (after core is ready) */
   try{
     fetch(backendUrl()+"/v1/config").then(r=>r.json()).then(async function(c){

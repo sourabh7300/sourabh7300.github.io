@@ -1,12 +1,9 @@
-const CACHE="sourabh-portfolio-v16";
-const ASSETS=["./","./index.html","./portfolio.html","./aura.html","./foodora.html","./foodora-live.html","./lucid.html","./manifest.json","./icon-192.png","./icon-512.png","./favicon.png"];
-self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting()))});
-self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
-self.addEventListener("fetch",e=>{
-  if(e.request.method!=="GET")return;
-  if(e.request.url.includes("api.groq.com")||e.request.url.includes("ntfy.sh")||e.request.url.includes("wikipedia")||e.request.url.includes("generativelanguage"))return;
-  e.respondWith(
-    fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(ca=>ca.put(e.request,c)).catch(()=>{});return r})
-    .catch(()=>caches.match(e.request).then(m=>m||caches.match("./index.html")))
-  );
-});
+/* AURA keep-warm worker — keeps the brain endpoint cozy so answers stay fast.
+   Same-origin with aura.html (required for service workers) and pings /v1/ping
+   every 4 minutes so the Render backend never sleeps. */
+const BRAIN = 'https://aura-backend-jomj.onrender.com';
+self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('activate', e => { e.waitUntil(self.clients.claim()); });
+function nap() { fetch(BRAIN + '/v1/ping', { mode: 'no-cors' }).catch(() => {}); }
+setInterval(nap, 240000); nap();
+self.addEventListener('message', e => { if (e.data === 'ping') nap(); });
