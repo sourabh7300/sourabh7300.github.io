@@ -133,7 +133,7 @@ function pickLaneKey(laneKey, reserve) {
    and routed to api.mistral.ai with provider-appropriate models. */
 const MISTRAL_API = "https://api.mistral.ai/v1/chat/completions";
 const MISTRAL_CODE_MODELS = (process.env.MISTRAL_CODE_MODELS || "codestral-latest,mistral-small-latest").split(",").map(s => s.trim()).filter(Boolean);
-const MISTRAL_ADMIN_MODELS = (process.env.MISTRAL_ADMIN_MODELS || "mistral-large-latest,mistral-medium-latest,mistral-small-latest").split(",").map(s => s.trim()).filter(Boolean);
+const MISTRAL_ADMIN_MODELS = (process.env.MISTRAL_ADMIN_MODELS || "mistral-large-latest,mistral-medium-latest,mistral-small-latest,codestral-latest").split(",").map(s => s.trim()).filter(Boolean);
 const isMistral = k => !!k && !/^gsk_/.test(k);
 
 /* Lane health — silent fallbacks hide broken keys, so every miss is recorded
