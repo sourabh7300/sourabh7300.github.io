@@ -813,6 +813,12 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
     <small style="color:var(--dim);font-size:10.5px">Counts come from the backend database — the same numbers the server enforces. <span id="adUsageHint" style="color:var(--cy2)"></span></small>
   </div>
   <div class="admin-card">
+    <h4>🔑 KEY BANK <span id="kbDay" style="color:var(--dim);font-weight:400"></span></h4>
+    <div id="kbBody"><small style="color:var(--dim)">loading…</small></div>
+    <button class="auth-btn" id="kbRefresh" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);color:#04222b">REFRESH LEDGER</button>
+    <small style="color:var(--dim);font-size:10.5px">Every real AI call — chat, brain, agent, vision — is recorded here: which key burned and who caused it.</small>
+  </div>
+  <div class="admin-card">
     <h4>🧠 ENGINE &amp; BRAND (live database)</h4>
     <input id="adCfgEngine" placeholder="Engine label, e.g. llama-3.3-70b via Groq">
     <input id="adCfgBrand" placeholder="Brand line, e.g. voice + code AI assistant">
@@ -5993,6 +5999,7 @@ document.addEventListener("DOMContentLoaded",function(){
     for(let i=0;i<20&&!backendUrl();i++){await new Promise(function(r){setTimeout(r,500)})}
     if(!backendUrl()){const el=$("adUsersList");if(el)el.innerHTML='<small style="color:#f87171">backend not reachable — reload the page</small>';return}
     try{const me=await(await __ah("GET",backendUrl()+"/v1/me")).json();const rl=$("adminRoleLine");if(rl&&me&&me.role)rl.textContent=me.role+" access · "+(me.email||me.uid.slice(0,10))}catch(e){}
+    try{loadKeyBank()}catch(e){}
     try{
       const cr=await(await __ah("GET",backendUrl()+"/v1/config")).json();
       const e=$("adCfgEngine"),b=$("adCfgBrand"),a=$("adCfgAnnounce");
@@ -6032,6 +6039,35 @@ document.addEventListener("DOMContentLoaded",function(){
   try{
     fetch(backendUrl()+"/v1/usage").then(r=>r.json()).then(u=>{const el=$("adStatAnswers");if(el&&u&&typeof u.answers==="number")el.innerHTML=u.answers+"<small>ANSWERS SERVED</small>";const hint=$("adUsageHint");if(hint&&u&&typeof u.cacheSize==="number")hint.textContent=" · cache holding "+u.cacheSize+" answer(s)"+(u.dailyCap?" · visitor cap "+u.dailyCap+"/day":"")}).catch(()=>{});
   }catch(e){}
+
+  /* ---- KEY BANK panel — live spend ledger (owner only, from /v1/admin/usage) ---- */
+  function kbEsc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+  let __kbTimer=null;
+  async function loadKeyBank(){
+    const body=$("kbBody"),dayEl=$("kbDay");if(!body)return;
+    body.innerHTML='<small style="color:var(--dim)">reading the ledger…</small>';
+    try{
+      const j=await(await __ah("GET",backendUrl()+"/v1/admin/usage")).json();
+      if(j.error)throw new Error(j.error);
+      if(dayEl)dayEl.textContent=" · "+kbEsc(j.day||"");
+      const kb=j.keyBank||{};
+      const drained=Math.max(0,(kb.total||0)-(kb.liveNow||0));
+      const top=(j.biggestSpenders&&j.biggestSpenders[0])||{};
+      const alert=(kb.total>1&&drained*2>=kb.total)
+        ?'<div style="margin:0 0 8px;padding:7px 9px;border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.08);border-radius:8px;font:12px Rajdhani;color:#fbbf24">⚠ DRAIN ALERT — '+drained+' of '+kb.total+' key(s) cooling down. Top spender today: <b>'+kbEsc(top.who||"?")+'</b> ('+(top.aiCalls||0)+' AI calls)</div>':'';
+      const rows=(j.spendByKey||[]).map(k=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px"><span style="font:12px monospace;color:var(--cy2)">'+kbEsc(k.key)+'</span><span style="font:11px Rajdhani;color:var(--ice)">'+k.aiCalls+' calls · '+k.tokens+' tok</span></div>').join("");
+      const who=(j.biggestSpenders||[]).slice(0,5).map(w=>'<div style="display:flex;justify-content:space-between;padding:4px 9px;font:11.5px Rajdhani"><span style="color:var(--dim)">'+kbEsc(w.who)+'</span><span style="color:var(--ice)">'+w.aiCalls+' AI calls</span></div>').join("");
+      body.innerHTML=alert
+        +'<div style="font:600 10px Rajdhani;letter-spacing:1px;color:var(--dim);margin:2px 0 6px">KEY BANK — '+(kb.liveNow||0)+'/'+(kb.total||0)+' live now</div>'
+        +(rows||'<small style="color:var(--dim)">no keys reported</small>')
+        +'<div style="font:600 10px Rajdhani;letter-spacing:1px;color:var(--dim);margin:9px 0 3px">TOP SPENDERS TODAY</div>'
+        +(who||'<small style="color:var(--dim)">quiet day — zero AI spend</small>')
+        +'<small style="color:var(--dim);display:block;margin-top:7px">guest agent runs/day: '+(j.guestAgentRunsPerDay||0)+' · the ledger resets at midnight UTC</small>';
+    }catch(e){ body.innerHTML='<small style="color:#f87171">'+kbEsc(e.message||String(e))+'</small>'; }
+    clearTimeout(__kbTimer);
+    __kbTimer=setTimeout(function(){const p=$("kbBody");if(p&&p.offsetParent!==null)loadKeyBank()},60000);
+  }
+  const kbBtn=$("kbRefresh");if(kbBtn)kbBtn.onclick=loadKeyBank;
 
   /* ============================================================
      SELF-INTEGRATION — AURA modifies her own page under your approval
