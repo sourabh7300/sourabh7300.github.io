@@ -139,6 +139,9 @@ const isMistral = k => !!k && !/^gsk_/.test(k);
 /* Lane health — silent fallbacks hide broken keys, so every miss is recorded
    and shown to the owner in /v1/admin/usage + the KEY BANK panel. */
 const laneErr = { code: "", admin: "" };
+/* Mistral free tiers allow ~1 request/second — pace every lane call */
+let mistralLastReq = 0;
+const paceMistral = async () => { const wait = 1200 - (Date.now() - mistralLastReq); if (wait > 0) await new Promise(r => setTimeout(r, wait)); mistralLastReq = Date.now(); };
 
 /* Non-streaming lane attempt — returns text or null (null = fall through to the shared bank) */
 async function laneCall(laneName, laneKey, mistralModels, messages, maxTok, temperature, req) {
@@ -147,6 +150,7 @@ async function laneCall(laneName, laneKey, mistralModels, messages, maxTok, temp
   if (keyCool.get(laneKey) > Date.now()) { laneErr[laneName] = "cooling down (rate limit / rejected)"; return null; }
   for (const model of mistralModels) {
     try {
+      await paceMistral();
       const r = await fetch(MISTRAL_API, {
         method: "POST",
         headers: { "Authorization": "Bearer " + laneKey, "Content-Type": "application/json" },
@@ -156,7 +160,7 @@ async function laneCall(laneName, laneKey, mistralModels, messages, maxTok, temp
       if (!r.ok) {
         const bodyTxt = await r.text().catch(() => "");
         const detail = (bodyTxt.match(/"(message|type|detail)"\s*:\s*"([^"]{3,140})"/) || [])[2] || bodyTxt.slice(0, 100);
-        if (r.status === 429) { keyCool.set(laneKey, Date.now() + 70_000); laneErr[laneName] = "429 on " + model + ": " + detail; return null; }
+        if (r.status === 429) { laneErr[laneName] = "429 on " + model + ": " + detail + " — trying next model"; keyCool.set(laneKey, Date.now() + 20_000); continue; }
         if (r.status === 401) { keyCool.set(laneKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "401 key invalid — check AI_KEY_" + laneName.toUpperCase() + ": " + detail; return null; }
         laneErr[laneName] = "HTTP " + r.status + " on " + model + ": " + detail;
         continue;
@@ -166,6 +170,7 @@ async function laneCall(laneName, laneKey, mistralModels, messages, maxTok, temp
       if (t && t.trim()) { laneErr[laneName] = ""; recordUse(req, laneKey, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
     } catch (e) { laneErr[laneName] = "network: " + (e.message || String(e)); }
   }
+  keyCool.set(laneKey, Date.now() + 70_000); /* whole chain failed — rest the key */
   return null;
 }
 
@@ -180,6 +185,7 @@ async function streamLane(opts) {
     if (isClosed()) return "miss";
     let r;
     try {
+      await paceMistral();
       r = await fetch(MISTRAL_API, {
         method: "POST",
         headers: { "Authorization": "Bearer " + apiKey, "Content-Type": "application/json" },
@@ -187,7 +193,7 @@ async function streamLane(opts) {
         signal: AbortSignal.timeout(30_000)
       });
     } catch (e) { laneErr[laneName] = "network: " + (e.message || String(e)); continue; }
-    if (r.status === 429) { keyCool.set(apiKey, Date.now() + 70_000); laneErr[laneName] = "rate-limited (429) — cooling 70s"; return "miss"; }
+    if (r.status === 429) { laneErr[laneName] = "429 on " + model + " — trying next model"; keyCool.set(apiKey, Date.now() + 20_000); continue; }
     if (r.status === 401) { keyCool.set(apiKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key invalid (401) — check AI_KEY_" + laneName.toUpperCase(); return "miss"; }
     if (r.status === 403) { laneErr[laneName] = "model " + model + " not allowed on this key's plan (403) — trying the next Mistral model"; continue; }
     if (!r.ok || !r.body) { laneErr[laneName] = "model " + model + " unavailable (HTTP " + r.status + ")"; continue; }
