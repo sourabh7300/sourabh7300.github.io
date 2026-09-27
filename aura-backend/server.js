@@ -129,6 +129,88 @@ function pickLaneKey(laneKey, reserve) {
   return pickKey(reserve);
 }
 
+/* Lane keys may be Groq (gsk_…) or MISTRAL — anything else is treated as Mistral
+   and routed to api.mistral.ai with provider-appropriate models. */
+const MISTRAL_API = "https://api.mistral.ai/v1/chat/completions";
+const MISTRAL_CODE_MODELS = (process.env.MISTRAL_CODE_MODELS || "codestral-latest,mistral-small-latest").split(",").map(s => s.trim()).filter(Boolean);
+const MISTRAL_ADMIN_MODELS = (process.env.MISTRAL_ADMIN_MODELS || "mistral-large-latest,mistral-small-latest").split(",").map(s => s.trim()).filter(Boolean);
+const isMistral = k => !!k && !/^gsk_/.test(k);
+
+/* Non-streaming lane attempt — returns text or null (null = fall through to the shared bank) */
+async function laneCall(laneKey, mistralModels, messages, maxTok, temperature, req) {
+  if (!laneKey || !isMistral(laneKey) || (keyCool.get(laneKey) > Date.now())) return null;
+  for (const model of mistralModels) {
+    try {
+      const r = await fetch(MISTRAL_API, {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + laneKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok, 8000), temperature: temperature != null ? temperature : 0.3 }),
+        signal: AbortSignal.timeout(90_000)
+      });
+      if (r.status === 429) { keyCool.set(laneKey, Date.now() + 70_000); return null; }
+      if (r.status === 401 || r.status === 403) { keyCool.set(laneKey, Date.now() + 24 * 3600_000); return null; }
+      if (!r.ok) continue;
+      const d = await r.json();
+      const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+      if (t && t.trim()) { recordUse(req, laneKey, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
+    } catch (e) {}
+  }
+  return null;
+}
+
+/* Streaming lane attempt — re-emits OpenAI-style SSE deltas in AURA's event format.
+   Returns "served" (caller finishes), "partial" (caller sends partial + finishes), or "miss". */
+async function streamLane(opts) {
+  const { apiKey, mistralModels, messages, maxTok, temperature, send, isClosed, req } = opts;
+  if (!apiKey || !isMistral(apiKey) || !mistralModels.length || (keyCool.get(apiKey) > Date.now())) return "miss";
+  for (const model of mistralModels) {
+    if (isClosed()) return "miss";
+    let r;
+    try {
+      r = await fetch(MISTRAL_API, {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok, 8000), temperature: temperature != null ? temperature : 0.3, stream: true }),
+        signal: AbortSignal.timeout(30_000)
+      });
+    } catch (e) { continue; }
+    if (r.status === 429) { keyCool.set(apiKey, Date.now() + 70_000); return "miss"; }
+    if (r.status === 401 || r.status === 403) { keyCool.set(apiKey, Date.now() + 24 * 3600_000); return "miss"; }
+    if (!r.ok || !r.body) continue;
+    let full = "", announced = false;
+    try {
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      while (!isClosed()) {
+        const chunk = await Promise.race([
+          reader.read(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("idle")), full ? 45_000 : 25_000))
+        ]);
+        if (chunk.done) break;
+        buf += dec.decode(chunk.value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop() || "";
+        for (const ln of lines) {
+          const s = ln.replace(/^data:\s*/, "").trim();
+          if (!s || s === "[DONE]") continue;
+          try {
+            const j = JSON.parse(s);
+            const delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+            if (delta) { if (!announced) { send({ model: "mistral/" + model }); announced = true; } full += delta; send({ delta }); }
+          } catch (e) {}
+        }
+      }
+    } catch (idleErr) {
+      if (full.length > 200) { recordUse(req, apiKey, Math.round(full.length / 4), model); return "partial"; }
+      send({ reset: true }); continue;
+    }
+    if (isClosed()) return "miss";
+    if (full.trim()) { recordUse(req, apiKey, Math.round(full.length / 4), model); return "served"; }
+    send({ reset: true });
+  }
+  return "miss";
+}
+
 /* QUOTA STRETCHERS — make the free key bank last far longer:
    1) ANSWER CACHE — repeated questions answered from memory, zero tokens burned
    2) VISITOR DAILY CAP — one heavy user can never solo-drain the public pool
@@ -602,6 +684,11 @@ app.post("/v1/staff/brain", async (req, res) => {
     let closed = false;
     req.on("close", () => { closed = true; });
     try {
+      /* ADMIN LANE — a Mistral key in AI_KEY_ADMIN streams FIRST (her upgrade brain),
+         so upgradation never competes with the Groq bank. Any miss falls through to Groq. */
+      const __laneRes = await streamLane({ apiKey: ADMIN_KEY, mistralModels: MISTRAL_ADMIN_MODELS, messages, maxTok: baseTok, temperature: body.temperature, send, isClosed: () => closed, req });
+      if (__laneRes === "served") { finish(); return; }
+      if (__laneRes === "partial") { send({ partial: true }); finish(); return; }
       for (const model of MODELS) {
         if (closed) return;
         const key = pickLaneKey(ADMIN_KEY, true); /* dedicated admin-upgrade lane, falls back to the maker bank */
@@ -664,6 +751,7 @@ app.post("/v1/staff/brain", async (req, res) => {
   }
 
   /* JSON MODE — unchanged contract for tooling and tests */
+  { const __lt = await laneCall(ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, baseTok, body.temperature != null ? body.temperature : 0.3, req); if (__lt) return res.json({ choices: [{ message: { content: __lt } }], model: "admin-lane" }); }
   for (const model of MODELS) {
     try {
       const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 12000) : baseTok;
@@ -834,6 +922,11 @@ app.post("/v1/chat/completions", async (req, res) => {
   /* KEY LANE — the CODE forge tags its requests with lane:"code" so they burn
      the dedicated code key (fallback: shared bank) and never starve chat quota */
   const __lane = body.lane === "code" ? "code" : "";
+  if (__lane === "code") {
+    /* CODE LANE — a Mistral key in AI_KEY_CODE powers the forge with Codestral first */
+    const __ct = await laneCall(CODE_KEY, MISTRAL_CODE_MODELS, messages, Math.min(body.max_tokens || 4000, 8000), body.temperature, req);
+    if (__ct) return res.json({ choices: [{ message: { content: __ct } }], model: "code-lane" });
+  }
   for (const model of order) {
     try {
       /* reasoning models (gpt-oss) spend tokens thinking — floor the budget so content is never empty */
@@ -885,6 +978,8 @@ function llm1(messages, maxTok, req) {
   /* one-shot internal LLM call for the loop — the maker's missions burn the admin lane */
   return (async () => {
     const __admLane = req && (req.__role === "maker" || req.__role === "ceo");
+    /* ADMIN LANE — a Mistral key in AI_KEY_ADMIN powers maker agent loops first */
+    if (__admLane) { const __at = await laneCall(ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, Math.min(maxTok || 700, 4000), 0.3, req); if (__at) return __at; }
     for (const model of MODELS) {
       const key = __admLane ? pickLaneKey(ADMIN_KEY, true) : pickKey();
       if (!key) return null;
@@ -1080,6 +1175,11 @@ app.post("/v1/chat/stream", async (req, res) => {
   }
 
   let sawLimit = false, served = false;
+  if (body.lane === "code") {
+    /* CODE LANE over stream — Mistral/Codestral first, shared bank on any miss */
+    const __lr = await streamLane({ apiKey: CODE_KEY, mistralModels: MISTRAL_CODE_MODELS, messages, maxTok: Math.min(body.max_tokens || 4000, 8000), temperature: body.temperature, send, isClosed: () => false, req });
+    if (__lr === "served" || __lr === "partial") { if (__lr === "partial") send({ partial: true }); finish(); return; }
+  }
   outer:
   for (const model of order) {
     for (let attempt = 0; attempt < Math.max(1, KEY_POOL.length); attempt++) {
