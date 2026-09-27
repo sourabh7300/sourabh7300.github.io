@@ -9,6 +9,12 @@
 require("dotenv").config();
 const express = require("express");
 const app = express();
+/* Behind Render's load balancer every socket looks like the same internal IP.
+   Trusting the ONE proxy hop gives us the REAL visitor IP (rightmost entry —
+   spoof-proof, so caps can't be dodged with fake X-Forwarded-For headers).
+   Without this, all guests shared ONE rate-limit and ONE daily-cap bucket
+   (the "daily limit vanished" bug). */
+app.set("trust proxy", 1);
 
 /* Env vars use neutral names in this repo (AI_KEY_PRIMARY / AI_KEY_BACKUP /
    AI_KEY_RESERVE / AI_KEY_VISION); the legacy specific names are honored too so
@@ -34,7 +40,7 @@ const VISION_MODEL = process.env.VISION_MODEL || atob("Z2VtaW5pLTMuNi1mbGFzaA=="
 const RESERVE_KEY = envv("AI_KEY_RESERVE", "RESERVE_KEY");
 const RESERVE_MODEL = process.env.AI_RESERVE_MODEL || atob("bWlzdHJhbC1zbWFsbC1sYXRlc3Q=");
 let reserveCool = 0;
-async function reserveCall(messages, maxTok, temperature) {
+async function reserveCall(messages, maxTok, temperature, req) {
   if (!RESERVE_KEY || Date.now() < reserveCool) return null;
   try {
     const r = await fetch("https://api.mistral.ai/v1/chat/completions", {
@@ -47,6 +53,7 @@ async function reserveCall(messages, maxTok, temperature) {
     if (!r.ok) return null;
     const d = await r.json();
     const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+    recordUse(req, RESERVE_KEY, (d.usage && d.usage.total_tokens) || Math.round((t || "").length / 4));
     return (t && t.trim()) ? t.trim() : null;
   } catch (e) { return null; }
 }
@@ -56,7 +63,7 @@ async function reserveCall(messages, maxTok, temperature) {
 function msgHasImage(messages) {
   return messages.some(m => Array.isArray(m.content) && m.content.some(p => p && p.type === "image_url"));
 }
-async function visionCall(messages, maxTok, temperature) {
+async function visionCall(messages, maxTok, temperature, req) {
   if (!GEMINI_API_KEY) return null;
   const sys = messages.filter(m => m.role === "system").map(m => typeof m.content === "string" ? m.content : "").join("\n").trim();
   const contents = messages.filter(m => m.role !== "system").map(m => ({
@@ -82,6 +89,7 @@ async function visionCall(messages, maxTok, temperature) {
   if (!r.ok) return null;
   const d = await r.json();
   const t = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || []).map(p => p.text || "").join("").trim();
+  if (t) recordUse(req, "vision", 0);
   return t || null;
 }
 const PORT = parseInt(process.env.PORT, 10) || 3000;
@@ -146,6 +154,52 @@ function countAnswer(req) {
   if (rec && rec.day === day) rec.n++;
   else dailyCap.set(id, { day, n: 1 });
   if (dailyCap.size > 5000) for (const [k, v] of dailyCap) if (v.day !== day) dailyCap.delete(k);
+}
+
+/* ============ USAGE LEDGER — the owner sees EXACTLY what burned the key bank.
+   Every real AI call (chat, staff brain, agent, reserve, vision) records a
+   masked key label + the identity that caused it. View: /v1/admin/usage ====== */
+const TODAY = () => new Date().toISOString().slice(0, 10);
+const keyUse = new Map();  /* masked key → { day, calls, tokens } */
+const whoUse = new Map();  /* "uid:…" or "ip:…" → { day, aiCalls } */
+function keyLabel(k) {
+  if (!k) return "none";
+  if (k === "vision") return "vision";
+  if (k === RESERVE_KEY) return "reserve";
+  const i = KEY_POOL.indexOf(k);
+  return i >= 0 ? "k" + (i + 1) + "…" + k.slice(-4) : "ext…" + k.slice(-4);
+}
+function recordUse(req, key, tokens, model) {
+  try {
+    const day = TODAY();
+    const kl = keyLabel(key);
+    const rec = keyUse.get(kl) || { day, calls: 0, tokens: 0 };
+    if (rec.day !== day) { rec.day = day; rec.calls = 0; rec.tokens = 0; }
+    rec.calls++; rec.tokens += tokens || 0;
+    keyUse.set(kl, rec);
+    const id = (req && req.__uid) ? "uid:" + String(req.__uid).slice(0, 8) : "ip:" + ((req && req.ip) || "unknown");
+    const w = whoUse.get(id) || { day, aiCalls: 0 };
+    if (w.day !== day) { w.day = day; w.aiCalls = 0; }
+    w.aiCalls++;
+    whoUse.set(id, w);
+  } catch (e) {}
+}
+/* AGENT SPEND CAP — the agent loop fires several AI calls per run and was open
+   to every visitor with no cap. Guests get a small daily allowance; makers unlimited. */
+const AGENT_DAILY_CAP = parseInt(process.env.AGENT_DAILY_CAP || "12", 10);
+const agentCap = new Map(); /* id → { day, n } */
+function overAgentCap(req) {
+  if (!AGENT_DAILY_CAP) return false;
+  const id = req.__uid || req.ip || "anon";
+  const rec = agentCap.get(id);
+  return !!(rec && rec.day === TODAY() && rec.n >= AGENT_DAILY_CAP);
+}
+function countAgent(req) {
+  const id = req.__uid || req.ip || "anon";
+  const day = TODAY();
+  const rec = agentCap.get(id);
+  if (rec && rec.day === day) rec.n++;
+  else agentCap.set(id, { day, n: 1 });
 }
 
 app.use(express.json({ limit: "8mb" })); /* room for base64 photos (vision) */
@@ -383,6 +437,22 @@ app.post("/v1/admin/config", async (req, res) => {
   res.json({ ok: true, config: Object.assign({}, memConfig, patch) });
 });
 
+/* ---- USAGE LEDGER — who/what is spending the AI key bank today (owner-only) ---- */
+app.get("/v1/admin/usage", async (req, res) => {
+  const u = await requireRole(req, res, ["maker", "ceo"]);
+  if (!u) return;
+  const day = TODAY();
+  const keys = [...keyUse.entries()].filter(([, v]) => v.day === day).map(([k, v]) => ({ key: k, aiCalls: v.calls, tokens: v.tokens }));
+  const who = [...whoUse.entries()].filter(([, v]) => v.day === day).map(([k, v]) => ({ who: k, aiCalls: v.aiCalls })).sort((a, b) => b.aiCalls - a.aiCalls).slice(0, 25);
+  res.json({
+    ok: true, day,
+    keyBank: { total: KEY_POOL.length, liveNow: KEY_POOL.filter(k => !(keyCool.get(k) > Date.now())).length },
+    spendByKey: keys.length ? keys : [{ key: "(no AI calls yet today)", aiCalls: 0, tokens: 0 }],
+    biggestSpenders: who.length ? who : [{ who: "(no AI traffic yet today)", aiCalls: 0 }],
+    guestAgentRunsPerDay: AGENT_DAILY_CAP
+  });
+});
+
 /* ================= SELF-INTEGRATION: SOURCE EDIT MODE =================
    AURA reads and rewrites her OWN source file in her GitHub repo.
    The GitHub token lives ONLY here (Render env) — never in the browser. */
@@ -546,15 +616,15 @@ app.post("/v1/staff/brain", async (req, res) => {
           }
         } catch (idleErr) {
           /* stalled — rescue a decent partial, otherwise move to the next brain */
-          if (full.length > 200) { send({ partial: true }); finish(); return; }
+          if (full.length > 200) { recordUse(req, key, Math.round(full.length / 4), model); send({ partial: true }); finish(); return; }
           send({ reset: true });
           continue;
         }
         if (closed) return;
-        if (full.trim()) { finish(); return; }
+        if (full.trim()) { recordUse(req, key, Math.round(full.length / 4), model); finish(); return; }
         send({ reset: true });
       }
-      try { const rt = await reserveCall(messages, baseTok, body.temperature != null ? body.temperature : 0.3); if (rt) { send({ model: "reserve" }); send({ delta: rt }); finish(); return; } } catch (e) {}
+      try { const rt = await reserveCall(messages, baseTok, body.temperature != null ? body.temperature : 0.3, req); if (rt) { send({ model: "reserve" }); send({ delta: rt }); finish(); return; } } catch (e) {}
       const live = KEY_POOL.filter(k => !(keyCool.get(k) > Date.now())).length;
       const hint = !KEY_POOL.length ? "no AI keys configured on the backend"
         : live === 0 ? "all " + KEY_POOL.length + " AI keys are cooling/drained (free-tier limit) — add a fresh Groq key in the Render dashboard or retry in ~1 min"
@@ -582,10 +652,10 @@ app.post("/v1/staff/brain", async (req, res) => {
       if (!r.ok) continue; /* one model hiccuping must not kill the loop — try the next brain */
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-      if (t && t.trim()) return res.json({ choices: [{ message: { content: t.trim() } }], model });
+      if (t && t.trim()) { recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return res.json({ choices: [{ message: { content: t.trim() } }], model }); }
     } catch (e) {}
   }
-  try { const rt = await reserveCall(messages, baseTok, body.temperature != null ? body.temperature : 0.3); if (rt) return res.json({ choices: [{ message: { content: rt } }], model: "reserve" }); } catch (e) {}
+  try { const rt = await reserveCall(messages, baseTok, body.temperature != null ? body.temperature : 0.3, req); if (rt) return res.json({ choices: [{ message: { content: rt } }], model: "reserve" }); } catch (e) {}
   const live = KEY_POOL.filter(k => !(keyCool.get(k) > Date.now())).length;
   const hint = !KEY_POOL.length ? "no AI keys configured on the backend"
     : live === 0 ? "all " + KEY_POOL.length + " AI keys are cooling/drained (free-tier limit) — add a fresh Groq key in the Render dashboard or retry in ~1 min"
@@ -726,7 +796,7 @@ app.post("/v1/chat/completions", async (req, res) => {
 
   /* VISION: messages that carry an image route to the vision brain */
   if (msgHasImage(messages)) {
-    const vt = await visionCall(messages, Math.min(body.max_tokens || 900, 4000), body.temperature);
+    const vt = await visionCall(messages, Math.min(body.max_tokens || 900, 4000), body.temperature, req);
     if (vt) return res.json({ choices: [{ message: { content: vt } }], model: "vision brain" });
     if (!GEMINI_API_KEY) return res.status(501).json({ error: "no_vision_model", message: "My image brain needs its key — the owner can enable it privately in the hosting dashboard. Text answers are unaffected." });
     return res.status(502).json({ error: "vision_failed", message: "The vision model could not read that image — try a clearer photo." });
@@ -759,12 +829,12 @@ app.post("/v1/chat/completions", async (req, res) => {
       if (!r.ok) return res.status(r.status).json({ error: "Upstream HTTP " + r.status });
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-      if (t && t.trim()) { if (!makerHere) { cachePut(messages, t.trim(), model); countAnswer(req); } return res.json({ choices: [{ message: { content: t.trim() } }], model }); }
+      if (t && t.trim()) { recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); if (!makerHere) { cachePut(messages, t.trim(), model); countAnswer(req); } return res.json({ choices: [{ message: { content: t.trim() } }], model }); }
     } catch (e) { /* network hiccup → try next model */ }
   }
   if (sawLimit) {
     /* the key bank is drained — try the reserve brain before giving up */
-    const mt = await reserveCall(messages, Math.min(body.max_tokens || 1400, 4000), body.temperature);
+    const mt = await reserveCall(messages, Math.min(body.max_tokens || 1400, 4000), body.temperature, req);
     if (mt) return res.json({ choices: [{ message: { content: mt } }], model: RESERVE_MODEL + " (reserve)" });
     /* nothing left — AURA turns this into a friendly notice */
     return res.status(429).json({ error: "out_of_tokens", outOfTokens: true,
@@ -780,7 +850,7 @@ app.post("/v1/chat/completions", async (req, res) => {
    Streams progress as SSE: data:{step:...} → data:{delta:final} → data:[DONE]
    This is the tool-loop that turns a chatbot into an agent (deep-research style). */
 const MAX_STEPS = 8;
-function llm1(messages, maxTok) {
+function llm1(messages, maxTok, req) {
   /* one-shot internal LLM call for the loop (uses pickKey directly) */
   return (async () => {
     for (const model of MODELS) {
@@ -796,10 +866,10 @@ function llm1(messages, maxTok) {
       if (!r.ok) { if (r.status === 429) keyCool.set(key, Date.now() + 70_000); continue; }
         const d = await r.json();
         const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-        if (t && t.trim()) return t.trim();
+        if (t && t.trim()) { recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
       } catch (e) {}
     }
-    const mt = await reserveCall(messages, maxTok, 0.3);
+    const mt = await reserveCall(messages, maxTok, 0.3, req);
     return mt;
   })();
 }
@@ -856,6 +926,14 @@ app.post("/v1/agent", async (req, res) => {
   const body = req.body || {};
   const q = String(body.question || "").trim();
   if (!q) return res.status(400).json({ error: "question required" });
+  /* AGENT SPEND CONTROL — every step is a real AI call. Makers run freely;
+     guests get a small daily allowance so drive-by scripts can't farm the bank. */
+  const agentMaker = req.__role === "maker" || req.__role === "ceo";
+  if (!agentMaker) {
+    if (overAgentCap(req)) return res.status(429).json({ error: "guest agent limit reached for today — sign in for more runs" });
+    body.maxSteps = Math.min(parseInt(body.maxSteps, 10) || 5, 4);
+  }
+  countAgent(req);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -888,7 +966,7 @@ app.post("/v1/agent", async (req, res) => {
         (sources.length ? "\n\nSOURCES FOUND:\n" + sources.map((s, i) => "[" + (i + 1) + "] " + s.title + " — " + s.url).join("\n") : "") +
         (transcript.length ? "\n\nWORK SO FAR:\n" + transcript.join("\n").slice(-4000) : "") }
  ];
-    let raw = await llm1(convo, 500);
+    let raw = await llm1(convo, 500, req);
     if (!raw) { send({ step: { icon: "⚠️", label: "brain busy — every key is cooling, retry shortly" } }); finish(); return; }
     const j = extractJson(raw);
     if (!j || !j.tool) {
@@ -927,7 +1005,7 @@ app.post("/v1/agent", async (req, res) => {
       { role: "system", content: "You are AURA. Write the final user-facing answer to the REQUEST using the WORK SO FAR. Clear, direct, human. Cite sources as [1],[2] where used. No preamble." },
       { role: "user", content: "REQUEST: " + q + "\n\nSOURCES:\n" + sources.map((s, i) => "[" + (i + 1) + "] " + s.title + " — " + s.url).join("\n") + "\n\nWORK SO FAR:\n" + transcript.join("\n").slice(-4500) }
     ];
-    finalAnswer = await llm1(convo2, 1400) || "I gathered the pieces but ran out of steps before I could finish — ask me again and I'll get there.";
+    finalAnswer = await llm1(convo2, 1400, req) || "I gathered the pieces but ran out of steps before I could finish — ask me again and I'll get there.";
   }
   finalAnswer = String(finalAnswer).trim();
   if (sources.length) {
@@ -963,7 +1041,7 @@ app.post("/v1/chat/stream", async (req, res) => {
 
   /* VISION over stream: image messages resolve via Gemini, delivered as one delta */
   if (msgHasImage(messages)) {
-    const vt = await visionCall(messages, Math.min(body.max_tokens || 900, 4000), body.temperature);
+    const vt = await visionCall(messages, Math.min(body.max_tokens || 900, 4000), body.temperature, req);
     if (vt) { send({ model: "vision brain" }); send({ delta: vt }); finish(); return; }
     if (!GEMINI_API_KEY) { send({ error: "My image brain needs its key — the owner can enable it privately in the hosting dashboard. Text answers are unaffected." }); finish(); return; }
     send({ error: "The vision model could not read that image — try a clearer photo." }); finish(); return;
