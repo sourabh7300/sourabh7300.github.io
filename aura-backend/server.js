@@ -556,7 +556,12 @@ app.post("/v1/staff/brain", async (req, res) => {
   const body = req.body || {};
   const messages = Array.isArray(body.messages) ? body.messages.slice(-12) : null;
   if (!messages || messages.some(m => !m || typeof m.content !== "string")) return res.status(400).json({ error: "messages required" });
-  const baseTok = Math.min(body.max_tokens || 3000, 8000); /* she needs room to build big */
+  /* FEATURE BIAS — commands that build/add/change features get HIGH reasoning effort,
+     so she actually engineers instead of answering fast and shallow. */
+  const __task = messages.map(m => m.content).join(" ");
+  const __feature = /\b(add|build|create|make|implement|wire|integrate|feature|panel|button|system|mode|fix)\b/i.test(__task) && !/appearance|just color|animation only|cosmetic/i.test(__task);
+  const __effort = (body.reasoning_effort === "high" || __feature) ? "high" : "medium";
+  const baseTok = Math.min(body.max_tokens || 3000, 16000); /* real features need room — gpt-oss thinks INSIDE the token budget */
 
   /* STREAM MODE — the maker watches the code materialize live.
      Watchdogs are IDLE-based: a model only dies if it stops producing tokens
@@ -578,13 +583,13 @@ app.post("/v1/staff/brain", async (req, res) => {
         if (closed) return;
         const key = pickKey(true); /* maker-reserved key */
         if (!key) break;
-        const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 600) : baseTok;
+        const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 12000) : baseTok;
         let r;
         try {
           r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
             method: "POST",
             headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-            body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3, reasoning_effort: body.reasoning_effort || "medium", stream: true }),
+            body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3, reasoning_effort: __effort, stream: true }),
             signal: AbortSignal.timeout(30_000) /* connect + first response headers only */
           });
         } catch (e) { continue; }
@@ -638,13 +643,13 @@ app.post("/v1/staff/brain", async (req, res) => {
   /* JSON MODE — unchanged contract for tooling and tests */
   for (const model of MODELS) {
     try {
-      const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 600) : baseTok;
+      const mt = model.startsWith("openai/gpt-oss") ? Math.max(baseTok, 12000) : baseTok;
       const key = pickKey(true); /* maker-reserved key — public traffic never touches this one */
       if (!key) break;
       const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3, reasoning_effort: body.reasoning_effort || "medium" }),
+        body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3, reasoning_effort: __effort }),
         signal: AbortSignal.timeout(60_000)
       });
       if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); continue; }
