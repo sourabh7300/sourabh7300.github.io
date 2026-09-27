@@ -15,6 +15,12 @@
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#020709">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E🤖%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="https://aura-backend-jomj.onrender.com/manifest.webmanifest">
 <style>
 :root{
   --bg:#020709;--cy:#22d3ee;--cy2:#67e8f9;--dim:#0e7490;--ice:#e0faff;
@@ -2483,7 +2489,7 @@ async function geminiCall(q,deep){
   const style=persona()==="jarvis"
     ? " Persona: JARVIS (Iron Man's butler) — formal British courtesy ('sir'), understated dry wit, supreme competence, tactical framing. Address the user as 'sir' occasionally, never grovel, never use emoji."
     : " Persona: AURA — warm, curious, slightly cinematic holographic assistant built by Sourabh Singh.";
-  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+(deep?" The user asked for depth: answer thoroughly (up to 320 words), structured in 2-4 short paragraphs, include concrete facts, numbers and examples, plain text.":" Reply concise (under 110 words), confident, plain text.")+(name?" The user's name is "+name+".":"");
+  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. If something is time-sensitive and you may be outdated, say so in one short line."+(deep?" The user asked for depth: cover the full picture (up to 320 words) in 2-4 short paragraphs plus bullets.":" Keep it under 110 words unless code or a list is needed.")+(name?" The user's name is "+name+".":"");
   if(aiProvider()==="groq"){
     return await groqCall([{role:"system",content:sys+replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900);
   }
@@ -3202,6 +3208,49 @@ async function thinkAnswer(q,deep,hi){
   }
   return null;
 }
+/* ================= TASKS — she handles your work: capture, track, remind, complete ================= */
+window.AuraTasks=(function(){
+  const KEY="aura_tasks_v1";
+  function all(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
+  function save(L){try{localStorage.setItem(KEY,JSON.stringify(L.slice(0,200)))}catch(e){}}
+  function add(txt,when){const L=all();const t={id:Date.now(),txt:String(txt).slice(0,300),done:false,at:when||0,created:Date.now()};L.unshift(t);save(L);return t}
+  function done(i){const L=all();const open=L.filter(function(t){return !t.done});const t=open[i-1];if(t){t.done=true;t.completedAt=Date.now();save(L);return t}return null}
+  function drop(i){const L=all();const open=L.filter(function(t){return !t.done});if(open[i-1]){save(L.filter(function(t){return t!==open[i-1]}));return true}return false}
+  function clearDone(){const L=all();const n=L.filter(function(t){return t.done}).length;save(L.filter(function(t){return !t.done}));return n}
+  function render(){
+    const L=all(),open=L.filter(function(t){return !t.done}),dn=L.filter(function(t){return t.done}).slice(0,5);
+    if(!L.length)return "📋 Task board is empty. Say \"add task revise DSA at 6pm\" and I'll track it and remind you.";
+    let out="📋 TASK BOARD — "+open.length+" open\n"+(open.length?open.map(function(t,i){return (i+1)+". "+(t.at?"⏰ ":"")+t.txt}).join("\n"):"(all clear ✓)");
+    if(dn.length)out+="\n\n✅ Recently done: "+dn.map(function(t){return t.txt}).join(" · ");
+    return out;
+  }
+  /* chat command router — returns a reply string, or null when the text is not a task command */
+  function route(q){
+    const t=(q||"").trim();const ol=t.toLowerCase();let m;
+    if(/^(show|list|my|open)\s+(tasks?|todo|to-do|task board)$/.test(ol)||ol==="tasks")return render();
+    if((m=t.match(/^add\s+(?:task\s+|todo\s+)?(.+)$/i))){
+      let txt=m[1];let when=0;
+      const tm=txt.match(/\bat\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\b/i);
+      if(tm){let h=+tm[1];const mi=tm[2]?+tm[2]:0;const ap=(tm[3]||"").toLowerCase();if(ap==="pm"&&h<12)h+=12;if(ap==="am"&&h===12)h=0;const d=new Date();d.setHours(h,mi,0,0);if(d.getTime()<Date.now())d.setDate(d.getDate()+1);when=d.getTime();txt=txt.replace(tm[0],"").replace(/\b(today|tomorrow)\b/i,"").trim();}
+      const a=add(txt,when);
+      try{AuraRemind.add(a.txt,when)}catch(e){}
+      return "📋 Task captured"+(when?" — I'll remind you at "+new Date(when).toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"}):"")+": \""+a.txt+"\". Say \"show tasks\" anytime, or \"done 1\" when finished.";
+    }
+    if((m=ol.match(/^(?:done|complete|finished|tick(?: off)?)\s+(?:task\s+)?#?(\d+)$/))){const tsk=done(+m[1]);return tsk?"✅ Done: \""+tsk.txt+"\" — "+all().filter(function(x){return !x.done}).length+" task(s) left.":"Couldn't find open task #"+m[1]+" — say \"show tasks\".";}
+    if((m=ol.match(/^(?:delete|remove|drop)\s+(?:task\s+)?#?(\d+)$/))){return drop(+m[1])?"🗑 Deleted task #"+m[1]+".":"No open task #"+m[1]+".";}
+    if(/^(clear|clean)\s+(done|completed)\s+tasks?$/.test(ol)){const n=clearDone();return n?"🗑 Cleared "+n+" completed task(s).":"Nothing completed to clear.";}
+    return null;
+  }
+  return {all:add?all:null,add:add,route:route,render:render,done:done,drop:drop,clearDone:clearDone};
+})();
+/* due-task reminders — she speaks up when timed work comes due */
+setInterval(function(){
+  try{
+    const L=JSON.parse(localStorage.getItem("aura_tasks_v1")||"[]");let ch=false;const now=Date.now();
+    L.forEach(function(t){if(!t.done&&t.at&&t.at<=now&&!t.fired){t.fired=true;ch=true;pushSys("⏰ TASK DUE: "+t.txt);try{if(typeof soundOn!=="undefined"&&soundOn&&voiceAllowed())speak("Reminder: "+t.txt)}catch(e){}}});
+    if(ch)localStorage.setItem("aura_tasks_v1",JSON.stringify(L));
+  }catch(e){}
+},30000);
 async function aiReply(q){
   /* owner cockpit: silent intents first — they never reach the chat as questions */
   try{
@@ -3216,6 +3265,8 @@ async function aiReply(q){
   }catch(e){}
   /* ECOSYSTEM OS — voice commands drive the user's own apps */
   {const eco=window.AuraEco&&AuraEco.route(q);if(eco)return{t:eco,eng:'ecosystem OS · portfolio apps'};}
+  /* TASKS — capture and run the user's work straight from chat */
+  {const tk=window.AuraTasks&&AuraTasks.route(q);if(tk)return{t:tk,eng:"task board · your work, tracked"};}
   /* AGENT MODE — armed via 🤖 AGENT button or "agent mode <question>" */
   if(!window.__agentBusy&&(window.__agentArmed||/^(?:hey (?:aura|jarvis)[, ]*)?(?:agent mode|deep research)\b/i.test((q||'').trim()))){
     window.__agentArmed=false;
@@ -3247,6 +3298,8 @@ async function aiReply(q){
   const rc=resolveContext(q);if(rc!==q)q=rc;
   /* safety net: after context resolution the text may have become a full question — recheck before denying the live brain */
   if(!knowledge&&isKnowledgeEN(q)&&q.split(/\s+/).length>=3){try{if(localReply(q)===undefined)knowledge=true}catch(e){}}
+  /* any explicit question mark deserves the full brain, not a shrug */
+  if(!knowledge&&/\?/.test(q))knowledge=true;
   if(knowledge){
     /* TIME-SENSITIVE → live research path first (real-time web + citations) */
     if(NEED_WEB.test(q)){const rr=await researchReply(q,hiMode);if(rr&&rr.trim())return{t:rr,eng:"live web research · "+personaName()+" · "+((rr.match(/\[\d+\]/g)||[]).length)+" citations"};}
@@ -3692,6 +3745,18 @@ async function askCore(text0){
   else{el.innerHTML=renderMD(t);el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);
     /* voice now talking → surface the STOP bar so users can halt her mid-paragraph */
     try{const sb=document.getElementById("stopBtn");sb.classList.add("show");sb.onclick=()=>{stopSpeech();sb.classList.remove("show");pushSys("voice stopped")}}catch(e){}}
+  /* FOLLOW-UP CHIPS — one tap continues the thought (professional assistant feel) */
+  try{
+    const chipWrap=document.createElement("div");chipWrap.style.cssText="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px";
+    const __tp=((typeof lastTopic!=="undefined"&&lastTopic)||topicOf(text)||"this topic").slice(0,42);
+    [["🧒 ELI5","explain like I am five: "+__tp],["🔬 DEEPER",__tp+" in detail"],["🎯 APPLY","practical uses of "+__tp]].forEach(function(c){
+      const b=document.createElement("button");b.textContent=c[0];
+      b.style.cssText="padding:5px 11px;font:600 10px Rajdhani;letter-spacing:.5px;color:var(--cy2);background:rgba(34,211,238,.08);border:1px solid var(--line);border-radius:999px;cursor:pointer";
+      b.onmouseenter=function(){b.style.background="rgba(34,211,238,.18)"};b.onmouseleave=function(){b.style.background="rgba(34,211,238,.08)"};
+      b.onclick=function(){ask(c[1])};chipWrap.appendChild(b);
+    });
+    el.appendChild(chipWrap);log.scrollTop=log.scrollHeight;
+  }catch(e){}
   blip(520,.1,"triangle");
   busy=false;
   if(wake)armWake(400);
@@ -6535,6 +6600,11 @@ document.addEventListener("DOMContentLoaded",function(){
       hb2.disabled=false;
     };
   })();
+  /* KEEP-WARM — a whisper to /health every 4 minutes so the Render brain never sleeps;
+     kills the ~50s cold-start lag completely while any AURA tab is open */
+  try{setInterval(function(){fetch(backendUrl()+"/health",{signal:AbortSignal.timeout(8000)}).catch(function(){})},240000)}catch(e){}
+  /* PWA — installable app + a background worker that keeps her brain warm even when the tab naps */
+  try{if('serviceWorker' in navigator&&location.protocol==='https:'){navigator.serviceWorker.register(backendUrl()+'/sw.js').catch(function(){})}}catch(e){}
   /* APPLIER — on boot, any visitor applies shipped patches (after core is ready) */
   try{
     fetch(backendUrl()+"/v1/config").then(r=>r.json()).then(async function(c){
