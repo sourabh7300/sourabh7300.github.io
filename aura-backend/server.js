@@ -527,15 +527,23 @@ app.post("/v1/dev/commit", async (req, res) => {
   if (!edits.length || edits.some(e => !e || !String(e.find).length)) return res.status(400).json({ error: "edits array with non-empty find strings required" });
   try {
     let src = await ghFetchRaw();
+    /* WHITESPACE-TOLERANT ANCHORING — code models paraphrase indentation and
+       blank lines; a human engineer's applier doesn't care. Exact match wins;
+       otherwise match with all whitespace runs collapsed. This is what makes
+       her first-draft edits actually LAND instead of dying in dry-run. */
+    const normMap = s => { let out = "", map = [], sp = false; for (let i = 0; i < s.length; i++) { const c = s[i]; if (/\s/.test(c)) { if (sp) continue; sp = true; out += " "; map.push(i); } else { sp = false; out += c; map.push(i); } } return { text: out, map }; };
+    const findAllTolerant = (hay, needle) => { const A = normMap(hay), B = normMap(needle); const spans = []; let i = A.text.indexOf(B.text); while (i > -1 && spans.length < 50) { spans.push([A.map[i], A.map[i + B.text.length - 1] + 1]); i = A.text.indexOf(B.text, i + 1); } return spans; };
     const applied = [];
     for (const ed of edits) {
       const find = String(ed.find), replace = String(ed.replace == null ? "" : ed.replace);
-      const count = src.split(find).length - 1;
-      if (count === 0) return res.status(409).json({ ok: false, error: "find-string not found in current file", failedEdit: find.slice(0, 120), appliedSoFar: applied.length });
+      let spans = [], count = src.split(find).length - 1;
+      if (count > 0) { let i = src.indexOf(find); while (i > -1 && spans.length < 50) { spans.push([i, i + find.length]); i = src.indexOf(find, i + 1); } }
+      else { spans = findAllTolerant(src, find); count = spans.length; }
+      if (count === 0) return res.status(409).json({ ok: false, error: "find-string not found in current file (even whitespace-insensitively — copy it from the REAL excerpts shown to you)", failedEdit: find.slice(0, 120), appliedSoFar: applied.length });
       if (count > 1 && !ed.replaceAll) return res.status(409).json({ ok: false, error: `find-string matches ${count} locations — make it longer or send replaceAll:true`, failedEdit: find.slice(0, 120), appliedSoFar: applied.length });
-      const i0 = src.indexOf(find);
-      src = count > 1 ? src.split(find).join(replace) : src.slice(0, i0) + replace + src.slice(i0 + find.length);
-      applied.push({ count: count > 1 ? count : 1, atLine: src.slice(0, i0).split("\n").length });
+      const i0 = spans[0][0];
+      src = count > 1 ? spans.reverse().reduce((acc, sp2) => acc.slice(0, sp2[0]) + replace + acc.slice(sp2[1]), src) : src.slice(0, i0) + replace + src.slice(spans[0][1]);
+      applied.push({ count, atLine: src.slice(0, i0).split("\n").length });
     }
     const meta = await (await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_FILE}?ref=${GH_BRANCH}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(30000) })).json();
     if (!meta || !meta.sha) return res.status(502).json({ error: "could not read file metadata from GitHub" });
