@@ -14,8 +14,8 @@
   ═══════════════════════════════════════════════════════════════
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
-<meta name="theme-color" content="#020709">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<meta name="theme-color" content="#05070E">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -23,9 +23,13 @@
 <link rel="manifest" href="manifest.webmanifest">
 <style>
 :root{
-  --bg:#020709;--cy:#22d3ee;--cy2:#67e8f9;--dim:#0e7490;--ice:#e0faff;
-  --panel:rgba(4,18,26,.72);--line:rgba(34,211,238,.28);--line2:rgba(34,211,238,.14);
+  /* AURA 3.0 — professional command deck */
+  --bg:#05070E;--cy:#5B8CFF;--cy2:#7CA3FF;--dim:#5E6B92;--ice:#E8ECF8;
+  --panel:rgba(13,18,38,.78);--line:rgba(122,146,255,.26);--line2:rgba(122,146,255,.12);
   --amber:#fbbf24;--red:#f87171;--mono:'JetBrains Mono',monospace;
+  --ok:#34d399;--err:#f87171;
+  --r-lg:18px;--r-md:13px;--r-sm:9px;--sp5:20px;--sp4:17px;
+  --shadow:0 1px 2px rgba(0,0,0,.25),0 24px 60px rgba(2,6,24,.45);
 }
 body[data-persona="jarvis"]{
   --bg:#0a0702;--cy:#f5b301;--cy2:#ffd75e;--dim:#8a6a10;--ice:#fff8e6;
@@ -34,10 +38,14 @@ body[data-persona="jarvis"]{
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{background:var(--bg);color:var(--ice);font-family:'Rajdhani',system-ui,sans-serif;overflow:hidden}
-::selection{background:var(--cy);color:#000}
+body{background:
+  radial-gradient(1200px 700px at 78% -10%,rgba(91,140,255,.10),transparent 60%),
+  radial-gradient(900px 600px at 0% 110%,rgba(91,140,255,.06),transparent 55%),
+  var(--bg);
+  color:var(--ice);font-family:'Inter',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+::selection{background:var(--cy);color:#05070E}
 ::-webkit-scrollbar{width:7px}
-::-webkit-scrollbar-thumb{background:#164e5a;border-radius:4px}
+::-webkit-scrollbar-thumb{background:rgba(122,146,255,.28);border-radius:4px}
 
 canvas#fx{position:fixed;inset:0;z-index:0}
 #scan{position:fixed;inset:0;z-index:2;pointer-events:none;
@@ -114,7 +122,7 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 #topbar,#tabbar,#dock,#telemetry,#chips{transition:opacity .25s ease}
 body.focus-mode #topbar,body.focus-mode #tabbar,body.focus-mode #dock,body.focus-mode #telemetry,body.focus-mode #chips{opacity:.35}
 #chipFocus.on{background:rgba(34,211,238,.28);border-color:var(--cy);color:var(--ice);box-shadow:0 0 14px rgba(34,211,238,.45)}
-body.theme-nexa #chipFocus.on{background:#EDEAFF;border-color:#D8D2FA;color:#6D5AE0;box-shadow:0 0 14px rgba(120,101,233,.25)}
+
 
 /* ---------- bottom controls ---------- */
 #dock{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10;display:flex;flex-direction:column;align-items:center;gap:12px;width:min(640px,92vw)}
@@ -154,93 +162,7 @@ body.theme-classical .src-card{background:rgba(139,94,52,.08);border-color:rgba(
 body.theme-classical .src-card .srcn{background:rgba(139,94,52,.16);color:#6b4226}
 body.theme-classical .src-card .srch{color:#a08662}
 
-/* ============================================================
-   NEXA THEME — clean light workspace skin (DM Sans + Manrope,
-   #F7F8FC canvas, indigo sidebar tones, violet #7865E9 accent)
-   Same AURA engine underneath — every control keeps working.
-   ============================================================ */
-body.theme-nexa{
-  --bg:#F7F8FC;--cy:#7865E9;--cy2:#6D5AE0;--dim:#727A8E;--ice:#172033;
-  --panel:rgba(255,255,255,.92);--line:#E9EBF2;--line2:#E9EBF2;
-  --amber:#B08D00;
-}
-body.theme-nexa{font-family:'DM Sans',system-ui,sans-serif}
-body.theme-nexa ::selection{background:#D6D1FF;color:#172033}
-body.theme-nexa ::-webkit-scrollbar-thumb{background:#D5D9E6;border-radius:4px}
-/* canvas: hide the holographic particle field & scanner — light airy canvas instead */
-body.theme-nexa canvas#fx{opacity:.16;filter:none}
-body.theme-nexa #scan,body.theme-nexa #vig{display:none}
-body.theme-nexa .corner{border-color:#E9EBF2}
-/* typography shift: Manrope headings, DM Sans body */
-body.theme-nexa .wordmark{font-family:'Manrope';font-weight:800;letter-spacing:3px;color:#172033;text-shadow:none}
-body.theme-nexa .wordmark small{color:#A6ACC0}
-body.theme-nexa #stateBox{background:#fff;border:1px solid #E9EBF2;box-shadow:0 1px 2px rgba(23,32,51,.05)}
-body.theme-nexa #stateDot{background:#0E9F6E;box-shadow:0 0 8px rgba(14,159,110,.5)}
-body.theme-nexa #stateText{color:#0E9F6E}
-body.theme-nexa #clock{color:#A6ACC0}
-body.theme-nexa #clock b{color:#172033}
-/* panels → white cards with soft shadow */
-body.theme-nexa .panel{background:#fff;border:1px solid #E9EBF2;border-radius:14px;box-shadow:0 1px 2px rgba(23,32,51,.05),0 8px 28px rgba(23,32,51,.06);backdrop-filter:none}
-body.theme-nexa .panel h3{color:#172033;border-bottom-color:#EEF0F6;letter-spacing:2px}
-body.theme-nexa .panel h3 span:last-child{color:#A6ACC0}
-body.theme-nexa #telemetry .trow{color:#727A8E;border-bottom:1px solid #F3F4F9}
-body.theme-nexa #telemetry .trow b{color:#172033}
-/* tab bar → pill tabs */
-body.theme-nexa #tabbar button{background:#fff;border:1px solid #E9EBF2;color:#727A8E;border-radius:10px;font-family:'DM Sans';letter-spacing:.6px;font-weight:600;box-shadow:0 1px 2px rgba(23,32,51,.04)}
-body.theme-nexa #tabbar button:hover{color:#6D5AE0;border-color:#D8D2FA;background:#F4F2FF}
-body.theme-nexa #tabbar button.on{color:#6D5AE0;border-color:#D8D2FA;background:#EDEAFF;box-shadow:none}
-/* conversation card */
-body.theme-nexa #conv{background:linear-gradient(180deg,#fff,#FBFBFE);box-shadow:0 1px 2px rgba(23,32,51,.05),0 10px 34px rgba(23,32,51,.07)}
-body.theme-nexa #conv h3{color:#172033}
-body.theme-nexa #engTag{color:#A6ACC0;letter-spacing:.4px;text-transform:none;font-family:'DM Sans'}
-body.theme-nexa .msg{font-family:'DM Sans'}
-body.theme-nexa .msg.aura{background:#F4F2FF;border:1px solid #E4DEFC;border-radius:14px;border-top-left-radius:4px}
-body.theme-nexa .msg.aura .who{color:#6D5AE0}
-body.theme-nexa .msg .tx b{color:#4A3F99}
-body.theme-nexa .msg.user{background:#172033;color:#fff;border:none;border-radius:14px;border-top-right-radius:4px}
-body.theme-nexa .msg.user .who{color:#B3A7F5}
-body.theme-nexa .msg.sys{color:#A6ACC0}
-body.theme-nexa .msg .tx code{background:#F4F2FF;border-color:#E4DEFC;color:#4A3F99}
-body.theme-nexa .msg .tx pre{background:#1E2037;border-color:#1E2037;color:#E6E4F7}
-body.theme-nexa .msg .tx h4{color:#6D5AE0;letter-spacing:.6px;font-family:'Manrope'}
-body.theme-nexa .mdlink{color:#6D5AE0}
-/* chips */
-body.theme-nexa .chip{background:#fff;border:1px solid #E9EBF2;color:#727A8E;border-radius:16px;font-family:'DM Sans';letter-spacing:.4px;font-weight:500}
-body.theme-nexa .chip:hover{color:#6D5AE0;border-color:#D8D2FA;background:#F4F2FF}
-/* composer + dock */
-body.theme-nexa #q{background:#fff;border:1px solid #E9EBF2;color:#172033;border-radius:22px;font-family:'DM Sans';box-shadow:0 1px 2px rgba(23,32,51,.05)}
-body.theme-nexa #q::placeholder{color:#A6ACC0}
-body.theme-nexa #q:focus{border-color:#B9AEF5;box-shadow:0 0 0 3px rgba(120,101,233,.12)}
-body.theme-nexa #sendBtn{background:#7865E9;border-color:#7865E9;color:#fff}
-body.theme-nexa #sendBtn:hover{background:#6D5AE0}
-body.theme-nexa .ibtn{background:#fff;border-color:#E9EBF2;color:#727A8E;font-family:'DM Sans';letter-spacing:.5px}
-body.theme-nexa .ibtn:hover{color:#6D5AE0;border-color:#D8D2FA}
-body.theme-nexa .cbtn{background:#fff;border:1px solid #E9EBF2;color:#727A8E;font-family:'DM Sans'}
-body.theme-nexa .cbtn:hover{color:#6D5AE0;border-color:#D8D2FA}
-body.theme-nexa .cbtn.on{background:#EDEAFF;border-color:#D8D2FA;color:#6D5AE0}
-body.theme-nexa #micBtn{background:#7865E9;color:#fff;border-color:#7865E9;box-shadow:0 6px 20px rgba(120,101,233,.35)}
-/* telemetry + syslog chips */
-body.theme-nexa #syslog{background:#fff}
-body.theme-nexa #syslogLines{color:#727A8E}
-body.theme-nexa #syslogLines .hot{color:#6D5AE0}
-/* source cards */
-body.theme-nexa .srcbox{background:#F8F7FE;border-color:#E4DEFC}
-body.theme-nexa .srcbox-t{color:#6D5AE0}
-body.theme-nexa .src-card{background:#fff;border-color:#E4DEFC;color:#172033}
-body.theme-nexa a.src-card:hover{border-color:#B9AEF5;background:#F4F2FF}
-body.theme-nexa .src-card .srcn{background:#EDEAFF;color:#6D5AE0}
-body.theme-nexa .src-card .srch{color:#A6ACC0}
-/* admin/auth pages */
-body.theme-nexa .admin-card,body.theme-nexa .auth-card{background:#fff;border-color:#E9EBF2;color:#172033}
-body.theme-nexa .auth-btn{font-family:'DM Sans'}
-body.theme-nexa input,body.theme-nexa textarea,select{font-family:'DM Sans'}
-/* boot ring */
-body.theme-nexa #bootRing{border-color:#DDD6FA;border-top-color:#7865E9}
-body.theme-nexa #bootRing::after{color:#6D5AE0}
-body.theme-nexa #bootLog{color:#A6ACC0}
-body.theme-nexa #bootLog .ok{color:#0E9F6E}
-/* stop bar */
-body.theme-nexa #stopBtn{background:rgba(239,68,68,.08);border-color:#FCA5A5;color:#B91C1C;box-shadow:0 6px 20px rgba(239,68,68,.15)}
+
 /* STOP voice bar — prominent, obvious, tappable */
 .clipwrap{position:relative;display:inline-flex}
 #imgInput{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
@@ -766,169 +688,43 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
 }
 </style>
 <style>
+
 /* ============================================================
-   NEXA WORKSPACE LAYOUT — the real deal: navy sidebar, topbar,
-   greeting, hero prompt, tool cards. Active in theme-nexa only.
-   Wires to AURA's real sessions, real ask(), real tabs.
+   AURA 3.0 SKIN — professional command deck (the default look)
+   Inter + Manrope, deep-azure glass, calm motion. The other
+   themes (cyan / gold / classical) stay fully intact.
    ============================================================ */
-#nx{display:none}
-body.theme-nexa #nx{display:block}
-#nx{position:fixed;inset:0;z-index:6;display:none}
-body.theme-nexa #topbar,body.theme-nexa #telemetry,body.theme-nexa #syslog,body.theme-nexa #tabbar,body.theme-nexa #chips,body.theme-nexa #conv,body.theme-nexa #aboutCard{display:none}
-body.theme-nexa #dock{position:fixed;left:auto;right:calc((100vw - 248px - min(1120px,calc(100vw - 248px)))/2 + 32px);bottom:auto;top:auto;display:none}
-body.theme-nexa .corner{display:none}
-#nx .nx-app{display:flex;min-height:100vh}
-#nx .nx-sidebar{width:248px;background:#202237;color:#fff;padding:25px 16px;display:flex;flex-direction:column;flex-shrink:0;position:relative;z-index:2}
-#nx .nx-brand{display:flex;align-items:center;gap:11px;padding:0 10px 32px;font:800 20px Manrope,sans-serif;letter-spacing:-.6px}
-#nx .nx-brand-mark{width:32px;height:32px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(135deg,#8b73ff,#5f49d8);box-shadow:0 5px 15px #7059e855;font-size:16px}
-#nx .nx-side-label{font-size:10px;letter-spacing:1.5px;color:#888ba7;padding:0 11px 10px;font-weight:700}
-#nx .nx-newchat{display:flex;align-items:center;gap:9px;margin:0 0 22px;padding:10px 12px;border:1px solid #ffffff26;border-radius:9px;background:#ffffff0a;color:#fff;text-align:left;font-size:12px;cursor:pointer}
-#nx .nx-newchat span{font-size:17px}
-#nx .nx-chatlist{display:grid;gap:3px;max-height:210px;overflow:auto;margin:-3px 0 18px}
-#nx .nx-chat{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 11px;border:0;border-radius:8px;text-align:left;background:transparent;color:#a7a9bf;font-size:11px;cursor:pointer}
-#nx .nx-chat:hover,#nx .nx-chat.on{background:#ffffff12;color:#fff}
-#nx .nx-nav{display:grid;gap:5px}
-#nx .nx-nav button{border:0;background:none;color:#a7a9bf;text-align:left;display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;font-size:13px;cursor:pointer;transition:.18s;font-family:'DM Sans'}
-#nx .nx-nav button:hover{background:#ffffff0b;color:white}
-#nx .nx-nav button.on{background:#ffffff12;color:white}
-#nx .nx-nav button.on .nx-nicon{color:#a897ff}
-#nx .nx-nicon{width:17px;display:inline-grid;place-items:center;font-size:15px}
-#nx .nx-upgrade{border:1px solid #ffffff18;background:linear-gradient(145deg,#ffffff0a,#ffffff03);border-radius:14px;padding:15px;margin:20px 2px 18px}
-#nx .nx-upgrade strong{font:700 12px Manrope}
-#nx .nx-upgrade p{font-size:11px;line-height:1.5;color:#a4a6bb;margin:7px 0 0}
-#nx .nx-main{flex:1;min-width:0;height:100vh;overflow-y:auto;position:relative}
-#nx .nx-topbar{position:sticky;top:0;height:72px;background:#ffffffbd;border-bottom:1px solid #E9EBF2;display:flex;align-items:center;justify-content:space-between;padding:0 42px;backdrop-filter:blur(12px);z-index:3}
-#nx .nx-crumb{font-size:12px;color:#8991a5}
-#nx .nx-crumb b{color:#172033;font-weight:600}
-#nx .nx-avatar{height:31px;width:31px;border-radius:50%;background:#d6d1ff;color:#5948b8;display:grid;place-items:center;font-size:11px;font-weight:700}
-#nx .nx-work{max-width:1120px;margin:auto;padding:42px 42px 140px}
-#nx .nx-greet{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
-#nx .nx-eyebrow{font-size:11px;color:#7059e8;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
-#nx .nx-greet h1{font:700 clamp(25px,3vw,34px) Manrope,sans-serif;letter-spacing:-1.3px;margin:8px 0 7px;color:#172033}
-#nx .nx-greet p{margin:0;color:#8991a5;font-size:13px}
-#nx .nx-date{font-size:11px;color:#8991a5;padding-top:7px}
-#nx .nx-hero{position:relative;overflow:hidden;background:linear-gradient(112deg,#292845 0%,#37315f 56%,#6352c2 100%);color:#fff;border-radius:18px;padding:29px 32px 25px;box-shadow:0 12px 28px #41356c1d}
-#nx .nx-hero:after{content:'';position:absolute;width:280px;height:280px;border:1px solid #ffffff13;border-radius:50%;right:90px;top:-185px;box-shadow:0 0 0 32px #ffffff08,0 0 0 65px #ffffff05}
-#nx .nx-hero-label{font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#cac3ff;font-weight:700}
-#nx .nx-hero h2{font:700 23px Manrope;margin:10px 0 7px;letter-spacing:-.5px}
-#nx .nx-hero-cards{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:26px}
-#nx .nx-panel{background:#fff;border:1px solid #E9EBF2;border-radius:14px;padding:17px}
-#nx .nx-panel-title{font:700 13px Manrope;margin:0 0 13px;color:#172033}
-#nx .nx-act{display:flex;align-items:center;gap:11px;padding:9px 4px;border-radius:8px}
-#nx .nx-act:hover{background:#fafaff}
-#nx .nx-mini{height:30px;width:30px;border-radius:9px;display:grid;place-items:center;font-size:13px;flex-shrink:0}
-#nx .nx-act strong{font-size:11px;font-weight:600;display:block;color:#172033}
-#nx .nx-act small{font-size:10px;color:#8991a5}
-#nx .nx-usage-top{display:flex;align-items:center;justify-content:space-between}
-#nx .nx-usage-top span{font-size:10px;color:#8991a5}
-#nx .nx-usage-top b{font-size:11px;color:#172033}
-#nx .nx-bar{height:6px;background:#F0EFF6;border-radius:9px;margin:12px 0 8px;overflow:hidden}
-#nx .nx-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#917bf4,#6853df);border-radius:9px;transition:width .4s}
-#nx .nx-note{font-size:10px;color:#8991a5;line-height:1.55;margin:0}
-#nx .nx-lav{background:#f0edff;color:#7059e8}
-#nx .nx-blue{background:#e9f3ff;color:#4c88cf}
-#nx .nx-mint{background:#e7f7f1;color:#38a27e}
-#nx .nx-peach{background:#fff0e8;color:#dd8755}
-#nx .nx-yellow{background:#fff7dc;color:#c59b36}
-#nx .nx-pink{background:#ffedf3;color:#cf6892}
-#nx .nx-prompt{position:relative;z-index:1;background:#fff;border:1px solid #ffffff75;border-radius:12px;padding:12px 13px 10px;box-shadow:0 8px 20px #16132c24}
-#nx .nx-conv{display:grid;gap:10px;margin-top:12px;max-height:340px;overflow:auto}
-#nx .nx-bubble{max-width:86%;padding:11px 13px;border-radius:12px;font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;font-family:'DM Sans'}
-#nx .nx-bubble.user{justify-self:end;background:#7461df;color:#fff;border-bottom-right-radius:4px}
-#nx .nx-bubble.assistant{justify-self:start;background:#fff;color:#172033;border-bottom-left-radius:4px}
-#nx .nx-bubble.pending{color:#858ba0;font-style:italic}
-#nx .nx-msgmeta{display:block;color:#989db0;font-size:10px;margin-bottom:4px}
-#nx .nx-msgact{display:flex;gap:6px;margin-top:6px}
-#nx .nx-msgact button{border:0;border-radius:6px;background:#f4f2ff;color:#6956d5;padding:4px 7px;font-size:10px;cursor:pointer}
-#nx .nx-bubble code{font-family:ui-monospace,Consolas,monospace;background:#f0eff6;padding:1px 4px;border-radius:4px}
-#nx .nx-bubble pre{max-width:100%;overflow:auto;padding:11px;border-radius:8px;background:#22233a;color:#f2f2fb;font:12px/1.6 ui-monospace,Consolas,monospace}
-#nx .nx-bubble pre code{background:transparent;padding:0}
-#nx .nx-bubble a{color:#6550d6}
-#nx .nx-t{width:100%;resize:none;border:0;outline:0;height:38px;color:#172033;font-size:13px;background:transparent;font-family:'DM Sans'}
-#nx .nx-t::placeholder{color:#a0a5b4}
-#nx .nx-prompt-foot{display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap}
-#nx .nx-tools{display:flex;gap:7px;flex-wrap:wrap}
-#nx .nx-tools button,#nx .nx-tools select{border:0;background:#F6F6FA;color:#72798c;border-radius:7px;padding:6px 9px;font-size:10px;cursor:pointer;font-family:'DM Sans'}
-#nx .nx-send{border:0;color:#fff;background:#7059e8;border-radius:8px;padding:8px 13px;font-size:11px;font-weight:700;cursor:pointer}
-#nx .nx-send:disabled{opacity:.65;cursor:wait}
-#nx .nx-sect{display:flex;align-items:center;justify-content:space-between;margin:31px 0 14px}
-#nx .nx-sect h3{font:700 15px Manrope;margin:0;letter-spacing:-.2px;color:#172033}
-#nx .nx-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
-#nx .nx-card{background:#fff;border:1px solid #E9EBF2;border-radius:14px;padding:17px 17px 15px;text-align:left;cursor:pointer;transition:.18s;box-shadow:0 2px 5px #20233e04;font-family:'DM Sans'}
-#nx .nx-card:hover{border-color:#d5cdfb;box-shadow:0 12px 34px #25264c0c;transform:translateY(-2px)}
-#nx .nx-ticon{width:35px;height:35px;border-radius:11px;display:grid;place-items:center;font-size:16px;margin-bottom:13px}
-#nx .nx-card h4{font:700 13px Manrope;margin:0 0 5px;color:#172033}
-#nx .nx-card p{font-size:11px;line-height:1.5;color:#8991a5;margin:0}
-#nx *{box-sizing:border-box}
-/* ---------- NEXA FEATURE PAGES — every workspace nav item is a real page ---------- */
-.nx-page{display:none}
-body.theme-nexa[data-tab="code"] #nxPageCode,body.theme-nexa[data-tab="system"] #nxPageSystem,body.theme-nexa[data-tab="tasks"] #nxPageTasks,body.theme-nexa[data-tab="chats"] #nxPageChats,body.theme-nexa[data-tab="voice"] #nxPageVoice{display:block}
-body.theme-nexa:is([data-tab="code"],[data-tab="system"],[data-tab="tasks"],[data-tab="chats"],[data-tab="voice"]) :is(.nx-greet,.nx-hero,.nx-sect,.nx-grid,.nx-hero-cards){display:none}
-#nx .nx-pagehead{display:flex;align-items:flex-end;justify-content:space-between;margin:6px 0 22px}
-#nx .nx-pagehead h2{font:700 24px Manrope;letter-spacing:-.8px;margin:0;color:#172033}
-#nx .nx-pagehead p{margin:5px 0 0;color:#8991a5;font-size:12.5px}
-#nx .nx-pagehead .nx-picon{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-size:20px}
-#nx .nx-empty{padding:26px;text-align:center;color:#A6ACC0;font-size:12px;background:#FBFBFE;border:1px dashed #E9EBF2;border-radius:12px}
-/* Coding page — the whole forge embedded as white cards */
-body.theme-nexa #codePage{position:static;inset:auto;display:flex;flex-direction:column;gap:14px;z-index:auto}
-body.theme-nexa #codeTop select,body.theme-nexa #codeTop input{background:#fff;border:1px solid #E9EBF2;border-radius:9px;color:#172033;font-family:'DM Sans';height:38px;padding:0 12px;font-size:12px}
-body.theme-nexa #codeTop select{max-width:150px}
-body.theme-nexa #codeTop input{flex:1;min-width:120px}
-body.theme-nexa #codeTop input::placeholder{color:#A6ACC0}
-body.theme-nexa #codeGen{background:#7059e8;border:0;border-radius:9px;color:#fff;font-weight:700;font-family:'DM Sans';padding:0 18px;height:38px;letter-spacing:.5px}
-body.theme-nexa #codeGen:hover{background:#6D5AE0}
-body.theme-nexa .hbtns .cbtn{background:#fff;border:1px solid #E9EBF2;color:#727A8E;border-radius:8px;font-family:'DM Sans'}
-body.theme-nexa .hbtns .cbtn:hover{color:#6D5AE0;border-color:#D8D2FA;background:#F4F2FF}
-body.theme-nexa #codeEdWrap,body.theme-nexa #codeOutWrap{background:#fff;border:1px solid #E9EBF2;border-radius:14px;box-shadow:0 1px 2px rgba(23,32,51,.05),0 8px 28px rgba(23,32,51,.05)}
-body.theme-nexa #codeEdWrap h4,body.theme-nexa #codeOutWrap h4{background:#FBFBFE;color:#172033;font-family:'Manrope';border-bottom:1px solid #EEF0F6;letter-spacing:.5px}
-body.theme-nexa #codeEdWrap h4 span,body.theme-nexa #codeOutWrap h4 span{color:#172033}
-body.theme-nexa #codeEditor{background:transparent;color:#172033;font-family:'JetBrains Mono',monospace}
-body.theme-nexa #codeGutter{background:#FBFBFE;color:#A6ACC0;border-right:1px solid #EEF0F6}
-body.theme-nexa #codeStatus{background:#FBFBFE;color:#727A8E;border-top:1px solid #EEF0F6;font-family:'DM Sans'}
-body.theme-nexa #codeStatus b{color:#6D5AE0}
-body.theme-nexa #codeLog{background:#fff;color:#5B6474;font-family:'DM Sans'}
-body.theme-nexa #codeLog .ok{color:#0E9F6E}
-/* System page — telemetry + syslog as white cards */
-body.theme-nexa #nxPageSystem .nx-sysgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
-body.theme-nexa[data-tab="system"] #telemetry,body.theme-nexa[data-tab="system"] #syslog{display:block;position:static;width:auto;max-height:none;overflow:auto;background:#fff;border:1px solid #E9EBF2;border-radius:14px;box-shadow:0 1px 2px rgba(23,32,51,.05),0 8px 28px rgba(23,32,51,.05);padding:17px}
-body.theme-nexa #telemetry,body.theme-nexa #syslog{position:static;width:auto;max-height:none;overflow:auto}
-body.theme-nexa #telemetry .trow span,body.theme-nexa #syslogLines{color:#727A8E}
-body.theme-nexa #telemetry .trow b{color:#172033}
-body.theme-nexa #telemetry .trow{border-bottom:1px solid #F3F4F9}
-body.theme-nexa #syslogLines .hot{color:#6D5AE0}
-@media(max-width:860px){body.theme-nexa #nxPageSystem .nx-sysgrid{grid-template-columns:1fr}}
-/* Tasks page */
-#nx .nx-taskadd{display:flex;gap:9px;margin-bottom:16px}
-#nx .nx-taskadd input{flex:1;height:44px;border:1px solid #E9EBF2;border-radius:11px;padding:0 14px;font:13px 'DM Sans';color:#172033;background:#fff;outline:0}
-#nx .nx-taskadd input:focus{border-color:#B9AEF5;box-shadow:0 0 0 3px rgba(120,101,233,.12)}
-#nx .nx-taskadd button{height:44px;padding:0 18px;border:0;border-radius:11px;background:#7059e8;color:#fff;font:700 12px 'DM Sans';cursor:pointer}
-#nx .nx-taskrow{display:flex;align-items:center;gap:11px;padding:12px 14px;background:#fff;border:1px solid #E9EBF2;border-radius:12px;margin-bottom:8px}
-#nx .nx-taskrow input[type=checkbox]{width:17px;height:17px;accent-color:#7059e8;cursor:pointer}
-#nx .nx-taskrow .tt{flex:1;font-size:13px;color:#172033}
-#nx .nx-taskrow .tt.due{font-size:10px;color:#B08D00;display:block;margin-top:2px}
-#nx .nx-taskrow .tdel{border:0;background:transparent;color:#C45A50;cursor:pointer;font-size:14px;opacity:0;transition:.15s}
-#nx .nx-taskrow:hover .tdel{opacity:1}
-#nx .nx-taskdone{color:#0E9F6E;font-size:11px;font-weight:600}
-/* Chats page */
-#nx .nx-chatrow{display:flex;align-items:center;gap:11px;padding:13px 15px;background:#fff;border:1px solid #E9EBF2;border-radius:12px;margin-bottom:8px;cursor:pointer;transition:.15s}
-#nx .nx-chatrow:hover{border-color:#D8D2FA;background:#FBFBFF}
-#nx .nx-chatrow .ci{width:34px;height:34px;border-radius:10px;background:#F0EDFF;color:#7059e8;display:grid;place-items:center;font-size:15px;flex-shrink:0}
-#nx .nx-chatrow strong{font-size:12.5px;display:block;color:#172033}
-#nx .nx-chatrow small{font-size:10.5px;color:#8991a5}
-#nx .nx-chatrow .cdel{margin-left:auto;border:0;background:transparent;color:#C45A50;cursor:pointer;opacity:0;transition:.15s}
-#nx .nx-chatrow:hover .cdel{opacity:1}
-/* Voice page */
-#nx .nx-voicewrap{display:flex;flex-direction:column;align-items:center;gap:14px;padding:38px 20px;background:#fff;border:1px solid #E9EBF2;border-radius:16px;box-shadow:0 1px 2px rgba(23,32,51,.05),0 8px 28px rgba(23,32,51,.05)}
-#nx .nx-bigmic{width:96px;height:96px;border-radius:50%;border:0;background:linear-gradient(135deg,#8b73ff,#5f49d8);color:#fff;font-size:34px;cursor:pointer;box-shadow:0 10px 30px rgba(112,89,232,.4);transition:.2s}
-#nx .nx-bigmic:hover{transform:scale(1.05)}
-#nx .nx-bigmic.on{background:linear-gradient(135deg,#ef4444,#dc2626);animation:nxpp 1s infinite}
-@keyframes nxpp{50%{box-shadow:0 10px 44px rgba(239,68,68,.55)}}
-#nx .nx-voicetip{font-size:12px;color:#8991a5;text-align:center;max-width:420px;line-height:1.6}
-#nx .nx-voicebtns{display:flex;gap:9px;flex-wrap:wrap;justify-content:center}
-#nx .nx-voicebtns button{border:1px solid #E9EBF2;background:#fff;color:#727A8E;border-radius:9px;padding:9px 14px;font:600 11px 'DM Sans';cursor:pointer}
-#nx .nx-voicebtns button:hover{color:#6D5AE0;border-color:#D8D2FA;background:#F4F2FF}
-@media(max-width:900px){#nx .nx-sidebar{width:215px}#nx .nx-topbar{padding:0 25px}#nx .nx-work{padding:34px 25px 130px}#nx .nx-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:650px){#nx .nx-sidebar{position:fixed;z-index:30;inset:0 auto 0 0;width:250px;transform:translateX(-102%);transition:.22s;box-shadow:12px 0 35px #15152835;overflow-y:auto}#nx .nx-sidebar.open{transform:translateX(0)}#nx .nx-menu{display:inline-grid !important}#nx .nx-topbar{height:61px;padding:0 16px}#nx .nx-work{padding:27px 16px 120px}#nx .nx-hero{padding:23px 18px 18px;border-radius:15px}#nx .nx-hero h2{font-size:20px}#nx .nx-grid{grid-template-columns:1fr 1fr;gap:9px}#nx .nx-hero-cards{grid-template-columns:1fr}#nx .nx-date{display:none}}
+h1,h2,h3,h4,.wordmark,.panel h3,#conv h3{font-family:'Manrope','Inter',sans-serif}
+#topbar{padding:16px 28px;backdrop-filter:blur(10px)}
+.wordmark{font-weight:800;font-size:19px;letter-spacing:4.5px;text-shadow:0 0 24px rgba(91,140,255,.35)}
+.wordmark small{letter-spacing:2.5px}
+#stateBox{border-radius:22px;background:rgba(13,18,38,.6);backdrop-filter:blur(12px)}
+.panel,#conv{border-radius:var(--r-lg);background:linear-gradient(180deg,rgba(16,22,46,.85),rgba(10,14,30,.8));border:1px solid var(--line2);box-shadow:var(--shadow);backdrop-filter:blur(14px)}
+.panel h3,#conv h3{color:#8FA3E8;letter-spacing:2.2px}
+.msg{font-size:14px;line-height:1.55}
+.msg .who{letter-spacing:2px}
+.msg.aura{background:rgba(91,140,255,.07);border:1px solid var(--line2);border-radius:12px;border-top-left-radius:4px;padding:10px 12px}
+.msg .tx b{color:var(--cy2)}
+.msg .tx pre{border-radius:10px;background:rgba(3,6,16,.82)}
+.chip{border-radius:15px;background:rgba(91,140,255,.07)}
+.chip:hover{background:rgba(91,140,255,.16)}
+#q{font-family:'Inter';font-size:15px;border-radius:14px;background:rgba(13,18,38,.72);backdrop-filter:blur(10px);transition:border-color .2s,box-shadow .2s}
+#q:focus{box-shadow:0 0 0 3px rgba(91,140,255,.14)}
+#sendBtn{border-radius:14px;background:linear-gradient(135deg,#5B8CFF,#3E6BE8);border:0;color:#fff;box-shadow:0 6px 18px rgba(62,107,232,.35)}
+#sendBtn:hover{filter:brightness(1.08);background:linear-gradient(135deg,#5B8CFF,#3E6BE8)}
+.ibtn{border-radius:10px;background:rgba(13,18,38,.6)}
+#tabbar button{border-radius:11px;background:rgba(13,18,38,.65)}
+#tabbar button.on{background:rgba(91,140,255,.14);border-color:var(--line);color:var(--cy2)}
+.src-card{border-radius:16px;background:rgba(91,140,255,.06)}
+a.src-card:hover{background:rgba(91,140,255,.14)}
+#micBtn{background:radial-gradient(circle at 50% 35%,rgba(91,140,255,.3),rgba(10,14,30,.92))}
+canvas#fx{opacity:.5}
+#scan{opacity:.35}
+.corner{border-color:var(--line2)}
+#boot{background:radial-gradient(900px 520px at 50% 28%,rgba(91,140,255,.12),#04060D 72%)}
+#bootRing{border-color:rgba(91,140,255,.22);border-top-color:var(--cy)}
+#bootRing::after{color:var(--cy2)}
+
 </style>
 <script src="https://js.puter.com/v2/"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -1061,7 +857,6 @@ body.theme-nexa #syslogLines .hot{color:#6D5AE0}
   <div class="trow"><span>VOICE</span><b>speech in · speech out</b></div>
   <div class="trow"><span>FORGE</span><b>run · explain · convert · zip</b></div>
   <div style="display:flex;flex-direction:column;gap:6px;margin-top:10px">
-    <a href="nexa.html" style="font-size:11px;color:var(--cy)">✦ Open the NEXA workspace (clean light UI)</a>
     <a href="https://github.com/sourabh7300/aura#readme" target="_blank" rel="noopener" style="font-size:11px;color:var(--cy)">📖 Full guide &amp; screenshots on GitHub</a>
     <a href="https://sourabh7300.github.io/aura/provenance.html" target="_blank" rel="noopener" style="font-size:11px;color:var(--cy)">🛡 Verify this build (provenance)</a>
   </div>
@@ -1135,7 +930,7 @@ body.theme-nexa #syslogLines .hot{color:#6D5AE0}
   <button class="ibtn" id="personaBtn" title="One-tap switch between AURA and JARVIS">MODE: AURA</button>
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
   <button class="ibtn" id="docsBtn" title="Upload your PDFs & notes — answers cite file and page">📚 DOCS</button>
-  <button class="ibtn" id="themeBtn" title="Switch interface style: NEXA light / Futuristic cyan / Gold / Classical">🎨 NEXA</button>
+  <button class="ibtn" id="themeBtn" title="Switch interface style: DECK dark / Futuristic cyan / Gold / Classical">🎨 DECK</button>
   <button class="ibtn" id="keyBtn" style="display:none">SET AI KEY</button>
   <button class="ibtn" id="fsBtn" style="display:none">FULLSCREEN</button>
   <button class="ibtn" id="wakeBtn" style="display:none">WAKE: OFF</button>
@@ -4340,6 +4135,70 @@ updateEngTag();
   const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage()};
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>{const t=b.dataset.t;if(t==="admin"&&typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Mission Control","This page is reserved for maker and CEO accounts — roles are verified on the server.");return}apply(t);if(t==="admin"&&window.adminLoad)try{window.adminLoad()}catch(e){}});
   apply("chat");
+// ==== CODE PAGE SETUP ==== //
+(function(){
+  // Create the Code page only once
+  if(!document.getElementById('codePage')){
+    const page=document.createElement('div');
+    page.id='codePage';
+    page.className='page';
+    // ---- Sub‑tab bar (Write / Input / Output) ----
+    const subBar=document.createElement('div');
+    subBar.id='codeTabBar';
+    subBar.style.display='flex';
+    subBar.style.gap='8px';
+    subBar.style.marginBottom='8px';
+    const tabs=[{t:'write',label:'Write'},{t:'input',label:'Input'},{t:'output',label:'Output'}];
+    tabs.forEach(tab=>{
+      const btn=document.createElement('button');
+      btn.dataset.t=tab.t;
+      btn.textContent=tab.label;
+      btn.className='cbtn';
+      btn.onclick=()=>{
+        // update dataset for CSS / state
+        document.body.dataset.codesubtab=tab.t;
+        // highlight active sub‑tab
+        subBar.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab.t));
+        // hide all sub‑pages, then show the selected one
+        document.querySelectorAll('.code-subpage').forEach(p=>p.style.display='none');
+        const target=document.getElementById('code'+tab.t.charAt(0).toUpperCase()+tab.t.slice(1));
+        if(target) target.style.display='block';
+      };
+      subBar.appendChild(btn);
+    });
+    page.appendChild(subBar);
+    // ---- Write sub‑page ----
+    const writeDiv=document.createElement('div');
+    writeDiv.id='codeWrite';
+    writeDiv.className='code-subpage';
+    writeDiv.innerHTML=`<textarea id="codeEditor" placeholder="Write your code here..." style="width:100%;height:200px;resize:vertical;font-family:var(--mono);background:rgba(4,18,26,.85);color:var(--ice);border:1px solid var(--line);border-radius:8px;padding:8px"></textarea>`;
+    // ---- Input sub‑page ----
+    const inputDiv=document.createElement('div');
+    inputDiv.id='codeInput';
+    inputDiv.className='code-subpage';
+    inputDiv.style.display='none';
+    inputDiv.innerHTML=`<textarea id="codeInputBox" placeholder="Input for your code..." style="width:100%;height:100px;resize:vertical;font-family:var(--mono);background:rgba(4,18,26,.85);color:var(--ice);border:1px solid var(--line);border-radius:8px;padding:8px"></textarea>`;
+    // ---- Output sub‑page ----
+    const outputDiv=document.createElement('div');
+    outputDiv.id='codeOutput';
+    outputDiv.className='code-subpage';
+    outputDiv.style.display='none';
+    outputDiv.innerHTML=`<pre id="codeResult" style="background:rgba(4,18,26,.85);color:var(--ice);border:1px solid var(--line);border-radius:8px;padding:8px;overflow:auto;max-height:300px"></pre>`;
+    // Append sub‑pages to the container
+    page.appendChild(writeDiv);
+    page.appendChild(inputDiv);
+    page.appendChild(outputDiv);
+    // Insert the page before the dock (or at end of body if dock missing)
+    const dock=document.getElementById('dock');
+    if(dock) document.body.insertBefore(page, dock);
+    else document.body.appendChild(page);
+    // ---- Initialise default sub‑tab (Write) ----
+    document.body.dataset.codesubtab='write';
+    subBar.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.t==='write'));
+    const defaultSp=document.getElementById('codeWrite');
+    if(defaultSp) defaultSp.style.display='block';
+  }
+})();
   try{const ro=new ResizeObserver(()=>{if(document.body.dataset.tab==="code")fitCodePage()});ro.observe(bar);const dk=document.getElementById("dock");if(dk)ro.observe(dk)}catch(e){}
   try{window.addEventListener("resize",()=>{if(document.body.dataset.tab==="code")fitCodePage()})}catch(e){}
 })();
@@ -5255,23 +5114,23 @@ async function scrAnalyze(qq){
 (function(){const iv=setInterval(()=>{if(typeof groqCall==="function"){clearInterval(iv);
   try{const os=window.__origGroqCall;window.__origGroqCall=null}catch(e){}
 }},600)})(); /* PERF: was 200ms — a boot hook doesn't need 5 probes/sec */
-/* ---------------- THEME Cycler: NEXA(light workspace, default) → Cyan → Gold → Classical ---------------- */
-const THEMES=[{id:"nexa",label:"🎨 NEXA"},{id:"cyan",label:"🎨 CYAN"},{id:"gold",label:"🎨 GOLD"},{id:"classical",label:"🎨 CLASSICAL"}];
+/* ---------------- THEME Cycler: DECK(professional default) → Cyan → Gold → Classical ---------------- */
+const THEMES=[{id:"deck",label:"🎨 DECK"},{id:"cyan",label:"🎨 CYAN"},{id:"gold",label:"🎨 GOLD"},{id:"classical",label:"🎨 CLASSICAL"}];
 function applyTheme(id){
   document.body.classList.toggle("theme-classical",id==="classical");
   document.body.classList.toggle("theme-gold",id==="gold");
-  document.body.classList.toggle("theme-nexa",id==="nexa");
-  const tb=document.getElementById("themeBtn");if(tb)tb.textContent=THEMES.find(t=>t.id===id).label;
+  document.body.classList.toggle("theme-deck",id==="deck");
+  const tb=document.getElementById("themeBtn");const th=THEMES.find(t=>t.id===id);if(tb&&th)tb.textContent=th.label;
   try{localStorage.setItem("aura_theme",id)}catch(e){}
   try{if(window.__nxMountTheme)window.__nxMountTheme(id)}catch(e){}
   if(id==="gold"&&!document.body.dataset.persona)setHue("gold");
   if(id==="cyan"&&persona()!=="jarvis")setHue("cyan");
   if(id==="classical")setHue("gold");
-  if(id==="nexa")setHue("violet");
+  if(id==="deck")setHue("azure");
 }
 (function(){
   const tb=document.getElementById("themeBtn");if(!tb)return;
-  let cur="nexa";try{cur=localStorage.getItem("aura_theme")||"nexa"}catch(e){}
+  let cur="deck";try{cur=localStorage.getItem("aura_theme")||"deck";if(!["deck","cyan","gold","classical"].includes(cur))cur="deck"}catch(e){}
   setTimeout(()=>applyTheme(cur),150);
   tb.onclick=()=>{const i=THEMES.findIndex(t=>t.id===cur);cur=THEMES[(i+1)%THEMES.length].id;applyTheme(cur);pushSys("theme → "+cur.toUpperCase()+(cur==="classical"?" — parchment & ink, as the old engineers preferred":""))};
   /* DEEP THINK toggle — maximum reasoning in every persona */
@@ -6850,308 +6709,5 @@ document.addEventListener("DOMContentLoaded",function(){
 </div>
 </div>
 </div>
-<!-- ============ NEXA WORKSPACE LAYOUT (theme-nexa only): sidebar, topbar, hero, cards. Real sessions + real ask() wired. ============ -->
-  <div id="nx">
-    <div class="nx-app">
-      <aside class="nx-sidebar" id="nxSidebar">
-        <div class="nx-brand"><span class="nx-brand-mark">🤖</span>AURA</div>
-        <button class="nx-newchat" id="nxNew"><span>＋</span> New chat <kbd style="margin-left:auto;color:#a7a9bf;font:10px 'DM Sans'">Ctrl K</kbd></button>
-        <div class="nx-side-label">RECENTS</div>
-        <div class="nx-chatlist" id="nxChats"></div>
-        <div class="nx-side-label">WORKSPACE</div>
-        <nav class="nx-nav" id="nxNav">
-          <button class="on" data-tab=""><span class="nx-nicon">⌂</span>Home</button>
-          <button data-tab=""><span class="nx-nicon">✳</span>AI Chat</button>
-          <button data-tab="code"><span class="nx-nicon">⌘</span>Coding</button>
-          <button data-tab="system"><span class="nx-nicon">▤</span>System</button>
-          <button data-tab="tasks"><span class="nx-nicon">✎</span>Tasks</button>
-          <button data-tab="chats"><span class="nx-nicon">▥</span>Chats</button>
-          <button data-tab="voice"><span class="nx-nicon">◖</span>Voice</button>
-        </nav>
-        <div style="margin-top:auto">
-          <div class="nx-upgrade"><strong>Your AI workspace</strong><p id="nxStatus">checking her brain…</p></div>
-          <div style="display:flex;align-items:center;gap:10px;border-top:1px solid #ffffff17;padding:17px 7px 0">
-            <div class="nx-avatar" id="nxAva">Y</div>
-            <div><strong style="font-size:12px;display:block;color:#fff" id="nxUserName">Your workspace</strong><small style="font-size:10px;color:#9295ae" id="nxUserRole">Member</small></div>
-          </div>
-        </div>
-      </aside>
-      <main class="nx-main">
-        <header class="nx-topbar">
-          <div style="display:flex;align-items:center;gap:11px">
-            <button id="nxMenu" aria-label="Open menu" style="display:none;height:34px;width:34px;border:1px solid #E9EBF2;background:#fff;border-radius:10px;color:#727a8e;cursor:pointer">☰</button>
-            <div class="nx-crumb"><b id="nxCrumb">Home</b> <span style="padding:0 5px">/</span> Workspace</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:11px">
-            <button id="nxTheme" title="Switch interface style" style="height:34px;width:34px;border:1px solid #E9EBF2;background:#fff;border-radius:10px;color:#727a8e;cursor:pointer">🎨</button>
-            <div class="nx-avatar">Y</div>
-          </div>
-        </header>
-        <div class="nx-work">
-          <section class="nx-greet">
-            <div>
-              <div class="nx-eyebrow">Your all-in-one AI workspace</div>
-              <h1 id="nxGreet">Good evening ✨</h1>
-              <p>What would you like to make happen today?</p>
-            </div>
-            <div class="nx-date" id="nxDate"></div>
-          </section>
-          <section class="nx-hero">
-            <div class="nx-hero-label">✦ &nbsp; YOUR AI, READY WHEN YOU ARE</div>
-            <h2>Big idea? Let's get started.</h2>
-            <p>Ask anything, explore an idea, or jump into a focused workspace.</p>
-            <div class="nx-prompt">
-              <textarea id="nxQ" rows="1" placeholder="Message AURA… try 'Help me plan my week'"></textarea>
-              <div class="nx-prompt-foot">
-                <div class="nx-tools">
-                  <button id="nxAttach">＋ Attach</button>
-                  <button id="nxVoice">🎙 Voice</button>
-                  <button id="nxAgent">🤖 Agent</button>
-                </div>
-                <button class="nx-send" id="nxSend">Ask AURA <span>↗</span></button>
-              </div>
-            </div>
-            <div class="nx-conv" id="nxConv" aria-live="polite"></div>
-          </section>
-          <div class="nx-sect"><h3>Explore your workspace</h3></div>
-          <section class="nx-grid">
-            <button class="nx-card" data-tab=""><span class="nx-ticon nx-lav">✳</span><h4>AI Chat</h4><p>Think out loud, ask anything, get unstuck.</p></button>
-            <button class="nx-card" data-tab="code"><span class="nx-ticon nx-blue">⌘</span><h4>Coding</h4><p>Build, debug, and understand your code.</p></button>
-            <button class="nx-card" data-tab="system"><span class="nx-ticon nx-mint">▤</span><h4>System</h4><p>Telemetry, syslog, keys and her console.</p></button>
-            <button class="nx-card" data-tab="tasks"><span class="nx-ticon nx-peach">✎</span><h4>Tasks</h4><p>Your task board — add, track, done.</p></button>
-            <button class="nx-card" data-tab="chats"><span class="nx-ticon nx-yellow">▥</span><h4>Chats</h4><p>Every conversation, saved and searchable.</p></button>
-            <button class="nx-card" data-tab="voice"><span class="nx-ticon nx-pink">◖</span><h4>Voice</h4><p>Talk through an idea hands-free.</p></button>
-          </section>
-          <div class="nx-hero-cards">
-            <div class="nx-panel">
-              <h3 class="nx-panel-title">Make something with AURA</h3>
-              <div class="nx-act"><span class="nx-mini nx-lav">✳</span><div><strong>Ask a question</strong><small>Start a conversation with your AI</small></div></div>
-              <div class="nx-act"><span class="nx-mini nx-blue">⌘</span><div><strong>Forge some code</strong><small>The Coding workspace builds and runs it live</small></div></div>
-            </div>
-            <div class="nx-panel">
-              <h3 class="nx-panel-title">Your workspace</h3>
-              <div class="nx-usage-top"><span>Chat history</span><b id="nxCount">0 chats</b></div>
-              <div class="nx-bar"><i id="nxBar"></i></div>
-              <p class="nx-note">Conversations are saved in this browser and synced to your account. Your AI keys stay on the server.</p>
-            </div>
-          </div>
-          <!-- ===== FEATURE PAGES (one section per workspace nav item) ===== -->
-          <section class="nx-page" id="nxPageCode">
-            <div class="nx-pagehead"><div><h2>Coding Forge</h2><p>Describe it, she builds it, it runs live — then FIX, EXPLAIN, CONVERT, download.</p></div><span class="nx-picon nx-blue">⌘</span></div>
-            <!-- the real codePage mounts here in the NEXA theme -->
-          </section>
-          <section class="nx-page" id="nxPageSystem">
-            <div class="nx-pagehead"><div><h2>System</h2><p>Live telemetry, the event log, and her maker console.</p></div><span class="nx-picon nx-mint">▤</span></div>
-            <div class="nx-sysgrid" id="nxSysPanels"><!-- telemetry + syslog mount here --></div>
-          </section>
-          <section class="nx-page" id="nxPageTasks">
-            <div class="nx-pagehead"><div><h2>Tasks</h2><p>Capture work from chat or here — she tracks it and reminds you.</p></div><span class="nx-picon nx-peach">✎</span></div>
-            <div class="nx-taskadd"><input id="nxTaskIn" placeholder="e.g. revise DSA graphs at 6pm"><button id="nxTaskGo">＋ Add task</button></div>
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><div class="nx-bar" style="flex:1;margin:0"><i id="nxTaskProg"></i></div><b id="nxTaskMeta" style="font:600 11px 'DM Sans';color:#727A8E;white-space:nowrap">0 open</b></div>
-            <div id="nxTaskList"></div>
-          </section>
-          <section class="nx-page" id="nxPageChats">
-            <div class="nx-pagehead"><div><h2>Chats</h2><p>Every conversation, saved and reopenable.</p></div><span class="nx-picon nx-yellow">▥</span></div>
-            <div class="nx-taskadd"><button id="nxChatNew" style="width:100%;background:#fff;color:#6D5AE0;border:1px dashed #D8D2FA">＋ Start a new chat (Ctrl K)</button></div>
-            <div id="nxChatFull"></div>
-          </section>
-          <section class="nx-page" id="nxPageVoice">
-            <div class="nx-pagehead"><div><h2>Voice</h2><p>Hands-free mode — talk, she listens, thinks and answers out loud.</p></div><span class="nx-picon nx-pink">◖</span></div>
-            <div class="nx-voicewrap">
-              <button class="nx-bigmic" id="nxMicBig">🎙</button>
-              <b id="nxVoiceState" style="font:700 13px Manrope;color:#172033">Tap to talk</b>
-              <p class="nx-voicetip">Say <b>“Hey AURA”</b> with wake-word mode, or just tap the mic and speak. Barge-in is on: talk over her and she stops instantly.</p>
-              <div class="nx-voicebtns">
-                <button id="nxVWake">wake word: off</button>
-                <button id="nxVLive">hands-free: off</button>
-                <button id="nxVSound">sound: on</button>
-                <button id="nxVLang">lang: auto</button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </main>
-    </div>
-  </div>
-  <script>
-  /* ================= NEXA WORKSPACE wiring — real sessions, real ask(), real tabs ================= */
-  (function(){
-    function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
-    function md(target,source){
-      let html="",lines=String(source||"").split("\n"),i=0;
-      const inline=(s)=>esc(s)
-        .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
-        .replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>")
-        .replace(/`([^`]+)`/g,"<code>$1</code>");
-      while(i<lines.length){
-        const ln=lines[i];
-        if(/^```/.test(ln)){const code=[];while(++i<lines.length&&!/^```/.test(lines[i]))code.push(lines[i]);html+="<pre><code>"+esc(code.join("\n"))+"</code></pre>";i++;continue}
-        if(/^#{1,3}\s/.test(ln)){const h=ln.match(/^(#{1,3})\s+(.*)/);html+="<h4>"+inline(h[2])+"</h4>";i++;continue}
-        if(/^\s*[-*]\s+/.test(ln)){const items=[];while(i<lines.length&&/^\s*[-*]\s+/.test(lines[i])){items.push(lines[i].replace(/^\s*[-*]\s+,/,"").replace(/^\s*[-*]\s+,/,"").replace(/^\s*[-*]\s+/,""));i++}html+="<ul>"+items.map(function(x){return "<li>"+inline(x)+"</li>"}).join("")+"</ul>";continue}
-        if(!ln.trim()){i++;continue}
-        const para=[];while(i<lines.length&&lines[i].trim()&&!/^(```|#{1,3}\s|\s*[-*]\s)/.test(lines[i])){para.push(lines[i]);i++}
-        html+="<p>"+inline(para.join(" "))+"</p>";
-      }
-      target.innerHTML=html;
-    }
-    function openTab(tab){
-      document.body.setAttribute("data-tab",tab||"");
-      document.querySelectorAll("#nxNav button").forEach(function(b){b.classList.toggle("on",b.getAttribute("data-tab")===tab)});
-      const names={"":"Home","code":"Coding","system":"System","tasks":"Tasks","chats":"Chats","voice":"Voice"};
-      document.getElementById("nxCrumb").textContent=names[tab||""]||"Workspace";
-      if(tab==="voice"){try{document.getElementById("micBtn").click()}catch(e){}}
-      try{document.getElementById("nxSidebar").classList.remove("open")}catch(e){}
-    }
-    document.querySelectorAll("#nxNav button,#nx .nx-card").forEach(function(b){b.onclick=function(){openTab(b.getAttribute("data-tab")||"")}});
-    function renderChats(){
-      const list=document.getElementById("nxChats");if(!list)return;list.innerHTML="";
-      let all=[];try{all=(typeof sessions!=="undefined")?sessions.all():[]}catch(e){}
-      all.slice(0,10).forEach(function(s){
-        const row=document.createElement("div");row.style.cssText="display:flex;align-items:center;min-width:0;gap:6px";
-        const b=document.createElement("button");b.className="nx-chat";b.textContent=s.title||"New chat";b.title=s.title||"New chat";
-        b.onclick=function(){try{sessions.open(s.id)}catch(e){}};row.appendChild(b);
-        const x=document.createElement("button");x.textContent="×";x.title="Delete";x.style.cssText="border:0;background:transparent;color:#8588a3;padding:6px;cursor:pointer;opacity:0";
-        row.onmouseenter=function(){x.style.opacity="1"};row.onmouseleave=function(){x.style.opacity="0"};
-        x.onclick=function(ev){ev.stopPropagation();try{sessions.del(s.id)}catch(e){}renderChats()};row.appendChild(x);
-        list.appendChild(row);
-      });
-      if(!all.length)list.innerHTML='<div style="font-size:10px;color:#888ba7;padding:4px 11px">no conversations yet — say hello below</div>';
-      const c=document.getElementById("nxCount");if(c)c.textContent=all.length+" chat"+(all.length===1?"":"s");
-      const bar=document.getElementById("nxBar");if(bar)bar.style.width=Math.min(100,all.length/40*100)+"%";
-    }
-    function newChat(){try{sessions.newChat()}catch(e){}renderChats();try{document.getElementById("nxQ").focus()}catch(e){}}
-    const nb=document.getElementById("nxNew");if(nb)nb.onclick=newChat;
-    document.addEventListener("keydown",function(ev){if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==="k"){ev.preventDefault();newChat()}});
-    function paintUser(){
-      let name="",role="";try{const u=JSON.parse(localStorage.getItem("aura_fb_live")||"null");name=u&&u.name;role=u&&u.role}catch(e){}
-      const ini=(name||"Y").trim().charAt(0).toUpperCase();
-      document.querySelectorAll("#nx .nx-avatar").forEach(function(a){a.textContent=ini});
-      document.getElementById("nxUserName").textContent=name||"Your workspace";
-      document.getElementById("nxUserRole").textContent=role==="maker"?"Maker account":role==="ceo"?"CEO account":"Member";
-      try{document.getElementById("nxStatus").textContent=(typeof backendUrl==="function"&&backendUrl())?"Connected: server brain + code lane + live web":"Offline core — some brains sleeping"}catch(e){}
-    }
-    let nxConv=[];
-    function renderConv(){
-      const area=document.getElementById("nxConv");if(!area)return;area.innerHTML="";
-      nxConv.slice(-14).forEach(function(m){
-        const b=document.createElement("div");b.className="nx-bubble "+(m.role==="user"?"user":"assistant")+(m.pending?" pending":"");
-        if(m.role==="assistant"){
-          const meta=document.createElement("span");meta.className="nx-msgmeta";meta.textContent="AURA"+(m.eng?" · "+m.eng:"");b.appendChild(meta);
-          const c=document.createElement("div");if(m.pending){c.textContent=m.content}else{md(c,m.content)}b.appendChild(c);
-          if(!m.pending){
-            const acts=document.createElement("div");acts.className="nx-msgact";
-            const cp=document.createElement("button");cp.textContent="Copy";cp.onclick=function(){try{navigator.clipboard.writeText(m.content);pushSys("copied")}catch(e){}};acts.appendChild(cp);
-            b.appendChild(acts);
-          }
-        }else{b.textContent=m.content}
-        area.appendChild(b);
-      });
-      area.scrollTop=area.scrollHeight;
-    }
-    function nxAsk(text){
-      const t=(text||"").trim();if(!t)return;
-      if(typeof busy!=="undefined"&&busy){pushSys("one moment — still answering the last one");return}
-      nxConv.push({role:"user",content:t});
-      const p={role:"assistant",content:"AURA is thinking…",pending:true};nxConv.push(p);renderConv();
-      const origAdd=window.addMsg,origSpeak=window.speak;let eng="";
-      window.addMsg=function(tag,html,cls){
-        const tmp=document.createElement("div");tmp.innerHTML=html;
-        const txt=(tmp.textContent||"").trim();
-        if(cls==="aura"){p.content=txt;p.eng=eng;delete p.pending}
-        else if(cls==="user"){nxConv.push({role:"user",content:txt})}
-        renderConv();return tmp;
-      };
-      window.speak=function(){};
-      const done=function(){
-        try{const et=document.getElementById("engTag");if(et&&et.textContent)p.eng=et.textContent.replace(/^engine:\s*/,"")}catch(e){}
-        if(p.pending){p.content="(no answer arrived — try again)";delete p.pending}
-        window.addMsg=origAdd;window.speak=origSpeak;renderConv();try{sessions.sync()}catch(e){}renderChats();
-      };
-      try{Promise.resolve(ask(t)).then(done,done)}catch(e){done()}
-    }
-    const sendBtn=document.getElementById("nxSend");
-    if(sendBtn)sendBtn.onclick=function(){const v=document.getElementById("nxQ").value;document.getElementById("nxQ").value="";nxAsk(v)};
-    const nq=document.getElementById("nxQ");if(nq)nq.addEventListener("keydown",function(ev){if(ev.key==="Enter"&&!ev.shiftKey){ev.preventDefault();sendBtn.click()}});
-    const at=document.getElementById("nxAttach");if(at)at.onclick=function(){try{document.getElementById("clipBtn").click()}catch(e){pushSys("attach lives in her dock in this theme")}};
-    const vc=document.getElementById("nxVoice");if(vc)vc.onclick=function(){try{document.getElementById("micBtn").click()}catch(e){}};
-    const ag=document.getElementById("nxAgent");if(ag)ag.onclick=function(){nxAsk("agent mode "+(document.getElementById("nxQ").value||"research the latest AI models"));document.getElementById("nxQ").value=""};
-    const th=document.getElementById("nxTheme");if(th)th.onclick=function(){try{document.getElementById("themeBtn").click()}catch(e){}};
-    const menu=document.getElementById("nxMenu");if(menu)menu.onclick=function(){document.getElementById("nxSidebar").classList.toggle("open")};
-    function responsive(){const m=document.getElementById("nxMenu");if(m)m.style.display=innerWidth<=650?"inline-grid":"none"}
-    addEventListener("resize",responsive);responsive();
-    const hr=new Date().getHours();
-    const g=document.getElementById("nxGreet");if(g)g.textContent=(hr<12?"Good morning":hr<17?"Good afternoon":"Good evening")+" ✨";
-    const d=document.getElementById("nxDate");if(d)d.textContent=new Intl.DateTimeFormat(undefined,{weekday:"long",month:"short",day:"numeric"}).format(new Date());
-    /* ---------- FEATURE PAGE MOUNTS + RENDERERS ---------- */
-    window.__nxMountTheme=function(id){
-      const move=function(el,parent){if(el&&parent&&!parent.contains(el))parent.appendChild(el)};
-      if(id==="nexa"){
-        move(document.getElementById("codePage"),document.getElementById("nxPageCode"));
-        move(document.getElementById("telemetry"),document.getElementById("nxSysPanels"));
-        move(document.getElementById("syslog"),document.getElementById("nxSysPanels"));
-      }else{
-        ["codePage","telemetry","syslog"].forEach(function(k){const el=document.getElementById(k);if(el&&document.getElementById("nx").contains(el))document.body.appendChild(el)});
-      }
-    };
-    function fmtWhen(ts){if(!ts)return"";const d=new Date(ts);return d.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" · "+d.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})}
-    function renderTasksPage(){
-      const box=document.getElementById("nxTaskList");if(!box)return;
-      let L=[];try{L=JSON.parse(localStorage.getItem("aura_tasks_v1")||"[]")}catch(e){}
-      const open=L.filter(function(t){return !t.done}),dn=L.filter(function(t){return t.done});
-      const pr=document.getElementById("nxTaskProg");if(pr)pr.style.width=(L.length?Math.round(dn.length/L.length*100):0)+"%";
-      const meta=document.getElementById("nxTaskMeta");if(meta)meta.textContent=open.length+" open · "+dn.length+" done";
-      box.innerHTML=open.length?"":"<div class='nx-empty'>nothing open — add your first task above, or just tell her in chat</div>";
-      open.forEach(function(t,i){
-        const row=document.createElement("div");row.className="nx-taskrow";
-        const cb=document.createElement("input");cb.type="checkbox";cb.onchange=function(){try{AuraTasks.done(i+1)}catch(e){}setTimeout(renderTasksPage,150)};row.appendChild(cb);
-        const tx=document.createElement("div");tx.className="tt";tx.textContent=t.txt;if(t.at){const due=document.createElement("span");due.className="due";due.textContent="⏰ due "+fmtWhen(t.at);tx.appendChild(due)}row.appendChild(tx);
-        const del=document.createElement("button");del.className="tdel";del.textContent="✕";del.onclick=function(){try{AuraTasks.drop(i+1)}catch(e){}renderTasksPage()};row.appendChild(del);
-        box.appendChild(row);
-      });
-      if(dn.length){const h=document.createElement("div");h.style.cssText="margin:16px 0 8px;font:700 10px 'DM Sans';letter-spacing:1px;color:#A6ACC0";h.textContent="COMPLETED";box.appendChild(h);
-        dn.slice(0,6).forEach(function(t){const row=document.createElement("div");row.className="nx-taskrow";row.style.opacity=".6";const ck=document.createElement("span");ck.className="nx-taskdone";ck.textContent="✓";row.appendChild(ck);const tx=document.createElement("div");tx.className="tt";tx.style.textDecoration="line-through";tx.textContent=t.txt;row.appendChild(tx);box.appendChild(row)})}
-    }
-    function renderChatsPage(){
-      const box=document.getElementById("nxChatFull");if(!box)return;
-      let all=[];try{all=(typeof sessions!=="undefined")?sessions.all():[]}catch(e){}
-      box.innerHTML=all.length?"":"<div class='nx-empty'>no conversations yet — say hello on the home page</div>";
-      all.forEach(function(s){
-        const row=document.createElement("div");row.className="nx-chatrow";
-        row.onclick=function(){try{sessions.open(s.id);openTab("")}catch(e){}};
-        const ic=document.createElement("span");ic.className="ci";ic.textContent="✳";row.appendChild(ic);
-        const tx=document.createElement("div");const st=document.createElement("strong");st.textContent=s.title||"New chat";tx.appendChild(st);const sm=document.createElement("small");sm.textContent=fmtWhen(s.at)+" · "+((s.convo||[]).length)+" messages";tx.appendChild(sm);row.appendChild(tx);
-        const del=document.createElement("button");del.className="cdel";del.textContent="✕";del.onclick=function(ev){ev.stopPropagation();try{sessions.del(s.id)}catch(e){}renderChatsPage();renderChats()};row.appendChild(del);
-        box.appendChild(row);
-      });
-    }
-    function renderVoicePage(){
-      const mic=document.getElementById("micBtn");const big=document.getElementById("nxMicBig");if(!mic||!big)return;
-      const on=mic.classList.contains("listening");
-      big.classList.toggle("on",on);
-      const st=document.getElementById("nxVoiceState");if(st)st.textContent=on?"Listening… speak naturally":"Tap to talk";
-      const wk=document.getElementById("wakeBtn"),lv=document.getElementById("jarvisLiveBtn"),sd=document.getElementById("soundBtn"),lg=document.getElementById("langBtn");
-      const b1=document.getElementById("nxVWake"),b2=document.getElementById("nxVLive"),b3=document.getElementById("nxVSound"),b4=document.getElementById("nxVLang");
-      if(b1&&wk)b1.textContent="wake word: "+(/on/i.test(wk.textContent)?"on":"off");
-      if(b2&&lv)b2.textContent="hands-free: "+(/on/i.test(lv.textContent)||lv.style.display!=='none'&&/LIVE/.test(lv.textContent)&&!livOff(lv)?"on":"off");
-      function livOff(x){return /off/i.test(x.textContent)}
-      if(b3&&sd)b3.textContent=sd.textContent.toLowerCase();
-      if(b4&&lg)b4.textContent=lg.textContent.toLowerCase();
-    }
-    document.getElementById("nxMicBig").onclick=function(){try{document.getElementById("micBtn").click()}catch(e){}};
-    document.getElementById("nxVWake").onclick=function(){try{document.getElementById("wakeBtn").click()}catch(e){}setTimeout(renderVoicePage,200)};
-    document.getElementById("nxVLive").onclick=function(){try{document.getElementById("jarvisLiveBtn").click()}catch(e){}setTimeout(renderVoicePage,200)};
-    document.getElementById("nxVSound").onclick=function(){try{document.getElementById("soundBtn").click()}catch(e){}setTimeout(renderVoicePage,200)};
-    document.getElementById("nxVLang").onclick=function(){try{document.getElementById("langBtn").click()}catch(e){}setTimeout(renderVoicePage,200)};
-    const tg=document.getElementById("nxTaskGo"),ti=document.getElementById("nxTaskIn");
-    if(tg)tg.onclick=function(){const v=ti.value.trim();if(!v)return;try{AuraTasks.route("add task "+v)}catch(e){}ti.value="";renderTasksPage()};
-    if(ti)ti.addEventListener("keydown",function(ev){if(ev.key==="Enter"){ev.preventDefault();tg.click()}});
-    const cn=document.getElementById("nxChatNew");if(cn)cn.onclick=function(){newChat();renderChatsPage();openTab("")};
-    const _openTab=openTab;
-    openTab=function(tab){_openTab(tab);if(tab==="tasks")renderTasksPage();if(tab==="chats")renderChatsPage();if(tab==="voice")renderVoicePage();if(tab==="system")try{paintUser()}catch(e){}};
-    setInterval(function(){const tab=document.body.getAttribute("data-tab")||"";if(tab==="tasks")renderTasksPage();if(tab==="voice")renderVoicePage();if(tab==="chats")renderChatsPage()},4000);
-    setInterval(renderChats,4000);
-    setTimeout(function(){renderChats();paintUser();try{window.__nxMountTheme(localStorage.getItem("aura_theme")||"nexa")}catch(e){}},600);
-  })();
-  </script>
 </body>
 </html>
