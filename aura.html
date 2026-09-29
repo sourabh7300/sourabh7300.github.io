@@ -321,7 +321,7 @@ body[data-tab="chats"] #sessPanel{display:flex}
   #tabbar{top:52px;left:8px;right:8px;gap:6px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
   #tabbar::-webkit-scrollbar{display:none}
   #tabbar button{flex:1 0 auto;padding:7px 10px;font-size:9px;letter-spacing:1px;white-space:nowrap}
-  body[data-tab="chats"] #sessPanel{top:88px;left:8px;right:8px;bottom:198px;width:auto;border-radius:14px;background:rgba(2,10,14,.85);backdrop-filter:blur(8px)}
+  body[data-tab="chats"] #sessPanel{top:88px;left:8px;right:8px;bottom:174px;width:auto;margin-left:0;border-radius:14px;background:rgba(2,10,14,.85);backdrop-filter:blur(8px)}
   body[data-tab="system"] #telemetry{display:block;position:fixed;top:88px;left:8px;right:8px;width:auto;max-height:calc(100vh - 330px);overflow:auto}
   body[data-tab="system"] #aboutCard{display:block;position:fixed;top:88px;left:8px;right:8px;width:auto;margin-top:340px}
   body[data-tab="system"] #syslog{display:block;position:fixed;top:auto;bottom:198px;left:8px;right:8px;width:auto;max-height:150px}
@@ -536,7 +536,7 @@ body.perf-saver .panel,body.perf-saver #stateBox,body.perf-saver #tabbar button{
   body[data-tab="chats"] #sessPanel,body[data-tab="system"] #aboutCard{top:122px !important}
 }
 @media(max-width:400px){
-  #conv{top:158px;bottom:190px}
+  #conv{top:158px;bottom:190px;margin-left:0;left:8px;right:8px;width:auto}
 }
 .chip:hover{transform:translateY(-1px)}
 #chips{gap:8px;margin-top:var(--sp3)}
@@ -724,8 +724,8 @@ canvas#fx{opacity:.5}
    ============================================================ */
 /* --- the conversation stage (CHAT tab) --- */
 body[data-tab="chat"] #conv{
-  left:50%;right:auto;transform:translateX(-50%);
-  width:min(820px,94vw);top:96px;bottom:284px;
+  left:50%;right:auto;margin-left:calc(min(820px,94vw)/-2);transform:none;
+  width:min(820px,94vw);top:96px;bottom:240px;
   display:flex;flex-direction:column;
 }
 #conv .who{cursor:default}
@@ -747,10 +747,11 @@ body[data-tab="chat"] #conv{
 #jumpLatest.show{display:block}
 /* --- the history hub (CHATS tab) --- */
 #sessPanel{
-  top:96px;left:50%;right:auto;transform:translateX(-50%);
+  top:96px;left:50%;right:auto;margin-left:calc(min(820px,94vw)/-2);transform:none;
   width:min(820px,94vw);bottom:24px;max-height:none;
   display:none;flex-direction:column;padding:20px 20px 14px;overflow:hidden;
 }
+@media(max-width:860px){#sessPanel{margin-left:0}}
 body[data-tab="chats"] #sessPanel{display:flex}
 #sessHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 #sessHead h2{font-family:'Manrope';font-size:17px;letter-spacing:.3px;color:var(--ice)}
@@ -821,6 +822,26 @@ body[data-tab="chats"] #sessPanel{display:flex}
   font-size:11px;cursor:pointer;background:linear-gradient(135deg,#5B8CFF,#3E6BE8);color:#fff;white-space:nowrap}
 #ch2Pop .pbtn.ghost{background:transparent;border:1px solid var(--line2);color:var(--dim)}
 .ch2-archrow{opacity:.82}
+/* --- AURA 3.3 entry cover: the app never peeks around the boot fade --- */
+body:not(.booted) #topbar,body:not(.booted) #tabbar,body:not(.booted) #conv,body:not(.booted) #dock{opacity:0!important;pointer-events:none!important}
+body.booted #topbar,body.booted #tabbar,body.booted #conv,body.booted #dock{transition:opacity .55s ease .05s}
+#boot{gap:14px;backdrop-filter:blur(10px)}
+#boot .b-sub{font-family:'Orbitron',sans-serif;font-size:clamp(22px,6vw,30px);letter-spacing:clamp(5px,2.4vw,11px);color:var(--ice);text-shadow:0 0 26px rgba(34,211,238,.55);animation:bootGlow 2.4s ease-in-out infinite}
+#boot .b-sub i{font-style:normal;color:var(--cy)}
+#boot .b-tag{font-size:9px;letter-spacing:.32em;color:rgba(120,190,205,.62);text-transform:uppercase}
+#boot .b-bar{width:min(300px,64vw);height:2px;border-radius:2px;background:rgba(34,211,238,.14);overflow:hidden}
+#boot .b-bar i{display:block;height:100%;width:42%;border-radius:2px;background:linear-gradient(90deg,transparent,var(--cy),transparent);animation:bootScan 1.15s ease-in-out infinite}
+@keyframes bootGlow{0%,100%{opacity:.82;text-shadow:0 0 18px rgba(34,211,238,.35)}50%{opacity:1;text-shadow:0 0 34px rgba(34,211,238,.7)}}
+@keyframes bootScan{0%{transform:translateX(-110%)}100%{transform:translateX(340%)}}
+@media(prefers-reduced-motion:reduce){#boot .b-sub,#boot .b-bar i{animation:none}}
+/* --- AURA 3.3 compact control rail: one tidy line, no wrap, no bulk --- */
+.iconrow{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;align-self:stretch;justify-content:center}
+.iconrow::-webkit-scrollbar{display:none}
+.iconrow>.ibtn{margin-left:4.5px}
+.iconrow>.ibtn:first-child{margin-left:0}
+.ibtn{flex:0 0 auto;padding:6px 11px;font-size:9.5px;letter-spacing:1px;white-space:nowrap}
+#dock{gap:8px;padding:10px 10px 11px;max-width:min(640px,96vw)}
+body[data-tab="chat"] #conv{border-radius:18px}
 /* --- AURA 3.2 layout hardening: centered dock, floating mic, no legacy overrides --- */
 #micWrap{flex-direction:row}
 #log .msg .tx{white-space:pre-line}
@@ -839,8 +860,8 @@ body[data-tab="chats"] #sessPanel{display:flex}
   border-radius:14px;padding:8px 14px;font-family:'Inter';font-size:11.5px;cursor:pointer;transition:.2s}
 #stageChips button:hover{border-color:var(--line);background:rgba(91,140,255,.12);transform:translateY(-1px)}
 @media(max-width:860px){
-  body[data-tab="chat"] #conv{top:88px;bottom:276px;width:calc(100vw - 16px)}
-  #sessPanel{width:calc(100vw - 16px);top:88px;bottom:130px}
+  body[data-tab="chat"] #conv{top:88px;bottom:232px;width:calc(100vw - 16px);margin-left:calc((100vw - 16px)/-2)}
+  #sessPanel{width:calc(100vw - 16px);top:88px;bottom:174px;margin-left:calc((100vw - 16px)/-2)}
 }
 </style>
 <script src="https://js.puter.com/v2/"></script>
@@ -1073,6 +1094,9 @@ body[data-tab="chats"] #sessPanel{display:flex}
 
 <div id="boot">
   <div id="bootRing"></div>
+  <div class="b-sub">AU<i>RA</i></div>
+  <div class="b-tag">holographic intelligence · own design</div>
+  <div class="b-bar"><i></i></div>
   <div id="bootLog"></div>
   <div id="bootSeal" style="margin-top:6px;font-size:9px;letter-spacing:.22em;color:rgba(63,122,138,.55);user-select:none">AURA · © 2026 SOURABH SINGH · JECRC UNIVERSITY · ALL RIGHTS RESERVED</div>
   <div id="bootSkip">TAP TO SKIP</div>
@@ -4337,7 +4361,7 @@ const BOOT=persona()==="jarvis"?["> JARVIS OS v4.0 — initializing tactical cor
 (function boot(){
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
-  let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;$("boot").classList.add("gone");
+  let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;try{document.body.classList.add("booted")}catch(e){}$("boot").classList.add("gone");
     setTimeout(()=>{try{cloudPullAndRestore()}catch(e){}const n=memGet().name;const P0=PERSONAS[persona()];const histN=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();const replay=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).slice(-6)}catch(e){return []}})();
     if(replay.length){const hd=addMsg("SYS","— previous conversation restored —","sys");hd.style.opacity=".55";
       replay.forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
