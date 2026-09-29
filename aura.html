@@ -2708,6 +2708,11 @@ async function wikiAnswer(q,deep){
     for(const h of hits.slice(0,2)){
       try{
         const sum=await wikiSummary(h.title);
+        /* TOPIC-MATCH GUARD — an article that shares almost no keywords with the question
+           is the wrong article; dumping it verbatim was printing pure garbage (the "misprint") */
+        const kw=term.toLowerCase().split(/\s+/).filter(w=>w.length>2);
+        const khits=kw.filter(w=>sum.extract.toLowerCase().includes(w)).length;
+        if(kw.length&&khits/Math.max(kw.length,1)<0.34&&khits<2)throw 0;
         let out=sum.extract;
         if(deep){
           const chars=9000;
@@ -2755,6 +2760,7 @@ async function webResearch(q){
   const found=results.filter(x=>x.status==="fulfilled"&&x.value&&x.value.extract).map(x=>x.value).filter(v=>v.k!="OTD");
   if(!found.length)return null;
   found.sort((a,b)=>covers(b.extract)-covers(a.extract));
+  if(found.length&&covers(found[0].extract)<0.34)return null; /* best source is off-topic → not an answer */
   const best=found[0];
   const norm=s=>s.toLowerCase().replace(/[^a-z0-9 ]/g,"");
   let out=best.extract;const used=[best.k];
@@ -3643,7 +3649,10 @@ async function aiReply(q){
     /* THE THINKING BRAIN FIRST — gather live evidence, then reason over it in human fashion */
     const th=await thinkAnswer(q,deep,hiMode);if(th)return th;
     if(hiMode){const hw=await hiWikiAnswer(q,deep);if(hw)return hw;}
-    if(geminiKey()||backendUrl()){try{let t=await geminiCall(q,deep);t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
+    /* rescue rung: geminiCall short-circuits to groqCall (backend first) — a single
+       transient backend/model blip used to dead-end here and dump raw Wikipedia as the
+       final answer. Retry the backend ONCE before giving up on the brain. */
+    if(geminiKey()||backendUrl()){try{let t;try{t=await geminiCall(q,deep)}catch(e1){if(!e1.outOfTokens&&aiProvider()==="groq"&&!keyPool().length&&backendUrl()){await new Promise(r=>setTimeout(r,1200));t=await backendCall([{role:"system",content:replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900)}else throw e1}t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
     const d2=await ddgAnswer(q);if(d2)return d2;
