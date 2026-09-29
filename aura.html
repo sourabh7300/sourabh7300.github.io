@@ -797,6 +797,39 @@ body[data-tab="chats"] #sessPanel{display:flex}
 .ch2-empty{text-align:center;padding:44px 16px;color:var(--dim);font-size:12.5px;line-height:1.7}
 .ch2-empty .big{font-size:34px;display:block;margin-bottom:10px;opacity:.8}
 .ch2-empty b{color:var(--cy2);font-family:'Manrope'}
+
+/* --- CHATS 2.1: filter chips + styled popovers --- */
+.ch2-filters{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 12px}
+.ch2-fchip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);
+  background:rgba(13,18,38,.55);color:var(--dim);border-radius:14px;padding:6px 12px;
+  font-family:'Inter';font-size:11.5px;font-weight:500;cursor:pointer;transition:.18s}
+.ch2-fchip:hover{color:var(--cy2);border-color:var(--line)}
+.ch2-fchip.on{color:var(--cy2);border-color:var(--line);background:rgba(91,140,255,.14)}
+.ch2-fchip .n{font-family:var(--mono);font-size:9.5px;opacity:.8}
+.ch2-fchip .fmini{border:0;background:transparent;color:inherit;cursor:pointer;font-size:10px;
+  padding:0 1px;opacity:.55;transition:.15s}
+.ch2-fchip .fmini:hover{opacity:1;color:var(--cy2)}
+.ch2-fchip .fmini.fdel:hover{color:var(--err)}
+#ch2Pop{position:fixed;z-index:9500;min-width:210px;max-width:280px;
+  background:linear-gradient(180deg,rgba(18,24,50,.97),rgba(10,14,30,.97));border:1px solid var(--line);
+  border-radius:13px;box-shadow:0 18px 50px rgba(0,0,0,.55);padding:7px;animation:ch2pop .14s ease}
+@keyframes ch2pop{from{opacity:0;transform:translateY(4px)}}
+#ch2Pop .ch2-pop-t{font-family:'Manrope';font-size:10.5px;font-weight:700;letter-spacing:1.5px;
+  color:var(--dim);padding:6px 9px 7px;text-transform:uppercase}
+#ch2Pop .it{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;
+  font-size:12.5px;color:var(--ice);transition:.13s}
+#ch2Pop .it:hover{background:rgba(91,140,255,.14);color:var(--cy2)}
+#ch2Pop .it .em{width:18px;text-align:center}
+#ch2Pop .it .cnt{margin-left:auto;font-family:var(--mono);font-size:9.5px;color:var(--dim)}
+#ch2Pop .it.danger:hover{background:rgba(248,113,113,.13);color:var(--err)}
+#ch2Pop .ch2-pin-row{display:flex;gap:7px;padding:8px 6px 4px}
+#ch2Pop input{flex:1;background:rgba(4,8,20,.7);border:1px solid var(--line2);border-radius:9px;
+  color:var(--ice);font-family:'Inter';font-size:12.5px;padding:9px 11px;outline:0;min-width:0}
+#ch2Pop input:focus{border-color:var(--line)}
+#ch2Pop .pbtn{border:0;border-radius:9px;padding:8px 13px;font-family:'Manrope';font-weight:700;
+  font-size:11px;cursor:pointer;background:linear-gradient(135deg,#5B8CFF,#3E6BE8);color:#fff;white-space:nowrap}
+#ch2Pop .pbtn.ghost{background:transparent;border:1px solid var(--line2);color:var(--dim)}
+.ch2-archrow{opacity:.82}
 /* --- empty-state starter chips on the stage --- */
 #stageEmpty{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;text-align:center;z-index:2}
 #stageEmpty.show{display:flex}
@@ -2824,9 +2857,13 @@ function replayOnScreen(list){
     const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);
   }catch(e){}
 }
-/* ===== CHATS 2.0 — the history hub: date groups, pin, rename, export, continue ===== */
+/* ===== CHATS 2.1 — the history hub: folders, archive, pin, rename, export, continue ===== */
 function ch2Pins(){try{return JSON.parse(localStorage.getItem("aura_chat_pins")||"[]")}catch(e){return[]}}
 function ch2SetPin(a){try{localStorage.setItem("aura_chat_pins",JSON.stringify(a.slice(-50)))}catch(e){}}
+function ch2MetaKey(){try{return "ch2_meta_"+String(AuraAuth.getSessionsKey()).split("aura_sessions_")[1]||"default"}catch(e){return "ch2_meta_default"}}
+function ch2Meta(){let m={};try{m=JSON.parse(localStorage.getItem(ch2MetaKey())||"{}")}catch(e){}m.folders=m.folders||[];m.folderOf=m.folderOf||{};m.archived=m.archived||[];return m}
+function ch2SaveMeta(m){try{localStorage.setItem(ch2MetaKey(),JSON.stringify(m))}catch(e){}}
+let ch2View={t:"all"};
 function ch2Group(t){
   const d=new Date(t||Date.now()),n=new Date(),day=86400000;
   const mid=new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime();
@@ -2848,28 +2885,85 @@ function openChat2(id){
   try{renderSessions()}catch(e){}
   pushSys("back in the chat — memory intact, continue anytime");
 }
+/* --- styled popover engine (goodbye, ugly prompt dialogs) --- */
+function ch2PopClose(){try{const p=document.getElementById("ch2Pop");if(p)p.remove()}catch(e){}}
+function ch2Pop(anchor,html,onMount){
+  ch2PopClose();
+  const el=document.createElement("div");el.id="ch2Pop";el.innerHTML=html;
+  document.body.appendChild(el);
+  const r=anchor.getBoundingClientRect();
+  let x=Math.min(Math.max(10,r.left),innerWidth-el.offsetWidth-10);
+  let y=r.bottom+8;if(y+el.offsetHeight>innerHeight-10)y=r.top-el.offsetHeight-8;
+  el.style.left=Math.max(10,x)+"px";el.style.top=Math.max(10,y)+"px";
+  setTimeout(()=>{
+    const off=ev=>{if(!el.contains(ev.target)){ch2PopClose();document.removeEventListener("mousedown",off)}};
+    document.addEventListener("mousedown",off);
+    const esc=ev=>{if(ev.key==="Escape"){ch2PopClose();document.removeEventListener("keydown",esc)}};
+    document.addEventListener("keydown",esc);
+  },0);
+  if(onMount)onMount(el);
+  return el;
+}
+function ch2PromptPop(anchor,title,initial,onSave){
+  ch2Pop(anchor,
+    '<div class="ch2-pop-t">'+esc(title)+'</div>'+
+    '<div class="ch2-pin-row"><input id="ch2PopIn" maxlength="60" value="'+esc(initial||"")+'" placeholder="Type a name…">'+
+    '<button class="pbtn" id="ch2PopGo">Save</button></div>',
+    el=>{
+      const inp=el.querySelector("#ch2PopIn");
+      setTimeout(()=>{inp.focus();inp.select()},30);
+      const go=()=>{const v=inp.value.trim();if(v){ch2PopClose();onSave(v)}};
+      el.querySelector("#ch2PopGo").onclick=go;
+      inp.onkeydown=ev=>{if(ev.key==="Enter"){ev.preventDefault();go()}};
+    });
+}
 function renderSessions(){
   try{
     const side=document.getElementById("sessSide");if(!side)return;
-    const all=sessions.all(),cur=sessions.currentId(),pins=ch2Pins();
+    const all=sessions.all(),cur=sessions.currentId(),pins=ch2Pins(),meta=ch2Meta();
     const q=((side.querySelector("#sessQ")||{}).value||"").trim(),ql=q.toLowerCase();
-    const list=q?all.filter(s=>(s.title||"").toLowerCase().includes(ql)||(s.convo||[]).some(c=>String(c.content).toLowerCase().includes(ql))):all;
-    const pinned=list.filter(s=>pins.includes(s.id)),rest=list.filter(s=>!pins.includes(s.id));
+    let list=q?all.filter(s=>(s.title||"").toLowerCase().includes(ql)||(s.convo||[]).some(c=>String(c.content).toLowerCase().includes(ql))):all.slice();
+    if(ch2View.t==="archived")list=list.filter(s=>meta.archived.includes(s.id));
+    else if(ch2View.t==="folder")list=list.filter(s=>meta.folderOf[s.id]===ch2View.f&&!meta.archived.includes(s.id));
+    else list=list.filter(s=>!meta.archived.includes(s.id));
+    const activeCount=all.filter(s=>!meta.archived.includes(s.id)).length;
+    const folderCount=f=>all.filter(s=>meta.folderOf[s.id]===f&&!meta.archived.includes(s.id)).length;
+    const inArch=ch2View.t==="archived";
+    const pinned=(ch2View.t==="all"&&!q)?list.filter(s=>pins.includes(s.id)):[];
+    const rest=list.filter(s=>!pinned.includes(s));
+    function chip(id2,label,emoji,count,on,mini){
+      return '<button class="ch2-fchip'+(on?" on":"")+'" data-fv="'+esc(id2)+'">'+emoji+' '+esc(label)+
+        (count!=null?'<span class="n">'+count+'</span>':"")+(mini||"")+'</button>';
+    }
+    let filters=chip("all","All","💬",activeCount,ch2View.t==="all");
+    meta.folders.forEach(f=>{
+      const del='<span class="fmini fdel" data-fdel="'+esc(f.id)+'" title="Delete folder">✕</span>';
+      const ren='<span class="fmini" data-fren="'+esc(f.id)+'" title="Rename folder">✎</span>';
+      filters+=chip("folder:"+f.id,f.name,"📁",folderCount(f.id),ch2View.t==="folder"&&ch2View.f===f.id,ren+del);
+    });
+    if(meta.archived.length)filters+=chip("archived","Archived","📦",meta.archived.length,inArch);
+    filters+='<button class="ch2-fchip" id="ch2NewFolder">＋ Folder</button>';
     function row(s){
       const prev=(s.convo&&s.convo.length?String(s.convo[s.convo.length-1].content).replace(/\s+/g," ").slice(0,64):"empty chat");
       const when=s.at?new Date(s.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
       const isPin=pins.includes(s.id);
-      return '<div class="ch2-row'+(s.id===cur?" on":"")+(isPin?" pin":"")+'" data-id="'+esc(s.id)+'">'+
-        '<span class="ch2-ico">💬</span><span class="ch2-main"><span class="ch2-title">'+esc(s.title||"New chat")+(isPin?'<span class="ch2-pinbadge">📌</span>':"")+'</span><span class="ch2-prev">'+esc(prev)+'</span></span>'+
-        '<span class="ch2-when">'+when+'</span>'+
-        '<span class="ch2-acts">'+
-        '<button class="ch2-open" title="Continue this chat">↩</button>'+
+      const fid=meta.folderOf[s.id];
+      const fname=fid?((meta.folders.find(f=>f.id===fid)||{}).name||""):"";
+      const badge=isPin?'<span class="ch2-pinbadge">📌</span>':(fname?'<span class="ch2-pinbadge">📁</span>':"");
+      let acts='<button class="ch2-open" title="Continue this chat">↩</button>'+
         '<button class="ch2-ren" title="Rename">✎</button>'+
-        '<button class="ch2-pin" title="'+(isPin?"Unpin":"Pin")+'">📌</button>'+
-        '<button class="ch2-pdf" title="Study sheet (PDF)">📄</button>'+
+        '<button class="ch2-move" title="Move to folder / archive">📁</button>';
+      if(ch2View.t==="all")acts+='<button class="ch2-pin" title="'+(isPin?"Unpin":"Pin")+'">📌</button>';
+      if(inArch)acts='<button class="ch2-open" title="Continue this chat">↩</button>'+
+        '<button class="ch2-unarch" title="Move back to chats">📥</button>'+
+        '<button class="ch2-ren" title="Rename">✎</button>';
+      acts+='<button class="ch2-pdf" title="Study sheet (PDF)">📄</button>'+
         '<button class="ch2-txt" title="Export .txt">⤓</button>'+
-        '<button class="ch2-del" title="Delete">🗑</button>'+
-        '</span></div>';
+        '<button class="ch2-del" title="Delete">🗑</button>';
+      return '<div class="ch2-row'+(s.id===cur?" on":"")+(isPin?" pin":"")+(inArch?" archrow":"")+'" data-id="'+esc(s.id)+'">'+
+        '<span class="ch2-ico">'+(inArch?"📦":fname?"📁":"💬")+'</span>'+
+        '<span class="ch2-main"><span class="ch2-title">'+esc(s.title||"New chat")+badge+'</span><span class="ch2-prev">'+esc(prev)+'</span></span>'+
+        '<span class="ch2-when">'+when+'</span><span class="ch2-acts">'+acts+'</span></div>';
     }
     function groups(L){
       const order=["Today","Yesterday","Previous 7 days","Previous 30 days","Older"],buckets={};
@@ -2877,27 +2971,76 @@ function renderSessions(){
       return order.filter(g=>buckets[g]).map(g=>'<div class="ch2-group">'+g.toUpperCase()+'</div>'+buckets[g].map(row).join("")).join("");
     }
     side.innerHTML=
-      '<div id="sessHead"><div><h2>Your chats</h2><div class="shsub">'+all.length+' conversation'+(all.length===1?"":"s")+(q?' · matching "'+esc(q)+'"':"")+' · click one to continue it</div></div>'+
+      '<div id="sessHead"><div><h2>Your chats</h2><div class="shsub">'+activeCount+' active · '+meta.archived.length+' archived'+
+      (q?' · matching "'+esc(q)+'"':"")+' · click one to continue it</div></div>'+
       '<button id="sessNew2">＋ New chat</button></div>'+
       '<input id="sessQ" placeholder="Search your chats — titles and messages…" value="'+esc(q)+'">'+
+      '<div class="ch2-filters">'+filters+'</div>'+
       '<div id="sessScroll">'+
       (pinned.length?'<div class="ch2-group">📌 PINNED</div>'+pinned.map(row).join(""):"")+
-      (rest.length?groups(rest):'')+
-      (list.length?"":'<div class="ch2-empty"><span class="big">🗒️</span>'+(q?'Nothing matches <b>'+esc(q)+'</b>.':'No chats yet — say something on the 💬 CHAT tab and it saves automatically.')+'</div>')+
+      (rest.length?groups(rest):"")+
+      (list.length?"":'<div class="ch2-empty"><span class="big">'+(inArch?"📦":ch2View.t==="folder"?"📁":"🗒️")+'</span>'+
+        (inArch?'Nothing archived. The 📁 button on any chat parks it here — out of the way, never lost.':
+         ch2View.t==="folder"?'This folder is empty. Use 📁 on any chat to file it here.':
+         q?'Nothing matches <b>'+esc(q)+'</b>.':'No chats yet — say something on the 💬 CHAT tab and it saves automatically.')+
+        '</div>')+
       '</div>';
     const nb=side.querySelector("#sessNew2");if(nb)nb.onclick=()=>{sessions.newChat();log.innerHTML="";document.body.dataset.tab="chat";document.querySelectorAll("#tabbar button").forEach(b=>b.classList.toggle("on",b.dataset.t==="chat"));renderSessions();pushSys("new chat — memory cleared, history kept")};
     const sq=side.querySelector("#sessQ");if(sq)sq.oninput=()=>renderSessions();
+    side.querySelectorAll(".ch2-fchip[data-fv]").forEach(c=>{
+      c.onclick=()=>{
+        const v=c.getAttribute("data-fv");
+        if(v==="all")ch2View={t:"all"};
+        else if(v==="archived")ch2View={t:"archived"};
+        else ch2View={t:"folder",f:v.split("folder:")[1]};
+        renderSessions();
+      };
+    });
+    const nf=side.querySelector("#ch2NewFolder");
+    if(nf)nf.onclick=()=>ch2PromptPop(nf,"New folder","",name=>{const m=ch2Meta();m.folders.push({id:"f"+Date.now(),name:name.slice(0,40),created:Date.now()});ch2SaveMeta(m);ch2View={t:"folder",f:m.folders[m.folders.length-1].id};renderSessions();pushSys('folder "'+name+'" created — use 📁 on any chat to file it')});
+    side.querySelectorAll("[data-fren]").forEach(b=>{b.onclick=e=>{e.stopPropagation();const f=meta.folders.find(x=>x.id===b.getAttribute("data-fren"));if(f)ch2PromptPop(b,"Rename folder",f.name,v=>{const m=ch2Meta();const t2=m.folders.find(x=>x.id===f.id);if(t2)t2.name=v.slice(0,40);ch2SaveMeta(m);renderSessions()})}});
+    side.querySelectorAll("[data-fdel]").forEach(b=>{b.onclick=e=>{e.stopPropagation();const fid=b.getAttribute("data-fdel");const f=meta.folders.find(x=>x.id===fid);if(!f)return;if(!confirm('Delete folder "'+f.name+'"? Chats inside return to All — nothing is deleted.'))return;const m=ch2Meta();m.folders=m.folders.filter(x=>x.id!==fid);Object.keys(m.folderOf).forEach(k=>{if(m.folderOf[k]===fid)delete m.folderOf[k]});ch2SaveMeta(m);if(ch2View.t==="folder"&&ch2View.f===fid)ch2View={t:"all"};renderSessions();pushSys("folder removed — chats kept in All")}});
     side.querySelectorAll(".ch2-row").forEach(el=>{
       const id=el.dataset.id;
       const s=all.find(x=>x.id===id)||list.find(x=>x.id===id);
       el.onclick=()=>openChat2(id);
-      el.querySelector(".ch2-open").onclick=e=>{e.stopPropagation();openChat2(id)};
-      el.querySelector(".ch2-ren").onclick=e=>{e.stopPropagation();const name=prompt("Rename chat:",s?s.title:"");if(name&&name.trim()){sessions.rename(id,name.trim());renderSessions()}};
-      el.querySelector(".ch2-pin").onclick=e=>{e.stopPropagation();const p2=ch2Pins();const i=p2.indexOf(id);if(i>=0)p2.splice(i,1);else p2.push(id);ch2SetPin(p2);renderSessions()};
-      el.querySelector(".ch2-pdf").onclick=e=>{e.stopPropagation();if(s&&s.convo&&s.convo.length){const S=buildStudySheet(s.convo);if(S)askOpenDoc("study sheet — "+s.title,()=>studySheetFromData(S));}else pushSys("that chat is empty — nothing to export")};
-      el.querySelector(".ch2-txt").onclick=e=>{e.stopPropagation();if(s)ch2Export(s);else pushSys("chat not found")};
-      el.querySelector(".ch2-del").onclick=e=>{e.stopPropagation();if(confirm("Delete this chat permanently?")){const p2=ch2Pins();const i=p2.indexOf(id);if(i>=0){p2.splice(i,1);ch2SetPin(p2)}sessions.del(id);pushSys("chat deleted");renderSessions()}};
-      el.ondblclick=()=>{const name=prompt("Rename chat:",s?s.title:"");if(name&&name.trim()){sessions.rename(id,name.trim());renderSessions()}};
+      const ob=el.querySelector(".ch2-open");if(ob)ob.onclick=e=>{e.stopPropagation();openChat2(id)};
+      const rb=el.querySelector(".ch2-ren");if(rb)rb.onclick=e=>{e.stopPropagation();ch2PromptPop(e.target,"Rename chat",s?s.title:"",v=>{sessions.rename(id,v);renderSessions()})};
+      const mb=el.querySelector(".ch2-move");if(mb)mb.onclick=e=>{
+        e.stopPropagation();
+        const m=ch2Meta();
+        let html='<div class="ch2-pop-t">Move this chat</div>';
+        html+='<div class="it" data-mv="__arch__"><span class="em">📦</span>'+(meta.archived.includes(id)?"Unarchive":"Archive — tuck away")+'</div>';
+        m.folders.forEach(f=>{html+='<div class="it" data-mv="'+esc(f.id)+'"><span class="em">📁</span>'+esc(f.name)+'<span class="cnt">'+(m.folderOf[id]===f.id?"current":folderCount(f.id))+'</span></div>'});
+        html+='<div class="it" data-mv="__new__"><span class="em">＋</span>New folder…</div>';
+        if(m.folderOf[id])html+='<div class="it danger" data-mv="__out__"><span class="em">✕</span>Remove from folder</div>';
+        ch2Pop(e.target,html,el2=>{
+          el2.querySelectorAll(".it[data-mv]").forEach(it=>{
+            it.onclick=()=>{
+              const v=it.getAttribute("data-mv");const m2=ch2Meta();
+              if(v==="__arch__"){
+                if(m2.archived.includes(id)){m2.archived=m2.archived.filter(x=>x!==id);pushSys("chat moved back to your chats")}
+                else{m2.archived.push(id);delete m2.folderOf[id];const p2=ch2Pins();const i=p2.indexOf(id);if(i>=0){p2.splice(i,1);ch2SetPin(p2)}pushSys("chat archived — find it under 📦 Archived")}
+              }else if(v==="__new__"){
+                ch2PromptPop(it,"New folder","",name=>{const m3=ch2Meta();m3.folders.push({id:"f"+Date.now(),name:name.slice(0,40),created:Date.now()});m3.folderOf[id]=m3.folders[m3.folders.length-1].id;delete m3.archived[m3.archived.indexOf(id)];m3.archived=m3.archived.filter(x=>x!==id);ch2SaveMeta(m3);renderSessions();pushSys('filed under "'+name+'"')});
+              }else if(v==="__out__"){
+                delete m2.folderOf[id];pushSys("moved back to All chats");
+              }else{
+                m2.folderOf[id]=v;m2.archived=m2.archived.filter(x=>x!==id);const f=m2.folders.find(x=>x.id===v);pushSys('filed under "'+(f?f.name:"folder")+'"');
+              }
+              if(v!=="__new__"){ch2SaveMeta(m2);renderSessions()}
+            };
+          });
+        });
+      };
+      const pb=el.querySelector(".ch2-pin");
+      if(pb)pb.onclick=e=>{e.stopPropagation();const p2=ch2Pins();const i=p2.indexOf(id);if(i>=0)p2.splice(i,1);else p2.push(id);ch2SetPin(p2);renderSessions()};
+      const ub=el.querySelector(".ch2-unarch");
+      if(ub)ub.onclick=e=>{e.stopPropagation();const m2=ch2Meta();m2.archived=m2.archived.filter(x=>x!==id);ch2SaveMeta(m2);renderSessions();pushSys("chat restored to your chats")};
+      const pb2=el.querySelector(".ch2-pdf");if(pb2)pb2.onclick=e=>{e.stopPropagation();if(s&&s.convo&&s.convo.length){const S=buildStudySheet(s.convo);if(S)askOpenDoc("study sheet — "+s.title,()=>studySheetFromData(S));}else pushSys("that chat is empty — nothing to export")};
+      const tb=el.querySelector(".ch2-txt");if(tb)tb.onclick=e=>{e.stopPropagation();if(s)ch2Export(s);else pushSys("chat not found")};
+      const db2=el.querySelector(".ch2-del");if(db2)db2.onclick=e=>{e.stopPropagation();if(confirm("Delete this chat permanently?")){const m2=ch2Meta();delete m2.folderOf[id];m2.archived=m2.archived.filter(x=>x!==id);ch2SaveMeta(m2);const p2=ch2Pins();const i=p2.indexOf(id);if(i>=0){p2.splice(i,1);ch2SetPin(p2)}sessions.del(id);pushSys("chat deleted");renderSessions()}};
+      el.ondblclick=()=>{ch2PromptPop(el,"Rename chat",s?s.title:"",v=>{sessions.rename(id,v);renderSessions()})};
     });
   }catch(e){}
 }
@@ -2952,9 +3095,12 @@ try{(function(){const list=sessions.all();if(!list.length){const saved=hist.load
   /* typing pulse — shown while she thinks */
   window.__auraTypeStart=function(){
     const t=document.getElementById("auraTyping");if(t)t.classList.add("show");
-    clearTimeout(window.__auraTypeTO);window.__auraTypeTO=setTimeout(window.__auraTypeStop,60000);
+    window.__auraTypeHard=true;
+    clearTimeout(window.__auraTypeTO);window.__auraTypeTO=setTimeout(window.__auraTypeStop,90000);
   };
-  window.__auraTypeStop=function(){const t=document.getElementById("auraTyping");if(t)t.classList.remove("show");clearTimeout(window.__auraTypeTO)};
+  window.__auraTypeStop=function(){window.__auraTypeHard=false;const t=document.getElementById("auraTyping");if(t)t.classList.remove("show");clearTimeout(window.__auraTypeTO)};
+  /* the pulse follows the real busy flag — it stays while she thinks, stops the moment she's done (no blind 4s cutoff) */
+  setInterval(function(){try{if(window.__auraTypeHard&&typeof busy!=="undefined"&&!busy)window.__auraTypeStop()}catch(e){}},600);
   /* wrap ask(): pulse while the promise runs */
   if(typeof ask==="function"&&!window.__chats2Patched){
     window.__chats2Patched=true;
@@ -4103,8 +4249,7 @@ $("langBtn").onclick=()=>{
 };
 
 /* ---------------- wiring ---------------- */
-$("sendBtn").onclick=()=>ask($("q").value);
-$("q").addEventListener("keydown",e=>{if(e.key==="Enter")ask($("q").value)});
+$("sendBtn").onclick=()=>ask($("q").value);  $("q").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();ask($("q").value)}}); /* preventDefault kills the newline race that left a stray blank line in the box (the "misprint while entering") — Shift+Enter makes real newlines, isComposing protects IME typing */
 document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>ask(c.textContent));
 [...$("chipsMobile").children?[]:[]]; // (mobile chips reuse main set when conv hidden)
 if(matchMedia("(max-width:860px)").matches){
