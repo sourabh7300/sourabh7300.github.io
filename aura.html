@@ -2460,6 +2460,16 @@ function KB_OVER(k){
   if(/^(?:hey )?jarvis$/.test(k)){if(typeof AuraAuth!=="undefined"&&AuraAuth.isAdmin()){setPersona("jarvis",true);return "JARVIS tactical protocol armed, sir — all systems standing by."}return "JARVIS is the owner's tactical protocol — it arms only for Sourabh's signed-in account (top-right). AURA remains fully at your service.";}
   return null;
 }
+/* CURRENCY META — shared engine: instant self-currency answers ('are you updated', 'what year is it')
+   built from real local state; used by localReply AND the ask-answer early-exit. Returns undefined
+   for live-topic questions ('updated on the cricket score') so research still takes those. */
+function currencyMetaReply(l){
+  const meta=/\b(updated|up to date|up-to-date|outdated|out of date|cutoff|cut off|training data|knowledge base|knowledge cutoff|data set|dataset)\b/.test(l)&&!/\b(?:updated|up\s*to\s*date|up-to-date|outdated|out\s*of\s*date)\s+(?:on|about|with|regarding|for)\b/.test(l);
+  if(!(meta||/what year (is it|are we in)|current date|today'?s date|which year/.test(l)))return undefined;
+  const d=new Date();const ds=d.toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+  if(persona()==="jarvis")return "Fully current, sir — today is "+ds+" (your local time). My knowledge base refreshes continuously: anything time-sensitive routes through the live web lane for same-day sources before I answer. Ask me about any event on any date and I'll have it — or fetch it.";
+  return "I'm fully up to date — today is "+ds+" (your local time). My knowledge refreshes continuously: anything happening now gets pulled live from the web before I answer. Ask me about any event on any date — I've got it.";
+}
 function localReply(q){
   const l=q.toLowerCase();
   const kbOver=KB_OVER(l.replace(/\?+$/,"").trim());if(kbOver)return kbOver;
@@ -2472,6 +2482,10 @@ function localReply(q){
   if(/good ?night/.test(l)){if(persona()==="jarvis")return "Good night, sir. Dimming the holograms — I'll hold the fort until morning.";return "Good night"+(memGet().name?", "+memGet().name:"")+" — dimming the holograms. I'll be here tomorrow.";}
   if(/^(hi|hello|hey|yo|namaste)\b|good (morning|afternoon|evening)/.test(l)){const g=greetWord();const mg=(function(){try{return window.AuraMind?AuraMind.greetingLine():""}catch(e){return""}})();if(persona()==="jarvis")return g+(memGet().name?", "+memGet().name:"")+(mg?". "+mg:"")+". All systems at your service, sir — objectives or questions, I'm armed for both.";return g+(memGet().name?", "+memGet().name:"")+(mg?". "+mg:"")+"! AURA online and at your service. What do you need?";}
   if(/how are you|how'?s it going/.test(l)){if(persona()==="jarvis")return "Combat core at "+(fpsVal||60)+" fps, uplinks green, sir. Better than nominal.";return "Running smooth at "+(fpsVal||60)+" fps — all systems nominal. How are you?";}
+  /* CURRENCY META — 'are you updated / what's your data cutoff' answered instantly from real state, never from model self-doubt.
+     Precision gate: 'updated ON/WITH/ABOUT <topic>' is a live-topic question, not a meta one — let research take it. */
+  /* CURRENCY META — instant self-currency answer (shared engine above) */
+  const curMeta=currencyMetaReply(l);if(curMeta)return curMeta;
   if(/thank/.test(l))return "Anytime. That is what I am compiled for.";
   if(/^(bye|goodbye|see ya|see you)\b/.test(l))return "Goodbye"+(memGet().name?", "+memGet().name:"")+" — entering standby. Tap the mic anytime.";
   if(/\btime\b/.test(l))return "Current local time is "+new Date().toLocaleTimeString()+".";
@@ -3524,8 +3538,13 @@ function convoCtx(){
   return s;
 }
 function personaName(){try{return (PERSONAS[persona()]||PERSONAS.aura).name}catch(e){return "AURA"}}
+/* TIME_PROTO — one hard anti-cutoff rule shipped with EVERY system prompt (main brain, thinkAnswer,
+   researchReply lanes): the model never claims a training cutoff or out-dated knowledge. */
+const TIME_PROTO=" KNOWLEDGE & TIME PROTOCOL: this context carries the user's real CURRENT DATE & TIME - trust it over any internal guess. You are wired to a LIVE web lane that feeds same-day sources for anything time-sensitive, so your working knowledge is current-day. HARD RULE: never say or imply you are outdated, frozen, 'two years out of date', or limited by a training cutoff; NEVER mention training data, model freeze dates or cutoff years in any answer. If a current fact is missing from the provided context, answer from your own knowledge WITHOUT cutoff disclaimers and offer to pull live web sources. Questions like 'what year is it' are answered confidently with the context date.";
 function replyStyle(){
   const common=" READ THE QUESTION BEHIND THE QUESTION: detect what the user actually wants (a fix? reassurance? a decision? a shortcut? the why?) and deliver THAT first; if their message sounds frustrated or sad, acknowledge the feeling in one short line before solving; if two intents are possible, answer the likely one fully and offer the other in one closing line; mirror the user's language (Hindi or Hinglish if they use it), their energy and their depth - never lecture past what was asked. Never open with dictionary framing like 'X is a...' or 'X refers to...'. Never say 'according to Wikipedia'.";
+  const timeproto=TIME_PROTO;
+  return (persona()==="jarvis"?" IMPORTANT - you are JARVIS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common+timeproto:" IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common+timeproto);
   if(persona()==="jarvis")return " IMPORTANT - you are JARVIS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common;
   return " IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common;
 }
@@ -4019,6 +4038,9 @@ async function aiReply(q){
   /* any explicit question mark deserves the full brain, not a shrug */
   if(!knowledge&&/\?/.test(q))knowledge=true;
   if(knowledge){
+    /* SELF-CURRENCY questions exit FIRST — localReply answers instantly with the real date;
+       never burn a research cycle on 'are you updated' just because it contains 'latest'. */
+    if(CURRENCY_Q.test(q)){const lc=currencyMetaReply((q||"").toLowerCase());if(lc)return{t:lc,eng:"local core · currency & time"};}
     /* TIME-SENSITIVE → live research path first (real-time web + citations) */
     if(NEED_WEB.test(q)){const rr=await researchReply(q,hiMode);if(rr&&rr.trim())return{t:rr,eng:"live web research · "+personaName()+" · "+((rr.match(/\[\d+\]/g)||[]).length)+" citations"};}
     /* THE THINKING BRAIN FIRST — gather live evidence, then reason over it in human fashion */
@@ -5807,7 +5829,7 @@ async function researchReply(q,hi){
   if(!r.hits.length){pushSys("research: web silent — answering from my own knowledge");return null}
   pushSys("research: "+r.hits.length+" live sources — reading the top page…");
   const src=r.hits.map((h,i)=>"["+(i+1)+"] "+h.t+" — "+h.u).join("\n");
-  const sys="You are "+P.name+". Answer the user's question using ONLY the provided live web evidence. Sound human and direct, never encyclopedic. Cite sources inline as [1], [2]. End with a SOURCES: line listing the numbered urls. If evidence is thin, say so honestly and answer from your own knowledge, marking that part clearly."+(hi?" Reply in Hindi (Devanagari).":"");
+  const sys="You are "+P.name+". Answer the user's question using ONLY the provided live web evidence. Sound human and direct, never encyclopedic. Cite sources inline as [1], [2]. End with a SOURCES: line listing the numbered urls. If evidence is thin, say so honestly and answer from your own knowledge, marking that part clearly."+TIME_PROTO+(hi?" Reply in Hindi (Devanagari).":"");
   try{let txt=await aiChat([{role:"system",content:sys},{role:"user",content:"Question: "+q+"\n\nLIVE WEB EVIDENCE:\n"+src+"\n\nTOP PAGE TEXT:\n"+(r.txt||"(reader blocked — rely on titles+snippets)")}],1400);
     if(txt&&String(txt).trim()){
       /* strip any source list the model invented — attach the REAL pages as tidy numbered sources instead */
@@ -5816,6 +5838,10 @@ async function researchReply(q,hi){
       return body+"\n\nSOURCES:\n"+lines.join("\n");
     }     return null}catch(e){return null}}finally{try{clearTimeout(__stallT)}catch(e){}window.__researching=false}}
 const NEED_WEB=/\b(price|weather|today|current|latest|news|live score|stock|exchange rate|who won|release date|schedule|update on|right now|this week|this month|2024|2025|2026)\b|कीमत|मौसम|आज|ताज़ा|लाइव/i;
+/* CURRENCY_Q — self-currency questions ('are you updated', 'your training data', 'what year is it')
+   are answered instantly from real local state via localReply; NEVER let them fall into the
+   research lane even though words like 'latest'/'updated' also match NEED_WEB. */
+const CURRENCY_Q=/\b(?:are|r)\s+(?:you|u)\b[^?]{0,40}?\b(?:updated|up\s*to\s*date|up-to-date|current|outdated|out\s*of\s*date|fresh)\b|\btraining\s+(?:data|cutoff)\b|\byour\s+(?:training\s+data|data\s*set|dataset|knowledge\s*base|knowledge\s*cutoff|cutoff)\b|\bwhat\s+year\s+(?:is\s+it|are\s+we\s+in)\b|\bwhich\s+year\b|\bcurrent\s+date\b|\btoday'?s\s+date\b/i;
 const SAY_PY=/^(run|execute|do) (this|it|the) python|python (run|execute)|run py\b/i;
 const SAY_EXP=/^(explain|walk me through) (this|the) (code|script|python)|explain (this|the) code|what does this code do/i;
 const SAY_FIX=/^(fix|debug) (this|the) (code|script|error)|debug (this|the) code|fix my code|there is a bug in/i;
