@@ -850,6 +850,26 @@ body[data-tab="chat"] #conv{border-radius:18px}
 /* --- empty-state starter chips on the stage --- */
 #stageEmpty{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px;text-align:center;z-index:2}
 #stageEmpty.show{display:flex}
+/* --- AURA VISION — live camera panel (holographic frame in the stage's empty corner) --- */
+#camWrap{position:fixed;right:16px;bottom:210px;width:min(300px,44vw);aspect-ratio:4/3;z-index:12;display:none;flex-direction:column;
+  border:1px solid rgba(34,211,238,.45);border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.55),0 0 34px rgba(34,211,238,.18);backdrop-filter:blur(10px);background:rgba(2,10,16,.82)}
+#camWrap.on{display:flex;animation:camIn .35s cubic-bezier(.34,1.56,.64,1)}
+#camWrap.j-cam{border-color:rgba(251,191,36,.5);box-shadow:0 10px 40px rgba(0,0,0,.55),0 0 34px rgba(251,191,36,.2)}
+@keyframes camIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+#camView{width:100%;flex:1;object-fit:cover;min-height:0;background:#02080c}
+#camView.flip{transform:scaleX(-1)}
+#camStatus{position:absolute;left:10px;top:8px;font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--cy2);
+  background:rgba(2,10,16,.72);border:1px solid rgba(34,211,238,.35);border-radius:10px;padding:3px 9px;backdrop-filter:blur(6px)}
+#camWrap.j-cam #camStatus{color:#fde68a;border-color:rgba(251,191,36,.4)}
+#camActions{position:absolute;right:8px;bottom:8px;display:flex;gap:6px}
+#camActions .ibtn{background:rgba(2,10,16,.78);backdrop-filter:blur(6px)}
+#camWrap.live #camStatus{animation:pp 1.2s infinite}
+#camClose{position:absolute;right:6px;top:6px;z-index:2;width:26px;height:26px;border-radius:8px;border:1px solid rgba(34,211,238,.35);
+  background:rgba(2,10,16,.78);color:var(--cy2);cursor:pointer;font-size:11px;line-height:1}
+@media(max-width:860px){
+  #camWrap{right:10px;bottom:236px;width:min(46vw,220px)}
+}
+body[data-tab="code"] #camWrap,body[data-tab="chats"] #camWrap{display:none!important}
 #stageEmpty .se-orb{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;font-size:23px;
   background:radial-gradient(circle at 35% 30%,rgba(91,140,255,.4),rgba(13,18,38,.9));border:1px solid var(--line);
   box-shadow:0 0 30px rgba(91,140,255,.25)}
@@ -1071,6 +1091,15 @@ body[data-tab="chat"] #conv{border-radius:18px}
     <span class="clipwrap"><button class="ibtn" id="clipBtn" title="Send an image — I'll describe it">📎</button><input type="file" id="imgInput" accept="image/*"></span>
     <span id="micHint">TAP TO SPEAK</span>
   </div>
+  <div id="camWrap">
+    <button id="camClose" title="Close camera">✕</button>
+    <video id="camView" autoplay playsinline muted></video>
+    <div id="camStatus">camera off</div>
+    <div id="camActions">
+      <button class="ibtn" id="camAsk" title="Read the scene now and tell me">📸 ASK</button>
+      <button class="ibtn" id="camLive" title="Watch the scene and report changes out loud">👁 LIVE</button>
+    </div>
+  </div>
   <div id="inputRow">
     <input id="q" placeholder="Type a command, or tap the mic and just talk…" autocomplete="off">
     <button id="sendBtn">▸</button>
@@ -1078,6 +1107,7 @@ body[data-tab="chat"] #conv{border-radius:18px}
   <div class="iconrow">
   <button class="ibtn" id="soundBtn">SOUND: ON</button>
   <button class="ibtn" id="langBtn">LANG: ENG</button>   <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or JARVIS (owner's tactical protocol)">MODE: AURA</button>
+  <button class="ibtn" id="camBtn" title="Live camera vision — show me your world">📷 CAM</button>
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
   <button class="ibtn" id="docsBtn" title="Upload your PDFs & notes — answers cite file and page">📚 DOCS</button>
   <button class="ibtn" id="themeBtn" title="Switch interface style: DECK dark / Futuristic cyan / Gold / Classical">🎨 DECK</button>
@@ -1392,7 +1422,9 @@ function renderMD(t){
 /* ---------------- vision (qwen3.8-27b accepts images) ---------------- */
 async function visionDescribe(dataURL,q){
   /* shrink big photos before sending — smaller payload = faster, works on every network */
-  try{if(dataURLBytes(dataURL)>420000)dataURL=await imgConvert(dataURL,"image/jpeg",.82)}catch(e){}
+  /* small JPEGs go up as-is — recompressing a clean canvas frame through imgConvert
+     actually inflates it to PNG and the vision brain rejects the oversized payload */
+  try{const isJpeg=/^data:image\/jpeg;base64,/.test(dataURL);if(!isJpeg&&dataURLBytes(dataURL)>420000)dataURL=await imgConvert(dataURL,"image/jpeg",.82)}catch(e){}
   const messages=[{role:"user",content:[{type:"text",text:(q||"Describe this image in detail: what is shown, any text visible, colors, mood, and anything notable. Plain text.")+" Answer in the persona of "+PERSONAS[persona()].name+"."},{type:"image_url",image_url:{url:dataURL}}]}];
   /* route through the full brain chain: owner backend → local key bank → fallbacks */
   return await groqCall(messages,900,"meta-llama/llama-4-scout-17b-16e-instruct");
@@ -2479,6 +2511,93 @@ async function duel(topic){
   const el=addMsg(msgTag(),"","aura");typewrite(el,"⚖ VERDICT — "+verdict.replace(/\n+/g," · "));log.scrollTop=log.scrollHeight;
   pushSys("duel complete — say 'end duel' to stand down");
 }
+/* ================= AURA VISION — live camera eyes (browser-native multimodal, Sourabh's design) =================
+   getUserMedia feeds a holographic in-page viewer; frames go to the same multimodal brain
+   (llama-4-scout via the Render backend chain) and answers are SPOKEN in persona tone.
+   ASK = one scene read · LIVE = watch mode, reports meaningful changes hands-free. */
+window.__camOn=false;window.__camStream=null;window.__camLiveTimer=null;window.__camLastRead="";
+window.__camGrab=async function(quality){
+  const v=document.getElementById("camView");
+  if(!v||!v.videoWidth)throw new Error("camera feed not ready");
+  const cap=document.createElement("canvas");
+  const w=Math.min(960,v.videoWidth);cap.width=w;cap.height=Math.round(v.videoHeight*w/v.videoWidth);
+  cap.getContext("2d").drawImage(v,0,0,cap.width,cap.height);
+  return cap.toDataURL("image/jpeg",quality||0.8);
+};
+window.__camAsk=async function(q){
+  try{
+    pushSys("👁 reading the scene — "+(q||"describe what you see"));
+    const shot=await window.__camGrab(0.8);
+    const desc=await visionDescribe(shot,(q||"Describe this live camera scene: what do you see, any people, objects, text, anything notable. Plain text."));
+    const el=addMsg(msgTag(),"","aura");typewrite(el,desc);
+    window.__camLastRead=desc;
+    if(voiceAllowed())speak(desc.replace(/SOURCES:[\s\S]*$/,""));
+  }catch(e){
+    const msg=e.name==="NotAllowedError"?"camera permission denied — allow it in the browser bar and tap 📷 CAM again":
+      e.name==="NotFoundError"?"no camera found on this device":
+      e.message==="camera feed not ready"?"camera still warming up — try again in a second":"vision uplink failed ("+(e.message||e)+") — brains still online";
+    pushSys(msg);addMsg(msgTag(),msg.charAt(0).toUpperCase()+msg.slice(1),"aura");
+  }
+};
+window.__camStop=function(){
+  try{if(window.__camLiveTimer){clearInterval(window.__camLiveTimer);window.__camLiveTimer=null}}catch(e){}
+  try{if(window.__camStream){window.__camStream.getTracks().forEach(t=>t.stop())}}catch(e){}
+  window.__camStream=null;window.__camOn=false;
+  const w=document.getElementById("camWrap");if(w){w.classList.remove("on","live","j-cam")}
+  const b=document.getElementById("camBtn");if(b)b.textContent="📷 CAM";
+  setMode("idle");
+};
+window.__camStart=async function(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){pushSys("this browser has no camera API — try Chrome or Edge");return}
+  if(window.__camOn){window.__camStop();return}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:1280},height:{ideal:720},facingMode:"user"},audio:false});
+    window.__camStream=stream;window.__camOn=true;
+    const v=document.getElementById("camView");v.srcObject=stream;v.classList.add("flip");
+    const w=document.getElementById("camWrap");w.classList.add("on");w.classList.toggle("j-cam",persona()==="jarvis");
+    const st=document.getElementById("camStatus");st.textContent=persona()==="jarvis"?"TACTICAL FEED · LIVE":"AURA VISION · LIVE";
+    const b=document.getElementById("camBtn");if(b)b.textContent="📷 LIVE";
+    pushSys("📷 camera eyes open — say 'hey "+(persona()==="jarvis"?"jarvis":"aura")+", what do you see' or hit ASK");
+    if(voiceAllowed())speak(persona()==="jarvis"?"Tactical feed live, sir. What am I looking at?":"Camera eyes open — what do you want me to look at?");
+  }catch(e){
+    const msg=e.name==="NotAllowedError"?"camera permission denied — allow it in the browser's address bar, then tap 📷 CAM again":
+      e.name==="NotFoundError"?"no camera on this device — the 📎 attach button still works":
+      e.name==="NotReadableError"?"camera is busy in another app — close it and retry":"camera failed to start ("+(e.message||e)+")";
+    pushSys(msg);
+  }
+};
+window.__camLive=function(on){
+  const w=document.getElementById("camWrap");
+  if(on===undefined)on=!w.classList.contains("live");
+  if(!window.__camOn){ /* not open yet → open the eyes, then arm the watch */
+    if(on){window.__camStart();setTimeout(()=>{if(window.__camOn)window.__camLive(true)},1600)}
+    else pushSys("camera is already off");
+    return}
+  if(!on){clearInterval(window.__camLiveTimer);window.__camLiveTimer=null;w.classList.remove("live");document.getElementById("camLive").textContent="👁 LIVE";pushSys("live watch off");return}
+  w.classList.add("live");document.getElementById("camLive").textContent="⏸ LIVE";
+  pushSys("live watch on — I'll speak up only when the scene meaningfully changes");
+  const loop=async()=>{
+    if(!window.__camOn||document.hidden)return;
+    try{
+      const now=await window.__camGrab(0.55);
+      /* compare against last read: one brain call, dual-purpose */
+      const changed=await visionDescribe(now,"Previous scene description: \""+(window.__camLastRead||"(first check — describe everything)")+"\". Compare with this new camera frame. If meaningfully CHANGED, describe ONLY what changed (what appeared, moved, or someone did). If essentially UNCHANGED, reply with exactly: NOCHANGE. Plain text.");
+      if(!changed||/NOCHANGE/i.test(changed.slice(0,40)))return;
+      window.__camLastRead=changed;
+      const el=addMsg(msgTag(),"","aura");typewrite(el,changed);
+      if(voiceAllowed())speak(changed.replace(/SOURCES:[\s\S]*$/,""));
+    }catch(e){}
+  };
+  window.__camLiveTimer=setInterval(loop,9000);
+  setTimeout(loop,1200);
+};
+(function(){
+  const b=document.getElementById("camBtn");if(b)b.onclick=()=>window.__camStart();
+  const x=document.getElementById("camClose");if(x)x.onclick=()=>window.__camStop();
+  const a=document.getElementById("camAsk");if(a)a.onclick=()=>window.__camAsk("");
+  const l=document.getElementById("camLive");if(l)l.onclick=()=>window.__camLive();
+  try{window.addEventListener("beforeunload",()=>window.__camStop())}catch(e){}
+})();
 /* ================= OWNER STATUS — live device telemetry for the maker (JARVIS-style report + daily briefing) ================= */
 window.__ownerReport=function(mode){
   try{
@@ -2548,7 +2667,7 @@ async function openrouterCall(messages,maxTok){
   return t.trim();
 }
 const GROQ_MODELS=["openai/gpt-oss-120b","openai/gpt-oss-20b","llama-3.1-8b-instant","deepseek-r1-distill-llama-70b","qwen/qwen3.8-27b","llama-3.3-70b-versatile"]; // current flagships first — list refreshed Sep 2026
-let groqModel="",groqKeyCache="",groqKeyIdx=0;const __KEY_COOL={};
+let groqModel="",groqKeyCache="",groqKeyIdx=0;const __KEY_COOL={};let __lastEng="";/* __lastEng = engine name of last answer; MUST be declared (strict mode would throw ReferenceError on assignment and kill the backend tier) */
 function keyPool(){const out=[];const push=k=>{k=(k||"").trim();if(/^gsk_/.test(k)&&!out.includes(k))out.push(k)};
 push(localStorage.getItem("aura_key"));
 try{JSON.parse(localStorage.getItem("aura_keys")||"[]").forEach(push)}catch(e){}
@@ -3977,6 +4096,20 @@ async function askCore(text0){
       speak(desc.replace(/SOURCES:[\s\S]*$/,""));log.scrollTop=log.scrollHeight;
     }).catch(e=>{el.textContent="Vision failed — "+(e.message||e)+". Check the key/connection and try again."});
     setMode("idle");busy=false;if(wake)armWake(400);return;}
+  /* AURA VISION — camera commands: open/close the eyes, read the scene, live watch */
+  {const cv=(text||"").toLowerCase().trim();
+   if(/^(?:open |start |turn on )?camera(?: eyes)?(?: on| open| up)?$|^camera eyes on$|^open (?:the )?(?:cam|camera eyes)$/.test(cv)){
+     addMsg(msgTag(),"Opening the camera eyes…","aura");setMode("idle");busy=false;setTimeout(()=>window.__camStart(),60);if(wake)armWake(400);return;}
+   if(/^(?:close |turn off |stop )?camera(?: eyes)?(?: off| close| down)?$|^camera eyes off$/.test(cv)){
+     window.__camStop();addMsg(msgTag(),"Camera eyes closed — the feed is down.","aura");setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/^(?:live watch on|watch the scene|start live watch)$/.test(cv)){
+     addMsg(msgTag(),"Engaging live watch — I'll speak up when the scene meaningfully changes.","aura");setMode("idle");busy=false;
+     setTimeout(()=>{const go=()=>{window.__camOn?window.__camLive(true):(window.__camStart(),setTimeout(()=>window.__camLive(true),1200))};go()},60);if(wake)armWake(400);return;}
+   if(/^(?:live watch off|stop watching)$/.test(cv)){window.__camLive(false);setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/^(?:what do you see|describe the scene|read the (?:scene|room))$/.test(cv)){
+     setMode("idle");busy=false;
+     if(window.__camOn){window.__camAsk("")}else{addMsg(msgTag(),"My camera eyes are closed — say 'camera on' (or tap 📷 CAM) and ask me again.","aura")}
+     if(wake)armWake(400);return;}}
   /* persona switch — the owner may arm the tactical protocol; everyone else gets AURA */
   {const lq0=(text||"").toLowerCase();
    if(/\b(activate|go|switch to|arm)\s+(jarvis|tactical protocol)\b|\bjarvis (mode|protocol|persona) (on|activate)\b/.test(lq0)){
@@ -4298,6 +4431,7 @@ $("wakeBtn").onclick=()=>{
       voiceSessionUntil=Date.now()+45000;
       const cmd=c.replace(/^\s*(hey |ok |okay |hi |हे |हेय )?(aura|ऑरा|jarvis)\b[,.!]?\s*/i,"");
       if(cmd.replace(/[\s?!.]/g,"").length<2){addMsg(msgTag(),"Yes? 🎙️","aura");pushSys("wake word caught — no command followed");setTimeout(()=>{if(wake)armWake(600)},900);return;}
+      if(window.__camOn&&window.__camAsk){window.__camAsk(cmd);return} /* camera live → the scene is the subject */
       ask(cmd);}};
     recog.onerror=()=>{listening=false;if(mode==="listening")setMode("idle")};
     recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");if(mode==="listening")setMode("idle");armWake(1200)};
