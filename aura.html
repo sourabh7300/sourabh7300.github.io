@@ -2423,7 +2423,7 @@ function localReply(q){
   if(/what do you (remember|know about me)|my info|about me$/.test(l)){const m=memGet();const ks=Object.keys(m);
     return ks.length?"I remember: "+ks.map(k=>k+" = "+m[k]).join(" · ")+". Stored locally on this device only — it never leaves.":"Nothing yet. Say 'my name is…' and I start remembering permanently.";}
   if(/good ?night/.test(l)){if(persona()==="jarvis")return "Good night, sir. Dimming the holograms — I'll hold the fort until morning.";return "Good night"+(memGet().name?", "+memGet().name:"")+" — dimming the holograms. I'll be here tomorrow.";}
-  if(/^(hi|hello|hey|yo|namaste)\b|good (morning|afternoon|evening)/.test(l)){const g=greetWord();if(persona()==="jarvis")return g+(memGet().name?", "+memGet().name:"")+". All systems at your service, sir — objectives or questions, I'm armed for both.";return g+(memGet().name?", "+memGet().name:"")+"! AURA online and at your service. What do you need?";}
+  if(/^(hi|hello|hey|yo|namaste)\b|good (morning|afternoon|evening)/.test(l)){const g=greetWord();const mg=(function(){try{return window.AuraMind?AuraMind.greetingLine():""}catch(e){return""}})();if(persona()==="jarvis")return g+(memGet().name?", "+memGet().name:"")+(mg?". "+mg:"")+". All systems at your service, sir — objectives or questions, I'm armed for both.";return g+(memGet().name?", "+memGet().name:"")+(mg?". "+mg:"")+"! AURA online and at your service. What do you need?";}
   if(/how are you|how'?s it going/.test(l)){if(persona()==="jarvis")return "Combat core at "+(fpsVal||60)+" fps, uplinks green, sir. Better than nominal.";return "Running smooth at "+(fpsVal||60)+" fps — all systems nominal. How are you?";}
   if(/thank/.test(l))return "Anytime. That is what I am compiled for.";
   if(/^(bye|goodbye|see ya|see you)\b/.test(l))return "Goodbye"+(memGet().name?", "+memGet().name:"")+" — entering standby. Tap the mic anytime.";
@@ -3032,7 +3032,7 @@ function replayOnScreen(list){
       list.slice(-10).forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
     try{memRender()}catch(e){}
-    const n=memGet().name;const msg=greetWord()+(n?", "+n:"")+". Memory loaded — where were we?";
+    const n=memGet().name;const mg=(function(){try{return window.AuraMind?AuraMind.greetingLine():""}catch(e){return""}})();const msg=greetWord()+(n?", "+n:"")+(mg?". "+mg:"")+". Memory loaded — where were we?";
     const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);
   }catch(e){}
 }
@@ -3360,7 +3360,7 @@ async function webContext(q){
    question. Say "read my mind" anytime to see the live profile. ================= */
 window.AuraMind=(function(){
   const KEY="aura_mind_v1";
-  const blank=function(){return{msgs:0,langs:{},moods:{},topics:{},depth:{short:0,medium:0,deep:0},expert:0,casual:0,hinglish:0,urgent:0,curious:0,verdict:"",fb:{g:{},b:{},gt:0,bt:0,drift:0},lastStyle:null}};
+  const blank=function(){return{msgs:0,langs:{},moods:{},topics:{},depth:{short:0,medium:0,deep:0},expert:0,casual:0,hinglish:0,urgent:0,curious:0,verdict:"",fb:{g:{},b:{},gt:0,bt:0,drift:0},lastStyle:null,dayLog:{},greetedDay:""}};
   let M=blank();try{M=Object.assign(blank(),JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
   const save=function(){try{localStorage.setItem(KEY,JSON.stringify(M))}catch(e){}};
   const HING=/\b(kya|kaise|kaisa|kyun|nahi|haan|acha|accha|matlab|bhai|yaar|thoda|zara|karo|batao|chahiye|hogaya|ho\ gaya|samajh)\b|[\u0900-\u097F]/i;
@@ -3370,11 +3370,12 @@ window.AuraMind=(function(){
   const FBPOS=/^(yes+|yep|yeah|haan+|bilkul|ekdum|perfect|exactly|spot on|correct|right|sahi( hai)?|shabash|great|good (job|answer|one)|nice|awesome|amazing|wonderful|mast|badhiya|kamaal|love it|it worked|worked perfectly|that('s| is) (it|right|correct))/i;
   const FBNEG=/^(no+|nope|nahi|galat|wrong|incorrect|not (it|right|correct|what|related|like that)|you (misunderstood|got it wrong|answered something else)|that('s| is) (wrong|not it|not what|off topic|irrelevant|old|outdated)|i asked (about|for)|answer something else|kuch aur chahiye|yeh nahi|bekar|useless)/i;
   function top(o,n){return Object.keys(o||{}).sort(function(a,b){return o[b]-o[a]}).slice(0,n||3)}
+  let lastObs="";
   function observe(text){
     const s=String(text||"").trim();if(s.length<2)return;
     /* REACTION DETECTOR — pure verdicts ("yes perfect", "no that's wrong") calibrate the style of the LAST answer instead of polluting style stats */
     if(s.length<90&&!s.includes("?")&&(FBPOS.test(s)||FBNEG.test(s))){react(FBPOS.test(s),s);return}
-    M.msgs++;
+    M.msgs++;lastObs=s;
     if(/[\u0900-\u097F]/.test(s))M.langs.hindi=(M.langs.hindi||0)+1;else if(HING.test(s)){M.langs.hinglish=(M.langs.hinglish||0)+1;M.hinglish++}else M.langs.english=(M.langs.english||0)+1;
     if(URGE.test(s))M.urgent++;
     for(const k in MOODS){if(MOODS[k].test(s)){M.moods[k]=(M.moods[k]||0)+1;break}}
@@ -3385,7 +3386,38 @@ window.AuraMind=(function(){
     const words=s.toLowerCase().replace(/[^\w\u0900-\u097F ]/g," ").split(/\s+/).filter(function(w){return w.length>4});
     words.slice(0,4).forEach(function(w){M.topics[w]=(M.topics[w]||0)+1});
     if(M.msgs%6===0)verdict();
-    save();
+    logMood();save();
+  }
+  const dayKey=function(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+  function logMood(){
+    const k=dayKey();const rec=M.dayLog[k]||(M.dayLog[k]={});
+    for(const m in MOODS){if(MOODS[m].test(lastObs))rec[m]=(rec[m]||0)+1}
+    const ks=Object.keys(M.dayLog);
+    if(ks.length>21){ks.sort();ks.slice(0,ks.length-21).forEach(function(x){delete M.dayLog[x]})}
+  }
+  function moodTrend(){
+    const today=M.dayLog[dayKey()]||{};let hist={};let days=0;
+    Object.keys(M.dayLog).sort().slice(-7).forEach(function(k){if(k===dayKey())return;const r=M.dayLog[k];let has=false;for(const m in r){hist[m]=(hist[m]||0)+r[m];has=true}if(has)days++});
+    const topMood=top(today,1)[0]||top(hist,1)[0]||"";
+    if(!topMood)return null;
+    const tScore=(today[topMood]||0),hScore=hist[topMood]||0;
+    const trend=tScore>hScore?"rising":(hScore>tScore?"fading":"steady");
+    return{mood:topMood,trend:trend,days:days,todayCount:tScore};
+  }
+  function greetingLine(){
+    const tr=moodTrend();if(!tr||M.greetedDay===dayKey())return null;
+    const first=M.msgs>4?(top(M.moods,1)[0]||"")==="frustrated"?"Even your rough days end with you figuring it out — ":"":"";
+    const l={
+      frustrated:{rising:["You've hit a few walls lately — today we clear them, one by one.","Debugging mood detected, sir. Let's make today the day it just works."],fading:["Last few days felt rough — today already looks lighter.","The errors of recent days are behind us, sir. Fresh field today."],steady:["Same grind as before — I'm calibrated for it."]},
+      sad:{rising:["You've seemed heavy these past days — I'm glad you came back.","If today is a low one, sir, we go gently."] ,fading:["Things felt dark recently — today there's more light in your words."] ,steady:["I've been keeping your mood in mind — I'm here, whatever today brings."]},
+      happy:{rising:["You're on a roll this week — let's keep the streak burning.","Excellent morale trend, sir. Shall we build on it?"],fading:["Recent days had a spark — bring some of it back today?"],steady:["Same good energy as before — I love it."]},
+      excited:{rising:["The excitement is climbing daily — aim it at something big today.","Momentum readings off the charts, sir. Deploy it."],fading:["That fire from before — let's rekindle it today."],steady:["Same electric energy as always — let's use it."]}
+    }[tr.mood];
+    if(!l)return null;
+    const arr=(l[tr.trend]||l.steady||[]).filter(function(x){try{return persona()==="jarvis"||x.indexOf("sir")<0}catch(e){return true}});
+    if(!arr.length)return null;
+    M.greetedDay=dayKey();save();
+    return arr[Math.floor(Math.random()*arr.length)];
   }
   function react(pos,s){
     M.msgs++;
@@ -3427,10 +3459,10 @@ window.AuraMind=(function(){
     if(M.msgs<1)return"I haven't learned your rhythm yet - chat with me a little and ask again.";
     const mm=top(M.moods,3),tt=top(M.topics,5);const pct=function(n){return M.msgs?Math.round(n/M.msgs*100):0};
     const ls=lessons();
-    return "\ud83e\udde0 MIND READ after "+M.msgs+" message"+(M.msgs>1?"s":"")+":\n\n\u2022 Language - "+top(M.langs,3).map(function(l){return l+" "+pct(M.langs[l])+"%"}).join(", ")+(M.hinglish?" (Hinglish flavor detected)":"")+"\n\u2022 Vibe - "+(mm.length?mm.join(" > "):"steady, neutral")+(M.urgent?" \u00b7 "+M.urgent+" urgent asks":"")+"\n\u2022 Style - "+(M.depth.short>M.depth.deep?"snappy questions, wants quick answers":(M.depth.deep>M.depth.short?"detailed thinker, enjoys depth":"balanced pace"))+"\n\u2022 Fluency - "+(M.expert>M.msgs*0.25?"technical - I skip baby steps":(M.casual>M.msgs*0.5?"casual chatterer":"plain-human explanations"))+"\n\u2022 Curiosity - "+pct(M.curious)+"% of your lines are questions\n"+(tt.length?"\u2022 Mind circle - "+tt.join(", ")+"\n":"")+"\u2022 Your verdicts - "+M.fb.gt+" answer"+(M.fb.gt===1?"":"s")+" praised, "+M.fb.bt+" corrected"+(M.fb.drift?" \u00b7 "+M.fb.drift+" drift complaints":"")+"\n\nAdaptation: "+(M.verdict||verdict())+(ls?"\nCalibration: "+ls:"")+"\n\nSay \"reset my training\" to make me learn you from zero.";
+    return "\ud83e\udde0 MIND READ after "+M.msgs+" message"+(M.msgs>1?"s":"")+":\n\n\u2022 Language - "+top(M.langs,3).map(function(l){return l+" "+pct(M.langs[l])+"%"}).join(", ")+(M.hinglish?" (Hinglish flavor detected)":"")+"\n\u2022 Vibe - "+(mm.length?mm.join(" > "):"steady, neutral")+(M.urgent?" \u00b7 "+M.urgent+" urgent asks":"")+(function(){try{const tr=moodTrend();return tr?"\n\u2022 Mood trend - "+tr.mood+" ("+tr.trend+" across "+Math.max(1,tr.days)+" recent day"+(tr.days===1?"":"s")+")":""}catch(e){return""}})()+"\n\u2022 Style - "+(M.depth.short>M.depth.deep?"snappy questions, wants quick answers":(M.depth.deep>M.depth.short?"detailed thinker, enjoys depth":"balanced pace"))+"\n\u2022 Fluency - "+(M.expert>M.msgs*0.25?"technical - I skip baby steps":(M.casual>M.msgs*0.5?"casual chatterer":"plain-human explanations"))+"\n\u2022 Curiosity - "+pct(M.curious)+"% of your lines are questions\n"+(tt.length?"\u2022 Mind circle - "+tt.join(", ")+"\n":"")+"\u2022 Your verdicts - "+M.fb.gt+" answer"+(M.fb.gt===1?"":"s")+" praised, "+M.fb.bt+" corrected"+(M.fb.drift?" \u00b7 "+M.fb.drift+" drift complaints":"")+"\n\nAdaptation: "+(M.verdict||verdict())+(ls?"\nCalibration: "+ls:"")+"\n\nSay \"reset my training\" to make me learn you from zero.";
   }
   function wipe(){M=blank();save()}
-  return{observe:observe,profileBlock:profileBlock,report:report,wipe:wipe,noteAnswer:noteAnswer,_m:function(){return M}};
+  return{observe:observe,profileBlock:profileBlock,report:report,wipe:wipe,noteAnswer:noteAnswer,greetingLine:greetingLine,moodTrend:moodTrend,_m:function(){return M}};
 })();
 /* ---------------- conversation memory (ChatGPT-style follow-ups) ---------------- */
 const CONVO=[];const CONVO_MAX=12;
@@ -4636,7 +4668,8 @@ const BOOT=persona()==="jarvis"?["> JARVIS OS v4.0 — initializing tactical cor
       replay.forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
     try{memRender()}catch(e){}
-    const msg=greetWord()+(n?", "+n:"")+(persona()==="jarvis"?". JARVIS online — tactical protocol armed and standing by, sir"+(histN?", "+histN+" turns of our history loaded":"")+". Objective, question or command?":". AURA online — neural link established"+(histN?", and I remember our last "+Math.min(histN,120)+" exchanges":"")+". Tap the mic and speak, or type below.");const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
+    const mg=(function(){try{return window.AuraMind?AuraMind.greetingLine():""}catch(e){return""}})();
+    const msg=greetWord()+(n?", "+n:"")+(mg?". "+mg:"")+(persona()==="jarvis"?". JARVIS online — tactical protocol armed and standing by, sir"+(histN?", "+histN+" turns of our history loaded":"")+". Objective, question or command?":". AURA online — neural link established"+(histN?", and I remember our last "+Math.min(histN,120)+" exchanges":"")+". Tap the mic and speak, or type below.");const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
   $("boot").addEventListener("click",end,{once:true});
   setTimeout(end,2600);
 })();
