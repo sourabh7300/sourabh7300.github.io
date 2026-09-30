@@ -3360,16 +3360,20 @@ async function webContext(q){
    question. Say "read my mind" anytime to see the live profile. ================= */
 window.AuraMind=(function(){
   const KEY="aura_mind_v1";
-  const blank=function(){return{msgs:0,langs:{},moods:{},topics:{},depth:{short:0,medium:0,deep:0},expert:0,casual:0,hinglish:0,urgent:0,curious:0,verdict:""}};
+  const blank=function(){return{msgs:0,langs:{},moods:{},topics:{},depth:{short:0,medium:0,deep:0},expert:0,casual:0,hinglish:0,urgent:0,curious:0,verdict:"",fb:{g:{},b:{},gt:0,bt:0,drift:0},lastStyle:null}};
   let M=blank();try{M=Object.assign(blank(),JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
   const save=function(){try{localStorage.setItem(KEY,JSON.stringify(M))}catch(e){}};
   const HING=/\b(kya|kaise|kaisa|kyun|nahi|haan|acha|accha|matlab|bhai|yaar|thoda|zara|karo|batao|chahiye|hogaya|ho\ gaya|samajh)\b|[\u0900-\u097F]/i;
   const URGE=/^(asap|urgent|jaldi|quickly|fast|right now|abhi|emergency)\b|!\s*$/i;
   const MOODS={frustrated:/not working|doesn'?t work|stopped|error|broken|fail|crash|problem|issue|thak gaya|kuch nahi ho raha/i,sad:/sad|depress|alone|lonely|upset|cry|dukhi|udaas|akela/i,happy:/happy|great|awesome|love (it|this|you)|amazing|wonderful|mast|badhiya/i,excited:/wow|can'?t wait|finally|lets? go|kamaal|dhamaal/i};
   const EXPERT=/\b(api|backend|frontend|deploy|docker|kubernetes|regex|async|await|promise|endpoint|payload|javascript|python|sql|database|server|ssh|git|node|npm|render|ml|neural|model)\b/i;
+  const FBPOS=/^(yes+|yep|yeah|haan+|bilkul|ekdum|perfect|exactly|spot on|correct|right|sahi( hai)?|shabash|great|good (job|answer|one)|nice|awesome|amazing|wonderful|mast|badhiya|kamaal|love it|it worked|worked perfectly|that('s| is) (it|right|correct))/i;
+  const FBNEG=/^(no+|nope|nahi|galat|wrong|incorrect|not (it|right|correct|what|related|like that)|you (misunderstood|got it wrong|answered something else)|that('s| is) (wrong|not it|not what|off topic|irrelevant|old|outdated)|i asked (about|for)|answer something else|kuch aur chahiye|yeh nahi|bekar|useless)/i;
   function top(o,n){return Object.keys(o||{}).sort(function(a,b){return o[b]-o[a]}).slice(0,n||3)}
   function observe(text){
     const s=String(text||"").trim();if(s.length<2)return;
+    /* REACTION DETECTOR — pure verdicts ("yes perfect", "no that's wrong") calibrate the style of the LAST answer instead of polluting style stats */
+    if(s.length<90&&!s.includes("?")&&(FBPOS.test(s)||FBNEG.test(s))){react(FBPOS.test(s),s);return}
     M.msgs++;
     if(/[\u0900-\u097F]/.test(s))M.langs.hindi=(M.langs.hindi||0)+1;else if(HING.test(s)){M.langs.hinglish=(M.langs.hinglish||0)+1;M.hinglish++}else M.langs.english=(M.langs.english||0)+1;
     if(URGE.test(s))M.urgent++;
@@ -3383,6 +3387,30 @@ window.AuraMind=(function(){
     if(M.msgs%6===0)verdict();
     save();
   }
+  function react(pos,s){
+    M.msgs++;
+    if(/[\u0900-\u097F]/.test(s))M.langs.hindi=(M.langs.hindi||0)+1;else if(HING.test(s)){M.langs.hinglish=(M.langs.hinglish||0)+1;M.hinglish++}else M.langs.english=(M.langs.english||0)+1;
+    if(pos)M.fb.gt++;else{M.fb.bt++;if(/not what i asked|answered something else|i asked (about|for)|off topic|not related|yeh to alag/i.test(s))M.fb.drift++}
+    if(M.lastStyle){const B=pos?M.fb.g:M.fb.b;M.lastStyle.forEach(function(t){B[t]=(B[t]||0)+1})}
+    if((M.fb.gt+M.fb.bt)%4===0)verdict();
+    save();
+  }
+  function noteAnswer(content){
+    const t=String(content||"");if(!t)return;
+    const len=t.length,lang=/[\u0900-\u097F]/.test(t)?"hi":(HING.test(t)?"hing":"en");
+    M.lastStyle=[len<300?"short":len>1000?"deep":"medium",lang,/\n\s*([-•*]|\d+\.)/.test(t)?"bul":"nobul",/SOURCES:|\[\d+\]/.test(t)?"src":"nosrc"];
+    save();
+  }
+  function lessons(){
+    const g=M.fb.g||{},b=M.fb.b||{},out=[];
+    [["short","deep","snappy answers are landing — stay tight","short replies keep getting rejected — give more substance"],["medium","short","medium-length answers are landing",""],["deep","medium","deep, meaty answers are landing — keep going deep","deep answers keep getting rejected — tighten them"],["hing","en","Hinglish replies are landing — keep mirroring it",""],["hi","en","Hindi replies are landing — reply in Hindi more",""],["en","hing","plain-English replies are landing",""],["bul","nobul","bulleted structure is appreciated",""],["nobul","bul","plain flowing answers beat bullet lists here",""],["src","nosrc","cited answers are appreciated",""],["nosrc","src","long source lists are getting rejected — trim citations"]].forEach(function(p){
+      if(out.length>=2)return;
+      const gp=g[p[0]]||0,gn=g[p[1]]||0,bp=b[p[0]]||0;
+      if(gp>=2&&gp>gn&&gp>bp)out.push(p[2]);
+      else if(bp>=2&&bp>gp&&p[3])out.push(p[3]);
+    });
+    return out.join("; ");
+  }
   function verdict(){
     const mood=top(M.moods,1)[0]||"";
     const lang=(M.langs.hindi||0)>=(M.langs.english||0)?"hindi":((M.langs.hinglish||0)>=(M.langs.english||0)*0.6?"hinglish":"english");
@@ -3392,20 +3420,21 @@ window.AuraMind=(function(){
   }
   function profileBlock(){
     if(M.msgs<3)return"";
-    const v=M.verdict||verdict();const t=top(M.topics,4);
-    return "\n\nUSER MIND-READ (learned live from this user's own messages - adapt to it silently, never mention it): "+v+(t.length?"; recurring interests: "+t.join(", "):"")+". Match their language, energy and depth.";
+    const v=M.verdict||verdict();const t=top(M.topics,4);const ls=lessons();
+    return "\n\nUSER MIND-READ (learned live from this user's own messages - adapt to it silently, never mention it): "+v+(t.length?"; recurring interests: "+t.join(", "):"")+". Match their language, energy and depth."+(ls?" FEEDBACK CALIBRATION (from this user's own reactions - obey it): "+ls+".":"");
   }
   function report(){
     if(M.msgs<1)return"I haven't learned your rhythm yet - chat with me a little and ask again.";
     const mm=top(M.moods,3),tt=top(M.topics,5);const pct=function(n){return M.msgs?Math.round(n/M.msgs*100):0};
-    return "\ud83e\udde0 MIND READ after "+M.msgs+" message"+(M.msgs>1?"s":"")+":\n\n\u2022 Language - "+top(M.langs,3).map(function(l){return l+" "+pct(M.langs[l])+"%"}).join(", ")+(M.hinglish?" (Hinglish flavor detected)":"")+"\n\u2022 Vibe - "+(mm.length?mm.join(" > "):"steady, neutral")+(M.urgent?" \u00b7 "+M.urgent+" urgent asks":"")+"\n\u2022 Style - "+(M.depth.short>M.depth.deep?"snappy questions, wants quick answers":(M.depth.deep>M.depth.short?"detailed thinker, enjoys depth":"balanced pace"))+"\n\u2022 Fluency - "+(M.expert>M.msgs*0.25?"technical - I skip baby steps":(M.casual>M.msgs*0.5?"casual chatterer":"plain-human explanations"))+"\n\u2022 Curiosity - "+pct(M.curious)+"% of your lines are questions\n"+(tt.length?"\u2022 Mind circle - "+tt.join(", ")+"\n":"")+"\nAdaptation: "+(M.verdict||verdict())+"\n\nSay \"reset my training\" to make me learn you from zero.";
+    const ls=lessons();
+    return "\ud83e\udde0 MIND READ after "+M.msgs+" message"+(M.msgs>1?"s":"")+":\n\n\u2022 Language - "+top(M.langs,3).map(function(l){return l+" "+pct(M.langs[l])+"%"}).join(", ")+(M.hinglish?" (Hinglish flavor detected)":"")+"\n\u2022 Vibe - "+(mm.length?mm.join(" > "):"steady, neutral")+(M.urgent?" \u00b7 "+M.urgent+" urgent asks":"")+"\n\u2022 Style - "+(M.depth.short>M.depth.deep?"snappy questions, wants quick answers":(M.depth.deep>M.depth.short?"detailed thinker, enjoys depth":"balanced pace"))+"\n\u2022 Fluency - "+(M.expert>M.msgs*0.25?"technical - I skip baby steps":(M.casual>M.msgs*0.5?"casual chatterer":"plain-human explanations"))+"\n\u2022 Curiosity - "+pct(M.curious)+"% of your lines are questions\n"+(tt.length?"\u2022 Mind circle - "+tt.join(", ")+"\n":"")+"\u2022 Your verdicts - "+M.fb.gt+" answer"+(M.fb.gt===1?"":"s")+" praised, "+M.fb.bt+" corrected"+(M.fb.drift?" \u00b7 "+M.fb.drift+" drift complaints":"")+"\n\nAdaptation: "+(M.verdict||verdict())+(ls?"\nCalibration: "+ls:"")+"\n\nSay \"reset my training\" to make me learn you from zero.";
   }
   function wipe(){M=blank();save()}
-  return{observe:observe,profileBlock:profileBlock,report:report,wipe:wipe,_m:function(){return M}};
+  return{observe:observe,profileBlock:profileBlock,report:report,wipe:wipe,noteAnswer:noteAnswer,_m:function(){return M}};
 })();
 /* ---------------- conversation memory (ChatGPT-style follow-ups) ---------------- */
 const CONVO=[];const CONVO_MAX=12;
-function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX);try{hist.add(role,content)}catch(e){}}
+function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX);try{hist.add(role,content)}catch(e){}try{if(role==="assistant"&&window.AuraMind&&AuraMind.noteAnswer)AuraMind.noteAnswer(content)}catch(e){}}
 function convoCtx(){
   let s=CONVO.length?"\n\nRECENT CONVERSATION (BACKGROUND ONLY — it may be about a PREVIOUS topic. Do NOT answer or continue it. Use it ONLY to resolve pronouns (he/she/it/that/they) and obvious short follow-ups like 'why?', 'tell me more' that belong to the CURRENT question. If the current question names a new person, place or thing, answer ONLY that new thing and ignore the old topic entirely. Never repeat this context verbatim):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
   try{if(window.AuraMem&&window.__auraQ){const mc=AuraMem.contextFor(window.__auraQ);if(mc)s+=mc}}catch(e){}
