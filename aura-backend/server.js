@@ -1033,10 +1033,29 @@ function extractJson(text) {
 }
 const WEB_JUNK = /unusual traffic|not a robot|why did this happen|captcha|enable javascript|just a moment|access denied|are you a human/i;
 async function toolSearch(q) {
-  /* live web search via r.jina.ai Google News + DuckDuckGo lite (both CORS-free server-side) */
+  /* live web search — ordered by cloud-IP reliability:
+     1) Google News RSS (machine feed, no bot walls, always fresh)
+     2) jina → Google News HTML   3) DuckDuckGo html   4) Wikipedia search (never blocked) */
   const out = [];
   try {
-    const r = await fetch("https://r.jina.ai/https://news.google.com/search?q=" + encodeURIComponent(q), { signal: AbortSignal.timeout(15_000) });
+    const r = await fetch("https://news.google.com/rss/search?q=" + encodeURIComponent(q) + "&hl=en-IN&gl=IN&ceid=IN:en", { signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "Mozilla/5.0 (compatible; AURA-backend/1.0)" } });
+    if (r.ok) {
+      const t = await r.text();
+      const items = t.match(/<item>[\s\S]*?<\/item>/g) || [];
+      for (const it of items) {
+        if (out.length >= 5) break;
+        const ti = (it.match(/<title>(?:<!\[CDATA\[)?([\s\S]*?)(?:\]\]>)?<\/title>/) || [])[1] || "";
+        const li = (it.match(/<link>([\s\S]*?)<\/link>/) || [])[1] || "";
+        const pd = (it.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || [])[1] || "";
+        const title = ti.replace(/\s+/g, " ").trim();
+        if (!title || WEB_JUNK.test(title)) continue;
+        out.push({ title, url: li.trim(), date: pd.trim() });
+      }
+    }
+  } catch (e) {}
+  if (out.length < 3) {
+    try {
+      const r = await fetch("https://r.jina.ai/https://news.google.com/search?q=" + encodeURIComponent(q), { signal: AbortSignal.timeout(8_000) });
     if (r.ok) {
       const t = await r.text();
       const re = /\[([^\]\n]{12,120})\]\((https?:\/\/[^)\s]+)\)/g; let m, n = 0;
@@ -1047,7 +1066,8 @@ async function toolSearch(q) {
         out.push({ title, url: m[2] }); if (++n >= 5) break;
       }
     }
-  } catch (e) {}
+    } catch (e) {}
+  }
   if (out.length < 3) {
     try {
       const r2 = await fetch("https://html.duckduckgo.com/html/?q=" + encodeURIComponent(q), { signal: AbortSignal.timeout(15_000) });
@@ -1060,6 +1080,17 @@ async function toolSearch(q) {
           if (WEB_JUNK.test(title)) continue;
           out.push({ title, url: u });
         }
+      }
+    } catch (e) {}
+  }
+  if (out.length < 3) {
+    try {
+      const r3 = await fetch("https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=" + encodeURIComponent(q) + "&format=json&srlimit=4", { signal: AbortSignal.timeout(9_000) });
+      if (r3.ok) {
+        const d3 = await r3.json();
+        ((d3.query || {}).search || []).forEach(s => {
+          if (out.length < 6) out.push({ title: s.title, url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(s.title.replace(/ /g, "_")), date: "" });
+        });
       }
     } catch (e) {}
   }
@@ -1080,9 +1111,10 @@ function toolCalc(expr) {
 }
 
 /* ============ LIVE WEB SEARCH — fresh-knowledge lane for the chat brain ============
-   POST /v1/websearch {question:"..."} → same-day web intelligence (Google News via
-   jina + DuckDuckGo) with page reads. The chat brain calls this whenever a question
-   is time-sensitive, so answers stop being frozen at the model's training cutoff. */
+   POST /v1/websearch {question:"..."} → same-day web intelligence (Google News RSS
+   primary, DuckDuckGo + Wikipedia backup) with page reads. The chat brain calls this
+   whenever a question is time-sensitive, so answers stay current-day, never frozen
+   at the model's training cutoff. */
 app.post("/v1/websearch", async (req, res) => {
   const q = String((req.body || {}).question || "").trim().slice(0, 300);
   if (!q || q.length < 4 || /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon))[!. ]*$/i.test(q)) {
