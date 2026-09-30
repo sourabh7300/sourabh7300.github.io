@@ -2511,7 +2511,9 @@ async function duel(topic){
   const el=addMsg(msgTag(),"","aura");typewrite(el,"⚖ VERDICT — "+verdict.replace(/\n+/g," · "));log.scrollTop=log.scrollHeight;
   pushSys("duel complete — say 'end duel' to stand down");
 }
-/* ================= AURA VISION — live camera eyes (browser-native multimodal, Sourabh's design) =================
+/* ================= AURA VISION — live camera eyes (browser-native multimodal, Sourabh's design)
+   BRAIN UPGRADE 2026-09-30: anti-drift conversation context, current date/time awareness,
+   live websearch lane (/v1/websearch) so answers stay current-day, never training-cutoff. =================
    getUserMedia feeds a holographic in-page viewer; frames go to the same multimodal brain
    (llama-4-scout via the Render backend chain) and answers are SPOKEN in persona tone.
    ASK = one scene read · LIVE = watch mode, reports meaningful changes hands-free. */
@@ -2749,14 +2751,20 @@ async function geminiCall(q,deep){
   const style=" Persona: AURA — warm, curious, sharp holographic assistant designed and built by Sourabh Singh.";
   const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. If something is time-sensitive and you may be outdated, say so in one short line."+(deep?" The user asked for depth: cover the full picture (up to 320 words) in 2-4 short paragraphs plus bullets.":" Keep it under 110 words unless code or a list is needed.")+(name?" The user's name is "+name+".":"");
   if(aiProvider()==="groq"){
-    return await groqCall([{role:"system",content:sys+replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900);
+    const _now=new Date();
+    const dateLine="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — anchor 'today/now/latest' to THIS moment)";
+    const fresh=wantsFresh(q);
+    const web=fresh?await webContext(q):null;
+    const webBlock=web?"\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them. When they conflict with your memory of past events, dates, scores or records, the live results WIN. If they don't fully answer, say what's still uncertain — never invent dates, scores, prices or winners):\n"+web+"\n":"";
+    return await groqCall([{role:"system",content:sys+replyStyle()+dateLine},{role:"user",content:q+convoCtx()+webBlock}],deep?2600:900);
   }
   if(aiProvider()==="openrouter"){
     return await openrouterCall([{role:"system",content:sys+replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900);
   }
+  const _now=new Date();const dateLine="CURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});const fresh=wantsFresh(q);const web=fresh?await webContext(q):null;const webBlock=web?"LIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; live results WIN over your memory of past events):\n"+web:"";
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
     method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(12000),
-    body:JSON.stringify({contents:[{role:"user",parts:[{text:sys+"\n\n"+q}]}]})});
+    body:JSON.stringify({contents:[{role:"user",parts:[{text:sys+"\n\n"+webBlock+(webBlock?"\n\n":"")+dateLine+"\n\n"+q+convoCtx()}]}]})});
   if(!r.ok)throw new Error("HTTP "+r.status);
   const d=await r.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text;
   if(!t||!t.trim())throw new Error("empty");
@@ -3318,13 +3326,42 @@ try{(function(){const list=sessions.all();if(!list.length){const saved=hist.load
   setTimeout(()=>{try{renderSessions()}catch(e){}},900);
 })();
 
+/* ---------------- fresh-knowledge lane (live web via owner backend) ---------------- */
+const WEBQ=/(\b(20[2-9]\d)\b)|latest|newest|today|current|currently|right now|these days|recent|recently|this (week|month|year)|now|price|stock|share (price|market)|exchange rate|weather|temperature|score|fixture|schedule|timetable|match|election|result|winner|released|release date|launch(ed)?|update(d)?s? on|news|headlines?|who (is|is the) (the )?(current|present)|next (match|election|event|update)|going on|updates about|in (202[5-9])|status of|standing|rank(ing)?s?|table|leaderboard|top \d+/i;
+function wantsFresh(q){
+  const s=String(q||"");
+  if(!s||s.length>240)return false;
+  if(WEBQ.test(s))return true;
+  /* skip pure small talk / math / identity questions — no web needed */
+  if(/^(hi|hello|hey|yo|namaste|thanks?|thank you|ok(ay)?|cool|nice|good (morning|evening|night|afternoon)|who are you|what('s| is) your name|are you (real|human|an ai)|open|close|stop|start)/i.test(s.trim()))return false;
+  return false;
+}
+let __webBusy=false;
+async function webContext(q){
+  if(!backendUrl()||__webBusy)return null;
+  __webBusy=true;
+  try{
+    const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
+    const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
+    const r=await fetch(backendUrl()+"/v1/websearch",{method:"POST",headers:headers,signal:AbortSignal.timeout(25000),body:JSON.stringify({question:q.slice(0,300)})});
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    const rs=(d&&d.results)||[];
+    if(!rs.length)return null;
+    slog("🌐 live web: "+rs.length+" source"+(rs.length>1?"s":" ")+" pulled seconds ago — freshest knowledge armed",true);
+    return rs.map((x,i)=>"[SOURCE "+(i+1)+": live web — "+(x.k||"web")+(x.title?" — "+x.title:"")+"]\n"+String(x.extract||x.title||"").slice(0,1400)).join("\n\n");
+  }catch(e){try{slog("live web lane down ("+(e.message||e)+") — answering from my own knowledge",true)}catch(e2){}return null}
+  finally{__webBusy=false}
+}
 /* ---------------- conversation memory (ChatGPT-style follow-ups) ---------------- */
 const CONVO=[];const CONVO_MAX=12;
 function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX);try{hist.add(role,content)}catch(e){}}
 function convoCtx(){
-  let s=CONVO.length?"\n\nRECENT CONVERSATION (for context — keep continuity with it; resolve pronouns like he/she/it/that against the current topic; do not repeat it verbatim):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
+  let s=CONVO.length?"\n\nRECENT CONVERSATION (BACKGROUND ONLY — it may be about a PREVIOUS topic. Do NOT answer or continue it. Use it ONLY to resolve pronouns (he/she/it/that/they) and obvious short follow-ups like 'why?', 'tell me more' that belong to the CURRENT question. If the current question names a new person, place or thing, answer ONLY that new thing and ignore the old topic entirely. Never repeat this context verbatim):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
   try{if(window.AuraMem&&window.__auraQ){const mc=AuraMem.contextFor(window.__auraQ);if(mc)s+=mc}}catch(e){}
   try{if(window.AuraDocs&&window.__auraQ){const dc=AuraDocs.contextFor(window.__auraQ);if(dc)s+=dc}}catch(e){}
+  const _now=new Date();
+  s+="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — 'today', 'now' and 'latest' refer to THIS moment; never answer with a training-cutoff date)";
   return s;
 }
 function personaName(){try{return (PERSONAS[persona()]||PERSONAS.aura).name}catch(e){return "AURA"}}
@@ -3653,7 +3690,10 @@ async function thinkAnswer(q,deep,hi){
   if(memBlock)slog("memory recall: "+memBlock.split("\n").length+" relevant fact(s) loaded",true);
   const evs=await gatherEvidence(term);
   slog(evs.length?"evidence from "+evs.length+' source'+(evs.length>1?"s":"")+" — reasoning…":"no evidence yet — reasoning from my own knowledge…",true);
-  const prompt=buildThinkPrompt(q,term,evs,deep,hi)+((memBlock&&typeof buildThinkPrompt==="function")?"\n\nLONG-TERM MEMORY (things the user told you or you learned in past sessions — use if relevant):\n"+memBlock:"");
+  let promptCore=buildThinkPrompt(q,term,evs,deep,hi)+((memBlock&&typeof buildThinkPrompt==="function")?"\n\nLONG-TERM MEMORY (things the user told you or you learned in past sessions — use if relevant):\n"+memBlock:"");
+  let freshBlock="";
+  try{if(wantsFresh(q)){const wb=await webContext(q);if(wb)freshBlock="\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates or records, the live results WIN. Never invent dates, scores, prices or winners):\n"+wb+"\n"}}catch(e){}
+  const prompt=promptCore+freshBlock;
   if(aiProvider()==="groq"){
     try{
       let t="";
@@ -3824,7 +3864,7 @@ async function aiReply(q){
     /* rescue rung: geminiCall short-circuits to groqCall (backend first) — a single
        transient backend/model blip used to dead-end here and dump raw Wikipedia as the
        final answer. Retry the backend ONCE before giving up on the brain. */
-    if(geminiKey()||backendUrl()){try{let t;try{t=await geminiCall(q,deep)}catch(e1){if(!e1.outOfTokens&&aiProvider()==="groq"&&!keyPool().length&&backendUrl()){await new Promise(r=>setTimeout(r,1200));t=await backendCall([{role:"system",content:replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900)}else throw e1}t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
+    if(geminiKey()||backendUrl()){try{let t;try{t=await geminiCall(q,deep)}catch(e1){if(!e1.outOfTokens&&aiProvider()==="groq"&&!keyPool().length&&backendUrl()){await new Promise(r=>setTimeout(r,1200));t=await backendCall([{role:"system",content:replyStyle()},{role:"user",content:q+convoCtx()+(wantsFresh(q)?(await webContext(q)||""):"")}],deep?2600:900)}else throw e1}t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
     const d2=await ddgAnswer(q);if(d2)return d2;
@@ -5543,6 +5583,20 @@ document.addEventListener("click",e=>{
 /* ---------- 3. LIVE RESEARCH — DuckDuckGo + page reader + cited synthesis ---------- */
 async function webResearch(q){
   const out={hits:[],txt:""};
+  /* LANE 0 — owner backend /v1/websearch: fastest, most reliable server-side search */
+  if(backendUrl()){
+    try{
+      const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
+      const hh={"Content-Type":"application/json"};if(secret)hh["X-AURA-Key"]=secret;
+      const rb=await fetch(backendUrl()+"/v1/websearch",{method:"POST",headers:hh,signal:AbortSignal.timeout(25000),body:JSON.stringify({question:q.slice(0,300)})});
+      if(rb.ok){
+        const db=await rb.json();const rs=(db&&db.results)||[];
+        rs.forEach(x=>{if(out.hits.length<5&&x.url)out.hits.push({t:String(x.title||x.k||"web").trim(),u:x.url})});
+        if(rs.length&&rs[0].extract)out.txt=String(rs[0].extract).slice(0,3500);
+        if(out.hits.length)return out;
+      }
+    }catch(e){}
+  }
   try{const r=await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q="+encodeURIComponent(q.slice(0,220)),{signal:AbortSignal.timeout(20000)});
     const t=await r.text();
     const re=/##\s*\[([^\]]{8,150})\]\((https?:\/\/[^)\s]+)\)/g;let m2;
@@ -5554,6 +5608,7 @@ async function webResearch(q){
 async function researchReply(q,hi){
   const P=PERSONAS[persona()];
   window.__researching=true;
+  const __stallT=setTimeout(function(){try{if(window.__researching)pushSys("research is grinding — deep sources take a few more seconds…")}catch(e){}},9000);
   try{
   pushSys("research: searching the live web for \""+q.slice(0,40)+"\"…");
   const r=await webResearch(q);
@@ -5567,8 +5622,7 @@ async function researchReply(q,hi){
       const body=String(txt).replace(/\n?\s*SOURCES?:[\s\S]*$/i,"").trim();
       const lines=r.hits.slice(0,5).map((h,i)=>"["+(i+1)+"] "+h.t+" — "+h.u);
       return body+"\n\nSOURCES:\n"+lines.join("\n");
-    }
-    return null}catch(e){return null}}finally{window.__researching=false}}
+    }     return null}catch(e){return null}}finally{try{clearTimeout(__stallT)}catch(e){}window.__researching=false}}
 const NEED_WEB=/\b(price|weather|today|current|latest|news|live score|stock|exchange rate|who won|release date|schedule|update on|right now|this week|this month|2024|2025|2026)\b|कीमत|मौसम|आज|ताज़ा|लाइव/i;
 const SAY_PY=/^(run|execute|do) (this|it|the) python|python (run|execute)|run py\b/i;
 const SAY_EXP=/^(explain|walk me through) (this|the) (code|script|python)|explain (this|the) code|what does this code do/i;
