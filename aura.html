@@ -1748,6 +1748,47 @@ let detectedLang="en";window.__auraLang=localStorage.getItem("aura_lang")||"auto
 if(["auto","en","hi"].indexOf(window.__auraLang)<0)window.__auraLang="auto";
 (function(){const lb=document.getElementById("langBtn");if(lb)lb.textContent="LANG: "+(window.__auraLang==="hi"?"हिंदी":window.__auraLang==="en"?"ENG":"AUTO")})();
 let speakGen=0,ttsActive=false,lastSpoken="",lastSpokeAt=0,voiceSessionUntil=0;
+/* ============ TYPING-PACE VOICE TUNING — the assistant's voice tempo mirrors YOUR hands.
+   Tracks inter-key rhythm while you type into the chat box; classifies you as a sprint
+   typist / steady / methodical; adapts speech rate (and slightly pitch) so answers are
+   spoken at the speed this user reads. Personal baseline learned over your first 5+ sends. ============ */
+const TP={keyTimes:[],lastKey:0,sends:0,pmas:[],mode:localStorage.getItem("aura_voicemode")||"auto"};
+(function(){try{const s=JSON.parse(localStorage.getItem("aura_typing_pace")||"null");if(s&&Array.isArray(s.p)&&s.p.length){TP.pmas=s.p.slice(-12);TP.sends=TP.pmas.length}}catch(e){}})(); /* personal baseline survives reloads — no relearning from zero every visit */
+function tpOnKey(){
+  if(TP.mode!=="auto")return;
+  const t=Date.now();
+  if(TP.lastKey){const gap=t-TP.lastKey;if(gap>0&&gap<1500)TP.keyTimes.push(gap)}
+  TP.lastKey=t;
+  if(TP.keyTimes.length>120)TP.keyTimes.splice(0,TP.keyTimes.length-120);
+}
+function tpPace(){
+  const ks=TP.keyTimes.slice(-40);
+  if(ks.length<8)return null; /* not enough rhythm yet */
+  ks.sort(function(a,b){return a-b});
+  const med=ks[Math.floor(ks.length/2)];
+  return Math.max(45,Math.min(700,med)); /* median inter-key gap in ms */
+}
+function tpClass(med){
+  if(med==null)return null;
+  /* universal anchors: sprint typists gap ~90ms, steady ~160ms, methodical ~260ms+ */
+  return med<115?"fast":med<200?"steady":"calm";
+}
+function tpRecordSend(){
+  const med=tpPace();
+  TP.lastKey=0;TP.keyTimes=[];
+  if(TP.mode!=="auto")return null;
+  if(med!=null){TP.pmas.push(med);if(TP.pmas.length>12)TP.pmas.shift();TP.sends++;try{localStorage.setItem("aura_typing_pace",JSON.stringify({p:TP.pmas}))}catch(e){}}
+  return med;
+}
+function tpVoice(){
+  if(TP.mode==="off")return null;
+  let med=null;
+  if(TP.pmas.length>=3){const s=TP.pmas.slice().sort(function(a,b){return a-b});med=s[Math.floor(s.length/2)]}
+  else med=tpPace();
+  const c=tpClass(med);if(!c)return null;
+  return c==="fast"?{rate:1.22,pitch:1.06,tag:"sprint typist"}:c==="steady"?{rate:1.02,pitch:1.02,tag:"steady pace"}:{rate:0.9,pitch:0.98,tag:"methodical pace"};
+}
+window.__tpDebug=function(){return JSON.stringify({keys:TP.keyTimes.length,pmas:TP.pmas.length,sends:TP.sends,pace:tpPace(),cls:tpClass(tpPace()),voice:tpVoice(),mode:TP.mode})};
 /* VOICE POLICY: AURA is SILENT unless (a) wake mode is ON, or (b) you tapped the mic / said 'Hey Aura' in the last 45s.
    speak() refuses to run otherwise — no boot chatter, no background voices, ever. */
 function voiceAllowed(){return wake===true||Date.now()<voiceSessionUntil}
@@ -1801,7 +1842,12 @@ function speak(t){
       if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}return}
       const u=new SpeechSynthesisUtterance(parts[i++]);keep.push(u);
       const vu=pickVoice();
-      if(vu)u.voice=vu;u.lang=hi?"hi-IN":P.lang;u.rate=P.rate;u.pitch=P.pitch;
+      if(vu)u.voice=vu;u.lang=hi?"hi-IN":P.lang;{
+        /* TYPING-PACE TUNING — speak at the tempo this user reads */
+        const tv=(function(){try{return tpVoice()}catch(e){return null}})();
+        u.rate=tv?Math.max(.6,Math.min(1.8,P.rate*tv.rate)):P.rate;
+        u.pitch=tv?Math.max(.5,Math.min(1.6,P.pitch*tv.pitch)):P.pitch;
+      }
       u.onstart=()=>{if(gen===speakGen){ampTarget=1;setMode("speaking")}};
       u.onend=next;
       u.onerror=next;
@@ -4615,7 +4661,7 @@ $("langBtn").onclick=()=>{
 };
 
 /* ---------------- wiring ---------------- */
-$("sendBtn").onclick=()=>ask($("q").value);  $("q").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();ask($("q").value)}}); /* preventDefault kills the newline race that left a stray blank line in the box (the "misprint while entering") — Shift+Enter makes real newlines, isComposing protects IME typing */
+$("sendBtn").onclick=()=>{tpRecordSend();ask($("q").value)};  $("q").addEventListener("keydown",e=>{try{if(!e.shiftKey&&!e.ctrlKey&&!e.altKey&&e.key&&e.key.length===1)tpOnKey()}catch(e2){}if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();tpRecordSend();ask($("q").value)}}); /* preventDefault kills the newline race that left a stray blank line in the box (the "misprint while entering") — Shift+Enter makes real newlines, isComposing protects IME typing; tpOnKey/tpRecordSend feed the typing-pace voice tuner */
 document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>ask(c.textContent));
 [...$("chipsMobile").children?[]:[]]; // (mobile chips reuse main set when conv hidden)
 if(matchMedia("(max-width:860px)").matches){
