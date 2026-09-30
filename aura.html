@@ -1845,8 +1845,9 @@ function speak(t){
       if(vu)u.voice=vu;u.lang=hi?"hi-IN":P.lang;{
         /* TYPING-PACE TUNING — speak at the tempo this user reads */
         const tv=(function(){try{return tpVoice()}catch(e){return null}})();
-        u.rate=tv?Math.max(.6,Math.min(1.8,P.rate*tv.rate)):P.rate;
-        u.pitch=tv?Math.max(.5,Math.min(1.6,P.pitch*tv.pitch)):P.pitch;
+        const vr=parseFloat(localStorage.getItem("aura_voicerate")||"0");
+        u.rate=vr>0?Math.max(.6,Math.min(1.8,P.rate*vr)):(tv?Math.max(.6,Math.min(1.8,P.rate*tv.rate)):P.rate);
+        u.pitch=tv&&!(vr>0)?Math.max(.5,Math.min(1.6,P.pitch*tv.pitch)):P.pitch;
       }
       u.onstart=()=>{if(gen===speakGen){ampTarget=1;setMode("speaking")}};
       u.onend=next;
@@ -4323,6 +4324,23 @@ async function askCore(text0){
      setMode("idle");busy=false;
      if(window.__camOn){window.__camAsk("")}else{addMsg(msgTag(),"My camera eyes are closed — say 'camera on' (or tap 📷 CAM) and ask me again.","aura")}
      if(wake)armWake(400);return;}}
+  /* VOICE TEMPO — spoken speed control: "speak slower/faster", "normal speed"; persists via aura_voicemode/aura_voicerate */
+  {const vt=(text||"").toLowerCase().trim();
+   const vm=vt.match(/^(?:speak|talk|go|answer)\s+(?:a\s+)?(?:bit\s+|much\s+|way\s+)?(slower|faster)(?:\s+please)?$|^(?:slow down|speed up|talk slowly)$/);
+   if(vm){
+     const dir=/slower|slow/.test(vm[1]||vt)?-1:1;
+     let cur=parseFloat(localStorage.getItem("aura_voicerate")||"0");
+     let base=cur>0?cur:(function(){try{const tv=tpVoice();return tv&&tv.rate?tv.rate:1}catch(e){return 1}})();
+     let next=Math.max(0.6,Math.min(1.6,+(base+0.15*dir).toFixed(2)));
+     localStorage.setItem("aura_voicerate",String(next));
+     addMsg(msgTag(),dir<0?"\ud83d\udce3 Slowing down — speaking at "+Math.round(next*100)+"% speed. Say 'normal speed' to return to auto.":"\ud83d\udce3 Speeding up — speaking at "+Math.round(next*100)+"% speed. Say 'normal speed' to return to auto.","aura");
+     if(voiceAllowed())speak(dir<0?"Speaking slower now.":"Faster it is.");
+     setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/^(?:normal|default|auto|regular)\s*(?:speed|pace|tempo)?$|^speak normally$|^reset speed$/.test(vt)){
+     localStorage.removeItem("aura_voicerate");
+     addMsg(msgTag(),"\ud83c\udfa7 Back to auto tempo — my voice follows your typing rhythm again.","aura");
+     if(voiceAllowed())speak("Normal speed restored.");
+     setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* persona switch — the owner may arm the tactical protocol; everyone else gets AURA */
   {const lq0=(text||"").toLowerCase();
    if(/\b(activate|go|switch to|arm)\s+(jarvis|tactical protocol)\b|\bjarvis (mode|protocol|persona) (on|activate)\b/.test(lq0)){
