@@ -3353,6 +3353,56 @@ async function webContext(q){
   }catch(e){try{slog("live web lane down ("+(e.message||e)+") — answering from my own knowledge",true)}catch(e2){}return null}
   finally{__webBusy=false}
 }
+/* ================= AURAMIND — the mind-reading engine (Sourabh's design)
+   Learns HOW each user thinks from their own messages: language, mood, fluency,
+   pace, curiosity, recurring interests. Injected into every answer so AURA and
+   JARVIS reply the way THIS user needs — answering the question behind the
+   question. Say "read my mind" anytime to see the live profile. ================= */
+window.AuraMind=(function(){
+  const KEY="aura_mind_v1";
+  const blank=function(){return{msgs:0,langs:{},moods:{},topics:{},depth:{short:0,medium:0,deep:0},expert:0,casual:0,hinglish:0,urgent:0,curious:0,verdict:""}};
+  let M=blank();try{M=Object.assign(blank(),JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
+  const save=function(){try{localStorage.setItem(KEY,JSON.stringify(M))}catch(e){}};
+  const HING=/\b(kya|kaise|kaisa|kyun|nahi|haan|acha|accha|matlab|bhai|yaar|thoda|zara|karo|batao|chahiye|hogaya|ho\ gaya|samajh)\b|[\u0900-\u097F]/i;
+  const URGE=/^(asap|urgent|jaldi|quickly|fast|right now|abhi|emergency)\b|!\s*$/i;
+  const MOODS={frustrated:/not working|doesn'?t work|stopped|error|broken|fail|crash|problem|issue|thak gaya|kuch nahi ho raha/i,sad:/sad|depress|alone|lonely|upset|cry|dukhi|udaas|akela/i,happy:/happy|great|awesome|love (it|this|you)|amazing|wonderful|mast|badhiya/i,excited:/wow|can'?t wait|finally|lets? go|kamaal|dhamaal/i};
+  const EXPERT=/\b(api|backend|frontend|deploy|docker|kubernetes|regex|async|await|promise|endpoint|payload|javascript|python|sql|database|server|ssh|git|node|npm|render|ml|neural|model)\b/i;
+  function top(o,n){return Object.keys(o||{}).sort(function(a,b){return o[b]-o[a]}).slice(0,n||3)}
+  function observe(text){
+    const s=String(text||"").trim();if(s.length<2)return;
+    M.msgs++;
+    if(/[\u0900-\u097F]/.test(s))M.langs.hindi=(M.langs.hindi||0)+1;else if(HING.test(s)){M.langs.hinglish=(M.langs.hinglish||0)+1;M.hinglish++}else M.langs.english=(M.langs.english||0)+1;
+    if(URGE.test(s))M.urgent++;
+    for(const k in MOODS){if(MOODS[k].test(s)){M.moods[k]=(M.moods[k]||0)+1;break}}
+    if(EXPERT.test(s))M.expert++;
+    if(/^(hi|hello|hey|yo|thanks|thank you|ok|good)/i.test(s)&&s.length<25)M.casual++;
+    if(/\?|\b(how|why|what|when|where|who|kya|kaise|kyun)\b/i.test(s))M.curious++;
+    if(s.length<28)M.depth.short++;else if(s.length>140)M.depth.deep++;else M.depth.medium++;
+    const words=s.toLowerCase().replace(/[^\w\u0900-\u097F ]/g," ").split(/\s+/).filter(function(w){return w.length>4});
+    words.slice(0,4).forEach(function(w){M.topics[w]=(M.topics[w]||0)+1});
+    if(M.msgs%6===0)verdict();
+    save();
+  }
+  function verdict(){
+    const mood=top(M.moods,1)[0]||"";
+    const lang=(M.langs.hindi||0)>=(M.langs.english||0)?"hindi":((M.langs.hinglish||0)>=(M.langs.english||0)*0.6?"hinglish":"english");
+    const wantsDepth=M.depth.deep+M.depth.medium>=M.depth.short*1.2;
+    M.verdict=(lang!=="english"?"prefers "+lang+"; ":"")+(mood?"often feels "+mood+"; ":"")+(M.expert>M.msgs*0.25?"technically fluent - no hand-holding":(M.casual>M.msgs*0.5?"keeps it casual and quick":"plain human explanations"))+(wantsDepth?"; likes substance over fluff":"; likes answers short and snappy");
+    return M.verdict;
+  }
+  function profileBlock(){
+    if(M.msgs<3)return"";
+    const v=M.verdict||verdict();const t=top(M.topics,4);
+    return "\n\nUSER MIND-READ (learned live from this user's own messages - adapt to it silently, never mention it): "+v+(t.length?"; recurring interests: "+t.join(", "):"")+". Match their language, energy and depth.";
+  }
+  function report(){
+    if(M.msgs<1)return"I haven't learned your rhythm yet - chat with me a little and ask again.";
+    const mm=top(M.moods,3),tt=top(M.topics,5);const pct=function(n){return M.msgs?Math.round(n/M.msgs*100):0};
+    return "\ud83e\udde0 MIND READ after "+M.msgs+" message"+(M.msgs>1?"s":"")+":\n\n\u2022 Language - "+top(M.langs,3).map(function(l){return l+" "+pct(M.langs[l])+"%"}).join(", ")+(M.hinglish?" (Hinglish flavor detected)":"")+"\n\u2022 Vibe - "+(mm.length?mm.join(" > "):"steady, neutral")+(M.urgent?" \u00b7 "+M.urgent+" urgent asks":"")+"\n\u2022 Style - "+(M.depth.short>M.depth.deep?"snappy questions, wants quick answers":(M.depth.deep>M.depth.short?"detailed thinker, enjoys depth":"balanced pace"))+"\n\u2022 Fluency - "+(M.expert>M.msgs*0.25?"technical - I skip baby steps":(M.casual>M.msgs*0.5?"casual chatterer":"plain-human explanations"))+"\n\u2022 Curiosity - "+pct(M.curious)+"% of your lines are questions\n"+(tt.length?"\u2022 Mind circle - "+tt.join(", ")+"\n":"")+"\nAdaptation: "+(M.verdict||verdict())+"\n\nSay \"reset my training\" to make me learn you from zero.";
+  }
+  function wipe(){M=blank();save()}
+  return{observe:observe,profileBlock:profileBlock,report:report,wipe:wipe,_m:function(){return M}};
+})();
 /* ---------------- conversation memory (ChatGPT-style follow-ups) ---------------- */
 const CONVO=[];const CONVO_MAX=12;
 function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX);try{hist.add(role,content)}catch(e){}}
@@ -3360,12 +3410,17 @@ function convoCtx(){
   let s=CONVO.length?"\n\nRECENT CONVERSATION (BACKGROUND ONLY — it may be about a PREVIOUS topic. Do NOT answer or continue it. Use it ONLY to resolve pronouns (he/she/it/that/they) and obvious short follow-ups like 'why?', 'tell me more' that belong to the CURRENT question. If the current question names a new person, place or thing, answer ONLY that new thing and ignore the old topic entirely. Never repeat this context verbatim):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
   try{if(window.AuraMem&&window.__auraQ){const mc=AuraMem.contextFor(window.__auraQ);if(mc)s+=mc}}catch(e){}
   try{if(window.AuraDocs&&window.__auraQ){const dc=AuraDocs.contextFor(window.__auraQ);if(dc)s+=dc}}catch(e){}
+  try{const pb=window.AuraMind&&AuraMind.profileBlock();if(pb)s+=pb}catch(e){}
   const _now=new Date();
   s+="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — 'today', 'now' and 'latest' refer to THIS moment; never answer with a training-cutoff date)";
   return s;
 }
 function personaName(){try{return (PERSONAS[persona()]||PERSONAS.aura).name}catch(e){return "AURA"}}
-function replyStyle(){if(persona()==="jarvis")return " IMPORTANT — you are JARVIS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; end with an implication, trade-off or recommended next action; never open with dictionary framing; never say 'according to Wikipedia'.";return " IMPORTANT — sound like a smart human talking, never like an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; never open with dictionary framing like 'X is a...' or 'X refers to...'; never say 'according to Wikipedia'; if the question is casual, answer casual; if factual, be vivid but precise."}
+function replyStyle(){
+  const common=" READ THE QUESTION BEHIND THE QUESTION: detect what the user actually wants (a fix? reassurance? a decision? a shortcut? the why?) and deliver THAT first; if their message sounds frustrated or sad, acknowledge the feeling in one short line before solving; if two intents are possible, answer the likely one fully and offer the other in one closing line; mirror the user's language (Hindi or Hinglish if they use it), their energy and their depth - never lecture past what was asked. Never open with dictionary framing like 'X is a...' or 'X refers to...'. Never say 'according to Wikipedia'.";
+  if(persona()==="jarvis")return " IMPORTANT - you are JARVIS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common;
+  return " IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common;
+}
 /* ---------------- streaming (ChatGPT-style token-by-token) ---------------- */
 let streamAbort=null;
 async function groqStream(messages,maxTok,onChunk){
@@ -3964,6 +4019,17 @@ async function askCore(text0){
       }
     }
     try{AuraMetrics.event("question",text)}catch(e){}
+    try{if(window.AuraMind)AuraMind.observe(text)}catch(e){}
+    if(/^(read my mind|mind read|psychic report|what do you know about how i think)$/.test(ol)){
+      addMsg("YOU \u25b8",text,"user");const rep=window.AuraMind?AuraMind.report():"mind core offline";
+      addMsg(msgTag(),rep,"aura");if(voiceAllowed())speak("Mind read complete. I know how you like your answers.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(reset my training|forget how i (talk|type)|reset mind read)$/.test(ol)){
+      if(window.AuraMind)AuraMind.wipe();
+      addMsg("YOU \u25b8",text,"user");addMsg(msgTag(),"\ud83e\udde0 Training reset - I'll learn your style fresh from our next messages.","aura");if(voiceAllowed())speak("Training reset.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
   }
   /* ===== LONG-TERM MEMORY + DOCUMENT RAG intents (before everything else) ===== */
   {
