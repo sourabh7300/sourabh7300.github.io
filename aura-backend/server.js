@@ -1031,6 +1031,7 @@ function extractJson(text) {
   if (!m) return null;
   try { return JSON.parse(m[0]); } catch (e) { return null; }
 }
+const WEB_JUNK = /unusual traffic|not a robot|why did this happen|captcha|enable javascript|just a moment|access denied|are you a human/i;
 async function toolSearch(q) {
   /* live web search via r.jina.ai Google News + DuckDuckGo lite (both CORS-free server-side) */
   const out = [];
@@ -1042,6 +1043,7 @@ async function toolSearch(q) {
       while ((m = re.exec(t)) && out.length < 5) {
         const title = m[1].replace(/\s+-\s+[^-]+$/, "").trim();
         if (/google|news\.google|signin|privacy|terms/i.test(title)) continue;
+        if (WEB_JUNK.test(title)) continue; /* cloud-IP CAPTCHA pages are not search results */
         out.push({ title, url: m[2] }); if (++n >= 5) break;
       }
     }
@@ -1054,7 +1056,9 @@ async function toolSearch(q) {
         const re2 = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g; let m2;
         while ((m2 = re2.exec(t2)) && out.length < 6) {
           let u = m2[1]; const du = u.match(/uddg=([^&]+)/); if (du) u = decodeURIComponent(du[1]);
-          out.push({ title: m2[2].replace(/<[^>]+>/g, "").trim(), url: u });
+          const title = m2[2].replace(/<[^>]+>/g, "").trim();
+          if (WEB_JUNK.test(title)) continue;
+          out.push({ title, url: u });
         }
       }
     } catch (e) {}
@@ -1074,6 +1078,34 @@ async function toolFetch(url) {
 function toolCalc(expr) {
   try { return String(Function("return (" + expr + ")")()); } catch (e) { return "error: " + e.message; }
 }
+
+/* ============ LIVE WEB SEARCH — fresh-knowledge lane for the chat brain ============
+   POST /v1/websearch {question:"..."} → same-day web intelligence (Google News via
+   jina + DuckDuckGo) with page reads. The chat brain calls this whenever a question
+   is time-sensitive, so answers stop being frozen at the model's training cutoff. */
+app.post("/v1/websearch", async (req, res) => {
+  const q = String((req.body || {}).question || "").trim().slice(0, 300);
+  if (!q || q.length < 4 || /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon))[!. ]*$/i.test(q)) {
+    return res.json({ results: [] }); /* greetings don't deserve a web crawl */
+  }
+  const started = Date.now();
+  try {
+    const hits = await toolSearch(q);
+    if (!hits.length) return res.json({ results: [], took: Date.now() - started });
+    /* read the two most promising pages so the brain gets substance, not just headlines */
+    const top = hits.slice(0, 2);
+    const reads = await Promise.all(top.map(h => toolFetch(h.url).catch(() => null)));
+    const results = hits.map((h, i) => ({
+      k: "web",
+      title: h.title,
+      url: h.url,
+      extract: (reads[i] && reads[i].length > 80 ? reads[i].slice(0, 1800) : h.title || "")
+    }));
+    res.json({ results, took: Date.now() - started });
+  } catch (e) {
+    res.status(502).json({ error: "websearch_failed", message: e.message });
+  }
+});
 
 app.post("/v1/agent", async (req, res) => {
   const body = req.body || {};
@@ -1212,13 +1244,17 @@ app.post("/v1/chat/stream", async (req, res) => {
       const key = pickKey();
       if (!key) { sawLimit = true; break outer; }
       try {
+        /* reasoning models (gpt-oss) spend tokens thinking — same floor as the non-stream
+           route, otherwise a small budget returns HTTP 200 with ZERO content chunks */
+        let maxTok = Math.min(body.max_tokens || 1600, 4000);
+        if (model.startsWith("openai/gpt-oss") && maxTok < 600) maxTok = 600;
         const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
           body: JSON.stringify({
             model,
             messages,
-            max_tokens: Math.min(body.max_tokens || 1600, 4000),
+            max_tokens: maxTok,
             temperature: body.temperature != null ? body.temperature : 0.6,
             stream: true
           }),
