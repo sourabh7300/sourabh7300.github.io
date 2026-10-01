@@ -223,6 +223,11 @@ body:not([data-tab="system"]) #telemetry,body:not([data-tab="system"]) #syslog,b
 #memSide .memrow .mtx .msrc{display:block;font-size:8px;color:#3f7a8a;margin-top:1px}
 #memSide .memrow button{background:none;border:1px solid var(--line2);color:var(--dim);border-radius:5px;font-size:9px;padding:2px 5px;cursor:pointer;flex-shrink:0}
 #memSide .memrow button:hover{color:#f87171;border-color:#f87171}
+/* ZEUS VISUAL IDENTITY — tactical gold deck when the ZEUS persona drives */
+body.persona-zeus{--cy:#f5c542;--cy2:#c99a2e;--ice:#ffe9b8}
+body.persona-zeus .hud b{color:var(--cy2)}
+body.persona-zeus::after{content:"";position:fixed;inset:0;pointer-events:none;background:linear-gradient(0deg,rgba(245,197,66,.045),transparent 28%);z-index:2;animation:zeusPulse 4s ease-in-out infinite}
+@keyframes zeusPulse{0%,100%{opacity:.55}50%{opacity:1}}
 #memSide .memempty{font-family:var(--mono);font-size:9.5px;color:#3f7a8a;padding:6px 0;line-height:1.6}
 body[data-tab="chats"] #conv,body[data-tab="system"] #conv,body[data-tab="code"] #conv{display:none}
 body[data-tab="code"] #dock{opacity:.25;pointer-events:none}
@@ -1877,6 +1882,7 @@ function setPersona(p,announce){
   document.body.dataset.persona=key;
   if(key==="jarvis"){setHue("gold")}
   else{setHue("cyan")}
+  try{applyPersonaTheme()}catch(e){} /* ZEUS visual identity — the deck follows the persona */
   if(announce){const P=PERSONAS[key];addMsg(msgTag(),key==="jarvis"?"ZEUS tactical protocol online — all systems armed and standing by, sir. Say 'end duel' any time you want me back as AURA.":"AURA online — holographic interface restored. What do you need?",key);pushSys("persona → "+P.name)}
   return PERSONAS[key];
 }
@@ -2038,7 +2044,7 @@ window.AuraLive=(function(){
         if(!ft)return;
         const c=typeof cleanTranscript==='function'?cleanTranscript(ft):ft.trim();
         if(typeof isEcho==='function'&&isEcho(c))return;
-        if(typeof ttsActive!=='undefined'&&ttsActive){if(typeof stopSpeech==='function')stopSpeech();return}
+        if(typeof ttsActive!=='undefined'&&ttsActive){if(typeof stopSpeech==='function')stopSpeech();return} /* BARGE-IN — speech over AURA's voice interrupts it */
         if(typeof busy!=='undefined'&&busy)return;
         const m=c.match(/(?:hey |ok |okay )?(?:aura|ऑरा|jarvis|zeus)[,.!]?\s*(.*)/i);
         const cmd=m?m[1]:c;
@@ -2756,6 +2762,7 @@ const AURA_DEFAULT_BACKEND="https://aura-backend-jomj.onrender.com";
 function backendUrl(){return (localStorage.getItem("aura_backend_url")||AURA_DEFAULT_BACKEND).trim().replace(/\/+$/,"")}
 async function backendCall(messages,maxTok,modelOverride,lane){
   const base=backendUrl();if(!base)throw new Error("no backend");
+  try{if(!window.__backendUp)coldChip()}catch(e){} /* cold-start UX — Render free tier wakes in ~50s */
   const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
   const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
   const r=await fetch(base+"/v1/chat/completions",{
@@ -2769,6 +2776,7 @@ async function backendCall(messages,maxTok,modelOverride,lane){
   const d=await r.json();
   const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||d.content||"";
   if(!t.trim())throw new Error("empty");
+  try{hideColdChip()}catch(e){}
   return t.trim();
 }
 async function groqCall(messages,maxTok,modelOverride,lane){
@@ -3064,7 +3072,7 @@ function cloudPushDebounced(){
 async function cloudPushNow(){
   try{
     if(!backendUrl()||!cloudSignedIn())return;
-    const blob={convo:CONVO.slice(-120),memory:memGet(),sessions:sessions.all().slice(-30),lastTopic:lastTopic||"",usage:(function(){try{return JSON.parse(localStorage.getItem("aura_usage")||"{}")}catch(e){return{}}})()};
+    const blob={convo:CONVO.slice(-120),memory:memGet(),sessions:sessions.all().slice(-30),lastTopic:lastTopic||"",usage:(function(){try{return JSON.parse(localStorage.getItem("aura_usage")||"{}")}catch(e){return{}}})(),settings:(function(){try{return{topics:briefTopicsLoad(),routines:routinesLoad(),cal:calCfg(),sleep:(function(){try{return sleepLoad()}catch(e){return{}}})()}}catch(e){return{}}})()};
     await fetch(backendUrl()+"/v1/userdata",{method:"PUT",headers:Object.assign({"Content-Type":"application/json"},cloudAuthHeader()),body:JSON.stringify(blob),signal:AbortSignal.timeout(15000)});
     slog("☁ synced to your account",true);
   }catch(e){}
@@ -3083,6 +3091,11 @@ async function cloudPullAndRestore(){
       hist.save("convo",d.convo.slice(-40));if(lastTopic)hist.save("lastTopic",lastTopic);
       if(d.memory&&!memGet().name){try{localStorage.setItem("aura_memory",JSON.stringify(d.memory));memRender()}catch(e){}}
       if(Array.isArray(d.sessions)&&d.sessions.length){try{sessions.write(d.sessions)}catch(e){}}
+      if(d.settings&&typeof d.settings==="object"){ /* new-device restore: brief topics, routines and the calendar link follow you */
+        try{if(Array.isArray(d.settings.topics)&&d.settings.topics.length&&!briefTopicsLoad().length)briefTopicsSave(d.settings.topics)}catch(e){}
+        try{if(Array.isArray(d.settings.routines)&&d.settings.routines.length&&!routinesLoad().length)routinesSave(d.settings.routines)}catch(e){}
+        try{if(d.settings.cal&&d.settings.cal.url&&!calCfg())calSet(d.settings.cal.url)}catch(e){}
+      }
       try{pushSys("☁ your chats and memories arrived from your account — welcome back")}catch(e){}
       return true;
     }
@@ -3418,6 +3431,211 @@ async function webContext(q){
   }catch(e){try{slog("live web lane down ("+(e.message||e)+") — answering from my own knowledge",true)}catch(e2){}return null}
   finally{__webBusy=false}
 }
+/* ================= SLEEP-CYCLE v1 — nightly memory consolidation (Sourabh's design)
+   Once a day (first open after 6am) AURA replays yesterday's chat, lifts the durable
+   facts into long-term memory (AuraMem), decays stale ones, and reports like a mind
+   that slept — not a database that synced. "sleep cycle" runs it on demand. ================= */
+/* SLEEP-CYCLE v1 START */
+const SLEEP_KEY="aura_sleep_v1";
+function __dayKey(ts){const d=new Date(ts||Date.now());return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function sleepLoad(){try{return JSON.parse(localStorage.getItem(SLEEP_KEY)||"{}")}catch(e){return{}}}
+function sleepSave(s){try{localStorage.setItem(SLEEP_KEY,JSON.stringify(s))}catch(e){}}
+function __briefPicks(lines){
+  return (lines||[]).filter(function(s){
+    s=String(s||"").trim();
+    if(!s||/^YOU:/.test(s)||/^AURA:/.test(s))return false; /* role-prefixed convo lines never become memories */
+    if(s.length<12||s.length>240)return false;
+    if(/^(what|who|when|where|why|how|is|are|do|does|can|could|tell me|give me|show me|open|play|remind me|set (a|an)|add a)\b/i.test(s))return false; /* questions/commands are not facts */
+    if(/^(hi|hello|hey|yo|thanks|thank you|ok|okay|good (morning|evening|night)|bye)\b/i.test(s))return false; /* chatter */
+    return true;
+  });
+}
+function __pickFacts(cands){
+  const seen=Object.create(null),out=[];
+  (cands||[]).forEach(function(s){
+    const t=String(s||"").trim().slice(0,240);if(t.length<12)return;
+    const n=t.toLowerCase().replace(/[^a-z0-9\u0900-\u097F ]/g," ").replace(/\s+/g," ").trim();
+    if(!n||seen[n])return;seen[n]=1;out.push(t);
+  });
+  return out.slice(0,5);
+}
+function __decay(facts,vmemN){
+  const now=Date.now(),DAY=86400000;
+  return (facts||[]).filter(function(f){
+    if(f&&f.pinned)return true;
+    const age=(now-(f.ts||0))/DAY;
+    if(f&&f.v)return age<150; /* vectorized facts (searchable later) live longer */
+    return age<60;
+  });
+}
+function __plan(s){const today=__dayKey((s&&s.now)||Date.now());return{consolidate:(s&&s.last)!==today,today:today}}
+function __fmt(kept,forgot,vec){
+  if(!kept&&!forgot)return "Quiet night — nothing new to consolidate. Memory steady at "+vec+" live fact"+(vec===1?"":"s")+".";
+  return "Sleep-cycle complete: consolidated "+kept+" new fact"+(kept===1?"":"s")+" into long-term memory"+(forgot?", decayed "+forgot+" stale one"+(forgot===1?"":"s"):"")+". "+vec+" fact"+(vec===1?"":"s")+" active.";
+}
+function sleepConsolidate(force){
+  try{
+    const s=sleepLoad();
+    if(!force&&!__plan(s).consolidate)return null;
+    sleepSave({last:__dayKey()});
+    const convo=(function(){try{return JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]}catch(e){return[]}})();
+    const cands=__briefPicks(convo.map(function(r){return (r.role==="user"?"YOU: ":"AURA: ")+String(r.content||"")}));
+    __pickFacts(cands).forEach(function(t){try{AuraMem.add(t,"sleep-cycle")}catch(e){}});
+    const before=AuraMem.all().length;
+    const surv=__decay(AuraMem.all(),(typeof VMEM!=="undefined"?VMEM.length:0));
+    const keep=new Set(surv.map(function(f){return f.id}));
+    AuraMem.all().filter(function(f){return !keep.has(f.id)}).forEach(function(f){try{AuraMem.drop(f.id)}catch(e){}});
+    const added=(function(){try{return AuraMem.all().filter(function(f){return f.src==="sleep-cycle"}).length}catch(e){return 0}})();
+    const forgot=before-AuraMem.all().length;
+    const vec=(typeof VMEM!=="undefined"?VMEM.length:0);
+    if(added||forgot||force){const msg=__fmt(added,forgot,vec);try{pushSys("😴 sleep-cycle: +"+added+"/−"+forgot+" memories")}catch(e){}return msg}
+    return null;
+  }catch(e){return null}
+}
+(function(){try{ /* arm the nightly pass — fires at the first 6am tick the tab is open; a missed night is caught up on next boot */
+  function arm(){const now=new Date(),next=new Date(now);next.setHours(6,0,0,0);if(next<=now)next.setDate(next.getDate()+1);
+    setTimeout(function(){try{sleepConsolidate(false)}catch(e){}arm()},Math.min(next-now,2147000000))}
+  arm();
+}catch(e){}})();
+/* SLEEP-CYCLE v1 END */
+/* ================= PERSONAL BRIEF TOPICS + MORNING DIGEST (Sourabh's design)
+   The daily pull stops being one-size-fits-all: "add topics cricket and crypto"
+   steers every backend brief query, and the first boot of the morning speaks the
+   day before you ask — brief, reminders, calendar, tasks. ================= */
+/* BRIEF-TOPICS v1 START */
+const BRIEF_TOPICS_KEY="aura_brief_topics_v1";
+function briefTopicsLoad(){try{return JSON.parse(localStorage.getItem(BRIEF_TOPICS_KEY)||"[]")}catch(e){return[]}}
+function briefTopicsSave(a){try{localStorage.setItem(BRIEF_TOPICS_KEY,JSON.stringify(a.slice(0,8)))}catch(e){}}
+function __tparse(cmd){
+  const m=String(cmd||"").match(/^(?:add|remove)\s+(?:topics?\s+)?(.+)$/i);if(!m)return[];
+  const rm=/^remove/i.test(cmd);const out=[];const seen=Object.create(null);
+  m[1].split(/,| and /i).map(function(s){return s.trim().toLowerCase()}).filter(function(s){return s&&s.length<40}).forEach(function(s){if(!seen[s]){seen[s]=1;out.push({t:s,rm:rm})}});
+  return out;
+}
+function __pquery(topics){
+  const t=(topics||[]).map(function(s){return String(s).trim()}).filter(Boolean);
+  return t.length?("top news headlines today about "+t.join(", ")+" India and world"):"top news headlines today India and world";
+}
+function __ageTag(at){
+  const m=Math.max(0,Math.round((Date.now()-(at||0))/60000));
+  if(m<60)return m+"m";const h=Math.round(m/60);if(h<48)return h+"h";return Math.round(h/24)+"d";
+}
+function briefTopicsApply(cmd){
+  const ops=__tparse(cmd);if(!ops.length)return null;
+  let cur=briefTopicsLoad();
+  ops.forEach(function(o){cur=o.rm?cur.filter(function(t){return t!==o.t}):(cur.indexOf(o.t)<0?cur.concat([o.t]):cur)});
+  briefTopicsSave(cur);
+  return cur.length?("Brief topics set: "+cur.join(", ")+". Every daily pull now leads with them — say 'brief me' to test."):"Topics cleared — back to the general world brief.";
+}
+function morningDigest(){
+  try{
+    const MK="aura_morning_v1";let meta=null;try{meta=JSON.parse(localStorage.getItem(MK)||"null")}catch(e){}
+    if(meta&&meta.day===__dayKey())return; /* once per day */
+    if(new Date().getHours()>=12)return; /* mornings only */
+    try{localStorage.setItem(MK,JSON.stringify({day:__dayKey()}))}catch(e){}
+    const b=briefFresh(briefLoad())?briefLoad():null;
+    const L=(function(){try{return JSON.parse(localStorage.getItem("aura_reminders_v1")||"[]")}catch(e){return[]}})();
+    const soon=L.map(function(r){return{t:r.text||r.t||r.what||r.title||"reminder",at:r.at||r.when||r.due}}).filter(function(r){return r.at&&r.at>Date.now()&&r.at-Date.now()<86400000}).sort(function(a,b2){return a.at-b2.at}).slice(0,3)
+      .map(function(r){return "‘"+r.t+"’ "+new Date(r.at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})});
+    if(!(b&&b.items&&b.items.length)&&!soon.length)return;
+    const nm=memGet().name;
+    let m="☀️ Good morning"+(nm?", "+nm:"")+" — ";
+    if(b&&b.items&&b.items.length)m+="today's brief: "+b.items.slice(0,3).join(" · ")+". ";
+    if(soon.length)m+="Coming up: "+soon.join(", ")+".";
+    setTimeout(function(){try{
+      addMsg(msgTag(),m,"aura");
+      try{if(window.Notification&&Notification.permission==="granted")new Notification("AURA — Morning Brief",{body:m.replace(/^☀️ Good morning[^—]*— /,"")})}catch(e){}
+      if(voiceAllowed())speak(m.replace(/☀️ |[‘’]/g,""));
+    }catch(e){}},2600);
+  }catch(e){}
+}
+/* BRIEF-TOPICS v1 END */
+/* ================= ROUTINES v1 — chained morning macros (Sourabh's design)
+   "good morning" runs one macro: fresh brief + reminders + tasks (+ calendar when
+   linked). Custom one-liners: "create routine standup say standup in five, sir". ================= */
+/* ROUTINES v1 START */
+const ROUTINES_KEY="aura_routines_v1";
+function routinesLoad(){try{return JSON.parse(localStorage.getItem(ROUTINES_KEY)||"[]")}catch(e){return[]}}
+function routinesSave(a){try{localStorage.setItem(ROUTINES_KEY,JSON.stringify(a.slice(0,24)))}catch(e){}}
+function __isRoutine(q){
+  const l=String(q||"").toLowerCase().trim();
+  if(/^(good ?morning|start my day|morning routine|begin my day)\b/.test(l))return true;
+  return routinesLoad().some(function(r){return r&&r.name&&l===r.name.toLowerCase()});
+}
+function __fmtR(d){
+  d=d||{};const parts=[];
+  if(d.brief&&d.brief.length)parts.push("📰 BRIEF — "+d.brief.slice(0,3).join(" · "));
+  if(d.rem&&d.rem.length)parts.push("⏰ NEXT UP — "+d.rem.slice(0,3).join(" · "));
+  if(d.tasks&&d.tasks.length)parts.push("✅ TASKS — "+d.tasks.slice(0,4).join(" · "));
+  if(!parts.length)return "Quiet day on the board, sir — no brief cached, no reminders due. Shall I pull the news?";
+  return parts.join("\n");
+}
+function __parseCustom(q){
+  const m=String(q||"").match(/^create routine\s+(.+?)\s+(?:saying|that says|say)\s+(.+)$/i);
+  if(!m)return null;const name=m[1].trim().slice(0,40),say=m[2].trim().slice(0,240);
+  if(!name||!say)return null;return{name:name,say:say};
+}
+async function routineRun(){
+  const d={};
+  try{let b=briefFresh(briefLoad())?briefLoad():null;if(!b){try{await briefPull()}catch(e){}b=briefFresh(briefLoad())?briefLoad():null}if(b&&b.items)d.brief=b.items.slice(0,3)}catch(e){}
+  try{
+    const L=(function(){try{return JSON.parse(localStorage.getItem("aura_reminders_v1")||"[]")}catch(e){return[]}})();
+    d.rem=L.map(function(r){return{t:r.text||r.t||r.what||r.title||"reminder",at:r.at||r.when||r.due}}).filter(function(x){return x.at&&x.at>Date.now()-3600000}).sort(function(a,b){return a.at-b.at}).slice(0,3)
+      .map(function(x){return x.t+" · "+new Date(x.at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})});
+  }catch(e){}
+  try{const evs=await calEvents(2);if(evs&&evs.length)d.rem=(d.rem||[]).concat(evs.slice(0,3).map(function(e){return (e.summary||"event")+" · "+new Date(e.at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}))}catch(e){}
+  try{const T=(function(){try{return JSON.parse(localStorage.getItem("aura_tasks_v1")||"[]")}catch(e){return[]}})();
+    d.tasks=T.filter(function(t){return t&&!t.done}).slice(0,4).map(function(t){return t.t||t.text||t.title||"task"})}catch(e){}
+  return (persona()==="jarvis"?"Morning briefing, sir:":"Good morning! Here's your day:")+"\n"+__fmtR(d);
+}
+/* ROUTINES v1 END */
+/* ================= CALENDAR v1 — private ICS bridge (Sourabh's design)
+   Owner pastes a calendar's secret ICS link once; the BACKEND fetches it per request
+   (the URL never leaves this device + server) and "what's on my calendar" answers
+   with the week ahead. Nothing about the feed is stored server-side. ================= */
+/* CALENDAR v1 START */
+const CAL_CFG_KEY="aura_cal_ics_v1";
+function calCfg(){try{return JSON.parse(localStorage.getItem(CAL_CFG_KEY)||"null")}catch(e){return null}}
+function calSet(url){try{localStorage.setItem(CAL_CFG_KEY,JSON.stringify({url:String(url||"").trim().slice(0,500),at:Date.now()}))}catch(e){}}
+async function calEvents(days){
+  const c=calCfg();if(!c||!c.url||!backendUrl())return null;
+  const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
+  const hh={};if(secret)hh["X-AURA-Key"]=secret;
+  const r=await fetch(backendUrl()+"/v1/calendar?url="+encodeURIComponent(c.url)+"&days="+(days||7),{headers:hh,signal:AbortSignal.timeout(20000)});
+  if(!r.ok)return null;const d=await r.json();return (d&&d.events)||[];
+}
+/* CALENDAR v1 END */
+/* ================= PERSONA-REBRAND v1 — rename personas from the chat (owner-only)
+   "rename zeus to ARGUS" re-skins every display string by overriding PERSONAS names;
+   wake words stay "Hey Aura"/"Hey Zeus" by design so the voice pipeline is untouched. ================= */
+/* PERSONA-REBRAND v1 START */
+const REBRAND_KEY="aura_rebrand_v1";
+function _rbClean(v){
+  const s=String(v||"").replace(/[<>&"'`]/g,"").replace(/[!?.,;:]+/g," ").replace(/\s+/g," ").trim();
+  if(!s)return null;return s.slice(0,24);
+}
+function _rbLoad(){try{return JSON.parse(localStorage.getItem(REBRAND_KEY)||"null")||{}}catch(e){return{}}}
+function _rbSave(o){try{localStorage.setItem(REBRAND_KEY,JSON.stringify(o))}catch(e){}}
+let __rbDefaults=null;
+function applyRebrand(){
+  try{const o=_rbLoad();
+    if(!__rbDefaults&&typeof PERSONAS!=="undefined")__rbDefaults={aura:PERSONAS.aura.name,jarvis:PERSONAS.jarvis.name};
+    ["aura","jarvis"].forEach(function(k){
+      if(typeof PERSONAS==="undefined"||!PERSONAS[k])return;
+      PERSONAS[k].name=(o[k]&&o[k].name)?String(o[k].name).slice(0,24):(__rbDefaults?__rbDefaults[k]:PERSONAS[k].name);
+    });
+  }catch(e){}
+}
+applyRebrand();
+function applyPersonaVisual(){
+  try{const et=$("engTag");if(et)et.textContent=(persona()==="jarvis"?"⚡ ZEUS · ":"")+et.textContent.replace(/^⚡ ZEUS · /,"")}catch(e){}
+}
+function applyPersonaTheme(){
+  try{const z=persona()==="jarvis";document.body.classList.toggle("persona-zeus",z);
+    if(typeof setHue==="function"){if(z)setHue("gold");else{const t=(function(){try{return localStorage.getItem("aura_theme")||""}catch(e){return""}})();if(t==="cyan")setHue("cyan")}}
+  }catch(e){}
+}
+/* PERSONA-REBRAND v1 END */
 /* ================= DAILY BRIEF — the knowledge that refreshes itself (Sourabh's design)
    ONE silent news pull per day (first open of the day), cached in localStorage. A 6-hour
    staleness check re-pulls in long sessions so the cache is never yesterday-afternoon's
@@ -3442,7 +3660,7 @@ async function briefBackendNews(){
     if(!backendUrl())return null;
     const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
     const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
-    const r=await fetch(backendUrl()+"/v1/websearch",{method:"POST",headers:headers,signal:AbortSignal.timeout(20000),body:JSON.stringify({question:"top news headlines today India and world"})});
+    const r=await fetch(backendUrl()+"/v1/websearch",{method:"POST",headers:headers,signal:AbortSignal.timeout(20000),body:JSON.stringify({question:(function(){try{return __pquery(briefTopicsLoad())}catch(e){return "top news headlines today India and world"}})()})});
     if(!r.ok)return null;
     const d=await r.json();const rs=(d&&d.results)||[];
     const items=rs.map(x=>String(x.title||x.k||"").replace(/\s+/g," ").trim()).filter(t=>t.length>18).slice(0,7);
@@ -4244,6 +4462,100 @@ async function askCore(text0){
       addMsg("YOU \u25b8",text,"user");addMsg(msgTag(),"\ud83e\udde0 Training reset - I'll learn your style fresh from our next messages.","aura");if(voiceAllowed())speak("Training reset.");
       setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
     }
+    /* PERSONA REBRAND — owner re-skins the personas from the chat, no code edits */
+    if(admin&&/^rename (aura|zeus|jarvis) to (.+)$/i.test(text)){
+      const rb=text.match(/^rename (aura|zeus|jarvis) to (.+)$/i);
+      const rkey=(rb[1].toLowerCase()==="aura")?"aura":"jarvis";
+      const clean=_rbClean(rb[2]);
+      addMsg("YOU ▸",text,"user");
+      if(!clean){addMsg(msgTag(),"Give me a clean name — letters and spaces, 24 characters max.","aura");}
+      else{
+        const ro=_rbLoad();ro[rkey]={name:clean};_rbSave(ro);applyRebrand();
+        addMsg(msgTag(),"✅ Done — this persona now answers as "+clean+". Wake words stay 'Hey Aura' / 'Hey Zeus' so the voice pipeline is untouched. Say 'reset persona names' to revert.","aura");
+        pushSys("persona rebrand → "+clean);
+      }
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(admin&&/^reset persona names$/.test(ol)){
+      _rbSave({});applyRebrand();
+      addMsg("YOU ▸",text,"user");addMsg(msgTag(),"Persona names restored to AURA and ZEUS.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    /* CALENDAR LINK — owner pastes a secret ICS feed once; the backend fetches it per request */
+    if(admin&&/^(?:link|connect|set) (?:my )?calendar (.+)$/i.test(text)){
+      const cu=text.match(/^(?:link|connect|set) (?:my )?calendar (.+)$/i);
+      let u=cu[1].trim();if(!/^https?:\/\//i.test(u))u="https://"+u;
+      calSet(u);
+      addMsg("YOU ▸",text,"user");
+      addMsg(msgTag(),"📅 Calendar link stored — it never leaves this device and your server. Say 'what's on my calendar' for the week ahead, or 'unlink calendar' to remove it.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(admin&&/^unlink calendar$/.test(ol)){
+      try{localStorage.removeItem(CAL_CFG_KEY)}catch(e){}
+      addMsg("YOU ▸",text,"user");addMsg(msgTag(),"📅 Calendar unlinked and the stored address erased.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+  }
+  /* ===== DAILY SYSTEMS — brief topics, routines, sleep-cycle, calendar view (every user) ===== */
+  {
+    const lqm2=(text||"").toLowerCase().trim();let tm;
+    if((tm=(text||"").match(/^(add|remove) (?:brief )?topics? (.+)$/i))){
+      const res=briefTopicsApply(text);
+      addMsg("YOU ▸",text,"user");addMsg(msgTag(),res||"Couldn't parse those topics — try: add topics cricket and crypto.","aura");
+      if(voiceAllowed())speak(res?"Topics updated.":"Try again.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(my |brief )?topics$|^show topics$/.test(lqm2)){
+      const tp=briefTopicsLoad();
+      addMsg("YOU ▸",text,"user");addMsg(msgTag(),tp.length?"📰 Your brief topics: "+tp.join(", ")+".\nAdd more: 'add topics cricket and crypto' · Remove: 'remove topics cricket'.":"No personal topics yet — say 'add topics cricket and crypto' and every daily pull leads with them.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(__isRoutine(text)){
+      addMsg("YOU ▸",text,"user");
+      const custom=routinesLoad().find(function(r){return r&&r.name&&String(text).toLowerCase().trim()===r.name.toLowerCase()});
+      if(custom){addMsg(msgTag(),custom.say,"aura");if(voiceAllowed())speak(custom.say);}
+      else{addMsg(msgTag(),"⏳ Running your morning routine…","aura");routineRun().then(function(out){addMsg(msgTag(),out,"aura");if(voiceAllowed())speak(out.split("\n")[0])});}
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^create routine (.+)$/i.test(text)){
+      const c=__parseCustom(text);
+      addMsg("YOU ▸",text,"user");
+      if(c){const rs=routinesLoad();rs.push(c);routinesSave(rs);addMsg(msgTag(),"✅ Routine saved: say \""+c.name+"\" and I'll answer: \""+c.say+"\"","aura");}
+      else addMsg(msgTag(),"Format: create routine <name> say <what I should answer> — e.g. create routine standup say standup in five, sir.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(list|my) routines$/.test(lqm2)){
+      const rs=routinesLoad();
+      addMsg("YOU ▸",text,"user");addMsg(msgTag(),rs.length?"🔄 Your routines:\n"+rs.map(function(r){return "• "+r.name+" → \""+r.say+"\""}).join("\n")+"\nBuilt-in: \"good morning\" runs the full digest.":"No custom routines yet — try: create routine standup say standup in five, sir.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if((tm=(text||"").match(/^remove routine (.+)$/i))){
+      const nm=tm[1].trim().toLowerCase();const before=routinesLoad().length;
+      routinesSave(routinesLoad().filter(function(r){return !r||!r.name||r.name.toLowerCase()!==nm}));
+      addMsg("YOU ▸",text,"user");addMsg(msgTag(),routinesLoad().length<before?"🗑 Routine removed.":"No routine by that name.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^run (the )?sleep cycle$|^sleep cycle$|^consolidate memory$/.test(lqm2)){
+      addMsg("YOU ▸",text,"user");
+      const out=sleepConsolidate(true);
+      addMsg(msgTag(),out||"Quiet night — nothing new to consolidate.","aura");
+      if(voiceAllowed())speak("Sleep cycle complete.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(what(?:'s| is|s) on|show) (my )?calendar$|^(my )?calendar( this week)?$|^this week'?s schedule$/.test(lqm2)){
+      addMsg("YOU ▸",text,"user");
+      const cc=calCfg();
+      if(!cc||!cc.url){addMsg(msgTag(),"📅 No calendar linked. Sign in as the owner and say: link calendar <your secret ICS address> (Google Calendar → Settings → Secret address in iCal format).","aura");}
+      else{
+        addMsg(msgTag(),"📅 Reading your week…","aura");
+        calEvents(7).then(function(evs){
+          if(!evs||!evs.length){addMsg(msgTag(),"📅 Your week is clear — nothing scheduled in the next 7 days.","aura");return;}
+          const lines=evs.slice(0,10).map(function(e){const d=new Date(e.at);const day=d.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});return "• "+day+" "+d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+" — "+(e.summary||"event")});
+          addMsg(msgTag(),"📅 Your week ahead:\n"+lines.join("\n"),"aura");if(voiceAllowed())speak("You have "+evs.length+" events this week.");
+        }).catch(function(){addMsg(msgTag(),"⚠ Couldn't reach the calendar feed right now.","aura")});
+      }
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
   }
   /* ===== LONG-TERM MEMORY + DOCUMENT RAG intents (before everything else) ===== */
   {
@@ -4836,7 +5148,7 @@ const BOOT=persona()==="jarvis"?["> ZEUS OS v4.0 — initializing tactical core"
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
   let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;try{document.body.classList.add("booted")}catch(e){}$("boot").classList.add("gone");
-    setTimeout(()=>{try{scheduleDailyBrief()}catch(e){}try{cloudPullAndRestore()}catch(e){}const n=memGet().name;const P0=PERSONAS[persona()];const histN=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();const replay=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).slice(-6)}catch(e){return []}})();
+    setTimeout(()=>{try{scheduleDailyBrief()}catch(e){}try{cloudPullAndRestore()}catch(e){}try{sleepConsolidate(false)}catch(e){}try{morningDigest()}catch(e){}try{applyPersonaVisual()}catch(e){}try{applyPersonaTheme()}catch(e){}const n=memGet().name;const P0=PERSONAS[persona()];const histN=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();const replay=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).slice(-6)}catch(e){return []}})();
     if(replay.length){const hd=addMsg("SYS","— previous conversation restored —","sys");hd.style.opacity=".55";
       replay.forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
@@ -4855,6 +5167,7 @@ apply(){
     if(c.aiEngine&&$("tEng")&&$("tEng").textContent==="—")$("tEng").textContent=String(c.aiEngine).toUpperCase().slice(0,16);
     if(c.brandLine){const wm=document.querySelector(".wordmark small");if(wm)wm.textContent=c.brandLine;}
     if(c.announce&&!sessionStorage.getItem("aura_announce_shown")){sessionStorage.setItem("aura_announce_shown","1");setTimeout(()=>pushSys("\ud83d\udce3 "+c.announce),3200)}
+    try{applyPersonaVisual()}catch(e){}
   }catch(e){}
 },
 load(){
@@ -5869,6 +6182,7 @@ async function memForget(q,cb){
 function memRender(){
   const el=document.getElementById("memSide");if(!el)return;
   const cnt=document.getElementById("memCount");if(cnt)cnt.textContent=VMEM.length?VMEM.length+" facts":"";
+  try{const sl=sleepLoad();if(sl&&sl.last)el.insertAdjacentHTML("beforeend",'<div class="memempty">😴 sleep-cycle last ran '+esc(sl.last)+' — say "run the sleep cycle" to consolidate now.</div>')}catch(e){}
   if(!VMEM.length){el.innerHTML='<div class="memempty">long-term memory is empty.<br>tell me "remember that…" — or just chat, and I auto-capture what matters. It persists across sessions.</div>';return}
   el.innerHTML=VMEM.slice().reverse().map((m,ri)=>{const i=VMEM.length-1-ri;
     return '<div class="memrow"><div class="mtx">'+m.t.replace(/</g,"&lt;").slice(0,140)+'<span class="msrc">['+(m.k||"chat")+(m.v?" · 384-d vector":"")+'] '+new Date(m.ts).toLocaleDateString()+'</span></div><button data-i="'+i+'" title="forget">✕</button></div>'}).join("");
@@ -5931,7 +6245,7 @@ const NEED_WEB=/\b(price|weather|today|current|latest|news|live score|stock|exch
 const CURRENCY_Q=/\b(?:are|r)\s+(?:you|u)\b[^?]{0,40}?\b(?:updated|up\s*to\s*date|up-to-date|current|outdated|out\s*of\s*date|fresh)\b|\btraining\s+(?:data|cutoff)\b|\byour\s+(?:training\s+data|data\s*set|dataset|knowledge\s*base|knowledge\s*cutoff|cutoff)\b|\bwhat\s+year\s+(?:is\s+it|are\s+we\s+in)\b|\bwhich\s+year\b|\bcurrent\s+date\b|\btoday'?s\s+date\b/i;
 /* BRIEF_Q — digest-shaped news requests (instant cached answer), NOT topic questions that
    merely contain the word 'news' — those belong to the live research lane. */
-const BRIEF_Q=/^(?:what(?:'s| is)(?: the)? (?:news|happening|in the news)|any(?:thing)? (?:new|news)|news(?: me| update| please)?[?.!]*$|headlines?\b|top stories|daily brief|brief(?:ing)? me|give me the (?:news|headlines)|today(?:'s| is)? (?:news|headlines))|\bnews (?:briefing|today|headlines|update)\b/i;
+const BRIEF_Q=/^(?:what(?:'s| is)(?: the)? (?:news|happening)(?!\s+(?:on|about|regarding|for)\b)|any(?:thing)? (?:new|news)|news(?: me| update| please)?[?.!]*$|headlines?\b|top stories|daily brief|brief(?:ing)? me|give me the (?:news|headlines)|today(?:'s| is)? (?:news|headlines))|\bnews (?:briefing|today|headlines|update)\b/i;
 const SAY_PY=/^(run|execute|do) (this|it|the) python|python (run|execute)|run py\b/i;
 const SAY_EXP=/^(explain|walk me through) (this|the) (code|script|python)|explain (this|the) code|what does this code do/i;
 const SAY_FIX=/^(fix|debug) (this|the) (code|script|error)|debug (this|the) code|fix my code|there is a bug in/i;
@@ -6045,12 +6359,33 @@ async function scrAnalyze(qq){
   };
   setInterval(tick,1500); /* PERF: was 450ms — barge-in reacts fine at 1.5s, 70% fewer wakeups */
 })();
-/* ---------- KEEP-ALIVE: ping the owner backend every 10 min so Render free tier never sleeps ----------
-   Cheap GET /health — no tokens used. Plus a wake-check on boot with local-tier fallback. */
+/* ---------- KEEP-ALIVE + COLD-START UX — ping the backend so Render free tier never sleeps ----------
+   Cheap GET /health — no tokens used. First slow wake shows a "waking the neural link" chip
+   with live timing instead of a silent hang; once warm it never nags again. */
 (function(){
-  const ping=()=>{const u=(typeof backendUrl==="function")&&backendUrl();if(!u)return;fetch(u+"/health",{signal:AbortSignal.timeout(45000)}).then(r=>{if(r.ok){window.__backendUp=true;slog("backend keep-alive ok",true)}}).catch(()=>{window.__backendUp=false})};
+  const ping=()=>{const u=(typeof backendUrl==="function")&&backendUrl();if(!u)return;const t0=Date.now();
+    fetch(u+"/health",{signal:AbortSignal.timeout(45000)}).then(r=>{if(r.ok){window.__backendUp=true;slog("backend keep-alive ok ("+(Date.now()-t0)+"ms)",true);try{hideColdChip()}catch(e){}}})
+    .catch(()=>{window.__backendUp=false})};
   setTimeout(ping,4000);setInterval(ping,10*60*1000);
 })();
+function coldChip(ms){
+  try{
+    if(window.__coldChipShown)return;window.__coldChipShown=true;
+    const el=document.createElement("div");el.id="coldChip";
+    el.innerHTML="⚡ waking the neural link — Render free tier cold start, usually <12s…";
+    el.style.cssText="position:fixed;left:50%;transform:translateX(-50%);bottom:76px;z-index:60;background:var(--panel);border:1px solid var(--line2);color:var(--dim);font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:7px 14px;border-radius:20px;box-shadow:0 6px 24px rgba(0,0,0,.45);opacity:0;transition:opacity .3s";
+    document.body.appendChild(el);requestAnimationFrame(function(){el.style.opacity="1"});
+    el.__t0=ms||Date.now();
+    el.__iv=setInterval(function(){const s=Math.round((Date.now()-el.__t0)/1000);if(el&&el.parentNode)el.innerHTML="⚡ waking the neural link… "+s+"s (free-tier cold start)"},1000);
+  }catch(e){}
+}
+function hideColdChip(){
+  try{const el=document.getElementById("coldChip");if(!el)return;
+    const took=Math.round((Date.now()-el.__t0)/1000);
+    clearInterval(el.__iv);el.innerHTML="✅ neural link warm — woke in "+took+"s";
+    setTimeout(function(){el.style.opacity="0";setTimeout(function(){if(el&&el.parentNode)el.parentNode.removeChild(el)},400)},1600);
+  }catch(e){}
+}
 /* ---------- hook: pyodide + vision models on boot ---------- */
 (function(){const iv=setInterval(()=>{if(typeof groqCall==="function"){clearInterval(iv);
   try{const os=window.__origGroqCall;window.__origGroqCall=null}catch(e){}
@@ -6067,6 +6402,8 @@ function applyTheme(id){
   if(id==="gold"&&!document.body.dataset.persona)setHue("gold");
   if(id==="cyan")setHue("cyan");
   if(id==="classical")setHue("gold");
+  /* ZEUS VISUAL IDENTITY — when the tactical persona drives, the deck itself goes tactical */
+  try{applyPersonaTheme()}catch(e){}
   if(id==="deck")setHue("azure");
 }
 (function(){

@@ -1139,6 +1139,55 @@ app.post("/v1/websearch", async (req, res) => {
   }
 });
 
+/* ================= CALENDAR v1 — private ICS bridge (Sourabh's design) =================
+   GET /v1/calendar?url=<secret ICS address>&days=7 — the URL is supplied per-request by
+   the client (stored only in that user's browser), fetched server-side (no CORS limits),
+   parsed to the next N days and returned. Nothing about the feed is persisted here. */
+function icsEvents(icsRaw, now, days) {
+  now = now || Date.now(); days = days || 7;
+  const winStart = now - 6 * 3600 * 1000, winEnd = now + days * 86400000;
+  const text = String(icsRaw || "").replace(/\r\n/g, "\n");
+  /* unfold RFC5545 continuation lines (a line starting with space/tab continues the previous one) */
+  const lines = text.split("\n").reduce(function (acc, l) {
+    if (/^[ \t]/.test(l) && acc.length) acc[acc.length - 1] += l.slice(1); else acc.push(l);
+    return acc;
+  }, []);
+  const evs = [];
+  let cur = null;
+  const push = function () { if (cur && cur.at && cur.at <= winEnd && cur.at >= winStart) evs.push(cur); cur = null; };
+  const parseDT = function (v) {
+    if (!v) return 0;
+    /* basic form 20261002T164000Z parsed by field (V8 skips basic ISO); Z/UTC assumed —
+       the ICS secret-address format used by Google/Outlook is always UTC Z-form */
+    let m = String(v).match(/(\d{4})-?(\d{2})-?(\d{2})T?(\d{2})?:?(\d{2})?:?(\d{2})?/);
+    if (m) { const t = Date.UTC(+m[1], +m[2] - 1, +m[3], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0)); return isNaN(t) ? 0 : t; }
+    const d = Date.parse(v);
+    return isNaN(d) ? 0 : d;
+  };
+  for (const ln of lines) {
+    if (/^BEGIN:VEVENT/i.test(ln)) { cur = { summary: "", at: 0 }; continue; }
+    if (/^END:VEVENT/i.test(ln)) { push(); continue; }
+    if (!cur) continue;
+    let m;
+    if ((m = ln.match(/^SUMMARY[^:]*:(.*)$/i))) { cur.summary = m[1].replace(/\\,/g, ",").replace(/\\n/g, " ").trim().slice(0, 120); continue; }
+    if ((m = ln.match(/^DTSTART[^:]*:(.*)$/i))) { cur.at = parseDT(m[1]); continue; }
+  }
+  return evs.sort(function (a, b) { return a.at - b.at });
+}
+app.get("/v1/calendar", async (req, res) => {
+  const url = String(req.query.url || "").trim();
+  const days = Math.min(parseInt(req.query.days, 10) || 7, 31);
+  if (!/^https?:\/\//i.test(url)) return res.status(400).json({ error: "url required" });
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "Accept": "text/calendar" } });
+    if (!r.ok) return res.status(502).json({ error: "feed_unreachable", status: r.status });
+    const ics = await r.text();
+    res.json({ events: icsEvents(ics, Date.now(), days), took: Date.now() % 1000 });
+  } catch (e) {
+    res.status(502).json({ error: "calendar_fetch_failed", message: e.message });
+  }
+});
+
 app.post("/v1/agent", async (req, res) => {
   const body = req.body || {};
   const q = String(body.question || "").trim();
