@@ -1,7 +1,7 @@
 {
-  "name": "Sourabh Singh — Portfolio, AURA & JARVIS",
+  "name": "Sourabh Singh — Portfolio, AURA & ZEUS",
   "short_name": "Sourabh",
-  "description": "Hand-coded portfolio with AURA & JARVIS AI assistants, live food ordering and a photo studio — vanilla HTML/CSS/JS.",
+  "description": "Hand-coded portfolio with AURA & ZEUS AI assistants, live food ordering and a photo studio — vanilla HTML/CSS/JS.",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#050810",
