@@ -2486,6 +2486,9 @@ function localReply(q){
      Precision gate: 'updated ON/WITH/ABOUT <topic>' is a live-topic question, not a meta one — let research take it. */
   /* CURRENCY META — instant self-currency answer (shared engine above) */
   const curMeta=currencyMetaReply(l);if(curMeta)return curMeta;
+  /* DAILY BRIEF — instant cached headlines for digest-shaped news asks only (never for
+     messages that merely mention 'news'); everything else still falls through to the KB. */
+  if(typeof BRIEF_Q!=="undefined"&&BRIEF_Q.test(l)){const dbLocal=dailyBriefAnswer();if(dbLocal)return dbLocal;}
   if(/thank/.test(l))return "Anytime. That is what I am compiled for.";
   if(/^(bye|goodbye|see ya|see you)\b/.test(l))return "Goodbye"+(memGet().name?", "+memGet().name:"")+" — entering standby. Tap the mic anytime.";
   if(/\btime\b/.test(l))return "Current local time is "+new Date().toLocaleTimeString()+".";
@@ -3414,6 +3417,63 @@ async function webContext(q){
   }catch(e){try{slog("live web lane down ("+(e.message||e)+") — answering from my own knowledge",true)}catch(e2){}return null}
   finally{__webBusy=false}
 }
+/* ================= DAILY BRIEF — the knowledge that refreshes itself (Sourabh's design)
+   ONE silent news pull per day (first open of the day), cached in localStorage. A 6-hour
+   staleness check re-pulls in long sessions so the cache is never yesterday-afternoon's
+   world. The cached headlines ride into EVERY answer's context (convoCtx + thinkAnswer),
+   so AURA and JARVIS literally wake up knowing today's world — and "what's the news"
+   answers INSTANTLY from memory, zero network. ================= */
+const BRIEF_KEY="aura_daily_brief_v1",BRIEF_DAY=18*60*60*1000,BRIEF_STALE=6*60*60*1000;
+let __briefBusy=false,__briefTimer=null;
+function briefLoad(){try{return JSON.parse(localStorage.getItem(BRIEF_KEY)||"null")}catch(e){return null}}
+function briefSave(b){try{localStorage.setItem(BRIEF_KEY,JSON.stringify(b))}catch(e){}}
+function briefFresh(b){return b&&Array.isArray(b.items)&&b.items.length&&(Date.now()-b.at)<BRIEF_DAY}
+function briefBlock(){
+  const b=briefFresh(briefLoad())?briefLoad():null;if(!b||!b.items||!b.items.length)return "";
+  const when=new Date(b.at).toLocaleString(undefined,{weekday:"short",hour:"2-digit",minute:"2-digit"});
+  return "\n\nTODAY'S HEADLINES (pulled live "+when+" — your daily briefing cache; use them when the question touches current events, and never present them as older than they are):\n"+b.items.map((t,i)=>(i+1)+". "+t).join("\n");
+}
+function dailyBriefBlock(){try{return briefBlock()}catch(e){return ""}}
+async function briefPull(){
+  if(__briefBusy||!navigator.onLine)return false;__briefBusy=true;
+  try{
+    const items=await newsBrief();
+    if(items&&items.length){briefSave({at:Date.now(),items:items});slog("📰 daily brief refreshed — "+items.length+" headlines cached",true);return true}
+    try{slog("daily brief pull came back empty — will retry",true)}catch(e2){}
+    return false;
+  }catch(e){return false}
+  finally{__briefBusy=false}
+}
+async function scheduleDailyBrief(){
+  const b=briefLoad();
+  let ok=true;
+  if(!briefFresh(b)){ok=await briefPull()}
+  else if(Date.now()-(b.at||0)>BRIEF_STALE){ok=await briefPull()}
+  /* failed pull → adaptive retry: 45s when the cache is empty (fresh open still wants news),
+     4 minutes for a routine staleness refresh. Also catches up when the tab wakes or the
+     network returns, so a laptop opened in the morning pulls the morning brief. */
+  if(__briefTimer)clearTimeout(__briefTimer);
+  __briefTimer=setTimeout(function(){try{scheduleDailyBrief()}catch(e){}},ok?BRIEF_STALE:(briefLoad()?4*60*1000:45*1000));
+}
+(function briefCatchUp(){
+  const catchUp=function(){
+    try{
+      if(document.visibilityState!=="visible"||!navigator.onLine)return;
+      const b=briefLoad();
+      if(!briefFresh(b)||Date.now()-(b.at||0)>BRIEF_STALE){if(!__briefBusy)briefPull()}
+    }catch(e){}
+  };
+  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")catchUp()});
+  window.addEventListener("online",catchUp);
+})();
+function dailyBriefAnswer(){
+  const b=briefFresh(briefLoad())?briefLoad():null;
+  if(!b||!b.items||!b.items.length)return undefined;
+  const when=new Date(b.at);const age=Math.round((Date.now()-b.at)/60000);
+  const ageTag=age<1?"just pulled":age<60?age+(age===1?" minute":" minutes")+" ago":Math.round(age/60)+(age<120?" hour":" hours")+" ago";
+  if(persona()==="jarvis")return "Today's brief, sir — pulled "+ageTag+":\n"+b.items.map((t,i)=>(i+1)+". "+t).join("\n")+"\nSay the number, or 'details on "+(b.items[0].split(/[-–—:|]/)[0]||"any headline").trim()+"' and I'll go deep with live sources.";
+  return "Here's the world right now — brief pulled "+ageTag+":\n"+b.items.map((t,i)=>(i+1)+". "+t).join("\n")+"\nPick a number and I'll dig deeper with live sources.";
+}
 /* ================= AURAMIND — the mind-reading engine (Sourabh's design)
    Learns HOW each user thinks from their own messages: language, mood, fluency,
    pace, curiosity, recurring interests. Injected into every answer so AURA and
@@ -3535,6 +3595,7 @@ function convoCtx(){
   try{const pb=window.AuraMind&&AuraMind.profileBlock();if(pb)s+=pb}catch(e){}
   const _now=new Date();
   s+="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — 'today', 'now' and 'latest' refer to THIS moment; never answer with a training-cutoff date)";
+  s+=dailyBriefBlock();
   return s;
 }
 function personaName(){try{return (PERSONAS[persona()]||PERSONAS.aura).name}catch(e){return "AURA"}}
@@ -3875,7 +3936,7 @@ async function thinkAnswer(q,deep,hi){
   let promptCore=buildThinkPrompt(q,term,evs,deep,hi)+((memBlock&&typeof buildThinkPrompt==="function")?"\n\nLONG-TERM MEMORY (things the user told you or you learned in past sessions — use if relevant):\n"+memBlock:"");
   let freshBlock="";
   try{if(wantsFresh(q)){const wb=await webContext(q);if(wb)freshBlock="\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates or records, the live results WIN. Never invent dates, scores, prices or winners):\n"+wb+"\n"}}catch(e){}
-  const prompt=promptCore+freshBlock;
+  const prompt=promptCore+freshBlock+dailyBriefBlock();
   if(aiProvider()==="groq"){
     try{
       let t="";
@@ -4040,6 +4101,12 @@ async function aiReply(q){
   if(knowledge){
     /* SELF-CURRENCY questions exit FIRST — localReply answers instantly with the real date;
        never burn a research cycle on 'are you updated' just because it contains 'latest'. */
+    /* DAILY BRIEF — digest-shaped news questions answer INSTANTLY from the cached daily pull;
+       topic questions that merely MENTION news still go to the research lane. */
+    if(BRIEF_Q.test(q)){
+      const db=dailyBriefAnswer();
+      if(db!==undefined)return{t:db,eng:"daily brief · cached headlines"};
+    }
     if(CURRENCY_Q.test(q)){const lc=currencyMetaReply((q||"").toLowerCase());if(lc)return{t:lc,eng:"local core · currency & time"};}
     /* TIME-SENSITIVE → live research path first (real-time web + citations) */
     if(NEED_WEB.test(q)){const rr=await researchReply(q,hiMode);if(rr&&rr.trim())return{t:rr,eng:"live web research · "+personaName()+" · "+((rr.match(/\[\d+\]/g)||[]).length)+" citations"};}
@@ -4277,15 +4344,18 @@ async function askCore(text0){
        }else say("I can't find foodora.html — keep us in the same folder.");
      }catch(e){say("Can't reach FOODORA from here — open it once and try again.")}
      setMode("idle");busy=false;if(wake)armWake(400);return;}}
-  /* NEWS BRIEFING */
+  /* NEWS BRIEFING — served from the Daily Brief cache when fresh (<6h); otherwise one
+     refresh pull that re-caches for the day. The morning boot pull keeps it warm either way. */
   if(/^(what'?s|what is) (happening|in the news|today'?s news)|^(news|headlines|today'?s headlines|top news)\b|\bnews (briefing|today|headlines)\b/i.test(text)||/आज.*खबर|समाचार|ख़बरें/i.test(text)){
-    addMsg(msgTag(),"📡 Pulling today's headlines…","aura");
-    newsBrief().then(items=>{
-      if(!items){addMsg(msgTag(),"Couldn't reach the news wire just now — try again in a minute.","aura");return}
+    let b=briefFresh(briefLoad())?briefLoad():null,items=null;
+    if(b&&Date.now()-(b.at||0)<=BRIEF_STALE)items=b.items;
+    else{addMsg(msgTag(),"📡 Refreshing today's headlines…","aura");await briefPull();b=briefFresh(briefLoad())?briefLoad():null;if(b)items=b.items;if(!items){try{items=await newsBrief()}catch(e){}}}
+    if(!items)addMsg(msgTag(),"Couldn't reach the news wire just now — try again in a minute.","aura");
+    else{const when=b&&b.at?b.at:Date.now();const age=Math.max(0,Math.round((Date.now()-when)/60000));
+      const ageTag=age<1?"just now":age<60?age+" min ago":Math.round(age/60)+" hr ago";
       const el=addMsg(msgTag(),"","aura");
-      el.innerHTML="<h4>TODAY — TOP STORIES</h4><ul>"+items.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul>";
-      speak("Top stories today: "+items.slice(0,4).join(". "));log.scrollTop=log.scrollHeight;
-    });
+      el.innerHTML="<h4>TODAY — TOP STORIES</h4><ul>"+items.map(i=>"<li>"+esc(i)+"</li>").join("")+"</ul><div style='opacity:.55;font-size:11px;margin-top:6px'>brief pulled "+ageTag+" · say a number for a deep dive</div>";
+      speak("Top stories today: "+items.slice(0,4).join(". "));log.scrollTop=log.scrollHeight;}
     setMode("idle");busy=false;if(wake)armWake(400);return;}
   /* EXPORT CHAT */
   if(/^(export|download|save) (the )?(chat|conversation|transcript)$|^export chat$/i.test(text)){exportChat();setMode("idle");busy=false;if(wake)armWake(400);return;}
@@ -4749,7 +4819,7 @@ const BOOT=persona()==="jarvis"?["> JARVIS OS v4.0 — initializing tactical cor
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
   let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;try{document.body.classList.add("booted")}catch(e){}$("boot").classList.add("gone");
-    setTimeout(()=>{try{cloudPullAndRestore()}catch(e){}const n=memGet().name;const P0=PERSONAS[persona()];const histN=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();const replay=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).slice(-6)}catch(e){return []}})();
+    setTimeout(()=>{try{scheduleDailyBrief()}catch(e){}try{cloudPullAndRestore()}catch(e){}const n=memGet().name;const P0=PERSONAS[persona()];const histN=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();const replay=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).slice(-6)}catch(e){return []}})();
     if(replay.length){const hd=addMsg("SYS","— previous conversation restored —","sys");hd.style.opacity=".55";
       replay.forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
@@ -5842,6 +5912,9 @@ const NEED_WEB=/\b(price|weather|today|current|latest|news|live score|stock|exch
    are answered instantly from real local state via localReply; NEVER let them fall into the
    research lane even though words like 'latest'/'updated' also match NEED_WEB. */
 const CURRENCY_Q=/\b(?:are|r)\s+(?:you|u)\b[^?]{0,40}?\b(?:updated|up\s*to\s*date|up-to-date|current|outdated|out\s*of\s*date|fresh)\b|\btraining\s+(?:data|cutoff)\b|\byour\s+(?:training\s+data|data\s*set|dataset|knowledge\s*base|knowledge\s*cutoff|cutoff)\b|\bwhat\s+year\s+(?:is\s+it|are\s+we\s+in)\b|\bwhich\s+year\b|\bcurrent\s+date\b|\btoday'?s\s+date\b/i;
+/* BRIEF_Q — digest-shaped news requests (instant cached answer), NOT topic questions that
+   merely contain the word 'news' — those belong to the live research lane. */
+const BRIEF_Q=/^(?:what(?:'s| is)(?: the)? (?:news|happening|in the news)|any(?:thing)? (?:new|news)|news(?: me| update| please)?[?.!]*$|headlines?\b|top stories|daily brief|brief(?:ing)? me|give me the (?:news|headlines)|today(?:'s| is)? (?:news|headlines))|\bnews (?:briefing|today|headlines|update)\b/i;
 const SAY_PY=/^(run|execute|do) (this|it|the) python|python (run|execute)|run py\b/i;
 const SAY_EXP=/^(explain|walk me through) (this|the) (code|script|python)|explain (this|the) code|what does this code do/i;
 const SAY_FIX=/^(fix|debug) (this|the) (code|script|error)|debug (this|the) code|fix my code|there is a bug in/i;
