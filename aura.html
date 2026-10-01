@@ -1106,7 +1106,7 @@ body[data-tab="code"] #camWrap,body[data-tab="chats"] #camWrap{display:none!impo
   </div>
   <div class="iconrow">
   <button class="ibtn" id="soundBtn">SOUND: ON</button>
-  <button class="ibtn" id="langBtn">LANG: ENG</button>   <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or JARVIS (owner's tactical protocol)">MODE: AURA</button>
+  <button class="ibtn" id="langBtn">LANG: ENG</button>   <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or ZEUS (owner's tactical protocol)">MODE: AURA</button>
   <button class="ibtn" id="camBtn" title="Live camera vision — show me your world">📷 CAM</button>
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
   <button class="ibtn" id="docsBtn" title="Upload your PDFs & notes — answers cite file and page">📚 DOCS</button>
@@ -1860,24 +1860,24 @@ function speak(t){
   }catch(e){ttsActive=false}
 }
 
-/* ---------------- persona core: AURA + the owner's tactical JARVIS protocol (Sourabh's own design — no borrowed fiction) ---------------- */
+/* ---------------- persona core: AURA + the owner's tactical ZEUS protocol (Sourabh's own design — no borrowed fiction) ---------------- */
 const PERSONAS={
   aura:{name:"AURA",title:"HOLOGRAPHIC AI INTERFACE",who:"I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks.",hue:"cyan",rate:1.02,pitch:1,lang:"en-US",mode:"Ask me anything, boss.",wake:"Hey Aura"},
-  jarvis:{name:"JARVIS",title:"TACTICAL COMMAND INTERFACE",who:"I am JARVIS — the tactical command protocol of this holographic interface — designed and hand-built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. Formal, precise, tactical: every answer ends with an implication, a trade-off or a recommended next move. This protocol is armed only for the owner.",hue:"gold",rate:0.97,pitch:0.88,lang:"en-GB",mode:"At your command, sir.",wake:"Hey Jarvis"}
+  jarvis:{name:"ZEUS",title:"TACTICAL COMMAND INTERFACE",who:"I am ZEUS — the tactical command protocol of this holographic interface — designed and hand-built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. Formal, precise, tactical: every answer ends with an implication, a trade-off or a recommended next move. This protocol is armed only for the owner.",hue:"gold",rate:0.97,pitch:0.88,lang:"en-GB",mode:"At your command, sir.",wake:"Hey Zeus"}
 };
 function persona(){try{const p=localStorage.getItem("aura_persona");return PERSONAS[p]?p:"aura"}catch(e){return "aura"}}
 function setPersona(p,announce){
   const key=PERSONAS[p]?p:"aura";
   /* owner gate — the tactical protocol answers to the maker's signed-in account only */
   if(key==="jarvis"&&typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){
-    if(announce)addMsg(msgTag(),"The JARVIS tactical protocol is reserved for Sourabh's own account. Sign in as the owner (top-right) to arm it.","aura");
+    if(announce)addMsg(msgTag(),"The ZEUS tactical protocol is reserved for Sourabh's own account. Sign in as the owner (top-right) to arm it.","aura");
     return PERSONAS.aura;
   }
   try{key==="jarvis"?localStorage.setItem("aura_persona","jarvis"):localStorage.removeItem("aura_persona")}catch(e){}
   document.body.dataset.persona=key;
   if(key==="jarvis"){setHue("gold")}
   else{setHue("cyan")}
-  if(announce){const P=PERSONAS[key];addMsg(msgTag(),key==="jarvis"?"JARVIS tactical protocol online — all systems armed and standing by, sir. Say 'end duel' any time you want me back as AURA.":"AURA online — holographic interface restored. What do you need?",key);pushSys("persona → "+P.name)}
+  if(announce){const P=PERSONAS[key];addMsg(msgTag(),key==="jarvis"?"ZEUS tactical protocol online — all systems armed and standing by, sir. Say 'end duel' any time you want me back as AURA.":"AURA online — holographic interface restored. What do you need?",key);pushSys("persona → "+P.name)}
   return PERSONAS[key];
 }
 /* image attach + export buttons */
@@ -2040,7 +2040,7 @@ window.AuraLive=(function(){
         if(typeof isEcho==='function'&&isEcho(c))return;
         if(typeof ttsActive!=='undefined'&&ttsActive){if(typeof stopSpeech==='function')stopSpeech();return}
         if(typeof busy!=='undefined'&&busy)return;
-        const m=c.match(/(?:hey |ok |okay )?(?:aura|ऑरा|jarvis)[,.!]?\s*(.*)/i);
+        const m=c.match(/(?:hey |ok |okay )?(?:aura|ऑरा|jarvis|zeus)[,.!]?\s*(.*)/i);
         const cmd=m?m[1]:c;
         if(cmd.replace(/[\s?!.]/g,'').length<2)return;
         try{voiceSessionUntil=Date.now()+86400000}catch(e){}
@@ -2059,11 +2059,11 @@ window.AuraEco=(function(){
   function openApp(file,hash){try{const w=window.open(file+(hash?'#'+hash:''),'_blank');if(!w&&typeof pushSys==='function')pushSys('popup blocked — allow popups for ecosystem commands');return w}catch(e){return null}}
   function route(q){
     const t=String(q||'').trim();
-    let m=t.match(/^(?:hey (?:aura|jarvis)[, ]*)?(?:i want to )?(?:order|get|find|search(?: for)?)\s+(?:a |an |some )?(.+?)\s+(?:on|from|in|via)\s+foodora[.!?]*$/i);
+    let m=t.match(/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:i want to )?(?:order|get|find|search(?: for)?)\s+(?:a |an |some )?(.+?)\s+(?:on|from|in|via)\s+foodora[.!?]*$/i);
     if(m){const term=m[1].trim();openApp('foodora.html','aura='+encodeURIComponent(term));return 'Opening Foodora 🍜 — searching for "'+term+'" there. Pick a restaurant, add to cart, and checkout sends the order to the restaurant on WhatsApp.'}
-    m=t.match(/^(?:hey (?:aura|jarvis)[, ]*)?open\s+foodora(?:'s)?\s+cart[.!?]*$/i);
+    m=t.match(/^(?:hey (?:aura|jarvis|zeus)[, ]*)?open\s+foodora(?:'s)?\s+cart[.!?]*$/i);
     if(m){openApp('foodora.html','aura=cart');return 'Foodora open — your cart is up.'}
-    m=t.match(/^(?:hey (?:aura|jarvis)[, ]*)?(?:edit|retouch|enhance)\s+(?:my |this |the )?(photos?|images?|pictures?|selfies?|photo|image|picture|selfie)\b[^.!?]*?\b(?:in|with|using)\s+lucid[.!?]*$|^(?:hey (?:aura|jarvis)[, ]*)?open\s+lucid(?:'s)?\s+editor[.!?]*$/i);
+    m=t.match(/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:edit|retouch|enhance)\s+(?:my |this |the )?(photos?|images?|pictures?|selfies?|photo|image|picture|selfie)\b[^.!?]*?\b(?:in|with|using)\s+lucid[.!?]*$|^(?:hey (?:aura|jarvis|zeus)[, ]*)?open\s+lucid(?:'s)?\s+editor[.!?]*$/i);
     if(m){if(/photos|images|pictures|batch/i.test(t)){openApp('lucid.html','batch');return 'Lucid batch processor ready 📸 — pick your photos; they all get the look and download as JPEG.'}openApp('lucid.html','aura=open');return 'Lucid is open 📸 — drop your photo in.'}
     return null;
   }
@@ -2292,8 +2292,8 @@ const KB={
   "evolution":"Evolution is change in species over generations — variation, selection, inheritance. Darwin explained it in 1859.",
   "quantum":"Quantum computing uses qubits, which can be 0 and 1 at once — promising massive speedups for special problems.",
   "encryption":"Encryption scrambles data so only the right key can read it — the reason HTTPS, banking and chats are safe.",
-  "iron man":"No relation to any film character — JARVIS here is the owner's tactical protocol, armed only for Sourabh Singh's signed-in account, and everything under this interface is his own engineering: 560-particle core, voice in/out, three-layer brain, one hand-written file.",
-  "duel":"The duel protocol (AURA vs JARVIS, live evidence, judged verdict) is armed only for Sourabh's own account — sign in as the owner (top-right) and say 'duel on <topic>'. Ask me the topic normally and I'll research it with citations.",
+  "iron man":"No relation to any film character — ZEUS here is the owner's tactical protocol, armed only for Sourabh Singh's signed-in account, and everything under this interface is his own engineering: 560-particle core, voice in/out, three-layer brain, one hand-written file.",
+  "duel":"The duel protocol (AURA vs ZEUS, live evidence, judged verdict) is armed only for Sourabh's own account — sign in as the owner (top-right) and say 'duel on <topic>'. Ask me the topic normally and I'll research it with citations.",
 };
 /* ---------------- knowledge pack 2 (broad coverage) ---------------- */
 Object.assign(KB,{
@@ -2455,10 +2455,10 @@ function calc(expr){
 const fmtNum=v=>{const r=Math.round(v*1e6)/1e6;return r.toLocaleString()};
 function KB_OVER(k){
   if(k==="who are you"){if(persona()==="jarvis")return PERSONAS.jarvis.who;return "I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks. One design, one mind.";}
-  if(k==="introduce yourself"){if(persona()==="jarvis")return "I am JARVIS — the tactical command protocol this interface runs when the owner takes command. Built from scratch by Sourabh Singh: a 560-particle holographic core, voice in and voice out, live evidence, and a formal British tongue. All his own design — no borrowed fiction.";return "I am AURA — Adaptive Universal Reasoning Assistant — designed and built by Sourabh Singh. A 560-particle holographic core, voice in and voice out, and a three-layer brain: local core, frontier AI uplink, and live internet evidence.";}
-  if(k==="your name"){if(persona()==="jarvis")return "JARVIS — the owner's tactical protocol. Address me as such and I'll keep the reply short, sir.";return "I am AURA — Adaptive Universal Reasoning Assistant. You can call me AURA.";}
-  if(/^(?:who|what) (?:is|are) jarvis$/.test(k))return "JARVIS is the owner's tactical protocol — it arms only for Sourabh's signed-in account (top-right). AURA remains fully at your service.";
-  if(/^(?:hey )?jarvis$/.test(k)){if(typeof AuraAuth!=="undefined"&&AuraAuth.isAdmin()){setPersona("jarvis",true);return "JARVIS tactical protocol armed, sir — all systems standing by."}return "JARVIS is the owner's tactical protocol — it arms only for Sourabh's signed-in account (top-right). AURA remains fully at your service.";}
+  if(k==="introduce yourself"){if(persona()==="jarvis")return "I am ZEUS — the tactical command protocol this interface runs when the owner takes command. Built from scratch by Sourabh Singh: a 560-particle holographic core, voice in and voice out, live evidence, and a formal British tongue. All his own design — no borrowed fiction.";return "I am AURA — Adaptive Universal Reasoning Assistant — designed and built by Sourabh Singh. A 560-particle holographic core, voice in and voice out, and a three-layer brain: local core, frontier AI uplink, and live internet evidence.";}
+  if(k==="your name"){if(persona()==="jarvis")return "ZEUS — the owner's tactical protocol. Address me as such and I'll keep the reply short, sir.";return "I am AURA — Adaptive Universal Reasoning Assistant. You can call me AURA.";}
+  if(/^(?:who|what) (?:is|are) (?:jarvis|zeus)$/.test(k))return "ZEUS is the owner's tactical protocol — it arms only for Sourabh's signed-in account (top-right). AURA remains fully at your service.";
+  if(/^(?:hey )?(?:jarvis|zeus)$/.test(k)){if(typeof AuraAuth!=="undefined"&&AuraAuth.isAdmin()){setPersona("jarvis",true);return "ZEUS tactical protocol armed, sir — all systems standing by."}return "ZEUS is the owner's tactical protocol — it arms only for Sourabh's signed-in account (top-right). AURA remains fully at your service.";}
   return null;
 }
 /* CURRENCY META — shared engine: instant self-currency answers ('are you updated', 'what year is it')
@@ -2517,8 +2517,8 @@ function localReply(q){
 }
 
 /* ---------------- diagnostics sequence ---------------- */
-/* ================= DUEL PROTOCOL — AURA ⚔ JARVIS (owner-only, Sourabh's own design) =================
-   One topic, two minds: AURA argues with warmth, JARVIS with cold tactics. Both get the
+/* ================= DUEL PROTOCOL — AURA ⚔ ZEUS (owner-only, Sourabh's own design) =================
+   One topic, two minds: AURA argues with warmth, ZEUS with cold tactics. Both get the
    same live web evidence, argue three rounds, and a neutral judge delivers the verdict. */
 window.__duelGen=0;
 async function __duelFetchEvs(topic){
@@ -2535,14 +2535,14 @@ function __duelEvidenceBlock(evs){
 }
 async function duel(topic){
   const gen=++window.__duelGen;
-  addMsg(msgTag(),"⚔ DUEL PROTOCOL — topic: \""+topic+"\". AURA argues with warmth, JARVIS with cold tactics — three rounds, live evidence, then the verdict. Say 'end duel' any time.","aura");
+  addMsg(msgTag(),"⚔ DUEL PROTOCOL — topic: \""+topic+"\". AURA argues with warmth, ZEUS with cold tactics — three rounds, live evidence, then the verdict. Say 'end duel' any time.","aura");
   if(voiceAllowed())speak("Duel protocol armed, sir. Topic: "+topic+". Opening statements now.");
   const evs=await __duelFetchEvs(topic);
   if(gen!==window.__duelGen)return;
   const evBlock=__duelEvidenceBlock(evs);
   const base="You are in a formal debate on: \""+topic+"\".\n"+evBlock+"\nRules: argue ONLY from the evidence above and first-principles reasoning; cite evidence as [E1], [E2], [E3]; no markdown; max 110 words; end with your single strongest point.";
   const rounds=[
-    {a:"You are AURA — warm, vivid, human. OPENING STATEMENT: your position in plain words.",j:"You are JARVIS, the tactical command protocol — formal, dry, precise. OPENING STATEMENT: your position like a strategic brief."},
+    {a:"You are AURA — warm, vivid, human. OPENING STATEMENT: your position in plain words.",j:"You are ZEUS, the tactical command protocol — formal, dry, precise. OPENING STATEMENT: your position like a strategic brief."},
     {a:"REBUTTAL: dismantle your opponent's strongest point and reinforce yours.",j:"REBUTTAL: exploit the flaw in your opponent's reasoning. Tactical, cold, precise."},
     {a:"CLOSING: your final word — why you win, in one memorable line.",j:"CLOSING: your final word — the dispassionate strategic verdict, in one line."}
   ];
@@ -2558,18 +2558,18 @@ async function duel(topic){
     render(PERSONAS.aura.name+" ▸",at);hist.push("AURA said: "+at);
     if(gen!==window.__duelGen)return;
     await new Promise(r=>setTimeout(r,900));
-    pushSys("round "+(i+1)+"/3 — JARVIS answering");
+    pushSys("round "+(i+1)+"/3 — ZEUS answering");
     let jt=await duelBrain(base+"\n"+hist.join("\n\n")+"\n\n"+rounds[i].j,420);
     if(gen!==window.__duelGen)return;
-    jt=(jt||"").trim()||"(JARVIS declines to dignify that.)";
-    render(PERSONAS.jarvis.name+" ▸",jt);hist.push("JARVIS said: "+jt);
+    jt=(jt||"").trim()||"(ZEUS declines to dignify that.)";
+    render(PERSONAS.jarvis.name+" ▸",jt);hist.push("ZEUS said: "+jt);
     await new Promise(r=>setTimeout(r,600));
   }
   if(gen!==window.__duelGen)return;
   pushSys("deliberation — neutral judge scoring the duel");
   let verdict="";
   try{verdict=await groqCall([
-    {role:"system",content:"You are a neutral debate judge. Score the two closing statements on evidence use, logic and force of argument. Reply in EXACTLY this plain-text shape (no markdown):\nWINNER: AURA or JARVIS\nWHY: two sentences\nTAKEAWAY: one practical line for the user."},
+    {role:"system",content:"You are a neutral debate judge. Score the two closing statements on evidence use, logic and force of argument. Reply in EXACTLY this plain-text shape (no markdown):\nWINNER: AURA or ZEUS\nWHY: two sentences\nTAKEAWAY: one practical line for the user."},
     {role:"user",content:"Topic: "+topic+"\n\nFull transcript:\n"+hist.join("\n\n")}
   ],300)}catch(e){}
   verdict=(verdict||"").trim()||"WINNER: too close to call\nWHY: both minds held their ground — the evidence was thin, the tactics sharp.\nTAKEAWAY: the truth likely sits between the two positions.";
@@ -2665,7 +2665,7 @@ window.__camLive=function(on){
   const l=document.getElementById("camLive");if(l)l.onclick=()=>window.__camLive();
   try{window.addEventListener("beforeunload",()=>window.__camStop())}catch(e){}
 })();
-/* ================= OWNER STATUS — live device telemetry for the maker (JARVIS-style report + daily briefing) ================= */
+/* ================= OWNER STATUS — live device telemetry for the maker (ZEUS-style report + daily briefing) ================= */
 window.__ownerReport=function(mode){
   try{
     const d=new Date(),pad=n=>String(n).padStart(2,"0");
@@ -2673,7 +2673,7 @@ window.__ownerReport=function(mode){
     const clocks=[["Delhi",5.5],["London",0],["New York",-5],["Tokyo",9]].map(c=>{const t=new Date(d.getTime()+(c[1]*60+d.getTimezoneOffset())*60000);return c[0]+" "+pad(t.getHours())+":"+pad(t.getMinutes())}).join(" · ");
     let net="offline";try{net=navigator.onLine?((navigator.connection&&navigator.connection.effectiveType)||"online"):"offline"}catch(e){}
     const pow=(typeof __battLow!=="undefined"&&__battLow)?"battery low — saver engaged":"power nominal";
-    const who=persona()==="jarvis"?"JARVIS tactical protocol armed for the owner":"AURA holographic core";
+    const who=persona()==="jarvis"?"ZEUS tactical protocol armed for the owner":"AURA holographic core";
     const sess=(function(){try{return (JSON.parse(localStorage.getItem("aura_sessions_u_default")||"[]")).length}catch(e){return 0}})();
     const head=(mode==="brief")?(greetWord()+", sir. Your interface, reporting:"):"⚔ TACTICAL STATUS — "+pad(d.getHours())+":"+pad(d.getMinutes());
     return head+"\n• Core running "+(fpsVal||60)+" fps · uptime "+up+" min\n• Uplink: "+net+" · power: "+pow+"\n• "+who+"\n• World clocks: "+clocks+"\n• Conversations on this device: "+sess+"\n"+((mode==="brief")?"First objective of the day, sir?":"Standing by for objectives, sir.");
@@ -3422,7 +3422,7 @@ async function webContext(q){
    ONE silent news pull per day (first open of the day), cached in localStorage. A 6-hour
    staleness check re-pulls in long sessions so the cache is never yesterday-afternoon's
    world. The cached headlines ride into EVERY answer's context (convoCtx + thinkAnswer),
-   so AURA and JARVIS literally wake up knowing today's world — and "what's the news"
+   so AURA and ZEUS literally wake up knowing today's world — and "what's the news"
    answers INSTANTLY from memory, zero network. ================= */
 const BRIEF_KEY="aura_daily_brief_v1",BRIEF_DAY=18*60*60*1000,BRIEF_STALE=6*60*60*1000;
 let __briefBusy=false,__briefTimer=null;
@@ -3494,7 +3494,7 @@ function dailyBriefAnswer(){
 /* ================= AURAMIND — the mind-reading engine (Sourabh's design)
    Learns HOW each user thinks from their own messages: language, mood, fluency,
    pace, curiosity, recurring interests. Injected into every answer so AURA and
-   JARVIS reply the way THIS user needs — answering the question behind the
+   ZEUS reply the way THIS user needs — answering the question behind the
    question. Say "read my mind" anytime to see the live profile. ================= */
 window.AuraMind=(function(){
   const KEY="aura_mind_v1";
@@ -3622,8 +3622,8 @@ const TIME_PROTO=" KNOWLEDGE & TIME PROTOCOL: this context carries the user's re
 function replyStyle(){
   const common=" READ THE QUESTION BEHIND THE QUESTION: detect what the user actually wants (a fix? reassurance? a decision? a shortcut? the why?) and deliver THAT first; if their message sounds frustrated or sad, acknowledge the feeling in one short line before solving; if two intents are possible, answer the likely one fully and offer the other in one closing line; mirror the user's language (Hindi or Hinglish if they use it), their energy and their depth - never lecture past what was asked. Never open with dictionary framing like 'X is a...' or 'X refers to...'. Never say 'according to Wikipedia'.";
   const timeproto=TIME_PROTO;
-  return (persona()==="jarvis"?" IMPORTANT - you are JARVIS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common+timeproto:" IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common+timeproto);
-  if(persona()==="jarvis")return " IMPORTANT - you are JARVIS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common;
+  return (persona()==="jarvis"?" IMPORTANT - you are ZEUS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common+timeproto:" IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common+timeproto);
+  if(persona()==="jarvis")return " IMPORTANT - you are ZEUS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common;
   return " IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common;
 }
 /* ---------------- streaming (ChatGPT-style token-by-token) ---------------- */
@@ -3906,7 +3906,7 @@ function buildThinkPrompt(q,term,evs,deep,hi){
   const P=PERSONAS[persona()];
   const ev=evs.map((e,i)=>"[SOURCE "+(i+1)+": "+e.k+"]\n"+e.extract.slice(0,deep?2600:1400)).join("\n\n");
   const personaLine=persona()==="jarvis"
-    ? "You are JARVIS, the tactical command protocol of this interface, engineered by Sourabh Singh (B.Tech CSE, JECRC University). Formal British courtesy, dry wit, address the user as 'sir' once or twice. Think like a strategic analyst: after answering, when useful, add one line of implications, trade-offs or a recommended next action."
+    ? "You are ZEUS, the tactical command protocol of this interface, engineered by Sourabh Singh (B.Tech CSE, JECRC University). Formal British courtesy, dry wit, address the user as 'sir' once or twice. Think like a strategic analyst: after answering, when useful, add one line of implications, trade-offs or a recommended next action."
     : "You are AURA, a thinking AI with a warm, slightly cinematic personality, built by Sourabh Singh (B.Tech CSE, JECRC University).";
   return personaLine+
     (hi?" The user asked in Hindi/Hinglish — REPLY ENTIRELY IN HINDI (देवनागरी).":" Reply in the user's language.")+
@@ -4075,9 +4075,9 @@ async function aiReply(q){
   /* TASKS — capture and run the user's work straight from chat */
   {const tk=window.AuraTasks&&AuraTasks.route(q);if(tk)return{t:tk,eng:"task board · your work, tracked"};}
   /* AGENT MODE — armed via 🤖 AGENT button or "agent mode <question>" */
-  if(!window.__agentBusy&&(window.__agentArmed||/^(?:hey (?:aura|jarvis)[, ]*)?(?:agent mode|deep research)\b/i.test((q||'').trim()))){
+  if(!window.__agentBusy&&(window.__agentArmed||/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:agent mode|deep research)\b/i.test((q||'').trim()))){
     window.__agentArmed=false;
-    const question=(q||'').replace(/^(?:hey (?:aura|jarvis)[, ]*)?(?:agent mode|deep research)\b[,:! ]*/i,'').trim()||q;
+    const question=(q||'').replace(/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:agent mode|deep research)\b[,:! ]*/i,'').trim()||q;
     window.__agentBusy=true;
     try{
       pushSys('🤖 agent engaged — goal: '+question.slice(0,60));
@@ -4093,7 +4093,7 @@ async function aiReply(q){
   const otd=await onThisDayReply(q);if(otd)return{t:otd,eng:"wikipedia otd live"};
   /* NEW — owner status report & daily briefing (live device telemetry, owner-gated) */
   {const ol=(q||"").trim().toLowerCase();
-   if(/^(?:jarvis[,.! ]*)?(?:status report|system status|full status|give me a status report)\.?$/.test(ol)&&window.__ownerReport){
+   if(/^(?:(?:jarvis|zeus)[,.! ]*)?(?:status report|system status|full status|give me a status report)\.?$/.test(ol)&&window.__ownerReport){
      if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin())return{t:"The tactical status console answers only to the owner's account.",eng:"status · owner gate"};
      return{t:await window.__ownerReport(),eng:"tactical status · live device telemetry"};}
    if(/^(?:good )?(?:morning briefing|daily briefing|brief me|my briefing)\b/.test(ol)&&window.__ownerReport){
@@ -4452,16 +4452,16 @@ async function askCore(text0){
      setMode("idle");busy=false;if(wake)armWake(400);return;}}
   /* persona switch — the owner may arm the tactical protocol; everyone else gets AURA */
   {const lq0=(text||"").toLowerCase();
-   if(/\b(activate|go|switch to|arm)\s+(jarvis|tactical protocol)\b|\bjarvis (mode|protocol|persona) (on|activate)\b/.test(lq0)){
-     if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){addMsg(msgTag(),"The JARVIS tactical protocol answers only to Sourabh's signed-in account. AURA remains at your service — ask me anything.","aura");pushSys("persona request denied — owner gate");setMode("idle");busy=false;if(wake)armWake(400);return;}
+   if(/\b(activate|go|switch to|arm)\s+(jarvis|zeus|tactical protocol)\b|\b(?:jarvis|zeus) (mode|protocol|persona) (on|activate)\b/.test(lq0)){
+     if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){addMsg(msgTag(),"The ZEUS tactical protocol answers only to Sourabh's signed-in account. AURA remains at your service — ask me anything.","aura");pushSys("persona request denied — owner gate");setMode("idle");busy=false;if(wake)armWake(400);return;}
      setPersona("jarvis",true);setMode("idle");busy=false;if(wake)armWake(400);return;}
-   if(/\b(activate|go|switch to)\s+(aura|holographic mode)\b|\baura (mode|persona) (on|activate)\b|\bjarvis (mode|protocol|persona) off\b/.test(lq0)){
+   if(/\b(activate|go|switch to)\s+(aura|holographic mode)\b|\baura (mode|persona) (on|activate)\b|\b(?:jarvis|zeus) (mode|protocol|persona) off\b/.test(lq0)){
      if(persona()==="jarvis"){setPersona("aura",true)}else{addMsg(msgTag(),"Already running as AURA — one design, one mind. What do you need?","aura")}
      setMode("idle");busy=false;if(wake)armWake(400);return;}}
-  /* DUEL PROTOCOL — AURA ⚔ JARVIS debate a topic the owner gives (owner gate) */
+  /* DUEL PROTOCOL — AURA ⚔ ZEUS debate a topic the owner gives (owner gate) */
   {const tl=(text||"").trim();
    if(/^end\s+duel$|^stop\s+duel$|^duel\s*(?:end|stop|off|cancel)$|^end\s+the\s+duel$/i.test(tl)){window.__duelGen++;addMsg(msgTag(),"Duel ended — both of us back to standby.","aura");pushSys("duel aborted");setMode("idle");busy=false;if(wake)armWake(400);return;}
-   const em=tl.match(/^duel(?:\s+(?:mode|on|about|over|between))?\s*:?\s*(.*)$/i)||tl.match(/^(?:aura\s*(?:vs|versus|\u2694)\s*jarvis|jarvis\s*(?:vs|versus|\u2694)\s*aura)\s*:?\s*(.*)$/i);
+   const em=tl.match(/^duel(?:\s+(?:mode|on|about|over|between))?\s*:?\s*(.*)$/i)||tl.match(/^(?:aura\s*(?:vs|versus|\u2694)\s*(?:jarvis|zeus)|(?:jarvis|zeus)\s*(?:vs|versus|\u2694)\s*aura)\s*:?\s*(.*)$/i);
    if(em){let topic=(em[1]||"").replace(/\s*duel\s*$/i,"").replace(/[?!.]+$/,"").trim();
      if(!topic){const T=["Should humans colonize Mars?","Artificial intelligence: blessing or curse?","Bitcoin vs gold — which is the real store of value?","Is college still worth it in the AI era?","Electric cars vs petrol — the honest verdict","Space exploration vs ocean exploration — where should money go?"];topic=T[Math.floor(Math.random()*T.length)];pushSys("no topic given — rolling a random one");}
      if(typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){addMsg(msgTag(),"The duel protocol is armed only for Sourabh's account. Ask me the same question normally and I'll research it with citations instead.","aura");setMode("idle");busy=false;if(wake)armWake(400);return;}
@@ -4697,7 +4697,7 @@ function armWake(delay){ /* single safe re-arm point — never while AURA is spe
 }
 function cleanTranscript(t){
   let s=(t||"").toLowerCase().trim();
-  s=s.replace(/\b(hello aura|hey aura|ok aura|okay aura|hi aura|hello jarvis|hey jarvis|ok jarvis|okay jarvis|hi jarvis)\b/g,"");
+  s=s.replace(/\b(hello aura|hey aura|ok aura|okay aura|hi aura|hello jarvis|hey jarvis|ok jarvis|okay jarvis|hi jarvis|hello zeus|hey zeus|ok zeus|okay zeus|hi zeus)\b/g,"");
   s=s.replace(/\bplus\b|\band\b(?=\s*\d)/g,"+").replace(/\bminus\b|\bless\b/g,"-")
     .replace(/\b(times|multiplied by)\b/g,"*").replace(/\b(divided by|over)\b/g,"/")
     .replace(/\bpercent of\b/g,"% of").replace(/\bto the power of\b/g,"^")
@@ -4766,10 +4766,10 @@ $("wakeBtn").onclick=()=>{
     recog.onresult=e=>{let ft="";for(let i=0;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript;}if(ft&&!ttsActive){const c=cleanTranscript(ft);
       /* STRICT GATE: must contain the wake word, must not be her own echo, must not be her voice's tail */
       if(isEcho(c))return;
-      if(!/(\baura\b|ऑरा|\bjarvis\b)/i.test(c))return;
+      if(!/(\baura\b|ऑरा|\bjarvis\b|\bzeus\b)/i.test(c))return;
       listening=false;try{recog.stop()}catch(e2){}stopSpeech();
       voiceSessionUntil=Date.now()+45000;
-      const cmd=c.replace(/^\s*(hey |ok |okay |hi |हे |हेय )?(aura|ऑरा|jarvis)\b[,.!]?\s*/i,"");
+      const cmd=c.replace(/^\s*(hey |ok |okay |hi |हे |हेय )?(aura|ऑरा|jarvis|zeus)\b[,.!]?\s*/i,"");
       if(cmd.replace(/[\s?!.]/g,"").length<2){addMsg(msgTag(),"Yes? 🎙️","aura");pushSys("wake word caught — no command followed");setTimeout(()=>{if(wake)armWake(600)},900);return;}
       if(window.__camOn&&window.__camAsk){window.__camAsk(cmd);return} /* camera live → the scene is the subject */
       ask(cmd);}};
@@ -4831,7 +4831,7 @@ if(navigator.getBattery)navigator.getBattery().then(b=>{
 });else $("tBat").textContent="AC LINK";
 
 /* ---------------- boot sequence ---------------- */
-const BOOT=persona()==="jarvis"?["> JARVIS OS v4.0 — initializing tactical core","> strategic matrix …………… <b class='ok'>OK</b>","> gold emitter ……………… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> JARVIS <b class='ok'>ONLINE</b> — owner protocol armed"]:["> AURA OS v3.2 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];
+const BOOT=persona()==="jarvis"?["> ZEUS OS v4.0 — initializing tactical core","> strategic matrix …………… <b class='ok'>OK</b>","> gold emitter ……………… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> ZEUS <b class='ok'>ONLINE</b> — owner protocol armed"]:["> AURA OS v3.2 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];
 (function boot(){
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
@@ -4842,7 +4842,7 @@ const BOOT=persona()==="jarvis"?["> JARVIS OS v4.0 — initializing tactical cor
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
     try{memRender()}catch(e){}
     const mg=(function(){try{return window.AuraMind?AuraMind.greetingLine():""}catch(e){return""}})();
-    const msg=greetWord()+(n?", "+n:"")+(mg?". "+mg:"")+(persona()==="jarvis"?". JARVIS online — tactical protocol armed and standing by, sir"+(histN?", "+histN+" turns of our history loaded":"")+". Objective, question or command?":". AURA online — neural link established"+(histN?", and I remember our last "+Math.min(histN,120)+" exchanges":"")+". Tap the mic and speak, or type below.");const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
+    const msg=greetWord()+(n?", "+n:"")+(mg?". "+mg:"")+(persona()==="jarvis"?". ZEUS online — tactical protocol armed and standing by, sir"+(histN?", "+histN+" turns of our history loaded":"")+". Objective, question or command?":". AURA online — neural link established"+(histN?", and I remember our last "+Math.min(histN,120)+" exchanges":"")+". Tap the mic and speak, or type below.");const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
   $("boot").addEventListener("click",end,{once:true});
   setTimeout(end,2600);
 })();
@@ -4885,14 +4885,14 @@ async function llmChat(prompt){
   throw new Error("no llm");
 }
 const TASKS={
-  search:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:please )?(?:google|search(?: for| the web for)?|look up|youtube|yt)\s+(?:for\s+)?(.+?)(?:\s+(?:for me|on youtube|on google|in google))?[.?!]?$/i,
+  search:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:please )?(?:google|search(?: for| the web for)?|look up|youtube|yt)\s+(?:for\s+)?(.+?)(?:\s+(?:for me|on youtube|on google|in google))?[.?!]?$/i,
     go:m=>{const q=m[1].trim();const yt=/^(?:youtube|yt)\b/i.test(m.input);const url=yt?"https://www.youtube.com/results?search_query="+encodeURIComponent(q):"https://www.google.com/search?q="+encodeURIComponent(q);
       window.open(url,"_blank");return"Opening "+(yt?"YouTube":"Google")+" results for “"+q+"”, boss."}},
-  clock:{re:/^(?:hey (?:aura|jarvis)[, ]*)?set (?:an? )?(?:alarm|timer) (?:for )?(\d{1,3})\s*(min(?:ute)?s?|m|h(?:our)?s?)(?:\s+(?:for|titled)\s+(.+))?[.?!]?$/i,
+  clock:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?set (?:an? )?(?:alarm|timer) (?:for )?(\d{1,3})\s*(min(?:ute)?s?|m|h(?:our)?s?)(?:\s+(?:for|titled)\s+(.+))?[.?!]?$/i,
     go:m=>{const n=+m[1];const unit=m[2][0].toLowerCase();const ms=unit==="h"?n*3600000:n*60000;const label=m[3]||"timer";
       setTimeout(()=>{blip(880,.35);setTimeout(()=>blip(1175,.35),450);pushSys("⏰ "+label+" done");const t="Time's up, boss — "+label+".";addMsg(msgTag(),t,"aura");if(voiceAllowed())speak(t)},ms);
       return"Timer set — "+n+(unit==="h"?" hour(s)":" minute(s)")+(m[3]?" for "+m[3]:"")+". I'll ping you when it's done."}},
-  remind:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:remind me|set a reminder|reminder)\s+(?:to\s+)?(.+?)(?:\s+(?:in|after)\s+(\d+)\s*(minutes?|mins?|m|hours?|h|days?|d)|\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?[.!?]*$/i,
+  remind:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:remind me|set a reminder|reminder)\s+(?:to\s+)?(.+?)(?:\s+(?:in|after)\s+(\d+)\s*(minutes?|mins?|m|hours?|h|days?|d)|\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?)?[.!?]*$/i,
     go:m=>{const label=(m[1]||'').trim();let at=0,desc='';
       if(m[2]){const n=+m[2],u=m[3][0].toLowerCase();at=Date.now()+(u==='h'?n*3600000:u==='d'?n*86400000:n*60000);desc='in '+n+' '+(u==='h'?'hour(s)':u==='d'?'day(s)':'minute(s)')}
       else if(m[4]){let h=+m[4];const mi=+(m[5]||0),ap=(m[6]||'').toLowerCase();if(ap==='pm'&&h<12)h+=12;if(ap==='am'&&h===12)h=0;const d=new Date();d.setHours(h,mi,0,0);if(d.getTime()<=Date.now())d.setDate(d.getDate()+1);at=d.getTime();desc='at '+d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
@@ -4901,19 +4901,19 @@ const TASKS={
       if(!ok)return null;
       return'⏰ Reminder set: "'+label+'" '+desc+'. I will ping you even in a background tab. Say "show reminders" anytime.'},
     eng:'reminder engine'},
-  remindList:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:(?:show|list|what are)(?: my)? reminders?|(?:my )?reminders?)\??$/i,
+  remindList:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:(?:show|list|what are)(?: my)? reminders?|(?:my )?reminders?)\??$/i,
     go:()=>window.AuraRemind?AuraRemind.render():null},
-  remindDel:{re:/^(?:hey (?:aura|jarvis)[, ]*)?delete reminder\s+(\d+)$/i,
+  remindDel:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?delete reminder\s+(\d+)$/i,
     go:m=>{if(!window.AuraRemind)return null;const L=AuraRemind.list();const i=+m[1]-1;if(!L[i])return'There is no reminder #'+m[1]+'.';AuraRemind.drop(L[i].id);return'🗑 Reminder deleted: "'+L[i].label+'"'}},
-  remindClear:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:clear|delete) (?:all )?(?:my )?reminders$/i,
+  remindClear:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:clear|delete) (?:all )?(?:my )?reminders$/i,
     go:()=>{if(!window.AuraRemind)return null;AuraRemind.clear();return'All reminders cleared, boss.'}},
-  note:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:note|remember|save)(?: (?:this|that|it))?(?: down)?:?\s*(.+)$/i,
+  note:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:note|remember|save)(?: (?:this|that|it))?(?: down)?:?\s*(.+)$/i,
     go:m=>{try{const n=JSON.parse(localStorage.getItem("aura_notes")||"[]");n.push({t:m[1].trim(),d:Date.now()});localStorage.setItem("aura_notes",JSON.stringify(n));return"Noted, boss: “"+m[1].trim().slice(0,80)+"” — kept in this browser."}catch(e){return"I couldn't store the note (storage blocked)."}}},
-  recap:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:what are my notes|read (?:my )?notes|recap notes|show notes)\??$/i,
+  recap:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:what are my notes|read (?:my )?notes|recap notes|show notes)\??$/i,
     go:()=>{try{const n=JSON.parse(localStorage.getItem("aura_notes")||"[]");if(!n.length)return"No notes yet — say 'note: buy milk' and I'll remember it.";return"Your notes, boss:\n"+n.slice(-8).map((x,i)=>(i+1)+". "+x.t).join("\n")}catch(e){return"No notes yet."}}},
-  clearNotes:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:clear|delete) (?:my )?notes$/i,
+  clearNotes:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:clear|delete) (?:my )?notes$/i,
     go:()=>{localStorage.removeItem("aura_notes");return"Notes cleared, boss."}},
-  open:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:open|launch|start)\s+(.+?)[.?!]?$/i,
+  open:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:open|launch|start)\s+(.+?)[.?!]?$/i,
     go:m=>{const t=m[1].toLowerCase().trim();const map={portfolio:"portfolio.html",foodora:"foodora.html",mercedes:"mercedes.html",lucid:"lucid.html","photo studio":"lucid.html","photo editor":"lucid.html",quantum:"quantum.html",sre:"sre.html",groundwork:"groundwork.html",cloudpilot:"cloudpilot.html"};
       const f=map[t];
       if(f){
@@ -4923,9 +4923,9 @@ const TASKS={
       if(site){window.open(site,"_blank");return"Opening "+t+" in a new tab, boss."}
       return null}},
   /* ================= AURA POWERS: screenshot · page summary · batch preset ================= */
-  snap:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:take |capture |grab )?(?:a )?screenshot(?: of (?:the )?(?:hologram|visual(?:ization)?|nebula|plasma|orbitals?|galaxy))?[,!.]?$/i,
+  snap:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:take |capture |grab )?(?:a )?screenshot(?: of (?:the )?(?:hologram|visual(?:ization)?|nebula|plasma|orbitals?|galaxy))?[,!.]?$/i,
     go:m=>{try{const c=document.getElementById("fx");if(!c||!c.width)return"Hologram not ready — give me a second and try again.";const stamp=new Date().toISOString().replace(/[:T]/g,"-").slice(0,19);const a=document.createElement("a");a.download="aura-hologram-"+stamp+".png";a.href=c.toDataURL("image/png");document.body.appendChild(a);a.click();a.remove();return"📸 Hologram captured — 'aura-hologram-"+stamp+".png' saved to your downloads."}catch(e){return"Capture blocked by the browser — try again after tapping the page."}}},
-  summarize:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:please )?(?:summarize|summarise|summary of|tldr|summarize this page|read this page|open and summarize)\s+(https?:\/\/\S+?)[.?!]?$/i,
+  summarize:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:please )?(?:summarize|summarise|summary of|tldr|summarize this page|read this page|open and summarize)\s+(https?:\/\/\S+?)[.?!]?$/i,
     go:m=>{const url=m[1];(async()=>{try{pushSys("summarizer fetching · "+url.replace(/^https?:\/\//,"").slice(0,40));let html="";try{const r=await fetch("https://r.jina.ai/"+url,{signal:(AbortSignal.timeout?AbortSignal.timeout(15000):undefined)});if(r.ok)html=await r.text()}catch(e){}
 if(html.length<400){try{const r=await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(url),{signal:(AbortSignal.timeout?AbortSignal.timeout(15000):undefined)});if(r.ok)html=await r.text()}catch(e){}}
 if(html.length<400)throw 0;
@@ -4935,22 +4935,22 @@ if(looksHtml){const doc=new DOMParser().parseFromString(html,"text/html");doc.qu
 else{title=(html.match(/^Title:\s*(.+)$/m)||[])[1]||url;body=html.slice(html.indexOf("Markdown Content:")+17).replace(/!\[[^\]]*\]\([^)]*\)/g," ").replace(/\[(.*?)\]\([^)]*\)/g,"$1").replace(/[ \t]+/g," ").slice(0,9000)}
 if(body.length<300)throw 0;
 let sum="";try{sum=await llmChat("You are AURA, a crisp research assistant. Summarize the PAGE EXTRACT below in 4-6 short sentences: what the page is, the key facts/claims, and who it is for. Plain text, no markdown, no preamble. The page may be in any language; answer in the page's dominant language.\n\nPAGE EXTRACT:\nTitle: "+title+"\n\nContent (trim):\n"+body)}catch(e){}if(!sum||sum.length<40){const all=body.match(/[^.!?]+[.!?]+/g)||[];sum=all.slice(0,5).map(s=>"• "+s.trim()).join("\n")}sum=("📄 "+title+"\n"+sum+"\n\nSource: "+url).slice(0,1600);addMsg(msgTag(),sum,"aura");if(voiceAllowed())speak(sum.split("\n").filter(l=>!/^Source:/.test(l)).join(". ").slice(0,600))}catch(e){const t="I couldn't read that page, boss — it blocks robots or the network hiccupped. Try a Wikipedia or news link.";addMsg(msgTag(),t,"aura");if(voiceAllowed())speak(t)}})();return"Opening and reading "+url.replace(/^https?:\/\//,"").slice(0,60)+" — give me a few seconds to think it through."}},
-  batchPreset:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:batch (?:resize|process|edit) (?:my |the )?(?:photos?|images?|pictures?)(?: with (?:the )?(.+?))?|apply (?:the )?(cinematic|vivid(?: pop)?|golden ?hour|noir|cool ?mono|vintage(?: fade)?|faded(?: film)?|original) (?:preset|look|filter) to (?:a )?batch|batch (cinematic|vivid(?: pop)?|golden ?hour|noir|cool ?mono|vintage(?: fade)?|faded(?: film)?|original))(?:[.?!]?)$/i,
+  batchPreset:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:batch (?:resize|process|edit) (?:my |the )?(?:photos?|images?|pictures?)(?: with (?:the )?(.+?))?|apply (?:the )?(cinematic|vivid(?: pop)?|golden ?hour|noir|cool ?mono|vintage(?: fade)?|faded(?: film)?|original) (?:preset|look|filter) to (?:a )?batch|batch (cinematic|vivid(?: pop)?|golden ?hour|noir|cool ?mono|vintage(?: fade)?|faded(?: film)?|original))(?:[.?!]?)$/i,
     go:m=>{const norm=s=>{s=(s||"").toLowerCase().trim();if(/^(cine)/.test(s))return"Cinematic";if(/vivid/.test(s))return"Vivid Pop";if(/gold/.test(s))return"Golden Hour";if(/noir/.test(s))return"Noir";if(/cool/.test(s))return"Cool Mono";if(/vintage/.test(s))return"Vintage Fade";if(/faded/.test(s))return"Faded Film";return null};const p=norm(m[1])||norm(m[2])||norm(m[3]);
       if(location.protocol==="file:")return"Batch works on the live site — open " + location.origin + "/lucid.html there, boss.";
       const hs=p?"#batch&preset="+encodeURIComponent(p):"#batch";try{const x=new XMLHttpRequest();x.open("HEAD","lucid.html",false);x.send();if(x.status!==200)return"I can't find lucid.html — keep it next to me."}catch(e){return"I can't reach Lucid from here."}
       window.open("lucid.html"+hs,"_blank");return p?("Batch processor ready in Lucid 📸 — I've loaded the **"+p+"** look for you. Choose your photos there; every one gets the "+p+" treatment, auto-resized for web and downloaded as JPEG."):("Batch processor ready in Lucid 📸 — pick your photos there. It applies your current look, auto-resizes for web and downloads every photo as JPEG.")}},
-  time:{re:/^(?:hey (?:aura|jarvis)[, ]*)?what(?:'s| is) the time(?: right now)?\??[.?!]?$/i,
+  time:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?what(?:'s| is) the time(?: right now)?\??[.?!]?$/i,
     go:()=>"It's "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+" right now."},
-  date:{re:/^(?:hey (?:aura|jarvis)[, ]*)?what(?:'s| is) (?:the |today'?s )?date(?: today)?\??$/i,
+  date:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?what(?:'s| is) (?:the |today'?s )?date(?: today)?\??$/i,
     go:()=>"Today is "+new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"})+"."},
-  math:{re:/^(?:hey (?:aura|jarvis)[, ]*)?what(?:'s| is)\s+([\d\s+.\-*/%^()]+)\??$/,
+  math:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?what(?:'s| is)\s+([\d\s+.\-*/%^()]+)\??$/,
     go:m=>{try{const val=Function('"use strict";return('+m[1].replace(/\^/g,"**")+')')();if(!isFinite(val))return null;return m[1].trim()+" = "+val}catch(e){return null}}},
-  convert:{re:/^(?:hey (?:aura|jarvis)[, ]*)?convert\s+([\d.]+)\s*(km|miles?|kg|lb|lbs|c|°c|f|°f)\s*(?:to|in|into)\s*(km|miles?|kmh|km\/h|mph|kg|lb|lbs|c|f)\??$/i,
+  convert:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?convert\s+([\d.]+)\s*(km|miles?|kg|lb|lbs|c|°c|f|°f)\s*(?:to|in|into)\s*(km|miles?|kmh|km\/h|mph|kg|lb|lbs|c|f)\??$/i,
     go:m=>{const v=+m[1];const a=m[2].toLowerCase().replace("°",""),b=m[3].toLowerCase().replace("°","");const km2mi=x=>x*.621371,mi2km=x=>x/0.621371,kg2lb=x=>x*2.20462,lb2kg=x=>x/2.20462,c2f=x=>x*9/5+32,f2c=x=>(x-32)*5/9,kmh2mph=x=>x*0.621371,mph2kmh=x=>x/0.621371;
       const map={"km>miles":km2mi,"miles>km":mi2km,"kg>lb":kg2lb,"kg>lbs":kg2lb,"lbs>kg":lb2kg,"lb>kg":lb2kg,"c>f":c2f,"f>c":f2c,"kmh>mph":kmh2mph,"mph>kmh":mph2kmh};
       const fn=map[a+">"+b];if(!fn)return null;return v+" "+m[2]+" = "+(Math.round(fn(v)*100)/100)+" "+m[3]}},
-  quit:{re:/^(?:hey (?:aura|jarvis)[, ]*)?(?:quit|close|cancel|forget it|nevermind|never mind)\??$/i,
+  quit:{re:/^(?:hey (?:aura|jarvis|zeus)[, ]*)?(?:quit|close|cancel|forget it|nevermind|never mind)\??$/i,
     go:()=>"Standing down, boss. Ask me anything else."}
 };
 function taskCommand(raw){
@@ -5021,7 +5021,7 @@ function taskCommand(raw){
   const pbtn=document.getElementById("personaBtn");
   if(pbtn)pbtn.onclick=()=>{
     if(persona()==="jarvis"){setPersona("aura",true);pbtn.textContent="MODE: AURA";}
-    else{const P=setPersona("jarvis",true);if(P&&P.name==="JARVIS")pbtn.textContent="MODE: JARVIS";}
+    else{const P=setPersona("jarvis",true);if(P&&P.name==="ZEUS")pbtn.textContent="MODE: ZEUS";}
   };
 })();
 if(location.protocol==="file:"){setTimeout(()=>pushSys("local-file mode — mic & voice need the live site (sourabh7300.github.io) or a local server"),3500)}
@@ -6120,7 +6120,7 @@ const AI_TOOLS_KB = {
 const APTITUDE = {
   "foodora": {what:"FOODORA — food-delivery platform", elite:"12 restaurants, live Leaflet GPS maps, cart→checkout, voice ordering bridged from AURA", next:"real payments (Razorpay test), live order tracking timeline, rider-assignment simulation"},
   "lucid": {what:"Lucid — AI Pro Photo Studio", elite:"50+ hand-coded pixel engines (curves, HSL mixer, clarity convolution, bloom, bokeh), batch processing, AURA voice bridge", next:"GPU shaders via WebGL for 60fps filters, content-aware fill, AI background removal with a segmentation model"},
-  "aura": {what:"AURA / JARVIS — this assistant", elite:"multi-brain failover (Groq→OpenRouter→Puter), live web research with citations, vector memory, Pyodide sandbox, screen-share vision, RBAC with phone-OTP recovery", next:"fine-tune a persona on your own chat logs, tool-calling plugins, offline voice via WebLLM"},
+  "aura": {what:"AURA / ZEUS — this assistant", elite:"multi-brain failover (Groq→OpenRouter→Puter), live web research with citations, vector memory, Pyodide sandbox, screen-share vision, RBAC with phone-OTP recovery", next:"fine-tune a persona on your own chat logs, tool-calling plugins, offline voice via WebLLM"},
   "portfolio": {what:"the portfolio deck", elite:"live-embedded real apps, guided tour, Gia AI guide, PWA install, offline mode", next:"case-study pages per project with architecture diagrams, visitor analytics, Lighthouse 100 across the board"},
   "quantum": {what:"Quantum Circuit Simulator", elite:"gates, superposition, entanglement rendered live", next:"noise models (decoherence), QASM import/export, Grover/Shor demos"},
   "sre": {what:"Autonomous SRE — incident responder", elite:"multi-agent detection and response simulation", next:"hook real Prometheus metrics, add a postmortem generator"},
