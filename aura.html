@@ -1449,9 +1449,10 @@ async function newsBrief(){
     try{
       const ids=await(await fetch("https://hacker-news.firebaseio.com/v0/topstories.json",{signal:AbortSignal.timeout(9000)})).json();
       const tops=await Promise.all(ids.slice(0,6).map(i=>fetch("https://hacker-news.firebaseio.com/v0/item/"+i+".json",{signal:AbortSignal.timeout(9000)}).then(r=>r.json())));
-      const items=tops.filter(x=>x&&x.title).map(x=>x.title+(x.url?"  ["+new URL(x.url).hostname.replace("www.","")+"]":""));
+      const host=function(u){try{return "  ["+new URL(String(u)).hostname.replace("www.","")+"]"}catch(e){return ""}};
+      const items=tops.filter(x=>x&&x.title).map(x=>x.title+host(x.url));
       if(items.length)return items;
-    }catch(e2){}
+    }catch(e2){try{console.warn("[daily brief] HN fallback failed:",e2&&e2.message||e2)}catch(e3){}}
     return null;
   }
 }
@@ -3434,14 +3435,30 @@ function briefBlock(){
   return "\n\nTODAY'S HEADLINES (pulled live "+when+" — your daily briefing cache; use them when the question touches current events, and never present them as older than they are):\n"+b.items.map((t,i)=>(i+1)+". "+t).join("\n");
 }
 function dailyBriefBlock(){try{return briefBlock()}catch(e){return ""}}
+/* BACKEND LANE for the daily brief — server-side Google-News RSS via /v1/websearch;
+   immune to browser-side jina 403s. Tried FIRST, jina/HN newsBrief() stays as backup. */
+async function briefBackendNews(){
+  try{
+    if(!backendUrl())return null;
+    const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
+    const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
+    const r=await fetch(backendUrl()+"/v1/websearch",{method:"POST",headers:headers,signal:AbortSignal.timeout(20000),body:JSON.stringify({question:"top news headlines today India and world"})});
+    if(!r.ok)return null;
+    const d=await r.json();const rs=(d&&d.results)||[];
+    const items=rs.map(x=>String(x.title||x.k||"").replace(/\s+/g," ").trim()).filter(t=>t.length>18).slice(0,7);
+    if(items.length){try{console.info("[daily brief] backend lane served "+items.length+" headlines")}catch(e){}return items}
+    return null;
+  }catch(e){try{console.warn("[daily brief] backend lane failed:",e&&e.message||e)}catch(e2){}return null}
+}
 async function briefPull(){
   if(__briefBusy||!navigator.onLine)return false;__briefBusy=true;
   try{
-    const items=await newsBrief();
+    let items=await briefBackendNews();
+    if(!items)items=await newsBrief();
     if(items&&items.length){briefSave({at:Date.now(),items:items});slog("📰 daily brief refreshed — "+items.length+" headlines cached",true);return true}
-    try{slog("daily brief pull came back empty — will retry",true)}catch(e2){}
+    try{slog("daily brief pull came back empty — will retry",true);console.warn("[daily brief] both lanes empty — retry scheduled")}catch(e2){}
     return false;
-  }catch(e){return false}
+  }catch(e){try{console.warn("[daily brief] pull error:",e&&e.message||e)}catch(e2){}return false}
   finally{__briefBusy=false}
 }
 async function scheduleDailyBrief(){
