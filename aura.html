@@ -1801,21 +1801,32 @@ function voiceAllowed(){return wake===true||Date.now()<voiceSessionUntil}
 function stopSpeech(){speakGen++;ttsActive=false;try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
 let __neuralVoice=(localStorage.getItem("aura_neural")||"auto")==="on";
 async function speakNeural(t,gen,done){
-  /* NEURAL TIER — server-rendered voice (Orpheus). Returns true if it spoke. */
+  /* NEURAL TIER — server-rendered voice (Orpheus). Returns true if it spoke.
+     SILENCE FIX: an autoplay-blocked or dead TTS lane previously left the caller
+     with no fallback; now any failure pauses+revokes and returns false fast. */
+  let a=null,url=null;
   try{
     if(!backendUrl())return false;
     const r=await fetch(backendUrl()+"/v1/tts",{method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(30000),body:JSON.stringify({input:String(t).slice(0,900),voice:persona()==="jarvis"?"venom":"hilda"})});
     if(!r.ok)return false;
     const blob=await r.blob();if(!blob.size)return false;
-    const url=URL.createObjectURL(blob);
-    const a=new Audio(url);a.volume=1;
+    url=URL.createObjectURL(blob);
+    a=new Audio(url);a.volume=1;
     a.onended=()=>{URL.revokeObjectURL(url);done()};
     a.onerror=()=>{URL.revokeObjectURL(url);done()};
     if(gen!==speakGen){URL.revokeObjectURL(url);return true}
     ttsActive=true;ampTarget=1;setMode("speaking");try{document.getElementById("stopBtn").classList.add("show")}catch(e){}
-    await a.play();
+    /* AUTOPLAY GUARD — browsers refuse audio without a user gesture; if playback
+       has not started within 6s, treat the attempt as failed so the device voice takes over */
+    await Promise.race([a.play(),new Promise((_,rej)=>setTimeout(()=>rej(new Error("neural play blocked")),6000))]);
     return true;
-  }catch(e){return false}
+  }catch(e){
+    try{if(a)a.pause()}catch(e2){}
+    try{if(url)URL.revokeObjectURL(url)}catch(e3){}
+    try{document.getElementById("stopBtn").classList.remove("show")}catch(e4){}
+    try{done()}catch(e5){}
+    return false;
+  }
 }
 function speak(t){
   if(!synth||!soundOn){return}
@@ -1835,34 +1846,42 @@ function speak(t){
     }
     const hi=window.__auraLang==="hi"||(window.__auraLang!=="en"&&detectedLang==="hi");
     /* NEURAL VOICE TIER — English answers try the server-rendered voice first;
-       Hindi falls through to the device voice. Any failure → silent device fallback. */
+       Hindi goes straight to the device voice. SILENCE FIX: a failed or autoplay-blocked
+       neural attempt now FALLS BACK to the device voice chain instead of dying quietly. */
     if(__neuralVoice&&!hi&&parts.length){
-      speakNeural(parts.join(" "),gen,()=>{ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}}).then(ok=>{if(ok)return});
-      if(__neuralVoice&&!hi)return; /* neural accepted the job (or is trying) — device chain not started */
+      speakNeural(parts.join(" "),gen,()=>{ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}}).then(ok=>{
+        if(ok)return;
+        if(gen!==speakGen)return; /* a newer speak() took over meanwhile */
+        ttsActive=true; /* device chain takes over with the speaking flag armed */
+        try{__speakDeviceChain(parts,gen,P,hi)}catch(e){ttsActive=false}
+      });
+      return;
     }
-    let i=0;
-    const pickVoice=()=>hi?(voices.find(v=>/hi-IN|^hi/i.test(v.lang))||voices.find(v=>/^hi/i.test(v.name))||null):(voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang)));
-    const v=pickVoice();
-    const next=()=>{
-      if(gen!==speakGen)return; /* stale onend from a cancelled utterance → ignore, never resurrect */
-      if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}return}
-      const u=new SpeechSynthesisUtterance(parts[i++]);keep.push(u);
-      const vu=pickVoice();
-      if(vu)u.voice=vu;u.lang=hi?"hi-IN":P.lang;{
-        /* TYPING-PACE TUNING — speak at the tempo this user reads */
-        const tv=(function(){try{return tpVoice()}catch(e){return null}})();
-        const vr=parseFloat(localStorage.getItem("aura_voicerate")||"0");
-        u.rate=vr>0?Math.max(.6,Math.min(1.8,P.rate*vr)):(tv?Math.max(.6,Math.min(1.8,P.rate*tv.rate)):P.rate);
-        u.pitch=tv&&!(vr>0)?Math.max(.5,Math.min(1.6,P.pitch*tv.pitch)):P.pitch;
-      }
-      u.onstart=()=>{if(gen===speakGen){ampTarget=1;setMode("speaking")}};
-      u.onend=next;
-      u.onerror=next;
-      synth.speak(u);
-    };
-    next();
-    setTimeout(()=>{if(gen===speakGen&&ttsActive){try{if(!synth.speaking&&!synth.pending){ttsActive=false;ampTarget=0;setMode("idle");armWake(400)}}catch(e){}}},9000);
+    __speakDeviceChain(parts,gen,P,hi);
   }catch(e){ttsActive=false}
+}
+function __speakDeviceChain(parts,gen,P,hi){
+  let i=0;const keep=[];
+  const pickVoice=()=>hi?(voices.find(v=>/hi-IN|^hi/i.test(v.lang))||voices.find(v=>/^hi/i.test(v.name))||null):(voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang)));
+  const next=()=>{
+    if(gen!==speakGen)return; /* stale onend from a cancelled utterance → ignore, never resurrect */
+    if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}return}
+    const u=new SpeechSynthesisUtterance(parts[i++]);keep.push(u);
+    const vu=pickVoice();
+    if(vu)u.voice=vu;u.lang=hi?"hi-IN":P.lang;{
+      /* TYPING-PACE TUNING — speak at the tempo this user reads */
+      const tv=(function(){try{return tpVoice()}catch(e){return null}})();
+      const vr=parseFloat(localStorage.getItem("aura_voicerate")||"0");
+      u.rate=vr>0?Math.max(.6,Math.min(1.8,P.rate*vr)):(tv?Math.max(.6,Math.min(1.8,P.rate*tv.rate)):P.rate);
+      u.pitch=tv&&!(vr>0)?Math.max(.5,Math.min(1.6,P.pitch*tv.pitch)):P.pitch;
+    }
+    u.onstart=()=>{if(gen===speakGen){ampTarget=1;setMode("speaking")}};
+    u.onend=next;
+    u.onerror=next;
+    synth.speak(u);
+  };
+  next();
+  setTimeout(()=>{if(gen===speakGen&&ttsActive){try{if(!synth.speaking&&!synth.pending){ttsActive=false;ampTarget=0;setMode("idle");armWake(400)}}catch(e){}}},9000);
 }
 
 /* ---------------- persona core: AURA + the owner's tactical ZEUS protocol (Sourabh's own design — no borrowed fiction) ---------------- */
@@ -3545,7 +3564,7 @@ function morningDigest(){
     setTimeout(function(){try{
       addMsg(msgTag(),m,"aura");
       try{if(window.Notification&&Notification.permission==="granted")new Notification("AURA — Morning Brief",{body:m.replace(/^☀️ Good morning[^—]*— /,"")})}catch(e){}
-      if(voiceAllowed())speak(m.replace(/☀️ |[‘’]/g,""));
+      if(!window.__greetedSpoken&&voiceAllowed())speak(m.replace(/☀️ |[‘’]/g,"")); /* greeting already introduced the voice — digest stays written */
     }catch(e){}},2600);
   }catch(e){}
 }
@@ -5144,6 +5163,37 @@ if(navigator.getBattery)navigator.getBattery().then(b=>{
 
 /* ---------------- boot sequence ---------------- */
 const BOOT=persona()==="jarvis"?["> ZEUS OS v4.0 — initializing tactical core","> strategic matrix …………… <b class='ok'>OK</b>","> gold emitter ……………… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> ZEUS <b class='ok'>ONLINE</b> — owner protocol armed"]:["> AURA OS v3.2 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];
+/* ---------------- VISITOR GREETING v2 — every visitor is greeted aloud AND in writing ----------------
+   Replaces the old policy-gated boot whisper: AURA now introduces herself the moment the
+   deck loads — time-aware good morning/afternoon/evening, remembered name, ZEUS tactical
+   variant for the owner — spoken with a one-shot voice allowance and mirrored as an
+   in-tab notification when permission was already granted. ---------------- */
+function __onceAllowVoice(ms){
+  /* one-shot voice window; the first real interaction re-arms the normal 45s policy */
+  try{voiceSessionUntil=Math.max(voiceSessionUntil,Date.now()+ms)}catch(e){}
+}
+function visitorGreeting(){
+  try{
+    const P=PERSONAS[persona()];
+    const h=new Date().getHours();
+    const gw=greetWord();
+    const nm=memGet().name||"";
+    const mg=(function(){try{return window.AuraMind?AuraMind.greetingLine():""}catch(e){return""}})();
+    let msg;
+    if(persona()==="jarvis"){
+      const part=h<12?"Good morning":h<17?"Good afternoon":h<21?"Good evening":"Working late";
+      msg=part+", sir — ZEUS tactical protocol online. All systems armed and standing by. Objectives, questions or commands — I am ready for all three.";
+    }else{
+      msg=gw+(nm?", "+nm:"")+" — I'm AURA, Sourabh's holographic AI, online and at your command. "+(mg?mg+" ":"")+"Ask me anything — speak, or just type below.";
+    }
+    const el=addMsg(msgTag(),"","aura");typewrite(el,msg);
+    try{if(window.Notification&&Notification.permission==="granted")new Notification(P.name+" — "+(persona()==="jarvis"?"tactical protocol standing by":"online and at your command"),{body:msg})}catch(e){}
+    __onceAllowVoice(20000);
+    window.__greetedSpoken=true;
+    speak(msg);
+    return msg;
+  }catch(e){return""}
+}
 (function boot(){
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
@@ -5153,8 +5203,7 @@ const BOOT=persona()==="jarvis"?["> ZEUS OS v4.0 — initializing tactical core"
       replay.forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
     try{memRender()}catch(e){}
-    const mg=(function(){try{return window.AuraMind?AuraMind.greetingLine():""}catch(e){return""}})();
-    const msg=greetWord()+(n?", "+n:"")+(mg?". "+mg:"")+(persona()==="jarvis"?". ZEUS online — tactical protocol armed and standing by, sir"+(histN?", "+histN+" turns of our history loaded":"")+". Objective, question or command?":". AURA online — neural link established"+(histN?", and I remember our last "+Math.min(histN,120)+" exchanges":"")+". Tap the mic and speak, or type below.");const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);if(voiceAllowed()){speak(msg);setMode("speaking")}},350)};
+    try{visitorGreeting()}catch(e){}},350)};
   $("boot").addEventListener("click",end,{once:true});
   setTimeout(end,2600);
 })();
