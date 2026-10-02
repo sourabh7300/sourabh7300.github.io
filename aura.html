@@ -714,8 +714,8 @@ h1,h2,h3,h4,.wordmark,.panel h3,#conv h3{font-family:'Manrope','Inter',sans-seri
 .src-card{border-radius:16px;background:rgba(91,140,255,.06)}
 a.src-card:hover{background:rgba(91,140,255,.14)}
 #micBtn{background:radial-gradient(circle at 50% 35%,rgba(91,140,255,.3),rgba(10,14,30,.92))}
-canvas#fx{opacity:.5}
-#scan{opacity:.35}
+canvas#fx{opacity:1}
+#scan{opacity:.22}
 .corner{border-color:var(--line2)}
 #boot{background:radial-gradient(900px 520px at 50% 28%,rgba(91,140,255,.12),#04060D 72%)}
 #bootRing{border-color:rgba(91,140,255,.22);border-top-color:var(--cy)}
@@ -1111,6 +1111,7 @@ body[data-tab="code"] #camWrap,body[data-tab="chats"] #camWrap{display:none!impo
   </div>
   <div class="iconrow">
   <button class="ibtn" id="soundBtn">VOICE: ON</button>
+  <button class="ibtn" id="voiceCfgBtn" title="Voice Studio — pick voices, tune speed & pitch for AURA and ZEUS">🎛 VOICE SET</button>
   <button class="ibtn" id="langBtn">LANG: ENG</button>   <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or ZEUS (owner's tactical protocol)">MODE: AURA</button>
   <button class="ibtn" id="camBtn" title="Live camera vision — show me your world">📷 CAM</button>
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
@@ -1166,8 +1167,12 @@ let W,H,CX,CY,R;
 const __LOWEND=(()=>{try{return (navigator.hardwareConcurrency||4)<=4||innerWidth<820||/Android|iPhone|iPad/i.test(navigator.userAgent)}catch(e){return false}})();
 window.__perfMode="normal"; /* normal | saver — say 'battery saver on' */
 let __battLow=false;
-function size(){W=cv.width=Math.round(innerWidth*.9);H=cv.height=Math.round(innerHeight*.9);cv.style.width="100vw";cv.style.height="100vh";CX=W/2;CY=H*.46;R=Math.min(W,H)*.21;}
+function size(){W=cv.width=Math.round(innerWidth*.9);H=cv.height=Math.round(innerHeight*.9);cv.style.width="100vw";cv.style.height="100vh";CX=W/2;CY=H*.46;R=Math.min(W,H)*.26;}
 size();addEventListener("resize",size);addEventListener("orientationchange",()=>setTimeout(size,120));
+/* HOLOGRAM v2 — scanline + vignette overlay (video-style); one fixed div, zero per-frame cost */
+(function(){try{if(document.getElementById("scanfx"))return;const s=document.createElement("div");s.id="scanfx";
+ s.style.cssText="position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.55;background:repeating-linear-gradient(0deg,rgba(2,14,26,.30) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 50% 46%,transparent 42%,rgba(1,6,14,.55) 100%)";
+ document.body.appendChild(s)}catch(e){}})();
 const NMAX=__LOWEND?200:560;let N=NMAX,pts=[];
 for(let i=0;i<N;i++){
   const y=1-2*(i+.5)/N,r=Math.sqrt(1-y*y),phi=i*2.399963229728653;
@@ -1241,10 +1246,13 @@ function drawCore(dt){
   spinBoost+=(spinTarget-spinBoost)*.06;
   const breathe=1+Math.sin(heart)*0.03*s.pulse;
   cx.save();cx.translate(CX,CY);
-  // inner glow
-  const gl=cx.createRadialGradient(0,0,0,0,0,R*1.15*breathe);
-  gl.addColorStop(0,`rgba(34,211,238,${.10+.14*s.pulse})`);gl.addColorStop(1,"rgba(34,211,238,0)");
-  cx.fillStyle=gl;cx.beginPath();cx.arc(0,0,R*1.15*breathe,0,7);cx.fill();
+  // inner glow — HOLOGRAM v2: video-style bloom (two layers: wide soft + tight hot)
+  const gl=cx.createRadialGradient(0,0,0,0,0,R*1.34*breathe);
+  gl.addColorStop(0,`rgba(34,211,238,${.16+.15*s.pulse})`);gl.addColorStop(.55,`rgba(34,211,238,${.05+.05*s.pulse})`);gl.addColorStop(1,"rgba(34,211,238,0)");
+  cx.fillStyle=gl;cx.beginPath();cx.arc(0,0,R*1.34*breathe,0,7);cx.fill();
+  const hg=cx.createRadialGradient(0,0,0,0,0,R*.55*breathe);
+  hg.addColorStop(0,`rgba(103,232,249,${.12+.10*s.pulse})`);hg.addColorStop(1,"rgba(103,232,249,0)");
+  cx.fillStyle=hg;cx.beginPath();cx.arc(0,0,R*.55*breathe,0,7);cx.fill();
   // listening shockwaves
   if(mode==="listening"){
     for(let k=0;k<3;k++){
@@ -1253,8 +1261,23 @@ function drawCore(dt){
       cx.beginPath();cx.arc(0,0,R*(1+p*.55),0,7);cx.stroke();
     }
   }
-  // particles
+  // particles + latitude wireframe — HOLOGRAM v2 (video-style volumetric globe)
   const ca=Math.cos(rot),sa=Math.sin(rot);
+  const deform=(y,i)=>mode==="speaking"?1+Math.sin(wavePhase+y*7+i*.13)*.055*amp:(mode==="thinking"?1:1);
+  cx.lineWidth=1;
+  for(const ly of[-.52,-.26,0,.26,.52]){ // latitude circles rotate WITH the globe
+    const lr=Math.sqrt(1-ly*ly);
+    cx.beginPath();let started=false;
+    for(let a=0;a<=6.31;a+=.22){
+      let x=Math.cos(a)*lr,z=Math.sin(a)*lr,y=ly;
+      const rx=x*ca-z*sa,rz=x*sa+z*ca;
+      if(rz<=0){started=false;continue} /* back half hidden — depth illusion */
+      const sc=PERSP/(PERSP+rz);
+      const px=rx*R*sc*breathe,py=y*R*sc*breathe;
+      started?cx.lineTo(px,py):cx.moveTo(px,py);started=true;
+    }
+    cx.strokeStyle=`rgba(103,232,249,${.30+.12*s.pulse})`;cx.stroke();
+  }
   for(let i=0;i<N;i++){
     const p=pts[i];
     let x=p.x*ca-p.z*sa,z=p.x*sa+p.z*ca,y=p.y;
@@ -1263,8 +1286,12 @@ function drawCore(dt){
     const sc=PERSP/(PERSP+z);
     const px=x*R*sc*breathe,py=y*R*sc*breathe;
     const sz=clamp(sc*1.9,.4,2.6),al=clamp((sc-.55)*1.6,.06,.95)*(.55+.45*s.pulse);
-    cx.fillStyle=`rgba(150,235,250,${al})`;
+    cx.fillStyle=`rgba(148,224,255,${al})`;
     cx.beginPath();cx.arc(px,py,sz,0,7);cx.fill();
+    if(sc>1.18&&N>300){ /* close particles get a soft halo — volumetric depth */
+      cx.fillStyle=`rgba(103,232,249,${(sc-1.18)*.5*al})`;
+      cx.beginPath();cx.arc(px,py,sz*2.6,0,7);cx.fill();
+    }
   }
   // waveform ring while speaking
   if(mode==="speaking"){
@@ -1276,11 +1303,23 @@ function drawCore(dt){
     }
     cx.closePath();cx.stroke();
   }
-  // center nucleus
+  // center nucleus — HOLOGRAM v2: halo + hot core (video-style bright eye)
   const nl=.5+.5*Math.sin(heart*1.3);
-  cx.fillStyle=`rgba(190,250,255,${.55+.4*nl})`;
-  cx.beginPath();cx.arc(0,0,4.5+nl*2,0,7);cx.fill();
+  const ng=cx.createRadialGradient(0,0,0,0,0,30+nl*12);
+  ng.addColorStop(0,`rgba(190,250,255,${.45+.30*nl})`);ng.addColorStop(1,"rgba(103,232,249,0)");
+  cx.fillStyle=ng;cx.beginPath();cx.arc(0,0,30+nl*12,0,7);cx.fill();
+  cx.fillStyle=`rgba(225,252,255,${.7+.25*nl})`;
+  cx.beginPath();cx.arc(0,0,5+nl*2.6,0,7);cx.fill();
   cx.restore();
+}
+
+/* ---------------- vertical scan sweep (HOLOGRAM v2) ---------------- */
+function drawScan(t){
+  const period=5.2,cy2=((t%period)/period)*(H*1.3)-H*.15;
+  const g=cx.createLinearGradient(0,cy2-H*.09,0,cy2+H*.09);
+  g.addColorStop(0,"rgba(103,232,249,0)");g.addColorStop(.5,"rgba(103,232,249,.10)");g.addColorStop(1,"rgba(103,232,249,0)");
+  cx.fillStyle=g;cx.fillRect(0,cy2-H*.09,W,H*.18);
+  cx.fillStyle="rgba(160,240,255,.22)";cx.fillRect(0,cy2,W,1.4);
 }
 
 /* ---------------- render loop ---------------- */
@@ -1297,6 +1336,7 @@ function frame(now){
   drawGrid(now/1000);
   drawRings(now/1000,STATES[mode]);
   drawCore(dt);
+  drawScan(now/1000);
   if(mode==="thinking"&&modeT>40&&!window.__researching&&!window.__thinking){setMode("idle");pushSys("uplink timeout — answering locally");}
 }
 /* PERF: battery saver voice command — drops fps to 30, particles to 100, kills blur */
@@ -1872,11 +1912,12 @@ function __speakDeviceChain(parts,gen,P,hi){
     const u=new SpeechSynthesisUtterance(parts[i++]);keep.push(u);
     const vu=pickVoice();
     if(vu)u.voice=vu;u.lang=hi?"hi-IN":P.lang;{
-      /* TYPING-PACE TUNING — speak at the tempo this user reads */
+      /* TYPING-PACE TUNING — speak at the tempo this user reads; VOICE STUDIO overrides win */
       const tv=(function(){try{return tpVoice()}catch(e){return null}})();
       const vr=parseFloat(localStorage.getItem("aura_voicerate")||"0");
-      u.rate=vr>0?Math.max(.6,Math.min(1.8,P.rate*vr)):(tv?Math.max(.6,Math.min(1.8,P.rate*tv.rate)):P.rate);
-      u.pitch=tv&&!(vr>0)?Math.max(.5,Math.min(1.6,P.pitch*tv.pitch)):P.pitch;
+      const vcfg=(function(){try{return __voiceCfg()[persona()]||{}}catch(e){return{}}})();
+      u.rate=vcfg.rate>0?Math.max(.5,Math.min(2,vcfg.rate)):(vr>0?Math.max(.6,Math.min(1.8,P.rate*vr)):(tv?Math.max(.6,Math.min(1.8,P.rate*tv.rate)):P.rate));
+      u.pitch=vcfg.pitch>0?Math.max(.5,Math.min(2,vcfg.pitch)):(tv&&!(vr>0)?Math.max(.5,Math.min(1.6,P.pitch*tv.pitch)):P.pitch);
     }
     u.onstart=()=>{if(gen===speakGen){ampTarget=1;setMode("speaking")}};
     u.onend=next;
@@ -4531,6 +4572,11 @@ async function askCore(text0){
       addMsg("YOU ▸",text,"user");setVoiceConsent(true);
       setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
     }
+    if(/^voice settings$|^voice studio$|^open voice studio$|^change voice$|^change my voice$/.test(lqm2)){
+      addMsg("YOU ▸",text,"user");
+      try{document.getElementById("voiceCfgBtn").click()}catch(e){}
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
     if(/^disable voice$|^mute$|^be quiet$|^stop talking$|^no voice$/.test(lqm2)){
       addMsg("YOU ▸",text,"user");setVoiceConsent(false);
       setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
@@ -5203,17 +5249,77 @@ function askVoicePermission(){ /* retired — replaced by the VOICE master switc
 }
 /* ---------------- VOICE PER PERSONA — AURA female-leaning, ZEUS male-leaning ----------------
 /* VOICE-START */
+/* VOICE STUDIO config — per-persona saved voice/rate/pitch (aura_voice_cfg_v1) */
+function __voiceCfg(){
+  try{const c=JSON.parse(localStorage.getItem("aura_voice_cfg_v1")||"{}");return c&&typeof c==="object"?c:{}}catch(e){return{}}
+}
+function __saveVoiceCfg(p,patch){
+  try{const c=__voiceCfg();c[p]=Object.assign({},c[p]||{},patch);localStorage.setItem("aura_voice_cfg_v1",JSON.stringify(c))}catch(e){}
+}
 function __pickVoiceFor(hi){
   if(hi)return voices.find(v=>/hi-IN|^hi/i.test(v.lang))||voices.find(v=>/^hi/i.test(v.name))||null;
   const en=voices.filter(v=>/^en/i.test(v.lang));
   const zeus=(function(){try{return persona()==="jarvis"}catch(e){return false}})();
-  const fem=/\bfemale\b|samantha|zira|karen|serena|tessa|fiona|moira|victoria|aria|jenny|sonia|libby|maisie|neerja|heera/i;
-  const masc=/\bmale\b|\bdaniel\b|\bdavid\b|\balex\b|\bfred\b|\bgeorge\b|\bryan\b|\bguy\b|\barthur\b|\boliver\b|\bbrian\b|\bjames\b|\brishi\b/i;
-  const pref=zeus?masc:fem;
-  return en.find(v=>pref.test(v.name))||en.find(v=>/en-GB/.test(v.lang))||en[0]||null;
+  /* saved pick from VOICE STUDIO always wins */
+  const vcfg=(function(){try{return __voiceCfg()[zeus?"jarvis":"aura"]||{}}catch(e){return{}}})();
+  if(vcfg.voice){const sv=en.find(v=>v.name===vcfg.voice)||voices.find(v=>v.name===vcfg.voice);if(sv)return sv}
+  /* ranked defaults — natural/neural voices first, classics as fallback */
+  const fem=["google uk english female","aria","jenny","sonia","libby","zira","samantha","karen","serena","tessa","fiona","moira","victoria","\\bfemale\\b"];
+  const masc=["google uk english male","ryan","george","daniel","david","alex","arthur","oliver","brian","james","guy","fred","\\bmale\\b"];
+  const list=zeus?masc:fem;
+  for(const nm of list){try{const re=new RegExp(nm,"i");const hit=en.find(v=>re.test(v.name));if(hit)return hit}catch(e){}}
+  return en.find(v=>/en-GB/.test(v.lang))||en[0]||null;
 }
-try{window.__pickVoiceFor=__pickVoiceFor}catch(e){}
+try{window.__pickVoiceFor=__pickVoiceFor;window.__voiceCfg=__voiceCfg;window.__saveVoiceCfg=__saveVoiceCfg}catch(e){}
 /* VOICE-END */
+/* ---------------- VOICE STUDIO — per-persona voice, speed & pitch (Sourabh's request: "dono ki voice achi nahi lagi") ---------------- */
+(function(){
+  const st=document.createElement("style");
+  st.textContent="#voiceMenu{position:fixed;inset:0;background:rgba(2,6,14,.72);backdrop-filter:blur(6px);z-index:9998;display:flex;align-items:center;justify-content:center}#voiceMenu .tm-card{position:relative;background:rgba(10,16,30,.97);border:1px solid rgba(120,220,255,.25);border-radius:16px;padding:20px;width:min(470px,94vw);max-height:88vh;overflow:auto;color:#dfeaff;box-shadow:0 24px 60px rgba(0,0,0,.5)}#voiceMenu h3{margin:0 0 4px;font-size:15px;letter-spacing:.4px}#voiceMenu .tm-sub{font-size:11.5px;opacity:.65;margin-bottom:12px}#voiceMenu .vs-sec{border:1px solid rgba(120,220,255,.14);border-radius:12px;padding:12px;margin:10px 0}#voiceMenu .vs-h{font-size:12px;font-weight:700;letter-spacing:1.6px;margin-bottom:8px}#voiceMenu .vs-h small{display:block;font-weight:400;letter-spacing:.2px;opacity:.55;font-size:10.5px;margin-top:2px}#voiceMenu select{width:100%;padding:8px;border-radius:9px;border:1px solid rgba(120,220,255,.3);background:rgba(3,10,20,.8);color:#dfeaff;font-size:12.5px;margin:4px 0 10px}#voiceMenu .vs-lab{display:flex;justify-content:space-between;font-size:10.5px;letter-spacing:1px;opacity:.75;margin-top:6px}#voiceMenu input[type=range]{width:100%;accent-color:#67e8f9;height:22px}#voiceMenu .tm-row{display:flex;gap:8px;margin-top:10px}#voiceMenu .tm-btn{flex:1;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);color:#bfefff;border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-weight:600}#voiceMenu .tm-btn:hover{background:rgba(34,211,238,.22)}#voiceMenu .tm-close{position:absolute;top:8px;right:12px;background:none;border:none;color:#9cf;font-size:18px;cursor:pointer}";
+  document.head.appendChild(st);
+  const SECS=[{key:"aura",label:"AURA — warm & bright",line:"Hello Sourabh, I am AURA — this is how I sound now."},{key:"jarvis",label:"ZEUS — tactical & deep",line:"ZEUS tactical protocol online. This is my configured voice, sir."}];
+  const defaults={aura:{rate:1.02,pitch:1},jarvis:{rate:0.97,pitch:0.88}};
+  function openMenu(){
+    const old=document.getElementById("voiceMenu");if(old)old.remove();
+    const ov=document.createElement("div");ov.id="voiceMenu";
+    ov.innerHTML='<div class="tm-card"><button class="tm-close" id="vsX">✕</button><h3>🎙 VOICE STUDIO</h3><div class="tm-sub">AURA aur ZEUS — apni voice chuno, speed & pitch set karo. Sab yahin save hota hai.</div>'+
+      SECS.map(s=>'<div class="vs-sec"><div class="vs-h">'+s.label.split(" — ")[0]+"<small>"+s.label.split(" — ")[1]+"</small></div>"+
+        '<select id="vsVoice_'+s.key+'"></select>'+
+        '<div class="vs-lab"><span>SPEED</span><span id="vsRate_'+s.key+'V"></span></div><input type="range" min="0.5" max="1.6" step="0.02" id="vsRate_'+s.key+'">'+
+        '<div class="vs-lab"><span>PITCH</span><span id="vsPitch_'+s.key+'V"></span></div><input type="range" min="0.5" max="1.6" step="0.02" id="vsPitch_'+s.key+'">'+
+        '<div class="tm-row"><button class="tm-btn" id="vsTest_'+s.key+'">▶ Sample</button></div></div>').join("")+
+      '<div class="tm-row"><button class="tm-btn" id="vsReset">↺ Reset defaults</button><button class="tm-btn" id="vsClose2">Close</button></div></div>';
+    document.body.appendChild(ov);
+    const close=()=>ov.remove();
+    ov.querySelector("#vsX").onclick=close;ov.querySelector("#vsClose2").onclick=close;
+    ov.addEventListener("click",e=>{if(e.target===ov)close()});
+    const enFirst=voices.slice().sort((a,b)=>(/^en/i.test(b.lang)-(/^en/i.test(a.lang)))||a.name.localeCompare(b.name));
+    SECS.forEach(s=>{
+      const sel=ov.querySelector("#vsVoice_"+s.key),rs=ov.querySelector("#vsRate_"+s.key),ps=ov.querySelector("#vsPitch_"+s.key),rv=ov.querySelector("#vsRate_"+s.key+"V"),pv=ov.querySelector("#vsPitch_"+s.key+"V");
+      const cfg=(function(){try{const c=__voiceCfg()[s.key]||{};return{voice:c.voice||"",rate:c.rate>0?c.rate:defaults[s.key].rate,pitch:c.pitch>0?c.pitch:defaults[s.key].pitch}}catch(e){return{voice:"",rate:defaults[s.key].rate,pitch:defaults[s.key].pitch}}})();
+      sel.innerHTML='<option value="">✨ Auto — best available voice</option>'+enFirst.map(v=>'<option value="'+v.name.replace(/"/g,"&quot;")+'"'+(v.name===cfg.voice?" selected":"")+">"+v.name+" · "+v.lang+(v.localService?"":" (online)")+"</option>").join("");
+      rs.value=cfg.rate;ps.value=cfg.pitch;rv.textContent=(+cfg.rate).toFixed(2)+"×";pv.textContent=(+cfg.pitch).toFixed(2);
+      const save=()=>{__saveVoiceCfg(s.key,{voice:sel.value,rate:parseFloat(rs.value)||defaults[s.key].rate,pitch:parseFloat(ps.value)||defaults[s.key].pitch});rv.textContent=(+rs.value).toFixed(2)+"×";pv.textContent=(+ps.value).toFixed(2)};
+      sel.onchange=save;rs.oninput=save;ps.oninput=save;
+      ov.querySelector("#vsTest_"+s.key).onclick=()=>{
+        save();
+        try{
+          synth.cancel();
+          const u=new SpeechSynthesisUtterance(s.line);
+          const v=sel.value?(voices.find(x=>x.name===sel.value)||null):__pickVoiceFor(false);
+          if(v){u.voice=v;u.lang=v.lang}
+          u.rate=Math.max(.5,Math.min(2,parseFloat(rs.value)||defaults[s.key].rate));
+          u.pitch=Math.max(.5,Math.min(2,parseFloat(ps.value)||defaults[s.key].pitch));
+          synth.speak(u);
+        }catch(e){}
+      };
+    });
+    ov.querySelector("#vsReset").onclick=()=>{try{localStorage.removeItem("aura_voice_cfg_v1")}catch(e){};close();pushSys("voices reset — Auto (best available) restored");openMenu()};
+  }
+  const vb=document.getElementById("voiceCfgBtn");
+  if(vb)vb.onclick=openMenu;
+  if(synth)synth.onvoiceschanged=function(){loadV();const m=document.getElementById("voiceMenu");if(m)openMenu()};
+})();
 /* ---------------- VISITOR GREETING v3 — two distinct greetings (Sourabh's design) ----------------
    FIRST VISIT: a real introduction — who AURA is, what she can do, spoken and written.
    RETURNING: a warm welcome-back with a memory recap — name, days since last visit,
