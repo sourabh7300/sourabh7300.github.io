@@ -5163,37 +5163,61 @@ if(navigator.getBattery)navigator.getBattery().then(b=>{
 
 /* ---------------- boot sequence ---------------- */
 const BOOT=persona()==="jarvis"?["> ZEUS OS v4.0 — initializing tactical core","> strategic matrix …………… <b class='ok'>OK</b>","> gold emitter ……………… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> ZEUS <b class='ok'>ONLINE</b> — owner protocol armed"]:["> AURA OS v3.2 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];
-/* ---------------- VISITOR GREETING v2 — every visitor is greeted aloud AND in writing ----------------
-   Replaces the old policy-gated boot whisper: AURA now introduces herself the moment the
-   deck loads — time-aware good morning/afternoon/evening, remembered name, ZEUS tactical
-   variant for the owner — spoken with a one-shot voice allowance and mirrored as an
-   in-tab notification when permission was already granted. ---------------- */
+/* ---------------- VISITOR GREETING v3 — two distinct greetings (Sourabh's design) ----------------
+   FIRST VISIT: a real introduction — who AURA is, what she can do, spoken and written.
+   RETURNING: a warm welcome-back with a memory recap — name, days since last visit,
+   how many facts are remembered (with one example), and the last thing you talked about.
+   ZEUS gets tactical variants of both. Still spoken with a one-shot voice allowance and
+   mirrored as an in-tab notification when permission was already granted. ---------------- */
+/* GREETING v3 START */
 function __onceAllowVoice(ms){
   /* one-shot voice window; the first real interaction re-arms the normal 45s policy */
   try{voiceSessionUntil=Math.max(voiceSessionUntil,Date.now()+ms)}catch(e){}
+}
+function __greetRecap(c){
+  c=c||{};
+  if(c.zeus){
+    return "Welcome back, sir — ZEUS tactical protocol re-armed."+(c.memCount?" Memory bank: "+c.memCount+" item"+(c.memCount===1?"":"s")+" on file.":"")+(c.topic?" Last objective: "+c.topic+".":"")+" Standing by for orders.";
+  }
+  let s="Welcome back"+(c.name?", "+c.name:"")+(typeof c.days==="number"?(c.days<=0?" — back the same day":c.days===1?" — it's been a day":" — it's been "+c.days+" days"):"")+".";
+  if(c.memCount)s+=" I still remember "+c.memCount+" thing"+(c.memCount===1?"":"s")+" you've told me"+(c.fact?" — including \u201c"+c.fact+"\u201d":"")+".";
+  if(c.topic)s+=" Last time we talked about "+c.topic+".";
+  if(!c.memCount&&!c.topic)s+=" The deck is warm and exactly as you left it.";
+  s+=" Pick up right where we left off?";
+  return s;
 }
 function visitorGreeting(){
   try{
     const P=PERSONAS[persona()];
     const h=new Date().getHours();
-    const gw=greetWord();
+    const zeus=persona()==="jarvis";
+    const part=h<12?"Good morning":h<17?"Good afternoon":h<21?"Good evening":"Working late";
     const nm=memGet().name||"";
     const mg=(function(){try{return window.AuraMind?AuraMind.greetingLine():""}catch(e){return""}})();
+    let first=false;try{first=!localStorage.getItem("aura_visited_v1")}catch(e){first=false}
     let msg;
-    if(persona()==="jarvis"){
-      const part=h<12?"Good morning":h<17?"Good afternoon":h<21?"Good evening":"Working late";
-      msg=part+", sir — ZEUS tactical protocol online. All systems armed and standing by. Objectives, questions or commands — I am ready for all three.";
+    if(first){
+      if(zeus)msg=part+", sir — ZEUS tactical protocol. First contact with this deck: all systems armed, memory bank online, and I do not forget. Objectives, questions or commands — I am ready for all three.";
+      else msg=part+" — I'm AURA, Sourabh's holographic AI, online and at your command. Hand-built in a single file: I research the live web with citations, remember what matters across visits, run your morning, and speak my mind. Ask me anything — speak, or just type below.";
+      try{localStorage.setItem("aura_visited_v1","1")}catch(e){}
     }else{
-      msg=gw+(nm?", "+nm:"")+" — I'm AURA, Sourabh's holographic AI, online and at your command. "+(mg?mg+" ":"")+"Ask me anything — speak, or just type below.";
+      const facts=(function(){try{return window.AuraMem?AuraMem.all():[]}catch(e){return[]}})();
+      const topic=(function(){try{const L=(JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).filter(function(r){return r.role==="user"});const lu=L.length?String(L[L.length-1].content||"").replace(/\s+/g," ").trim():"";return (typeof lastTopic!=="undefined"&&lastTopic)?String(lastTopic).slice(0,60):(lu?lu.slice(0,60):"")}catch(e){return""}})();
+      const days=(function(){try{const ls=+localStorage.getItem("aura_last_seen_v1")||0;return ls?Math.max(0,Math.round((Date.now()-ls)/86400000)):null}catch(e){return null}})();
+      msg=__greetRecap({zeus:zeus,name:nm,days:days,memCount:facts.length,fact:facts.length?String(facts[facts.length-1].text||"").slice(0,80):"",topic:topic});
+      if(mg&&!zeus)msg+=" "+mg;
     }
+    try{localStorage.setItem("aura_last_seen_v1",String(Date.now()))}catch(e){}
     const el=addMsg(msgTag(),"","aura");typewrite(el,msg);
-    try{if(window.Notification&&Notification.permission==="granted")new Notification(P.name+" — "+(persona()==="jarvis"?"tactical protocol standing by":"online and at your command"),{body:msg})}catch(e){}
+    setTimeout(function(){try{if(el&&el.parentNode&&el.textContent.length<msg.length)el.textContent=msg}catch(e){}},2500); /* throttled-tab safety flush */
+    try{if(window.Notification&&Notification.permission==="granted")new Notification(P.name+" — "+(zeus?"tactical protocol standing by":"online and at your command"),{body:msg})}catch(e){}
     __onceAllowVoice(20000);
     window.__greetedSpoken=true;
     speak(msg);
     return msg;
   }catch(e){return""}
 }
+/* GREETING v3 END */
 (function boot(){
   const el=$("bootLog");let i=0;
   (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
