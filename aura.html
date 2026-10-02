@@ -1110,7 +1110,7 @@ body[data-tab="code"] #camWrap,body[data-tab="chats"] #camWrap{display:none!impo
     <button id="sendBtn">▸</button>
   </div>
   <div class="iconrow">
-  <button class="ibtn" id="soundBtn">SOUND: ON</button>
+  <button class="ibtn" id="soundBtn">VOICE: ON</button>
   <button class="ibtn" id="langBtn">LANG: ENG</button>   <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or ZEUS (owner's tactical protocol)">MODE: AURA</button>
   <button class="ibtn" id="camBtn" title="Live camera vision — show me your world">📷 CAM</button>
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
@@ -1829,7 +1829,7 @@ async function speakNeural(t,gen,done){
   }
 }
 function speak(t){
-  if(!synth||!soundOn){return}
+  if(!synth||!soundOn||!canAutoSpeak()){return} /* VOICE MASTER SWITCH — OFF means nothing speaks, no exceptions */
   if(!voiceAllowed()){return}
   try{if(synth.paused)synth.resume()}catch(e){} /* silent by default — voice only after wake/tap */
   try{
@@ -1997,7 +1997,7 @@ window.AuraRemind=(function(){
           const t='⏰ REMINDER: '+r.label;
           if(typeof blip==='function'){blip(880,.35);setTimeout(()=>blip(1175,.35),450)}
           if(typeof addMsg==='function')addMsg(typeof msgTag==='function'?msgTag():'AURA ▸',t,'aura');
-          if(typeof canAutoSpeak==="function"&&canAutoSpeak()&&typeof voiceAllowed==="function"&&voiceAllowed()&&typeof speak==="function")speak('Reminder, boss: '+r.label); /* consent gate — reminders stay written without permission */
+          if(typeof canAutoSpeak==="function"&&canAutoSpeak()){try{__onceAllowVoice(15000)}catch(e){}if(typeof speak==="function")speak('Reminder, boss: '+r.label)} /* VOICE ON → reminders speak; OFF → written only */
           if('Notification' in window){
             if(Notification.permission==='granted'){try{new Notification('AURA · Reminder',{body:r.label})}catch(e){}}
             else if(Notification.permission!=='denied'){Notification.requestPermission().then(p=>{if(p==='granted'){try{new Notification('AURA · Reminder',{body:r.label})}catch(e){}}}).catch(()=>{})}
@@ -3564,7 +3564,7 @@ function morningDigest(){
     setTimeout(function(){try{
       addMsg(msgTag(),m,"aura");
       try{if(window.Notification&&Notification.permission==="granted")new Notification("AURA — Morning Brief",{body:m.replace(/^☀️ Good morning[^—]*— /,"")})}catch(e){}
-      if(!window.__greetedSpoken&&canAutoSpeak()&&voiceAllowed())speak(m.replace(/☀️ |[‘’]/g,"")); /* consent gate + greeting already spoke → digest stays written */
+      if(!window.__greetedSpoken&&canAutoSpeak()){try{__onceAllowVoice(20000)}catch(e){}speak(m.replace(/☀️ |[‘’]/g,""))} /* VOICE ON → spoken digest; greeting already spoke → stays written */
     }catch(e){}},2600);
   }catch(e){}
 }
@@ -5133,7 +5133,14 @@ document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>ask(c.textContent));
 if(matchMedia("(max-width:860px)").matches){
   document.querySelectorAll(".chip").forEach(c=>{const b=c.cloneNode(true);b.onclick=()=>ask(c.textContent);$("chipsMobile").appendChild(b)});
 }
-$("soundBtn").onclick=()=>{soundOn=!soundOn;$("soundBtn").textContent="SOUND: "+(soundOn?"ON":"OFF");if(!soundOn)stopSpeech();if(mode==="speaking")setMode("idle")};
+/* VOICE MASTER SWITCH — the one button that decides whether AURA and ZEUS speak */
+(function(){
+  const vb=$("soundBtn");if(!vb)return;
+  const paint=()=>{vb.textContent="VOICE: "+(soundOn?"ON":"OFF")};
+  try{if(localStorage.getItem("aura_voice_consent")==="denied")soundOn=false}catch(e){}
+  paint();
+  vb.onclick=()=>{setVoiceConsent(!soundOn);paint();};
+})();
 $("fsBtn").onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})};
 /* SET AI KEY opens the setup wizard (handler registered with the wizard below) */
 function updateEngTag(){
@@ -5175,25 +5182,21 @@ const BOOT=persona()==="jarvis"?["> ZEUS OS v4.0 — initializing tactical core"
    Unprompted speech (greetings, digests, proactive lines) requires EXPLICIT permission,
    asked once in chat: 🔊 ENABLE VOICE / 🔇 STAY SILENT. Without consent AURA is
    written-only. Direct answers after the user taps the mic keep the normal session policy. ---------------- */
-function canAutoSpeak(){try{return localStorage.getItem("aura_voice_consent")==="granted"}catch(e){return false}}
+/* ---------------- VOICE MASTER SWITCH — one button decides whether the personas speak ----------------
+   ON (default): AURA and ZEUS speak everything — greetings, answers, briefs, reminders.
+   OFF: total silence — speak() itself refuses to run, so nothing can bypass the switch.
+   State persists across reloads; 'enable voice' / 'disable voice' chat commands do the same thing. ---------------- */
+function canAutoSpeak(){try{return localStorage.getItem("aura_voice_consent")!=="denied"}catch(e){return true}}
 function setVoiceConsent(on){
   try{localStorage.setItem("aura_voice_consent",on?"granted":"denied")}catch(e){}
-  if(on){__onceAllowVoice(45000);speak("Voice enabled. I'll greet you aloud from now on — say disable voice anytime to go silent.")}
-  else{stopSpeech();try{pushSys("🔇 voice muted — I'll stay written-only until you say 'enable voice'")}catch(e){}
-    try{addMsg(msgTag(),"🔇 Voice off. Everything stays in writing — say 'enable voice' anytime to change your mind.","aura")}catch(e){}}
+  soundOn=!!on;
+  try{const vb=document.getElementById("soundBtn");if(vb)vb.textContent="VOICE: "+(on?"ON":"OFF")}catch(e){}
+  if(on){__onceAllowVoice(45000);speak("Voice on — we'll speak now.")}
+  else{stopSpeech();try{pushSys("🔇 VOICE OFF — AURA and ZEUS are muted everywhere")}catch(e){}
+    try{addMsg(msgTag(),"🔇 Voice off — total silence. Tap the button (or say 'enable voice') to bring us back.","aura")}catch(e){}}
 }
-function askVoicePermission(){
-  try{
-    if(localStorage.getItem("aura_voice_consent"))return; /* asked once — never nag */
-    localStorage.setItem("aura_voice_consent","asked");
-    const m=addMsg(msgTag(),"🔇 I've kept quiet in the background. Want me to speak greetings and briefs aloud? (Answers to your own questions always respect the mic/tap policy.)","aura");
-    const row=document.createElement("div");row.style.cssText="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap";
-    const yes=document.createElement("button");yes.className="cbtn";yes.textContent="🔊 ENABLE VOICE";
-    const no=document.createElement("button");no.className="cbtn";no.textContent="🔇 STAY SILENT";
-    yes.onclick=function(){try{row.remove()}catch(e){}setVoiceConsent(true)};
-    no.onclick=function(){try{row.remove()}catch(e){}setVoiceConsent(false)};
-    row.appendChild(yes);row.appendChild(no);m.appendChild(row);
-  }catch(e){}
+function askVoicePermission(){ /* retired — replaced by the VOICE master switch button */
+  setVoiceConsent(true);
 }
 /* ---------------- VOICE PER PERSONA — AURA female-leaning, ZEUS male-leaning ----------------
 /* VOICE-START */
@@ -5257,8 +5260,8 @@ function visitorGreeting(){
     setTimeout(function(){try{if(el&&el.parentNode&&el.textContent.length<msg.length)el.textContent=msg}catch(e){}},2500); /* throttled-tab safety flush */
     try{if(window.Notification&&Notification.permission==="granted")new Notification(P.name+" — "+(zeus?"tactical protocol standing by":"online and at your command"),{body:msg})}catch(e){}
     window.__greetedSpoken=true;
-    if(canAutoSpeak())speak(msg); /* consent gate: silent unless permission was granted */
-    else askVoicePermission();
+    __onceAllowVoice(20000);
+    if(canAutoSpeak())speak(msg); /* the VOICE master switch decides — OFF means written-only */
     return msg;
   }catch(e){return""}
 }
