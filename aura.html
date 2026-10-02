@@ -1797,7 +1797,9 @@ function tpVoice(){
 window.__tpDebug=function(){return JSON.stringify({keys:TP.keyTimes.length,pmas:TP.pmas.length,sends:TP.sends,pace:tpPace(),cls:tpClass(tpPace()),voice:tpVoice(),mode:TP.mode})};
 /* VOICE POLICY: AURA is SILENT unless (a) wake mode is ON, or (b) you tapped the mic / said 'Hey Aura' in the last 45s.
    speak() refuses to run otherwise — no boot chatter, no background voices, ever. */
-function voiceAllowed(){return wake===true||Date.now()<voiceSessionUntil}
+function voiceAllowed(){ /* VOICE MASTER SWITCH — every "write AND speak" reply path asks this one gate:
+   ON → answers are written and spoken; OFF → written only. No session windows, no silent answers. */
+  try{return canAutoSpeak()}catch(e){return true}}
 function stopSpeech(){speakGen++;ttsActive=false;try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
 let __neuralVoice=(localStorage.getItem("aura_neural")||"auto")==="on";
 async function speakNeural(t,gen,done){
@@ -1829,8 +1831,9 @@ async function speakNeural(t,gen,done){
   }
 }
 function speak(t){
-  if(!synth||!soundOn||!canAutoSpeak()){return} /* VOICE MASTER SWITCH — OFF means nothing speaks, no exceptions */
-  if(!voiceAllowed()){return}
+  /* VOICE MASTER SWITCH governs everything: ON → every answer is written AND spoken;
+     OFF → written only. No session windows, no missed answers — the button decides. */
+  if(!synth||!soundOn||!canAutoSpeak()){return}
   try{if(synth.paused)synth.resume()}catch(e){} /* silent by default — voice only after wake/tap */
   try{
     const gen=++speakGen; /* any new speak() kills every older chain — no ghost speech */
