@@ -1862,7 +1862,7 @@ function speak(t){
 }
 function __speakDeviceChain(parts,gen,P,hi){
   let i=0;const keep=[];
-  const pickVoice=()=>hi?(voices.find(v=>/hi-IN|^hi/i.test(v.lang))||voices.find(v=>/^hi/i.test(v.name))||null):(voices.find(v=>/en-GB|Daniel|Google UK/.test(v.lang+v.name))||voices.find(v=>/^en/.test(v.lang)));
+  const pickVoice=()=>__pickVoiceFor(hi);
   const next=()=>{
     if(gen!==speakGen)return; /* stale onend from a cancelled utterance → ignore, never resurrect */
     if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}return}
@@ -1997,7 +1997,7 @@ window.AuraRemind=(function(){
           const t='⏰ REMINDER: '+r.label;
           if(typeof blip==='function'){blip(880,.35);setTimeout(()=>blip(1175,.35),450)}
           if(typeof addMsg==='function')addMsg(typeof msgTag==='function'?msgTag():'AURA ▸',t,'aura');
-          if(typeof voiceAllowed==='function'&&voiceAllowed()&&typeof speak==='function')speak('Reminder, boss: '+r.label);
+          if(typeof canAutoSpeak==="function"&&canAutoSpeak()&&typeof voiceAllowed==="function"&&voiceAllowed()&&typeof speak==="function")speak('Reminder, boss: '+r.label); /* consent gate — reminders stay written without permission */
           if('Notification' in window){
             if(Notification.permission==='granted'){try{new Notification('AURA · Reminder',{body:r.label})}catch(e){}}
             else if(Notification.permission!=='denied'){Notification.requestPermission().then(p=>{if(p==='granted'){try{new Notification('AURA · Reminder',{body:r.label})}catch(e){}}}).catch(()=>{})}
@@ -3564,7 +3564,7 @@ function morningDigest(){
     setTimeout(function(){try{
       addMsg(msgTag(),m,"aura");
       try{if(window.Notification&&Notification.permission==="granted")new Notification("AURA — Morning Brief",{body:m.replace(/^☀️ Good morning[^—]*— /,"")})}catch(e){}
-      if(!window.__greetedSpoken&&voiceAllowed())speak(m.replace(/☀️ |[‘’]/g,"")); /* greeting already introduced the voice — digest stays written */
+      if(!window.__greetedSpoken&&canAutoSpeak()&&voiceAllowed())speak(m.replace(/☀️ |[‘’]/g,"")); /* consent gate + greeting already spoke → digest stays written */
     }catch(e){}},2600);
   }catch(e){}
 }
@@ -4524,6 +4524,14 @@ async function askCore(text0){
       if(voiceAllowed())speak(res?"Topics updated.":"Try again.");
       setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
     }
+    if(/^enable voice$|^turn on (your )?voice$|^unmute$|^speak up$/.test(lqm2)){
+      addMsg("YOU ▸",text,"user");setVoiceConsent(true);
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^disable voice$|^mute$|^be quiet$|^stop talking$|^no voice$/.test(lqm2)){
+      addMsg("YOU ▸",text,"user");setVoiceConsent(false);
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
     if(/^(my |brief )?topics$|^show topics$/.test(lqm2)){
       const tp=briefTopicsLoad();
       addMsg("YOU ▸",text,"user");addMsg(msgTag(),tp.length?"📰 Your brief topics: "+tp.join(", ")+".\nAdd more: 'add topics cricket and crypto' · Remove: 'remove topics cricket'.":"No personal topics yet — say 'add topics cricket and crypto' and every daily pull leads with them.","aura");
@@ -5163,6 +5171,43 @@ if(navigator.getBattery)navigator.getBattery().then(b=>{
 
 /* ---------------- boot sequence ---------------- */
 const BOOT=persona()==="jarvis"?["> ZEUS OS v4.0 — initializing tactical core","> strategic matrix …………… <b class='ok'>OK</b>","> gold emitter ……………… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> ZEUS <b class='ok'>ONLINE</b> — owner protocol armed"]:["> AURA OS v3.2 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];
+/* ---------------- VOICE CONSENT GATE — nothing speaks in the background, ever ----------------
+   Unprompted speech (greetings, digests, proactive lines) requires EXPLICIT permission,
+   asked once in chat: 🔊 ENABLE VOICE / 🔇 STAY SILENT. Without consent AURA is
+   written-only. Direct answers after the user taps the mic keep the normal session policy. ---------------- */
+function canAutoSpeak(){try{return localStorage.getItem("aura_voice_consent")==="granted"}catch(e){return false}}
+function setVoiceConsent(on){
+  try{localStorage.setItem("aura_voice_consent",on?"granted":"denied")}catch(e){}
+  if(on){__onceAllowVoice(45000);speak("Voice enabled. I'll greet you aloud from now on — say disable voice anytime to go silent.")}
+  else{stopSpeech();try{pushSys("🔇 voice muted — I'll stay written-only until you say 'enable voice'")}catch(e){}
+    try{addMsg(msgTag(),"🔇 Voice off. Everything stays in writing — say 'enable voice' anytime to change your mind.","aura")}catch(e){}}
+}
+function askVoicePermission(){
+  try{
+    if(localStorage.getItem("aura_voice_consent"))return; /* asked once — never nag */
+    localStorage.setItem("aura_voice_consent","asked");
+    const m=addMsg(msgTag(),"🔇 I've kept quiet in the background. Want me to speak greetings and briefs aloud? (Answers to your own questions always respect the mic/tap policy.)","aura");
+    const row=document.createElement("div");row.style.cssText="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap";
+    const yes=document.createElement("button");yes.className="cbtn";yes.textContent="🔊 ENABLE VOICE";
+    const no=document.createElement("button");no.className="cbtn";no.textContent="🔇 STAY SILENT";
+    yes.onclick=function(){try{row.remove()}catch(e){}setVoiceConsent(true)};
+    no.onclick=function(){try{row.remove()}catch(e){}setVoiceConsent(false)};
+    row.appendChild(yes);row.appendChild(no);m.appendChild(row);
+  }catch(e){}
+}
+/* ---------------- VOICE PER PERSONA — AURA female-leaning, ZEUS male-leaning ----------------
+/* VOICE-START */
+function __pickVoiceFor(hi){
+  if(hi)return voices.find(v=>/hi-IN|^hi/i.test(v.lang))||voices.find(v=>/^hi/i.test(v.name))||null;
+  const en=voices.filter(v=>/^en/i.test(v.lang));
+  const zeus=(function(){try{return persona()==="jarvis"}catch(e){return false}})();
+  const fem=/\bfemale\b|samantha|zira|karen|serena|tessa|fiona|moira|victoria|aria|jenny|sonia|libby|maisie|neerja|heera/i;
+  const masc=/\bmale\b|\bdaniel\b|\bdavid\b|\balex\b|\bfred\b|\bgeorge\b|\bryan\b|\bguy\b|\barthur\b|\boliver\b|\bbrian\b|\bjames\b|\brishi\b/i;
+  const pref=zeus?masc:fem;
+  return en.find(v=>pref.test(v.name))||en.find(v=>/en-GB/.test(v.lang))||en[0]||null;
+}
+try{window.__pickVoiceFor=__pickVoiceFor}catch(e){}
+/* VOICE-END */
 /* ---------------- VISITOR GREETING v3 — two distinct greetings (Sourabh's design) ----------------
    FIRST VISIT: a real introduction — who AURA is, what she can do, spoken and written.
    RETURNING: a warm welcome-back with a memory recap — name, days since last visit,
@@ -5211,9 +5256,9 @@ function visitorGreeting(){
     const el=addMsg(msgTag(),"","aura");typewrite(el,msg);
     setTimeout(function(){try{if(el&&el.parentNode&&el.textContent.length<msg.length)el.textContent=msg}catch(e){}},2500); /* throttled-tab safety flush */
     try{if(window.Notification&&Notification.permission==="granted")new Notification(P.name+" — "+(zeus?"tactical protocol standing by":"online and at your command"),{body:msg})}catch(e){}
-    __onceAllowVoice(20000);
     window.__greetedSpoken=true;
-    speak(msg);
+    if(canAutoSpeak())speak(msg); /* consent gate: silent unless permission was granted */
+    else askVoicePermission();
     return msg;
   }catch(e){return""}
 }
