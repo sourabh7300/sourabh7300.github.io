@@ -1158,7 +1158,7 @@ const STATES={
   alert:    {label:"UPLINK ERROR — OFFLINE MODE", rot:.004, pulse:.4, ring:1},
 };
 let mode="idle",modeT=0;
-function setMode(m){mode=m;modeT=0;$("stateText").textContent=STATES[m].label;}
+function setMode(m){mode=m;modeT=0;$("stateText").textContent=STATES[m].label;try{const hw=document.getElementById("hudWord");if(hw){const P=window.PERSONAS;const nm=(P&&P[(function(){try{return localStorage.getItem("aura_persona")}catch(e){return null}})()]||{name:"AURA"}).name.toUpperCase();const map={idle:" "+nm+" ONLINE",listening:"LISTENING…",thinking:"PROCESSING…",speaking:"RESPONDING…"};hw.textContent=map[m]||map.idle;hw.style.opacity=m==="idle"?"":"1";}}catch(e){}}
 
 /* ---------------- 3D particle core ---------------- */
 const cv=$("fx"),cx=cv.getContext("2d");
@@ -1196,6 +1196,7 @@ function setHue(name){
   const h=map[name];if(h===undefined)return false;
   /* PERF: cyan is the native palette — no compositor filter. Other hues keep the filter
      but the FPS governor drops to 30 so the full-screen re-filter cost is halved. */
+  try{document.body.classList.toggle("zeus-fire",h!==187)}catch(e){}
   if(h===187){fx.style.filter="none";window.__hueHeavy=false;return true;}
   fx.style.filter="hue-rotate("+Math.round(h-187)+"deg)";window.__hueHeavy=true;return true;
 }
@@ -1336,6 +1337,21 @@ function drawCore(dt){
       cx.beginPath();cx.arc(gp*R,0,gr,0,7);cx.fill();
     }
   }
+  /* HOLOGRAM v4 — ZEUS fire core: X-cross flare + rising embers (video hf06-09 look).
+     Drawn in NATIVE cyan — the persona hue-rotate filter turns it gold/orange on screen. */
+  if(document.body.classList.contains("zeus-fire")){
+    const fl=Math.min(1,amp+.22);
+    cx.save();cx.rotate(Math.PI/4);
+    cx.fillStyle=`rgba(140,238,255,${.13*fl})`;
+    cx.fillRect(-R*1.28,-R*.16,R*2.56,R*.32);cx.fillRect(-R*.16,-R*1.28,R*.32,R*2.56);
+    cx.restore();
+    for(let k=0;k<14;k++){ /* embers drift up like sparks off the sun */
+      const ea=(k*2.39+heart*.7)%6.283,er=(.2+((k*.137+heart*.11)%1))*R*1.05;
+      const ex=Math.cos(ea)*er,ey=Math.sin(ea)*er-R*.15;
+      cx.fillStyle=`rgba(210,250,255,${.5*(1-er/(R*1.05))})`;
+      cx.beginPath();cx.arc(ex,ey,1+((k*7)%3),0,7);cx.fill();
+    }
+  }
   cx.restore();
 }
 
@@ -1388,6 +1404,39 @@ window.setPerfMode=function(m){
 requestAnimationFrame(frame);
 
 /* ---------------- audio blips ---------------- */
+/* HOLOGRAM v4 — HUD telemetry panels (video-style, left+right of the core) + big status word */
+(function(){
+  try{
+    const st=document.createElement("style");
+    st.textContent="#hudL,#hudR{position:fixed;top:15%;z-index:1;width:158px;pointer-events:none;font-family:var(--mono,monospace);font-size:9px;letter-spacing:1.2px;color:rgba(125,211,252,.75);text-shadow:0 0 8px rgba(34,211,238,.35)}#hudL{left:calc(50% - 460px)}#hudR{right:calc(50% - 460px);text-align:right}#hudL .hd,#hudR .hd{font-weight:700;color:rgba(165,243,252,.9);border-bottom:1px solid rgba(34,211,238,.25);padding-bottom:3px;margin-bottom:5px}#hudL .rw,#hudR .rw{display:flex;justify-content:space-between;gap:8px;padding:2px 0}#hudR .rw{flex-direction:row-reverse}#hudL .rw b,#hudR .rw b{color:#e0f2fe;font-weight:600}@media(max-width:980px){#hudL,#hudR{display:none}}#hudWord{position:fixed;top:24%;left:50%;transform:translateX(-50%);z-index:1;pointer-events:none;font-family:var(--mono,monospace);font-weight:800;font-size:clamp(22px,4vw,44px);letter-spacing:.34em;color:rgba(186,230,253,.10);text-shadow:0 0 18px rgba(34,211,238,.12);white-space:nowrap}@media(max-width:980px){#hudWord{top:20%}}";
+    document.head.appendChild(st);
+    const L=document.createElement("div");L.id="hudL";L.innerHTML='<div class="hd">◈ NEURAL CORE</div>'+
+      ['CORE TEMP','UPLINK','MEM BANK','VOICE','LATENCY','MODE'].map(k=>'<div class="rw"><span>'+k+'</span><b id="hvl_'+k+'">—</b></div>').join("");
+    const R=document.createElement("div");R.id="hudR";R.innerHTML='<div class="hd">UPLINK TELEMETRY ◈</div>'+
+      ['SESSION','RENDER','BATTERY','NET','PERSONA','BUILD'].map(k=>'<div class="rw"><span>'+k+'</span><b id="hvr_'+k+'">—</b></div>').join("");
+    const W=document.createElement("div");W.id="hudWord";W.textContent="AURA ONLINE";
+    document.body.appendChild(L);document.body.appendChild(R);document.body.appendChild(W);
+    window.__hudWord=function(w){try{document.getElementById("hudWord").textContent=w||""}catch(e){}};
+    function tick(){
+      try{
+        const set=(id,v)=>{const e=document.getElementById(id);if(e&&e.textContent!==v)e.textContent=v};
+        set("hvl_CORE TEMP",(38+Math.round(Math.sin(Date.now()/9000)*4+((fpsVal||0)%3)))+"°C");
+        set("hvl_UPLINK",navigator.onLine?"ONLINE":"OFFLINE");
+        set("hvl_MEM BANK",(function(){try{return (JSON.parse(localStorage.getItem("aura_mem_v1")||"[]").length)+" FACS"}catch(e){return"0 FACS"}})());
+        set("hvl_VOICE",(function(){try{return localStorage.getItem("aura_voice_consent")==="denied"?"MUTED":"ACTIVE"}catch(e){return"ACTIVE"}})());
+        set("hvl_LATENCY",(60+Math.round(Math.random()*40))+"ms");
+        set("hvl_MODE",(typeof mode!=="undefined"?String(mode):"idle").toUpperCase());
+        set("hvr_SESSION",(function(){try{return (sessionStorage.getItem("aura_qcount")||"1")+" QRY"}catch(e){return"1 QRY"}})());
+        set("hvr_RENDER",(fpsVal||0)+" FPS");
+        set("hvr_NET",navigator.onLine?(navigator.connection&&navigator.connection.effectiveType?navigator.connection.effectiveType.toUpperCase():"OK"):"DOWN");
+        set("hvr_PERSONA",(function(){try{return (localStorage.getItem("aura_persona")==="jarvis"?"ZEUS":"AURA")}catch(e){return"AURA"}})());
+        set("hvr_BUILD","3.0");
+        if(navigator.getBattery){navigator.getBattery().then(function(b){set("hvr_BATTERY",Math.round(b.level*100)+"%"+(b.charging?" ⚡":""))}).catch(function(){set("hvr_BATTERY","AC")})}else set("hvr_BATTERY","AC");
+      }catch(e){}
+    }
+    setInterval(tick,2000);tick();
+  }catch(e){}
+})();
 let soundOn=true,AC=null;
 function blip(f,dur,type){if(!soundOn)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended"){AC.resume().catch(()=>{});}
   const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;
