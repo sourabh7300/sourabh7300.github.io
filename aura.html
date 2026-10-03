@@ -1178,6 +1178,15 @@ for(let i=0;i<N;i++){
   const y=1-2*(i+.5)/N,r=Math.sqrt(1-y*y),phi=i*2.399963229728653;
   pts.push({x:Math.cos(phi)*r,y,z:Math.sin(phi)*r});
 }
+/* HOLOGRAM v3 — static starfield behind the core (video-style deep space) */
+const STARS=[];for(let i=0;i<(__LOWEND?40:95);i++)STARS.push({x:Math.random(),y:Math.random()*.92,r:Math.random()*1.3+.3,tw:Math.random()*6.28,ts:.5+Math.random()*1.5});
+function drawStars(t){
+  for(const st of STARS){
+    const a=.12+.3*(0.5+0.5*Math.sin(t*st.ts+st.tw));
+    cx.fillStyle=`rgba(170,220,255,${a})`;
+    cx.fillRect(st.x*W,st.y*H,st.r,st.r);
+  }
+}
 let rot=0,wavePhase=0,amp=0,ampTarget=0,heart=0;
 let spinBoost=0,spinTarget=0;
 function setHue(name){
@@ -1302,6 +1311,14 @@ function drawCore(dt){
       a?cx.lineTo(x,y):cx.moveTo(x,y);
     }
     cx.closePath();cx.stroke();
+    /* HOLOGRAM v3 — energy waves pulsing outward while speaking */
+    if(amp>.05){
+      for(let k=0;k<3;k++){
+        const p=((heart*.45+k/3)%1);
+        cx.strokeStyle=`rgba(103,232,249,${.32*(1-p)*amp})`;cx.lineWidth=1.5;
+        cx.beginPath();cx.arc(0,0,R*(1.05+p*.75),0,7);cx.stroke();
+      }
+    }
   }
   // center nucleus — HOLOGRAM v2: halo + hot core (video-style bright eye)
   const nl=.5+.5*Math.sin(heart*1.3);
@@ -1310,6 +1327,15 @@ function drawCore(dt){
   cx.fillStyle=ng;cx.beginPath();cx.arc(0,0,30+nl*12,0,7);cx.fill();
   cx.fillStyle=`rgba(225,252,255,${.7+.25*nl})`;
   cx.beginPath();cx.arc(0,0,5+nl*2.6,0,7);cx.fill();
+  /* HOLOGRAM v3 — anamorphic lens flare: streak + ghost points along the axis */
+  if((window.__perfMode||"")!=="saver"){
+    cx.fillStyle=`rgba(103,232,249,${.05+.04*nl})`;cx.fillRect(-R*1.9,-1,R*3.8,2);
+    const ghosts=[[.38,2.2,.10],[.62,1.4,.08],[.85,3,.12],[-.45,1.8,.07],[-.72,2.6,.09]];
+    for(const[gp,gr,ga]of ghosts){
+      cx.fillStyle=`rgba(140,235,255,${ga*(0.6+0.4*nl)})`;
+      cx.beginPath();cx.arc(gp*R,0,gr,0,7);cx.fill();
+    }
+  }
   cx.restore();
 }
 
@@ -1320,6 +1346,16 @@ function drawScan(t){
   g.addColorStop(0,"rgba(103,232,249,0)");g.addColorStop(.5,"rgba(103,232,249,.10)");g.addColorStop(1,"rgba(103,232,249,0)");
   cx.fillStyle=g;cx.fillRect(0,cy2-H*.09,W,H*.18);
   cx.fillStyle="rgba(160,240,255,.22)";cx.fillRect(0,cy2,W,1.4);
+}
+
+/* HOLOGRAM v3 — depth fog: bottom-up ambience + horizon haze (video look) */
+function drawFog(){
+  const fg=cx.createLinearGradient(0,H*.45,0,H);
+  fg.addColorStop(0,"rgba(4,12,24,0)");fg.addColorStop(1,"rgba(4,12,24,.42)");
+  cx.fillStyle=fg;cx.fillRect(0,H*.45,W,H*.55);
+  const hz=cx.createLinearGradient(0,H*.28,0,H*.46);
+  hz.addColorStop(0,"rgba(34,211,238,0)");hz.addColorStop(.5,"rgba(34,211,238,.045)");hz.addColorStop(1,"rgba(34,211,238,0)");
+  cx.fillStyle=hz;cx.fillRect(0,H*.28,W,H*.18);
 }
 
 /* ---------------- render loop ---------------- */
@@ -1333,8 +1369,10 @@ function frame(now){
   const dt=clamp((now-last)/1000,0,.05);last=now;modeT+=dt;
   fpsN++;if(now-fpsT>1000){fpsVal=fpsN;fpsN=0;fpsT=now;}
   cx.clearRect(0,0,W,H);
+  drawStars(now/1000);
   drawGrid(now/1000);
   drawRings(now/1000,STATES[mode]);
+  drawFog();
   drawCore(dt);
   drawScan(now/1000);
   if(mode==="thinking"&&modeT>40&&!window.__researching&&!window.__thinking){setMode("idle");pushSys("uplink timeout — answering locally");}
