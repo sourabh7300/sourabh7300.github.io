@@ -356,8 +356,9 @@ app.use((req, res, next) => {
 const hits = new Map();
 app.use((req, res, next) => {
   const now = Date.now();
-  const k = req.__uid || req.ip || "anon";
-  const limit = req.__uid ? parseInt(process.env.USER_RATE_LIMIT || "60", 10) : parseInt(process.env.RATE_LIMIT || "30", 10);
+  const k = (req.__uid || req.ip || "anon") + (/^\/v1\/mesh\//.test(req.path) ? ":mesh" : "");
+  const isMeshRelay = /^\/v1\/mesh\//.test(req.path); /* nodes heartbeat every ~2.5s, ZEUS panel refreshes every 4s — normal limits would strangle the mesh */
+  const limit = isMeshRelay ? 600 : (req.__uid ? parseInt(process.env.USER_RATE_LIMIT || "60", 10) : parseInt(process.env.RATE_LIMIT || "30", 10));
   const rec = hits.get(k) || { n: 0, win: now };
   if (now - rec.win > 60_000) { rec.n = 0; rec.win = now; }
   rec.n++;
@@ -892,6 +893,120 @@ app.post("/v1/dev/revert", async (req, res) => {
 app.get("/v1/ping", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.json({ ok: true, pong: Date.now() });
+});
+
+/* ================= ZEUS MESH — video-style multi-device control (Sourabh's design) =================
+   ZEUS (maker) owns a mesh code; phone nodes join with it. Relay only: in-memory queues,
+   no persistence, entries expire in 90s. Node polls /poll for commands, ZEUS pushes
+   commands and collects results. Unauthorized nodes with a WRONG code see an empty mesh. */
+const meshDevices = new Map(); /* code → Map(nodeId → {name,battery,charging,net,ts}) */
+const meshCmds = new Map();    /* code|nodeId → [ {id,cmd,arg,ts} ] */
+const meshResults = new Map(); /* code → [ {nodeId,name,cmd,ok,detail,ts} ] */
+const meshSeen = new Map();    /* code|nodeId → last cmd id seen (ack) */
+const meshOwners = new Map();  /* code → maker uid (who claimed this mesh) */
+let meshSeq = 0;               /* monotonic command id — numeric, so ack ordering never drops a cmd */
+const MESH_TTL = 90_000;
+function meshSweep() {
+  const now = Date.now();
+  for (const [code, devs] of meshDevices) {
+    for (const [id, d] of devs) if (now - d.ts > MESH_TTL) devs.delete(id);
+    /* owner-wala mesh kabhi auto-marega nahi — maker PC pe code banake phone uthata
+       hai, usme minutes lag sakte hain. Sirf orphan (owner-less) meshes hi gayab hote hain. */
+    if (!devs.size && !meshOwners.has(code)) { meshDevices.delete(code); meshResults.delete(code); }
+  }
+  for (const [k, arr] of meshCmds) { const na = arr.filter(c => now - c.ts < MESH_TTL); if (na.length) meshCmds.set(k, na); else meshCmds.delete(k); }
+  for (const [k, v] of meshSeen) { /* noop — refreshed on write */ if (now - v.ts > MESH_TTL * 2) meshSeen.delete(k); }
+}
+setInterval(meshSweep, 30_000).unref();
+function meshGuard(req, res) {
+  if (!REQUIRE_SECRET) return true;
+  if (req.headers["x-aura-key"] !== SECRET) { res.status(401).json({ error: "Missing or wrong X-AURA-Key." }); return false; }
+  return true;
+}
+/* ZEUS (maker) creates/claims a mesh code — reuse an existing one per uid */
+app.post("/v1/mesh/register", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!meshGuard(req, res)) return;
+  const u = await verifyUser(req);
+  if (!u || u.role !== "maker") return res.status(403).json({ error: "ZEUS mesh is reserved for the maker's account." });
+  let code = null;
+  for (const [c, owner] of meshOwners) { if (owner === u.uid && meshDevices.has(c)) { code = c; break; } }
+  if (!code) { code = String(Math.floor(100000 + Math.random() * 900000)); meshDevices.set(code, new Map()); meshOwners.set(code, u.uid); }
+  res.json({ ok: true, code });
+});
+/* phone node joins with the code */
+app.post("/v1/mesh/join", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!meshGuard(req, res)) return;
+  const { code, nodeId, name } = req.body || {};
+  if (!code || !/^\d{6}$/.test(String(code)) || !nodeId) return res.status(400).json({ error: "code (6 digits) and nodeId required" });
+  const devs = meshDevices.get(String(code));
+  if (!devs) return res.status(404).json({ error: "No mesh found for that code." });
+  devs.set(String(nodeId), { name: String(name || "Node").slice(0, 28), battery: null, charging: false, net: "", owner: null, ts: Date.now() });
+  res.json({ ok: true });
+});
+/* node heartbeat + battery/net + polls for queued commands */
+app.post("/v1/mesh/poll", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!meshGuard(req, res)) return;
+  const { code, nodeId, battery, charging, net } = req.body || {};
+  const devs = meshDevices.get(String(code));
+  if (!devs || !devs.has(String(nodeId))) return res.status(404).json({ error: "not in mesh — rejoin" });
+  const d = devs.get(String(nodeId));
+  d.ts = Date.now();
+  if (typeof battery === "number") d.battery = battery;
+  if (charging !== undefined) d.charging = !!charging; if (typeof net === "string") d.net = net.slice(0, 12);
+  const key = String(code) + "|" + String(nodeId);
+  const q = (meshCmds.get(key) || []).filter(c => { const s = meshSeen.get(key); return !s || c.id > s.id; });
+  if (q.length) meshSeen.set(key, { id: q[q.length - 1].id, ts: Date.now() });
+  res.json({ ok: true, cmds: q });
+});
+/* ZEUS pushes a command to one node or all */
+app.post("/v1/mesh/command", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!meshGuard(req, res)) return;
+  const u = await verifyUser(req);
+  if (!u || u.role !== "maker") return res.status(403).json({ error: "ZEUS mesh is reserved for the maker's account." });
+  const { code, nodeId, cmd, arg } = req.body || {};
+  const devs = meshDevices.get(String(code));
+  if (!devs || !devs.size) return res.status(404).json({ error: "No live nodes in mesh." });
+  const targets = (nodeId && nodeId !== "all") ? [String(nodeId)] : [...devs.keys()];
+  const key0 = String(code);
+  let queued = 0;
+  for (const t of targets) {
+    const key = key0 + "|" + t;
+    const arr = meshCmds.get(key) || [];
+    arr.push({ id: ++meshSeq, cmd: String(cmd || "").slice(0, 24), arg: String(arg || "").slice(0, 300), ts: Date.now() });
+    meshCmds.set(key, arr); queued++;
+  }
+  res.json({ ok: true, queued, targets: targets.length });
+});
+/* nodes post results; ZEUS reads them (and clears) */
+app.post("/v1/mesh/result", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!meshGuard(req, res)) return;
+  const { code, nodeId, name, cmd, ok, detail } = req.body || {};
+  const devs = meshDevices.get(String(code));
+  if (!devs) return res.status(404).json({ error: "No mesh found for that code." });
+  const arr = meshResults.get(String(code)) || [];
+  arr.push({ nodeId: String(nodeId || "?"), name: String(name || "Node").slice(0, 28), cmd: String(cmd || "").slice(0, 24), ok: !!ok, detail: String(detail || "").slice(0, 220), ts: Date.now() });
+  meshResults.set(String(code), arr.slice(-40));
+  res.json({ ok: true });
+});
+/* ZEUS reads the mesh: devices + pending results */
+app.get("/v1/mesh/devices", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!meshGuard(req, res)) return;
+  const u = await verifyUser(req);
+  if (!u || u.role !== "maker") return res.status(403).json({ error: "ZEUS mesh is reserved for the maker's account." });
+  const code = String((req.query.code || "")).trim();
+  const devs = meshDevices.get(code);
+  if (!devs) return res.json({ ok: true, devices: [], results: [] });
+  const now = Date.now();
+  const devices = [...devs.entries()].filter(([, d]) => now - d.ts < MESH_TTL).map(([id, d]) => ({ id, name: d.name, battery: d.battery, charging: d.charging, net: d.net, fresh: now - d.ts < 35_000 }));
+  const results = meshResults.get(code) || [];
+  meshResults.set(code, []);
+  res.json({ ok: true, devices, results });
 });
 
 /* optional shared-secret gate */

@@ -1110,7 +1110,7 @@ body[data-tab="code"] #camWrap,body[data-tab="chats"] #camWrap{display:none!impo
     <button id="sendBtn">▸</button>
   </div>
   <div class="iconrow">
-  <button class="ibtn" id="soundBtn">VOICE: ON</button>
+  <button class="ibtn" id="soundBtn" style="position: relative; top: 0; left: 0; margin: 0; display: inline-block;">VOICE: ON</button>
   <button class="ibtn" id="voiceCfgBtn" title="Voice Studio — pick voices, tune speed & pitch for AURA and ZEUS">🎛 VOICE SET</button>
   <button class="ibtn" id="langBtn">LANG: ENG</button>   <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or ZEUS (owner's tactical protocol)">MODE: AURA</button>
   <button class="ibtn" id="camBtn" title="Live camera vision — show me your world">📷 CAM</button>
@@ -5311,6 +5311,154 @@ if(navigator.getBattery)navigator.getBattery().then(b=>{
   const f=()=>{$("tBat").textContent=Math.round(b.level*100)+"%"+(b.charging?" ⚡":"");try{__battLow=b.level<.2&&!b.charging}catch(e){}};
   f();b.addEventListener("levelchange",f);b.addEventListener("chargingchange",f);
 });else $("tBat").textContent="AC LINK";
+
+/* ================= ZEUS MESH — video-style multi-device control (Sourabh's design) =================
+   ZEUS (owner) generates a 6-digit mesh code; any phone opens this same file with #node=<code>
+   to join as a NODE. ZEUS sees devices + battery, pushes commands (speak/vibrate/flash/
+   location/battery/open/show/ping), nodes execute and report back. Relay = Render backend,
+   maker-gated on the control side; nodes are passive receivers. */
+function __meshBackend(){return (localStorage.getItem("aura_backend_url")||AURA_DEFAULT_BACKEND).trim().replace(/\/+$/,"")}
+async function __meshFetch(path,body,method){
+  const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
+  const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
+  try{ /* AuraAuth is a later const — touching it before init throws TDZ; guard everything */
+    if(typeof AuraAuth!=="undefined"&&AuraAuth&&AuraAuth.isAdmin&&AuraAuth.isAdmin()){
+      const t=await __freshTok();if(t)headers["Authorization"]="Bearer "+t;
+    }
+  }catch(e){} /* node devices are signed out — no token, no problem */
+  const r=await fetch(__meshBackend()+path,{method:method||"POST",headers,body:method==="GET"?undefined:JSON.stringify(body||{}),signal:AbortSignal.timeout(45000)});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.error||"HTTP "+r.status);
+  return j;
+}
+function __meshNodeId(){
+  try{let id=localStorage.getItem("aura_mesh_node_id");if(!id){id="node-"+Math.random().toString(36).slice(2,9);localStorage.setItem("aura_mesh_node_id",id)}return id}catch(e){return "node-anon"}
+}
+/* ---------- NODE mode (#node=<code>) — the phone side, runs anywhere ---------- */
+(function(){
+  try{
+    const m=location.hash.match(/#node=(\d{6})/);if(!m)return;
+    const code=m[1];
+    const boot=(async()=>{
+      const devName=(navigator.userAgentData&&navigator.userAgentData.platform)||(/iPhone|iPad/.test(navigator.userAgent)?"iPhone":/Android/.test(navigator.userAgent)?"Android":"Browser")+" "+(navigator.hardwareConcurrency||2)+"-core";
+      let joined=false;
+      for(let i=0;i<6&&!joined;i++){ /* retry ~30s — ZEUS ki taraf code abhi ban raha ho sakta hai */
+        try{ await __meshFetch("/v1/mesh/join",{code,nodeId:__meshNodeId(),name:devName}); joined=true; }
+        catch(e){ document.title="⏳ MESH — waiting for ZEUS ("+(i+1)+"/6)"; await new Promise(r=>setTimeout(r,6000)); }
+      }
+      if(!joined){ document.title="✖ MESH — code not live, ZEUS se code refresh karwao"; return; }
+      document.title="✅ ZEUS NODE — mesh "+code;
+      try{pushSys("🔗 ZEUS NODE armed — mesh "+code+" · this device now takes orders from ZEUS.")}catch(e){}
+      (async function pollLoop(){
+        for(;;){
+          try{
+            const batt=navigator.getBattery?await new Promise(res=>{let done=false;navigator.getBattery().then(b=>{if(!done){done=true;res(b.level*100)}});setTimeout(()=>{if(!done){done=true;res(null)}},3000)}):null;
+            const j=await __meshFetch("/v1/mesh/poll",{code,nodeId:__meshNodeId(),battery:batt,net:(navigator.connection&&navigator.connection.effectiveType)||""});
+            for(const c of (j.cmds||[])){
+              (async()=>{
+                let ok=true,detail="";
+                try{
+                  if(c.cmd==="speak"){
+                    try{synth.cancel()}catch(e){}
+                    const u=new SpeechSynthesisUtterance(String(c.arg||"ZEUS orders received").slice(0,300));
+                    const v=(typeof __pickVoiceFor==="function")?__pickVoiceFor(false):null;if(v)u.voice=v;
+                    u.rate=1;u.pitch=.9;synth.speak(u);detail="spoke: "+String(c.arg||"").slice(0,60);
+                  }else if(c.cmd==="vibrate"){
+                    const n=Math.min(parseInt(c.arg,10)||3,8);navigator.vibrate&&navigator.vibrate([200,100,200,100,200].slice(0,n*2));detail="vibrated "+n+"x";
+                  }else if(c.cmd==="flash"){
+                    const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;background:#fff;z-index:99999;transition:opacity .3s";document.body.appendChild(d);
+                    let k=0;const iv=setInterval(()=>{k++;d.style.opacity=k%2?"1":"0";if(k>=6){clearInterval(iv);d.remove()}},280);detail="torch flash 3x";
+                  }else if(c.cmd==="battery"){
+                    const b=navigator.getBattery?await navigator.getBattery():null;detail=b?Math.round(b.level*100)+"% "+(b.charging?"charging":"on battery"):"no battery API";
+                  }else if(c.cmd==="location"){
+                    detail=await new Promise(res=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>res(p.coords.latitude.toFixed(5)+","+p.coords.longitude.toFixed(5)),e=>res("denied/timeout"),{timeout:12000}):res("no geolocation"));
+                  }else if(c.cmd==="open"){
+                    const u=String(c.arg||"").trim();if(/^https?:\/\//.test(u))window.open(u,"_blank"),detail="opened "+u.slice(0,60);else{ok=false;detail="invalid url"}
+                  }else if(c.cmd==="show"){
+                    const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;z-index:99999;background:#05070E;color:#67e8f9;display:flex;align-items:center;justify-content:center;font:700 28px 'JetBrains Mono',monospace;text-align:center;padding:30px;white-space:pre-wrap";d.textContent=String(c.arg||"").slice(0,300);document.body.appendChild(d);setTimeout(()=>d.remove(),15000);detail="displayed";
+                  }else{detail="executed";
+                  }
+                }catch(e){ok=false;detail=e.message||"failed"}
+                try{await __meshFetch("/v1/mesh/result",{code,nodeId:__meshNodeId(),name:document.title.replace(/^✅ ZEUS NODE — mesh /,"Node "),cmd:c.cmd,ok,detail})}catch(e){}
+              })();
+            }
+          }catch(e){ await new Promise(r=>setTimeout(r,6000)); }
+          await new Promise(r=>setTimeout(r,2500));
+        }
+      })();
+    })();
+  }catch(e){}
+})();
+/* ---------- ZEUS side: mesh panel + live device list ---------- */
+(function(){
+  const st=document.createElement("style");
+  st.textContent="#meshMenu{position:fixed;inset:0;background:rgba(2,6,14,.72);backdrop-filter:blur(6px);z-index:9998;display:flex;align-items:center;justify-content:center}#meshMenu .tm-card{position:relative;background:rgba(10,16,30,.97);border:1px solid rgba(120,220,255,.25);border-radius:16px;padding:20px;width:min(470px,94vw);max-height:88vh;overflow:auto;color:#dfeaff;box-shadow:0 24px 60px rgba(0,0,0,.5)}#meshMenu h3{margin:0 0 4px;font-size:15px}#meshMenu .tm-sub{font-size:11.5px;opacity:.65;margin-bottom:10px;line-height:1.5}#meshMenu .tm-btn{background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);color:#bfefff;border-radius:10px;padding:8px 10px;font-size:12px;cursor:pointer;font-weight:600;margin:4px 4px 4px 0}#meshMenu .tm-btn:hover{background:rgba(34,211,238,.22)}#meshMenu .tm-close{position:absolute;top:8px;right:12px;background:none;border:none;color:#9cf;font-size:18px;cursor:pointer}#meshMenu .mrow{display:flex;gap:6px;align-items:center;margin:6px 0}#meshMenu input,#meshMenu select{background:rgba(3,10,20,.8);border:1px solid rgba(120,220,255,.3);color:#dfeaff;border-radius:8px;padding:7px 9px;font-size:12.5px}#meshMenu input{flex:1}#meshMenu .dev{border:1px solid rgba(120,220,255,.16);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:12px}#meshMenu .dev b{color:#e0f2fe}#meshMenu .res{font-size:11px;opacity:.8;margin:3px 0;padding-left:8px;border-left:2px solid rgba(34,211,238,.4)}#meshMenu .code{font-size:30px;font-weight:800;letter-spacing:8px;color:#67e8f9;text-shadow:0 0 18px rgba(34,211,238,.5);text-align:center;margin:6px 0}#meshMenu .qr{background:#fff;border-radius:8px;padding:6px;width:max-content;margin:4px auto}";
+  document.head.appendChild(st);
+  let meshCode="",meshTimer=null,meshErr=""; /* server is the truth — code is CLAIMED fresh on every open (register is idempotent per maker) */
+  async function claimMesh(){
+    try{ const j=await __meshFetch("/v1/mesh/register",{}); meshCode=j.code; meshErr=""; try{localStorage.setItem("aura_mesh_code",meshCode)}catch(e){} return true; }
+    catch(e){ meshErr=e.message||"claim failed"; return false; }
+  }
+  async function qrURL(text){return "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data="+encodeURIComponent(text)}
+  async function refresh(){
+    if(!meshCode)return;
+    try{
+      const j=await __meshFetch("/v1/mesh/devices?code="+meshCode,null,"GET");
+      const box=document.getElementById("meshDevs");if(!box)return;
+      box.innerHTML=(j.devices||[]).map(d=>'<div class="dev"><b>'+d.name.replace(/[<>]/g,"")+"</b> · "+d.id+'<br>🔋 '+(d.battery!=null?Math.round(d.battery)+"%"+(d.charging?" ⚡":""):"?")+" · "+(d.net||"?")+" · "+(d.fresh?'<span style="color:#34d399">● live</span>':'<span style="opacity:.5">○ idle</span>')+"</div>").join("")+
+        (j.results||[]).map(r=>'<div class="res">'+r.name+" → "+r.cmd+(r.ok?" ✅":" ❌")+" "+String(r.detail||"").replace(/[<>]/g,"").slice(0,80)+"</div>").join("")+
+        ((!(j.devices||[]).length)?'<div style="opacity:.6;font-size:12px">No devices yet — phone pe ye file kholo: <b>#node='+meshCode+"</b> (QR niche)</div>":"");
+      const qr=document.getElementById("meshQR");if(qr)qr.src=await qrURL(location.origin+location.pathname+"#node="+meshCode);
+    }catch(e){
+      const box=document.getElementById("meshDevs");if(box)box.innerHTML='<div style="color:#f87171;font-size:12px">'+e.message+"</div>";
+    }
+  }
+  async function openMenu(){
+    const old=document.getElementById("meshMenu");if(old)old.remove();
+    const ov=document.createElement("div");ov.id="meshMenu";
+    ov.innerHTML='<div class="tm-card"><button class="tm-close" id="mxX">✕</button><h3>📡 ZEUS MESH — device command net</h3><div class="tm-sub">Apne phones is file ko <b>#node=CODE</b> ke saath kholo — phir ZEUS unhe bol sakta hai, vibrate kar sakta hai, unki battery dekh sakta hai. Video wala Ultron scene.</div>'+
+      '<div id="meshCodeBox"><div style="opacity:.6;font-size:12px">arming mesh…</div></div>'+
+      '<div id="meshDevs"><div style="opacity:.6;font-size:12px">loading…</div></div>'+
+      '<div class="qr"><img id="meshQR" width="140" height="140" alt="node qr"></div>'+
+      '<div class="mrow"><select id="mxCmd" style="flex:1"><option value="speak">🔊 Speak (bol ke suna)</option><option value="vibrate">📳 Vibrate</option><option value="flash">🔆 Flash screen</option><option value="battery">🔋 Ask battery</option><option value="location">📍 Ask location</option><option value="open">🌐 Open URL</option><option value="show">🖥 Show text fullscreen</option><option value="ping">🛰 Ping</option></select></div>'+
+      '<div class="mrow"><input id="mxArg" placeholder="argument — speech text / URL / message / seconds"></div>'+
+      '<div class="mrow"><button class="tm-btn" id="mxSend" style="flex:1">▶ Send to ALL devices</button></div>'+
+      '<div class="mrow" style="font-size:11px;opacity:.6">Commands poll har ~2.5s; results niche devices ke saath dikhte hain.</div></div>';
+    document.body.appendChild(ov);
+    const close=()=>{if(meshTimer)clearInterval(meshTimer);meshTimer=null;ov.remove()};
+    ov.querySelector("#mxX").onclick=close;
+    ov.addEventListener("click",e=>{if(e.target===ov)close()});
+    const renderCode=async()=>{
+      const okClaim=await claimMesh();
+      const box=ov.querySelector("#meshCodeBox");if(!box)return;
+      box.innerHTML=okClaim
+        ? '<div class="code">'+meshCode+'</div>'
+        : '<div class="tm-row" style="margin:8px 0"><button class="tm-btn" id="mxGen">⚡ Generate mesh code</button></div><div style="color:#f87171;font-size:11.5px">'+meshErr+(meshErr.indexOf("maker")>-1?' — owner account se sign in karo (top-right).':'')+'</div>';
+      const g2=box.querySelector("#mxGen");
+      if(g2)g2.onclick=async()=>{g2.disabled=true;g2.textContent="arming…";await renderCode()};
+      if(okClaim&&meshTimer)clearInterval(meshTimer);
+      if(okClaim){refresh();meshTimer=setInterval(refresh,4000)}
+    };
+    renderCode();
+    ov.querySelector("#mxSend").onclick=async()=>{
+      if(!meshCode){pushSys("pehle mesh code generate karo");return}
+      try{
+        const r=await __meshFetch("/v1/mesh/command",{code:meshCode,nodeId:"all",cmd:ov.querySelector("#mxCmd").value,arg:ov.querySelector("#mxArg").value});
+        pushSys("📡 mesh: "+r.queued+" device(s) ko command bheja");
+      }catch(e){pushSys("mesh send failed: "+e.message)}
+    };
+  }
+  function armBtn(){
+    const z=typeof persona==="function"&&persona()==="jarvis";
+    const b=document.getElementById("meshBtn");if(!b)return;
+    b.style.display=z?"":"none";
+  }
+  const mb=document.createElement("button");mb.className="ibtn";mb.id="meshBtn";mb.textContent="📡 MESH";mb.title="ZEUS MESH — apne devices ko command karo (owner only)";mb.style.display="none";
+  mb.onclick=openMenu;
+  const ir=document.querySelector(".iconrow");
+  if(ir)ir.appendChild(mb);else document.body.appendChild(mb);
+  setInterval(armBtn,1500);armBtn();
+})();
 
 /* ---------------- boot sequence ---------------- */
 const BOOT=persona()==="jarvis"?["> ZEUS OS v4.0 — initializing tactical core","> strategic matrix …………… <b class='ok'>OK</b>","> gold emitter ……………… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> ZEUS <b class='ok'>ONLINE</b> — owner protocol armed"]:["> AURA OS v3.2 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];
