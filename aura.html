@@ -7331,14 +7331,14 @@ function __meshNodeId(){
     };
   }
   function armBtn(){
-    const z=typeof persona==="function"&&persona()==="jarvis";
     const b=document.getElementById("meshBtn");if(!b)return;
-    b.style.display=z?"":"none";
+    b.style.display=""; /* MESH is always reachable — gating it to ZEUS mode made it look deleted */
   }
-  const mb=document.createElement("button");mb.className="ibtn";mb.id="meshBtn";mb.textContent="📡 MESH";mb.title="ZEUS MESH — apne devices ko command karo (owner only)";mb.style.display="none";
+  const mb=document.createElement("button");mb.className="ibtn";mb.id="meshBtn";mb.textContent="📡 MESH";mb.title="ZEUS MESH — apne devices ko command karo (owner account)";mb.style.display="";
   mb.onclick=openMenu;
   const ir=document.querySelector(".iconrow");
   if(ir)ir.appendChild(mb);else document.body.appendChild(mb);
+  try{window.AuraMesh={open:openMenu,code:function(){return meshCode}};window.meshOpen=openMenu;}catch(e){}
   setInterval(armBtn,1500);armBtn();
 })();
 
