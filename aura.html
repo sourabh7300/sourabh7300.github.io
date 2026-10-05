@@ -2622,6 +2622,7 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
 </div>
 
 <div id="adminPage">
+  <p class="sub" style="font:400 12.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--m);margin:-4px 0 12px">Admin only. Changes apply to everyone.</p>
   <div class="admin-card" style="border-color:rgba(251,191,36,.35)">
     <h4>⚡ LIVE TELEMETRY</h4>
     <div class="admin-grid">
@@ -5074,7 +5075,7 @@ function renderSessions(){
       filters+=chip("folder:"+f.id,f.name,"📁",folderCount(f.id),ch2View.t==="folder"&&ch2View.f===f.id,ren+del);
     });
     if(meta.archived.length)filters+=chip("archived","Archived","📦",meta.archived.length,inArch);
-    filters+='<button class="ch2-fchip" id="ch2NewFolder">＋ Folder</button>';
+    filters+='<button class="ch2-fchip" id="ch2NewFolder">+ Folder</button>';
     function row(s){
       const prev=(s.convo&&s.convo.length?String(s.convo[s.convo.length-1].content).replace(/\s+/g," ").slice(0,64):"empty chat");
       const when=s.at?new Date(s.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
@@ -10611,7 +10612,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 <div class="auth-modal-card">
 <div class="wiz-head">
 <div><h2 style="font-family:'Orbitron',sans-serif;font-size:18px;letter-spacing:2px;color:#67e8f9">AURA ACCOUNT</h2>
-<p style="font-size:11.5px;color:#67e8f9;margin-top:2px">Sign in to keep your chats, history and memories across devices</p></div>
+<p style="font-size:11.5px;color:#67e8f9;margin-top:2px">Your chats, projects and memory follow you on every device.</p></div>
 <button class="wiz-x" id="authModalX">&#x2715;</button>
 </div>
 <div id="authStep1">
