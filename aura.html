@@ -7010,14 +7010,16 @@ let recog=null,listening=false,wake=false;
 function normEcho(s){return (s||"").toLowerCase().replace(/[^a-z\u0900-\u097F\s]/g," ").replace(/\s+/g," ").trim()}
 function isEcho(c){ /* true if the mic just heard AURA's own voice — kills the self-talk loop */
   if(!lastSpoken)return false;
-  if(Date.now()-lastSpokeAt<2500)return true; /* still in her voice's tail — ignore everything */
+  if(Date.now()-lastSpokeAt<900)return true; /* raw audio still ringing — nothing accepted in this instant */
   if(Date.now()-lastSpokeAt>15000)return false;
   const a=normEcho(c),b=normEcho(lastSpoken);
   if(!a)return true;
   if(a.length>8&&b.indexOf(a)>-1)return true;
   if(b.length>8&&a.indexOf(b)>-1)return true;
   const aw=a.split(" "),bw=b.split(" ");let common=0;for(let k=0;k<aw.length;k++){if(bw.indexOf(aw[k])>-1)common++}
-  return common>=3;
+  /* a short phrase repeating her words is her echo; anything else needs real overlap */
+  if(aw.length<=4&&common>=2)return true;
+  return common>=3||(aw.length>=3&&common/aw.length>=0.45);
 }
 function armWake(delay){ /* single safe re-arm point — never while AURA is speaking, never before her echo has faded */
   if(!wake)return;
@@ -7032,14 +7034,22 @@ function cleanTranscript(t){
     .replace(/\bsquare root of\b/g,"sqrt");
   return s.replace(/\s+/g," ").trim();
 }
-let hiTried=false,lastAlts=[];
+let hiTried=false,lastAlts=[],lastAskText="",lastAskAt=0,voiceCap=0;
+function askOnce(t){ /* one question = one answer: kill the repeat glitch */
+  const c=cleanTranscript(t); if(!c) return;
+  if(Date.now()-lastAskAt<9000&&c===lastAskText){slog("same question heard twice — ignored the repeat",true);pushSys("heard the same thing twice — answered once");return}
+  lastAskText=c; lastAskAt=Date.now(); ask(c);
+}
 function startListen(hiEar){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return;
   const r=new SR();
   r.lang=hiEar?"hi-IN":(window.__auraLang==="hi"?"hi-IN":"en-IN");
-  r.interimResults=true;r.continuous=false;r.maxAlternatives=3;
-  let finalText="",interim="";
+  r.interimResults=true;r.continuous=true;r.maxAlternatives=5;
+  let finalText="",interim="",interimKeep="";
+  try{ if(wake&&recog&&listening){try{recog.abort()}catch(e2){}} }catch(e2){}
+  clearTimeout(voiceCap);
+  voiceCap=setTimeout(()=>{try{if(recog===r)r.stop()}catch(e2){}},14000); /* never listen forever */
   r.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent=hiEar?"सुन रही हूँ… (हिंदी)":"LISTENING…";setMode("listening");blip(880,.1);
     pushSys(hiEar?"hindi ear online — boliye":"mic online — speak naturally")};
   r.onresult=e=>{lastAlts=[];interim="";
@@ -7047,14 +7057,23 @@ function startListen(hiEar){
       const res=e.results[i];
       for(let j=0;j<res.length;j++)lastAlts.push(res[j].transcript);
       if(res.isFinal){
-        let best="";for(let j=0;j<res.length;j++){if(res[j].transcript.trim().length>best.length)best=res[j].transcript;}
-        finalText+=(finalText?" ":"")+best;
+        /* best alternative by CONFIDENCE (longest used to win and mis-heard clean speech) */
+        let best="",bc=-1;
+        for(let j=0;j<res.length;j++){
+          const t2=(res[j].transcript||"").trim();
+          const cf=(typeof res[j].confidence==="number"&&res[j].confidence>0)?res[j].confidence:0.1;
+          const sc=cf*1000+t2.length*0.01;
+          if(sc>bc){bc=sc;best=t2}
+        }
+        if(best)finalText+=(finalText?" ":"")+best;
       }else interim+=res[0]?res[0][0].transcript:"";
     }
+    if(interim.trim())interimKeep=interim;
     const live=(finalText+" "+interim).trim();
     if(live)$("micHint").textContent='"'+live.slice(-42)+'"';
   };
   r.onerror=e=>{
+    clearTimeout(voiceCap);
     listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";
     if(mode==="listening")setMode("idle");
     if(e.error==="not-allowed"||e.error==="service-not-allowed")pushSys("mic blocked — allow microphone in browser settings");
@@ -7062,18 +7081,24 @@ function startListen(hiEar){
     else if(e.error==="network")pushSys("speech service unreachable — type instead");
   };
   r.onend=()=>{
+    clearTimeout(voiceCap);
     listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent=wake?"WAKE WORD: 'HEY AURA'":"TAP TO SPEAK";
     if(mode==="listening")setMode("idle");
+    /* no final result before the mic closed → keep the interim words instead of dropping the question */
+    if(!finalText.trim()&&interimKeep.trim()){finalText=interimKeep;slog("no final transcript — used the live words",true)}
     const t=cleanTranscript(finalText);
     /* AUTO language: latin ear heard hindi sounds → one automatic retry with the hi-IN ear */
     if(window.__auraLang==="auto"&&!hiEar&&hiTried===false&&!/[\u0900-\u097F]/.test(t)&&lastAlts.some(a=>/[\u0900-\u097F]/.test(a)||isHinglish(a))){
       hiTried=true;slog("latin ear caught hindi sounds — retrying with the hi-IN ear",true);
       setTimeout(()=>startListen(true),250);return;
     }
-    if(t&&t.trim()){slog("heard: \""+t.slice(0,50)+"\"",true);ask(t)}
+    if(t&&t.trim()){
+      if(isEcho(t)){slog("that was my own voice — not answering it",true);pushSys("mic heard my own reply — ignored (say it once, a little louder)")}
+      else{slog("heard: \""+t.slice(0,50)+"\"",true);askOnce(t)}
+    }
     if(wake)armWake(600);
   };
-  try{r.start();recog=r}catch(e){}
+  try{recog=r;r.start()}catch(e){}
 }
 $("micBtn").onclick=()=>{
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -7100,7 +7125,7 @@ $("wakeBtn").onclick=()=>{
       const cmd=c.replace(/^\s*(hey |ok |okay |hi |हे |हेय )?(aura|ऑरा|jarvis|zeus)\b[,.!]?\s*/i,"");
       if(cmd.replace(/[\s?!.]/g,"").length<2){addMsg(msgTag(),"Yes? 🎙️","aura");pushSys("wake word caught — no command followed");setTimeout(()=>{if(wake)armWake(600)},900);return;}
       if(window.__camOn&&window.__camAsk){window.__camAsk(cmd);return} /* camera live → the scene is the subject */
-      ask(cmd);}};
+      askOnce(cmd);}};
     recog.onerror=()=>{listening=false;if(mode==="listening")setMode("idle")};
     recog.onend=()=>{listening=false;$("micBtn").classList.remove("listening");if(mode==="listening")setMode("idle");armWake(1200)};
     recog.start();}catch(e){}}
