@@ -9060,6 +9060,26 @@ const AuraAuth = (function(){
               const __prev=(function(){try{return JSON.parse(localStorage.getItem(FB_LIVE_KEY)||"null")}catch(e){return null}})()||{};
               localStorage.setItem(FB_LIVE_KEY, JSON.stringify({uid:u.uid, email:u.email||"", phone:u.phoneNumber||"", name:u.displayName||"", tok:tok, role:__prev.role, ts:Date.now()}));
               try{ AuraAuth.refreshRole(); }catch(e){}
+              /* ---- account safety: same code path for Google and phone OTP ----
+                 pull this account's data back on a new device, then push whatever this
+                 device still holds (guest chats + memories) so nothing is lost on the way in */
+              (function(){
+                try{
+                  var nm=u.displayName||((u.email||"").split("@")[0])||"";
+                  if(nm&&!memGet().name){var mm=memGet();mm.name=nm;memSet(mm);}
+                }catch(e){}
+                function migrate(){
+                  try{
+                    var hasLocal=CONVO.length>0||!!(memGet()&&memGet().name)||sessions.all().length>0;
+                    if(!hasLocal) return;
+                    Promise.resolve(cloudPushNow()).then(function(){
+                      try{ pushSys("☁ chats, memories and settings are now safe in your AURA account"); }catch(e){}
+                      try{ if(window.auraToast) window.auraToast("Signed in — data synced to your account","ok"); }catch(e){}
+                    });
+                  }catch(e){}
+                }
+                try{ Promise.resolve(cloudPullAndRestore()).then(migrate); }catch(e){ migrate(); }
+              })();
             }).catch(function(){});
           }else if(!u){
             localStorage.removeItem(FB_LIVE_KEY);
@@ -10418,6 +10438,17 @@ document.addEventListener("DOMContentLoaded",function(){
     }
     function byId(i){return document.getElementById(i)}
     function close(){ document.body.classList.remove('auth'); try{localStorage.setItem('aura_auth_seen','1')}catch(e){} }
+    /* account created / session confirmed: pull the account back, push this device's data up */
+    function signedIn(){
+      try{ if(typeof applyRoleUi==='function') applyRoleUi(); }catch(e){}
+      try{ if(typeof AuraAuth!=='undefined'&&AuraAuth.updateBadge) AuraAuth.updateBadge(); }catch(e){}
+      try{ Promise.resolve(typeof cloudPullAndRestore==='function'?cloudPullAndRestore():false).then(function(){
+        return Promise.resolve(typeof cloudPushNow==='function'?cloudPushNow():null);
+      }).then(function(){
+        try{ if(window.auraToast) window.auraToast("Account ready — your data is saved in the cloud","ok"); }catch(e){}
+      }); }catch(e){}
+      close();
+    }
 
     var OT=[], box=byId('apOtp'), k, inp;
     if(box) for(k=0;k<6;k++){
@@ -10438,7 +10469,7 @@ document.addEventListener("DOMContentLoaded",function(){
     if(backBtn) backBtn.onclick=function(){ step('ap1'); };
     function google(){ step('ap1');
       var r; try{ r=Promise.resolve(AuraAuth.fbGoogle()); }catch(e){ return; }
-      r.then(function(res){ if(res&&res.ok) close(); else pushSys('⚠ '+((res&&res.why)||'Google sign-in was cancelled')); })
+      r.then(function(res){ if(res&&res.ok) signedIn(); else pushSys('⚠ '+((res&&res.why)||'Google sign-in was cancelled')); })
        .catch(function(){ pushSys('⚠ Google sign-in failed — try the phone code instead'); });
     }
     if(mkBtn) mkBtn.onclick=google;
@@ -10460,7 +10491,7 @@ document.addEventListener("DOMContentLoaded",function(){
       var code=OT.map(function(e){return e.value}).join('');
       if(code.length<6){ pushSys('⚠ Enter all 6 digits.'); return; }
       var r; try{ r=Promise.resolve(AuraAuth.fbVerifyOtp(code)); }catch(e){ return; }
-      r.then(function(res){ if(res&&res.ok){ close(); } else pushSys('⚠ '+((res&&res.why)||'that code did not match')); })
+      r.then(function(res){ if(res&&res.ok){ signedIn(); } else pushSys('⚠ '+((res&&res.why)||'that code did not match')); })
        .catch(function(){ pushSys('⚠ verification failed'); });
     };
 
