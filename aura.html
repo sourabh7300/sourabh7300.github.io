@@ -2370,6 +2370,25 @@ body{line-height:1.55}
 #conv .msg.user .who{color:var(--m)!important;letter-spacing:.14em!important}
 /* v5 .m (AI reply) is plain text — no card. The gold-tint card belongs to .m.u (user bubble) only. */
 #log .msg.aura,#conv .msg.aura{background:none!important;box-shadow:none!important}
+
+/* ---- same-to-same pass vs aura-in-next.html (reference) ---- */
+/* ambient gold dust */
+#dust{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+/* v5 .hero is a row: orb left, copy right */
+#stageEmpty{flex-direction:row!important;justify-content:flex-start!important;align-items:center!important;text-align:left!important}
+#stageEmpty .se-orb{width:150px;height:150px;flex:none;font-size:0;border:0!important;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff2c4,#e9b949 38%,#6b4608 75%)!important;box-shadow:0 0 44px rgba(233,185,73,.45)}
+@media(max-width:768px){#stageEmpty .se-orb{width:110px;height:110px}}
+/* reference preview pane is dark, never white */
+body:not(.theme-classical) #codeFrame{background:#080b14!important}
+/* v5 .tools — mono gold pills on the composer tool row */
+.iconrow .ibtn{font:400 11px 'JetBrains Mono',monospace!important;letter-spacing:.06em!important;color:var(--m)!important;border:1px solid var(--line)!important;border-radius:99px!important;padding:6px 12px!important;background:var(--gl)!important}
+.iconrow .ibtn:hover{color:var(--g2)!important;border-color:var(--g)!important}
+/* v5 .gal starter overlay (Code Forge) */
+.gal{position:absolute;inset:0;z-index:2;padding:26px;pointer-events:none;display:flex;flex-direction:column;gap:6px;justify-content:center;background:rgba(4,6,13,.5)}
+.gal[hidden]{display:none}.gal h4{font-weight:300;font-size:28px;letter-spacing:-.02em}.gal p{color:var(--m);margin-bottom:10px}
+.gcs{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.gc{pointer-events:auto;text-align:left;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--gl);transition:.25s}
+.gc:hover{border-color:var(--g);transform:translateY(-2px)}.gc b{display:block;font-weight:400}.gc span{font:400 11px 'JetBrains Mono',monospace;color:var(--m)}
 /* v5 never sets a heading font — everything is the body face */
 #stageEmpty h4,#sessPrev h3{font-family:'Space Grotesk',system-ui,sans-serif!important}
 </style>
@@ -2379,6 +2398,7 @@ body{line-height:1.55}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
+<canvas id="dust" aria-hidden="true"></canvas>
 
 <!-- =====================================================
      AURA 4.0 — LANDING PAGE (OUTSIDE: hero + scroll sections)
@@ -10209,6 +10229,26 @@ document.addEventListener("DOMContentLoaded",function(){
 
   /* Auto-enter: show the app chat immediately — no inner landing/intro screens */
   setTimeout(function(){ try{ window.enterAura(); }catch(e){} }, 40);
+
+  /* codeLog first-run hint — same copy as the reference */
+  setTimeout(function(){try{var cl=document.getElementById('codeLog');if(cl&&!cl.textContent.trim()){cl.classList.add('show');cl.textContent='Press Run to see the output here.';}}catch(e){}},400);
+
+  /* ambient gold dust — same as the reference */
+  try{(function(){var dc=document.getElementById('dust');if(!dc)return;var dx=dc.getContext('2d');if(!dx)return;var dw,dh,DP=[];var dst=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function drs(){dw=dc.width=innerWidth;dh=dc.height=innerHeight;DP=Array.from({length:innerWidth<768?35:70},function(){return{x:Math.random()*dw,y:Math.random()*dh,r:Math.random()*1.4+.3,v:Math.random()*.25+.05}})}drs();addEventListener('resize',drs);
+  (function df(){requestAnimationFrame(df);if(document.hidden||!dw)return;dx.clearRect(0,0,dw,dh);if(!dst)for(var i=0;i<DP.length;i++){var p=DP[i];p.y-=p.v;if(p.y<0){p.y=dh;p.x=Math.random()*dw}dx.fillStyle='rgba(233,185,73,'+(.15+p.r*.2)+')';dx.beginPath();dx.arc(p.x,p.y,p.r,0,6.3);dx.fill()}})()})()}catch(e){}
+
+  /* Code Forge starter cards (reference .gal) — load a template straight into the editor */
+  try{(function(){var ed=document.getElementById('codeEditor');var cbody=document.getElementById('codeEdBody');if(!ed||!cbody)return;
+  var REF={hello:['Hello World','JavaScript',"console.log('Hello from AURA');"],fib:['Fibonacci','JavaScript','function fib(n){return n<2?n:fib(n-1)+fib(n-2)}\nfor(let i=0;i<10;i++)console.log(fib(i));'],sort:['Sort an array','JavaScript','const a=[5,2,9,1,7];\nconsole.log(a.sort((x,y)=>x-y).join(\', \'));'],todo:['Todo app','HTML',null]};
+  var gal=document.createElement('div');gal.id='gal';gal.className='gal';
+  gal.innerHTML='<h4>Start something</h4><p>Pick a starter, or describe it above and press BUILD.</p><div class="gcs">'+Object.keys(REF).map(function(k){return '<button class="gc" data-k="'+k+'"><b>'+REF[k][0]+'</b><span>'+REF[k][1]+'</span></button>'}).join('')+'</div>';
+  cbody.appendChild(gal);
+  function upd(){var n=ed.value.split('\n').length;var gu=document.getElementById('codeGutter');if(gu)gu.textContent=Array.from({length:Math.max(1,n)},function(_,i){return i+1}).join('\n');var sl=document.getElementById('stLines');if(sl)sl.textContent=n+' line'+(n>1?'s':'');gal.hidden=!!ed.value.trim()}
+  gal.querySelectorAll('.gc').forEach(function(b){b.onclick=function(){var k=b.dataset.k,t=REF[k];
+    if(k==='todo'){try{var tp=document.getElementById('codeTpl');if(tp&&tp.onchange){tp.value='todo';tp.onchange();gal.hidden=true;return}}catch(e){}}
+    if(t&&t[2]!=null){ed.value=t[2];try{ed.dispatchEvent(new Event('input'))}catch(e){}}upd()}});
+  ed.addEventListener('input',upd);upd()})()}catch(e){}
 
   /* ---------- Toast system ---------- */
   window.auraToast = function(msg, type='info', dur=3500){
