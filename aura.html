@@ -14,7 +14,7 @@
   ═══════════════════════════════════════════════════════════════
 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <meta name="theme-color" content="#05070E">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -23,20 +23,22 @@
 <link rel="manifest" href="manifest.webmanifest">
 <style>
 :root{
-  /* AURA 3.0 — professional command deck */
-  --bg:#05070E;--cy:#5B8CFF;--cy2:#7CA3FF;--dim:#5E6B92;--ice:#E8ECF8;
-  --panel:rgba(13,18,38,.78);--line:rgba(122,146,255,.26);--line2:rgba(122,146,255,.12);
-  --amber:#fbbf24;--red:#f87171;--mono:'JetBrains Mono',monospace;
+  /* AURA 4.0 — award-winning AI product design system */
+  --bg:#05070E;--cy:#5CE1FF;--cy2:#7CEBFF;--dim:#5E6B92;--ice:#E8ECF8;
+  --panel:rgba(255,255,255,0.04);--line:rgba(92,225,255,.18);--line2:rgba(92,225,255,.08);
+  --amber:#FFB84D;--red:#f87171;--mono:'JetBrains Mono',monospace;
   --ok:#34d399;--err:#f87171;
   --r-lg:18px;--r-md:13px;--r-sm:9px;--sp5:20px;--sp4:17px;
   --shadow:0 1px 2px rgba(0,0,0,.25),0 24px 60px rgba(2,6,24,.45);
+  /* Extended tokens */
+  --bg-void:#05070E;--bg-panel:rgba(255,255,255,.04);--bg-glass:rgba(255,255,255,.06);
+  --border-glass:rgba(255,255,255,.08);--border-glow:rgba(92,225,255,.35);
+  --cy-glow:rgba(92,225,255,.45);--dim-bright:#8899BB;
+  --heading-font:'Space Grotesk',sans-serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
-body{background:
-  radial-gradient(1200px 700px at 78% -10%,rgba(91,140,255,.10),transparent 60%),
-  radial-gradient(900px 600px at 0% 110%,rgba(91,140,255,.06),transparent 55%),
-  var(--bg);
+body{background:var(--bg);
   color:var(--ice);font-family:'Inter',system-ui,sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
 ::selection{background:var(--cy);color:#05070E}
 ::-webkit-scrollbar{width:7px}
@@ -174,7 +176,10 @@ body.theme-classical .src-card .srch{color:#a08662}
 
 /* ---------- boot ---------- */
 #boot{position:fixed;inset:0;background:#010507;z-index:60;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:22px;transition:opacity .7s,visibility .7s;font-family:var(--mono)}
-#boot.gone{opacity:0;visibility:hidden}
+/* pointer-events too: if the fade stalls (backgrounded tab, slow device) a
+   visibility:hidden-but-transitioning overlay would still swallow every click
+   on the dock — including the VOICE switch. */
+#boot.gone{opacity:0;visibility:hidden;pointer-events:none}
 #bootRing{width:110px;height:110px;border-radius:50%;border:2px solid rgba(34,211,238,.2);border-top-color:var(--cy);animation:spin 1s linear infinite;position:relative}
 #bootRing::after{content:attr(data-brand);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Orbitron';font-size:13px;letter-spacing:4px;color:var(--cy2);animation:none}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -682,6 +687,604 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   #codeGen{padding:10px 14px}
   #codePage{gap:8px  }
 }
+
+*::-webkit-scrollbar-track{background:transparent}
+@media(prefers-reduced-motion:reduce){#dock,#conv,.panel,.chip,.ibtn{transition:none}}
+
+/* ============================================================
+   AURA INSIDE v5 — SLICE 1: SIGN-IN SCREEN (v5 exact)
+   v5's auth card rebuilt onto AURA's modal (#authModal) so the
+   Firebase / phone / OTP logic keeps working untouched. Only paint,
+   type and copy change.
+   ============================================================ */
+
+/* v5 overlay: rgba(4,6,13,.84) + blur(14px) */
+#authModal{
+  background:rgba(4,6,13,.84)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  padding:16px;align-items:center;
+}
+/* v5 .acard: width min(420px,100%), padding 26px 28px, glass, centered */
+.auth-modal-card{
+  width:min(420px,100%)!important;max-height:calc(100vh - 32px);
+  padding:26px 28px!important;border-radius:var(--r-lg)!important;
+  border:1px solid var(--line)!important;background:var(--gl)!important;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 18px 44px rgba(0,0,0,.5);text-align:center;
+  display:flex;flex-direction:column;gap:12px;
+}
+/* v5 .acard .logo */
+.auth-modal-card .wiz-head h2{
+  font-family:'Space Grotesk',system-ui,sans-serif!important;font-weight:500!important;
+  font-size:16px!important;letter-spacing:.32em!important;color:var(--g)!important;
+  margin:0!important;
+}
+.auth-modal-card .wiz-head p{
+  font-size:14px!important;color:var(--m)!important;margin-top:6px!important;line-height:1.55;
+}
+/* v5 heading h3{font-weight:300;font-size:28px;letter-spacing:-.03em} */
+.auth-modal-card h3{font-family:'Space Grotesk',system-ui,sans-serif;font-weight:300;letter-spacing:-.03em;color:var(--t)}
+.auth-modal-card h3#doneTitle{color:var(--g)!important}
+/* v5 .or divider */
+.auth-modal-card .or,.auth-modal-card [style*="or sign in with phone"]{
+  color:var(--m);font:400 11px 'JetBrains Mono',monospace;letter-spacing:.2em;
+}
+/* v5 .lnk — underlined muted link */
+#skipNameBtn{
+  background:transparent!important;border:0!important;color:var(--m)!important;
+  text-decoration:underline;font-size:14px!important;padding:6px!important;
+  box-shadow:none!important;letter-spacing:0!important;font-weight:300!important;
+}
+#skipNameBtn:hover{color:var(--g2)!important}
+/* v5 .gbtn / .btn */
+.auth-btn{
+  width:100%;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  background:var(--gl);border:1px solid var(--line);border-radius:12px;
+  padding:13px;font-size:15px;font-weight:300;
+  font-family:'Space Grotesk',system-ui,sans-serif;letter-spacing:0;
+  color:var(--t);cursor:pointer;transition:.25s;
+}
+.auth-btn:hover{border-color:var(--g);color:var(--g2)}
+/* v5 .btn.p — gold primary */
+#sendCodeBtn,#verifyCodeBtn,#doneContinueBtn{
+  background:var(--g)!important;color:#1a1202!important;border-color:var(--g)!important;font-weight:500;
+}
+#sendCodeBtn:hover,#verifyCodeBtn:hover,#doneContinueBtn:hover{background:var(--g2)!important;border-color:var(--g2)!important}
+#googleSignInBtn{
+  background:#fff!important;color:#1a1202!important;border-color:#fff!important;font-weight:500;
+}
+#googleSignInBtn:hover{background:#f2efe6!important;border-color:#f2efe6!important}
+/* v5 .form label + input */
+.auth-field label{
+  display:block;font:400 11px 'JetBrains Mono',monospace;letter-spacing:.15em;color:var(--m);
+  margin-bottom:6px;
+}
+.auth-field input{
+  width:100%;background:rgba(0,0,0,.35);border:1px solid var(--line);
+  border-radius:12px;padding:11px 14px;color:var(--t);font-size:15px;
+  font-family:'Space Grotesk',system-ui,sans-serif;
+}
+.auth-field input::placeholder{color:#7a6f52}
+.auth-field input:focus{outline:none;border-color:var(--g);box-shadow:0 0 0 3px rgba(233,185,73,.14)}
+/* v5 .otp box look on the single 6-digit field */
+#accOtpInput{
+  text-align:center;letter-spacing:.6em;font-family:'JetBrains Mono',monospace!important;
+  font-size:22px!important;padding:14px!important;
+}
+/* v5 .acard .ds / muted note */
+.auth-modal-card small{color:var(--m);font-size:12px;line-height:1.6}
+/* v5 glass note box */
+.auth-status-box{
+  background:var(--gl);border:1px solid var(--line);border-radius:12px;
+  padding:12px;font-size:14px;color:var(--t);line-height:1.6;margin:0;
+  font-family:'Space Grotesk',system-ui,sans-serif;
+}
+.wiz-x{color:var(--m)!important}
+.wiz-x:hover{color:var(--g2)!important}
+#signOutBtn{background:transparent!important;border:1px solid var(--line)!important;color:var(--m)!important;font-weight:300!important}
+#signOutBtn:hover{border-color:#f87171!important;color:#f87171!important}
+#doneAvatar{font-size:0!important}
+#doneAvatar::after{content:"◈";font-size:34px;color:var(--g)}
+
+/* ============================================================
+   AURA INSIDE v5 — SLICE 2: TOP BAR (v5 exact)
+   v5's .top / .brand / .status / .user / .clock rebuilt onto
+   AURA's own topbar elements. No markup or handler changes.
+   ============================================================ */
+
+/* v5 .top: 68px, hairline bottom, blur(12px), 24px side padding */
+#topbar{
+  height:68px;padding:0 24px!important;gap:12px;
+  align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--line);
+  background:rgba(4,6,13,.55)!important;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+/* v5 .logo */
+.wordmark{
+  font-family:'Space Grotesk',system-ui,sans-serif!important;font-weight:500!important;
+  font-size:18px!important;letter-spacing:.32em!important;color:var(--g)!important;
+  text-shadow:none!important;
+}
+/* v5 .tag — 9px mono, .3em, muted blue */
+.wordmark small{
+  display:block;font-family:'JetBrains Mono',monospace!important;font-weight:400!important;
+  font-size:9px!important;letter-spacing:.3em!important;color:#6f87a8!important;margin-top:2px;
+}
+/* v5 .status pill */
+#stateBox{
+  margin:0!important;display:flex!important;align-items:center!important;gap:10px!important;
+  border:1px solid var(--line)!important;background:var(--gl)!important;
+  backdrop-filter:blur(12px);padding:7px 16px!important;border-radius:var(--r-pill)!important;
+  box-shadow:none!important;
+  font:400 12px 'JetBrains Mono',monospace!important;color:var(--m)!important;
+}
+#stateText{font:400 12px 'JetBrains Mono',monospace;letter-spacing:.06em;color:var(--m)}
+/* v5 .dot — 8px teal, glow, 2.4s pulse */
+#stateDot{
+  width:8px!important;height:8px!important;border-radius:50%!important;
+  background:var(--tl)!important;box-shadow:0 0 10px var(--tl)!important;animation:pp 2.4s infinite!important;
+}
+/* v5 .user pill */
+#authBadge{
+  display:flex!important;align-items:center!important;gap:10px!important;
+  background:var(--gl)!important;border:1px solid var(--line)!important;
+  border-radius:var(--r-pill)!important;padding:5px 14px 5px 5px!important;
+  font-family:'Space Grotesk',system-ui,sans-serif!important;font-size:14px!important;font-weight:300;
+}
+#authBadge:hover{border-color:var(--g)}
+#authRoleIcon{
+  width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--g),#8a5a10);color:#1a1202;font-size:13px;font-weight:500;
+}
+#authName{color:var(--t);font-size:14px}
+/* v5 .user em — the gold plan chip */
+#authTag{
+  font-family:'JetBrains Mono',monospace!important;font-size:10px!important;font-weight:500!important;
+  letter-spacing:.06em!important;padding:2px 6px!important;border-radius:6px!important;
+  background:var(--g)!important;color:#1a1202!important;border:0!important;
+}
+/* v5 .clock */
+#clock{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.04em;color:var(--m);text-align:right}
+/* v5 responsive: status text + user name collapse on a phone */
+@media(max-width:768px){
+  #stateText{display:none}
+  #authName{display:none}
+  #topbar{padding:0 14px!important}
+}
+
+/* ============================================================
+   AURA INSIDE v5 — SLICE 3: LEFT RAIL NAVIGATION (v5 exact)
+   v5's .app grid column + .rail rebuilt onto AURA's #tabbar.
+   Markup change: v5's line icons (i-chat/i-chats/i-code/i-sys/
+   i-adm) replace the old emoji. data-t / ids / .on logic are
+   untouched, so every existing handler still finds its button.
+   ============================================================ */
+
+/* v5 svg.i — 20px stroke icons */
+#tabbar .i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* v5 .rail — 84px column, left edge, hairline right border */
+#tabbar{
+  position:fixed;left:0;top:68px;bottom:0;width:84px;z-index:12;
+  display:flex!important;flex-direction:column!important;align-items:center!important;
+  gap:8px!important;padding:18px 0!important;border-right:1px solid var(--line);
+  background:transparent;overflow:visible;
+}
+/* v5 .rail button — 60px cell, icon over 10px mono label */
+#tabbar button{
+  width:60px!important;flex:0 0 auto!important;margin:0!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;gap:4px!important;
+  padding:10px 0 8px!important;border-radius:var(--r-md)!important;
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  color:var(--m)!important;font:400 10px 'JetBrains Mono',monospace!important;
+  letter-spacing:.1em!important;transition:.25s;white-space:nowrap;
+}
+#tabbar button:hover{color:var(--t)!important;background:var(--gl)!important}
+/* v5 .rail button.on */
+body[data-tab="chat"]   #tabbar button:nth-child(1),
+body[data-tab="chats"]  #tabbar button:nth-child(2),
+body[data-tab="code"]   #tabbar button:nth-child(3),
+body[data-tab="system"] #tabbar button:nth-child(4),
+#tabbar button.on{
+  color:var(--g)!important;background:rgba(233,185,73,.1)!important;
+  box-shadow:inset 0 0 0 1px var(--line)!important;
+}
+
+/* --- content now lives beside the 84px rail, so re-centre it ------ */
+@media(min-width:769px){
+  body[data-tab="chat"] #conv,
+  #sessPanel{left:calc(50% + 42px)!important;margin-left:calc(min(820px,94vw)/-2)!important}
+  #dock{left:84px!important;right:0!important}
+  #telemetry{left:110px!important}
+  #syslog{left:110px!important}
+  #codePage{left:110px!important;right:26px!important}
+}
+
+/* --- v5 phone behaviour: the rail becomes a bottom bar ------------- */
+@media(max-width:768px){
+  #tabbar{
+    top:auto!important;bottom:0!important;left:0!important;right:0!important;width:auto!important;
+    flex-direction:row!important;justify-content:space-around!important;
+    border-right:0!important;border-top:1px solid var(--line)!important;
+    padding:6px 4px!important;background:rgba(4,6,13,.9)!important;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  }
+  #tabbar button{width:auto!important;flex:1!important}
+  #conv,#sessPanel,#codePage{bottom:calc(var(--dockH,150px) + 148px)!important}
+  #dock{bottom:76px!important}
+  #telemetry,#sessPanel{left:8px!important;right:8px!important}
+  /* the 400px system-panel width would overhang a phone — let the edges win */
+  body[data-tab="system"] #telemetry{width:auto!important}
+  /* the starter-chip row has to clear the mic that floats above the dock:
+     dock top = 100vh - 76 - dockH, so +138px keeps a 62px gap whatever the
+     dock height is. It stays one scrollable line so it never wraps into it. */
+  #chipsMobile{
+    position:fixed!important;left:8px!important;right:8px!important;
+    bottom:calc(var(--dockH,150px) + 138px)!important;
+    flex-wrap:nowrap!important;overflow-x:auto!important;scrollbar-width:none;
+  }
+  #chipsMobile::-webkit-scrollbar{display:none}
+}
+
+/* ============================================================
+   AURA INSIDE v5 — SLICE 4: SYSTEM PAGE (v5 exact)
+   v5's .gauges / .gz ring gauges / .sgrid / .grp0 / .kv / .term
+   rebuilt onto AURA's live #telemetry panel. The four rings read
+   AURA's OWN live values (tTemp/tBat/tFps/tMem) — nothing invented.
+   ============================================================ */
+
+/* v5 .gauges — 4 across, exactly as v5. AURA's telemetry is a narrow chat-tab
+   side panel, so on the SYSTEM tab it is widened to v5's pane width (the stage
+   is empty there) to give the four rings their proper row instead of stacking. */
+.gauges{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+@media(max-width:1180px){body[data-tab="system"] #telemetry{width:400px!important}
+  .gauges{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){.gauges{grid-template-columns:repeat(2,minmax(0,1fr))}.sgrid{grid-template-columns:1fr}}
+@media(min-width:1181px){body[data-tab="system"] #telemetry{width:600px!important}}
+/* a 400/600px panel overhangs a phone — the rail's left/right edges win there.
+   This override sits AFTER the 1180px rule on purpose; both use !important, so
+   source order is what decides. */
+@media(max-width:768px){body[data-tab="system"] #telemetry{width:auto!important}}
+/* v5 .gz — min-width:0 + a scalable ring stops 4x(ring+padding) from
+   blowing out of the card on a narrow panel (the arcs used to spill ~51px) */
+.gz{position:relative;padding:18px 10px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:8px;
+  border:1px solid var(--line);background:var(--gl);border-radius:var(--r-lg);backdrop-filter:blur(14px)}
+.gz svg{width:100%;max-width:110px;height:auto;aspect-ratio:1;transform:rotate(-90deg)}
+/* v5 .gb track + .gf value arc */
+.gz .gb{fill:none;stroke:rgba(255,255,255,.08);stroke-width:7}
+.gz .gf{fill:none;stroke:var(--g);stroke-width:7;stroke-linecap:round;
+  stroke-dasharray:264;stroke-dashoffset:264;transition:stroke-dashoffset 1s;
+  filter:drop-shadow(0 0 6px rgba(233,185,73,.6))}
+/* v5 .gv — big value centred on the ring */
+.gz .gv{position:absolute;top:58px;font-size:26px;font-weight:300;color:var(--g2);
+  display:flex;align-items:baseline;gap:3px}
+.gz .gv small{font-size:11px;color:var(--m)}
+/* v5 .gl label */
+.gz .gl{font:400 11px 'JetBrains Mono',monospace;letter-spacing:.18em;color:var(--m)}
+
+/* v5 .grp0 section label */
+#telemetry h3,#telemetry .grp0,.grp0{
+  font-family:'Space Grotesk',system-ui,sans-serif;font-weight:300;
+  font-size:clamp(20px,2.2vw,26px);letter-spacing:-.03em;color:var(--t);
+}
+#telemetry h3{margin-bottom:14px}
+/* v5 .kv rows — replaces AURA's .trow look */
+#telemetry .trow{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:7px 0;border-bottom:1px solid var(--line);font-size:14px;
+  font-family:'Space Grotesk',system-ui,sans-serif;
+}
+#telemetry .trow span{font:400 11px 'JetBrains Mono',monospace;letter-spacing:.14em;color:var(--m)}
+#telemetry .trow b{font-weight:400;color:var(--g2);font-size:15px}
+/* v5 glass cards + term log inside the system page */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;align-items:start}
+.sc{padding:18px 20px;border:1px solid var(--line);background:var(--gl);border-radius:var(--r-lg);backdrop-filter:blur(14px)}
+.term,#syslogLines{font:400 13px/1.8 'JetBrains Mono',monospace;color:#cdbf98;padding:16px 20px;max-height:200px;overflow:auto}
+.fact{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:15px}
+@media(max-width:900px){.sgrid{grid-template-columns:1fr}}
+
+/* ============================================================
+   AURA INSIDE v5 — SLICE 6: CODE FORGE (v5 exact)
+   v5's .cf / .cbar / .tabs / .cols / .panel / .ph / .acts / .sbar
+   rebuilt onto AURA's existing #codePage markup. No new elements,
+   no handler changes — only paint, type and spacing.
+   ============================================================ */
+#codePage{gap:12px}
+#codePage h4,.ph{
+  display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  padding:10px 14px;border-bottom:1px solid var(--line);
+  font:400 11px 'JetBrains Mono',monospace;letter-spacing:.2em;color:var(--m);
+}
+/* v5 .cbar — language + template + prompt + build */
+#codeTop{
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center;flex:none;
+}
+#codeLang,#codeTpl{
+  background:var(--gl);border:1px solid var(--line);border-radius:12px;
+  padding:10px 14px;color:var(--g2);font-size:14px;
+  font-family:'Space Grotesk',system-ui,sans-serif;
+}
+#codeLang option,#codeTpl option{background:#0b0d16;color:var(--t)}
+/* v5 .bp build prompt */
+#codePrompt{
+  flex:1;min-width:220px;background:rgba(0,0,0,.35);border:1px solid var(--line);
+  border-radius:12px;padding:10px 16px;color:var(--t);font-size:15px;
+  font-family:'Space Grotesk',system-ui,sans-serif;
+}
+#codePrompt::placeholder{color:#7a6f52}
+#codePrompt:focus{outline:none;border-color:var(--g);box-shadow:0 0 0 3px rgba(233,185,73,.14)}
+/* v5 .btn.p — the BUILD button */
+#codeGen{
+  background:var(--g)!important;color:#1a1202!important;border:1px solid var(--g)!important;
+  border-radius:12px!important;padding:10px 16px!important;font-size:15px!important;
+  font-weight:500!important;font-family:'Space Grotesk',system-ui,sans-serif!important;
+  display:inline-flex;align-items:center;gap:8px;
+}
+#codeGen:hover{background:var(--g2)!important;border-color:var(--g2)!important}
+/* v5 .tabs — open files */
+#codeFiles{display:flex;gap:8px;flex-wrap:wrap;flex:none}
+#codeFiles .cbtn,#codeFiles .tab{
+  display:flex;gap:10px;align-items:center;font:400 12px 'JetBrains Mono',monospace;
+  border:1px solid var(--line);border-radius:10px 10px 0 0;padding:7px 14px;color:var(--m);
+  background:transparent;
+}
+#codeFiles .on,#codeFiles .cbtn.on{color:var(--tl);border-color:rgba(111,232,214,.5);background:rgba(111,232,214,.07)}
+/* v5 .cols — the two panels */
+#codeSplit{
+  display:grid!important;grid-template-columns:1fr 1fr!important;gap:14px;
+  flex:1!important;min-height:360px!important;
+}
+/* v5 .panel glass */
+#codeEdWrap,#codeOutWrap{
+  border:1px solid var(--line)!important;background:var(--gl)!important;
+  border-radius:var(--r-lg)!important;backdrop-filter:blur(14px);
+  box-shadow:none!important;
+}
+/* v5 .edwrap — gutter + editor */
+#codeEdBody,#codeEdWrap>textarea,#codeEditor{
+  background:rgba(0,0,0,.35)!important;color:#f0e2bd!important;
+  font:400 14px/1.7 'JetBrains Mono',monospace!important;
+}
+#codeGutter{
+  background:transparent!important;border-right:1px solid var(--line)!important;
+  color:#6b6048!important;font:400 14px/1.7 'JetBrains Mono',monospace!important;
+  padding:16px 10px 16px 14px;text-align:right;
+}
+/* v5 .sbar — status strips */
+#codeEdWrap .sbar,#codeOutWrap .sbar,#codeStatus{
+  display:flex;justify-content:space-between;gap:10px;padding:8px 14px;
+  border-top:1px solid var(--line);font:400 11px 'JetBrains Mono',monospace;color:var(--m);
+}
+/* v5 .acts — header action pills */
+#codeEdWrap .hbtns,#codeOutWrap .hbtns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;letter-spacing:0}
+#codeEdWrap .hbtns .cbtn,#codeOutWrap .hbtns .cbtn{
+  padding:6px 12px!important;font:400 11px 'JetBrains Mono',monospace!important;
+  border-radius:var(--r-pill)!important;border:1px solid var(--line)!important;
+  background:var(--gl)!important;color:var(--m)!important;letter-spacing:.06em!important;
+}
+#codeEdWrap .hbtns .cbtn:hover,#codeOutWrap .hbtns .cbtn:hover{color:var(--g2)!important;border-color:var(--g)!important}
+/* v5 .outw — output surface, plus the phone frame */
+#codeOutBody,#codeOut{background:#080b14!important}
+#codeOutWrap.ph iframe,#codeOutWrap.ph #codePreview{
+  border:1px solid var(--line)!important;border-radius:22px!important;box-shadow:none!important;
+}
+@media(max-width:900px){
+  #codeSplit{grid-template-columns:1fr!important}
+  #codeEdWrap,#codeOutWrap{min-height:320px}
+}
+/* ============================================================
+   AURA INSIDE v5 — SLICE 5: CHATS PAGE (v5 exact)
+   v5's .split / .lcol / .chh / .search / .fl / .fb / .ci / .ct / .cs /
+   .cm / .grp / .rcol / .acts2 rebuilt onto AURA's LIVE #sessPanel.
+   Every value below is v5's own declaration; only the selector
+   names are AURA's. No feature is removed — folders, pins,
+   archive, rename, PDF/TXT export and search all keep working.
+   ============================================================ */
+
+/* --- v5 .split — the panel chrome goes, two columns take over --- */
+body[data-tab="chats"] #sessPanel{
+  display:grid!important;
+  grid-template-columns:minmax(290px,400px) 1fr;
+  gap:20px;
+  width:min(1180px,94vw)!important;
+  margin-left:calc(min(1180px,94vw)/-2)!important;
+  padding:0!important;background:none!important;border:0!important;
+  box-shadow:none!important;backdrop-filter:none!important;overflow:visible!important;
+}
+body[data-tab="chats"] #sessPanel::before{display:none}
+/* v5 has no "CHATS" bar — its heading lives in the list column */
+body[data-tab="chats"] #sessPanel>h3{display:none}
+
+/* --- v5 .lcol --- */
+body[data-tab="chats"] #sessSide{
+  overflow:auto;padding-right:6px;min-width:0;min-height:0;
+  display:flex;flex-direction:column;
+}
+/* v5 .chh — heading row + the gold primary button */
+body[data-tab="chats"] #sessHead{
+  display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+  margin-bottom:4px;flex-wrap:nowrap;
+}
+body[data-tab="chats"] #sessHead h2{
+  font-family:'Space Grotesk',system-ui,sans-serif;font-weight:300;
+  font-size:clamp(26px,3.4vw,44px);letter-spacing:-.03em;line-height:1.1;
+  color:var(--t);margin:0;
+}
+body[data-tab="chats"] #sessHead .shsub{font-size:14px;color:var(--m);margin:0}
+/* v5 .btn.p — "+ New chat" */
+body[data-tab="chats"] #sessNew2{
+  background:var(--g);border:1px solid var(--g);color:#1a1202;
+  border-radius:12px;padding:9px 16px;font-size:14px;font-family:'Space Grotesk',system-ui,sans-serif;
+  font-weight:400;white-space:nowrap;flex:none;cursor:pointer;transition:.25s;margin:0;
+}
+body[data-tab="chats"] #sessNew2:hover{filter:brightness(1.08)}
+
+/* --- v5 .search — the pill search field --- */
+body[data-tab="chats"] #sessQ{
+  width:100%;max-width:520px;background:rgba(0,0,0,.35);border:1px solid var(--line);
+  border-radius:99px;padding:12px 20px;margin:14px 0 22px;
+  font-family:'Space Grotesk',system-ui,sans-serif;font-size:14px;color:var(--t);outline:0;
+}
+body[data-tab="chats"] #sessQ:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(233,185,73,.14)}
+body[data-tab="chats"] #sessQ::placeholder{color:var(--m)}
+
+/* --- v5 .fl + .fb — the filter pills --- */
+body[data-tab="chats"] .ch2-filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 6px}
+body[data-tab="chats"] .ch2-fchip{
+  border:1px solid var(--line);border-radius:99px;padding:6px 16px;
+  font-size:13px;color:var(--m);background:transparent;font-weight:400;
+  transition:.25s;
+}
+body[data-tab="chats"] .ch2-fchip:hover{color:var(--g2);border-color:var(--g)}
+body[data-tab="chats"] .ch2-fchip.on{background:var(--g);color:#1a1202;border-color:var(--g)}
+body[data-tab="chats"] .ch2-fchip.on .n{opacity:.75}
+body[data-tab="chats"] .ch2-fchip .fmini{color:inherit;opacity:.6}
+body[data-tab="chats"] .ch2-fchip.on .fmini{opacity:.8;color:inherit}
+body[data-tab="chats"] .ch2-fchip.on .fmini:hover{opacity:1}
+
+/* --- v5 .grp — day buckets --- */
+body[data-tab="chats"] .ch2-group{
+  font:400 11px 'JetBrains Mono',monospace;letter-spacing:.2em;color:var(--m);
+  margin:18px 0 8px;display:block;
+}
+body[data-tab="chats"] .ch2-group:after{content:none}
+
+/* --- v5 .ci — the glass chat cards --- */
+body[data-tab="chats"] #sessScroll{overflow-y:auto;padding-right:4px;min-height:0;padding-bottom:4px}
+body[data-tab="chats"] .ch2-row{
+  display:flex;align-items:center;gap:12px;
+  padding:14px 18px;margin-bottom:8px;
+  border:1px solid var(--line);border-radius:18px;
+  background:var(--gl);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  cursor:pointer;transition:.25s;
+}
+body[data-tab="chats"] .ch2-row:hover{border-color:var(--g)}
+body[data-tab="chats"] .ch2-row.on{border-color:var(--g);background:rgba(233,185,73,.1)}
+body[data-tab="chats"] .ch2-row.pin{border-color:rgba(233,185,73,.4)}
+/* v5 .ct — the title + timestamp line */
+body[data-tab="chats"] .ch2-ico{
+  width:34px;height:34px;flex:0 0 34px;border-radius:10px;font-size:14px;
+  background:rgba(111,232,214,.08);border:1px solid rgba(111,232,214,.3);color:var(--tl);
+}
+body[data-tab="chats"] .ch2-row.pin .ch2-ico{background:rgba(233,185,73,.1);border-color:rgba(233,185,73,.3);color:var(--g)}
+body[data-tab="chats"] .ch2-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:0}
+body[data-tab="chats"] .ch2-title{
+  font-family:'Space Grotesk',system-ui,sans-serif;font-weight:400;font-size:16px;
+  color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+body[data-tab="chats"] .ch2-row.on .ch2-title{color:var(--t)}
+/* v5 .cs — the 2-line clamped preview */
+body[data-tab="chats"] .ch2-prev{
+  color:var(--m);font-size:14px;margin:4px 0 0;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+/* v5 .ct span / .cm — the mono meta line */
+body[data-tab="chats"] .ch2-when{
+  font:400 11px 'JetBrains Mono',monospace;color:var(--m);white-space:nowrap;align-self:flex-start;
+}
+body[data-tab="chats"] .ch2-pinbadge{color:var(--g);font-size:11px;margin-left:6px}
+body[data-tab="chats"] .ch2-acts{gap:2px}
+body[data-tab="chats"] .ch2-acts button{
+  width:26px;height:26px;border-radius:8px;font-size:12px;color:var(--m);
+  background:transparent;border:0;cursor:pointer;transition:.15s;
+}
+body[data-tab="chats"] .ch2-acts button:hover{background:rgba(233,185,73,.14);color:var(--g2)}
+body[data-tab="chats"] .ch2-acts button.ch2-del:hover{background:rgba(248,113,113,.15);color:var(--err)}
+body[data-tab="chats"] .ch2-empty{font-size:14px;color:var(--m);padding:44px 16px;line-height:1.7}
+body[data-tab="chats"] .ch2-empty .big{font-size:34px;display:block;margin-bottom:10px;opacity:.8}
+
+/* --- v5 .rcol.glass — the preview column --- */
+body[data-tab="chats"] #sessPrev{
+  position:relative;border:1px solid var(--line);background:var(--gl);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-radius:18px;overflow:auto;padding:26px 30px;min-height:0;min-width:0;
+}
+body[data-tab="chats"] #sessPrev::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:.3s;
+  background:radial-gradient(260px circle at var(--x,50%) var(--y,50%),rgba(233,185,73,.16),transparent 70%);
+}
+body[data-tab="chats"] #sessPrev:hover::before{opacity:1}
+body[data-tab="chats"] #sessPrev>*{position:relative}
+body[data-tab="chats"] #sessPrev h3{
+  font-family:'Space Grotesk',system-ui,sans-serif;font-weight:300;font-size:26px;
+  letter-spacing:-.03em;line-height:1.1;color:var(--t);margin:0 0 6px;
+}
+body[data-tab="chats"] #sessPrev .pvsub{color:var(--m);margin-bottom:22px;font-size:14px}
+body[data-tab="chats"] #sessPrev .pvm{max-width:92%;font-size:18px;line-height:1.6;margin:0 0 18px}
+body[data-tab="chats"] #sessPrev .pvm b{
+  display:block;font:400 11px 'JetBrains Mono',monospace;letter-spacing:.25em;
+  color:var(--g);margin-bottom:4px;
+}
+body[data-tab="chats"] #sessPrev .pvm span{color:var(--t);white-space:pre-wrap;word-break:break-word}
+body[data-tab="chats"] #sessPrev .pvm.u{
+  margin-left:auto;width:fit-content;max-width:92%;
+  border:1px solid var(--line);border-radius:18px 18px 4px 18px;
+  padding:10px 16px;background:var(--gl);font-size:16px;line-height:1.5;
+}
+/* v5 .acts2 */
+body[data-tab="chats"] #sessPrev .acts2{display:flex;gap:8px;margin-top:22px;flex-wrap:wrap}
+body[data-tab="chats"] #sessPrev .pvbtn{
+  display:inline-flex;gap:8px;align-items:center;cursor:pointer;transition:.25s;
+  background:var(--gl);border:1px solid var(--line);border-radius:12px;
+  padding:9px 16px;font-size:14px;font-family:'Space Grotesk',system-ui,sans-serif;color:var(--t);
+}
+body[data-tab="chats"] #sessPrev .pvbtn:hover{border-color:var(--g);color:var(--g2)}
+body[data-tab="chats"] #sessPrev .pvbtn.p{background:var(--g);color:#1a1202;border-color:var(--g)}
+body[data-tab="chats"] #sessPrev .pvbtn.danger:hover{border-color:rgba(248,113,113,.6);color:#f87171}
+body[data-tab="chats"] #sessPrev .pvempty{
+  display:flex;flex-direction:column;justify-content:center;height:100%;min-height:220px;
+}
+
+/* --- v5 responsive: the split folds to one column under 900px --- */
+@media(max-width:900px){
+  body[data-tab="chats"] #sessPanel{
+    grid-template-columns:1fr;gap:14px;margin-left:0!important;
+  }
+  body[data-tab="chats"] #sessSide{max-height:none;overflow:visible}
+  body[data-tab="chats"] #sessPrev{min-height:240px;max-height:46vh}
+}
+/* --- v5 .ci is a VERTICAL card: title+time on top, preview under it.
+   AURA additionally parks 8 action buttons on each row, so they overlay
+   the card on hover (v5 keeps its actions in the preview column) instead
+   of stealing the title's width. Nothing is removed — they still work. */
+body[data-tab="chats"] .ch2-row{
+  position:relative;display:grid;
+  grid-template-columns:34px minmax(0,1fr);
+  grid-template-rows:auto auto;
+  align-items:start;column-gap:12px;
+}
+body[data-tab="chats"] .ch2-ico{grid-column:1;grid-row:1/span 2;align-self:center}
+body[data-tab="chats"] .ch2-main{grid-column:2;grid-row:1/span 2;min-width:0}
+/* v5 .ct — title left, timestamp right, on the same line */
+body[data-tab="chats"] .ch2-title{padding-right:112px}
+body[data-tab="chats"] .ch2-when{position:absolute;top:14px;right:18px;margin:0}
+/* the row actions float over the card's right edge on hover */
+body[data-tab="chats"] .ch2-acts{
+  position:absolute;right:8px;bottom:8px;
+  padding:4px 6px;border-radius:12px;
+  background:linear-gradient(90deg,rgba(5,7,14,0) 0,rgba(5,7,14,.92) 26%,rgba(5,7,14,.96) 100%);
+}
+body[data-tab="chats"] .ch2-prev{padding-right:8px}
+body[data-tab="chats"] .ch2-row:hover .ch2-prev{padding-right:0}
+/* --- the 2-line clamp: this Chromium reports display:-webkit-box as
+   flow-root and does not support line-clamp, so v5's -webkit-box trick
+   silently collapses to a single line. max-height does the same job. */
+body[data-tab="chats"] .ch2-prev{
+  display:block;line-height:1.2;white-space:normal;
+  max-height:2.4em;overflow:hidden;
+  -webkit-line-clamp:2;line-clamp:2;
+}
+/* --- phone: the list keeps a usable height and scrolls; the preview
+   takes what is left instead of squeezing the list to nothing --------- */
+@media(max-width:900px){
+  body[data-tab="chats"] #sessPanel{
+    grid-template-rows:minmax(200px,1fr) auto;
+  }
+  body[data-tab="chats"] #sessSide{overflow:hidden}
+  body[data-tab="chats"] #sessPrev{min-height:0;max-height:46vh}
+}
+
+/* ============================================================
 </style>
 <style>
 
@@ -840,7 +1443,7 @@ body.booted #topbar,body.booted #tabbar,body.booted #conv,body.booted #dock{tran
 @keyframes bootScan{0%{transform:translateX(-110%)}100%{transform:translateX(340%)}}
 @media(prefers-reduced-motion:reduce){#boot .b-sub,#boot .b-bar i{animation:none}}
 /* --- AURA 3.3 compact control rail: one tidy line, no wrap, no bulk --- */
-.iconrow{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;align-self:stretch;justify-content:center}
+.iconrow{display:flex;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;align-self:stretch;justify-content:flex-start;align-items:center;padding:2px 0;width:100%}
 .iconrow::-webkit-scrollbar{display:none}
 .iconrow>.ibtn{margin-left:4.5px}
 .iconrow>.ibtn:first-child{margin-left:0}
@@ -926,18 +1529,39 @@ body.theme-gold #bootRing::after,body.persona-zeus #bootRing::after{border-color
 @keyframes vioBloom{0%{transform:scale(.02);opacity:0;filter:blur(6px)}38%{opacity:1;filter:blur(1px)}62%{transform:scale(1.14)}100%{transform:scale(1);opacity:1;filter:blur(.5px)}}
 @keyframes vioPulse{0%,100%{box-shadow:0 0 60px 12px var(--vioGlowSoft)}50%{box-shadow:0 0 110px 26px var(--vioGlow)}}
 @keyframes vioOrbit{to{transform:rotate(360deg)}}
-#boot .b-sub{color:var(--vioTextBright)!important;text-shadow:0 0 34px var(--vioGlow),0 0 70px var(--vioGlowSoft)!important;animation:vioWord 2.6s cubic-bezier(.2,.7,.3,1) both!important}
-#boot .b-sub i{color:var(--vio2)!important}
-@keyframes vioWord{0%{opacity:0;letter-spacing:clamp(18px,7vw,30px);filter:blur(10px)}55%{opacity:1;filter:blur(.5px)}100%{letter-spacing:clamp(5px,2.4vw,11px);filter:blur(0)}}
-#boot .b-tag{color:var(--vioDim)!important;animation:vioFade 1.6s ease 1.1s both}
-@keyframes vioFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-#boot .b-bar{background:rgba(168,85,247,.16)!important}
-#boot .b-bar i{background:linear-gradient(90deg,transparent,var(--vio),var(--vio2),transparent)!important}
-body.theme-gold #boot .b-bar{background:rgba(245,179,1,.16)!important}
-#bootLog{color:var(--vioText)!important;text-shadow:0 0 14px var(--vioGlowSoft)}
-#bootLog .ok{color:var(--vio2)!important}
-#bootSeal{color:var(--vioDim)!important}
-#bootSkip{color:var(--vioDim)!important;letter-spacing:3px;animation:vioFade 1.4s ease 1.6s both}
+
+/* ---------- CINEMATIC INTRO SEQUENCE (10-12s) ---------- */
+#introBeam{position:absolute;top:0;left:50%;transform:translateX(-50%);width:160px;height:0;background:linear-gradient(180deg,rgba(34,211,238,.45),rgba(168,85,247,.2) 60%,transparent 100%);filter:blur(10px);opacity:0;animation:beamDown 2.5s ease-out forwards;z-index:2}
+@keyframes beamDown{0%{height:0;opacity:0}50%{opacity:0.8}100%{height:100vh;opacity:0.35}}
+
+#introOrb{position:absolute;bottom:-100px;left:50%;transform:translateX(-50%) scale(.5);width:280px;height:280px;border-radius:50%;background:radial-gradient(circle,rgba(168,85,247,.6) 0%,rgba(34,211,238,.4) 40%,transparent 70%);filter:blur(16px);opacity:0;animation:orbRise 3s cubic-bezier(.16,.8,.3,1) forwards;z-index:2}
+@keyframes orbRise{0%{bottom:-120px;opacity:0;transform:translateX(-50%) scale(.4)}100%{bottom:28%;opacity:0.85;transform:translateX(-50%) scale(1)}}
+
+#introLogoStage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:10;opacity:0;animation:logoStageFade 2s cubic-bezier(.16,.8,.3,1) 2.2s forwards}
+@keyframes logoStageFade{0%{opacity:0;transform:scale(.85)}100%{opacity:1;transform:scale(1)}}
+
+#introRingsStage{position:relative;width:280px;height:280px;display:flex;align-items:center;justify-content:center;z-index:10;opacity:0;animation:ringsStageFade 3s cubic-bezier(.16,.8,.3,1) 4.2s forwards}
+@keyframes ringsStageFade{0%{opacity:0;transform:scale(.7)}100%{opacity:1;transform:scale(1)}}
+
+.orbit-ring{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(34,211,238,.4);box-shadow:0 0 16px rgba(34,211,238,.2);animation:vioOrbit 10s linear infinite}
+.orbit-ring.r2{inset:30px;border-color:rgba(168,85,247,.45);animation-duration:7s;animation-direction:reverse}
+.orbit-ring.r3{inset:60px;border-color:rgba(99,102,241,.5);animation-duration:12s}
+.central-aura-orb{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;letter-spacing:4px;color:#fff;text-shadow:0 0 20px rgba(34,211,238,.8);background:rgba(18,25,42,.85);border:1px solid rgba(34,211,238,.4);padding:14px 20px;border-radius:50%;box-shadow:0 0 30px rgba(34,211,238,.35)}
+
+.orbit-bubble{position:absolute;width:44px;height:44px;border-radius:50%;background:rgba(18,25,42,.85);border:1px solid rgba(34,211,238,.4);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 14px rgba(34,211,238,.3);transition:transform .3s}
+
+#introCarouselStage{position:relative;width:min(480px,92vw);height:140px;display:flex;align-items:center;justify-content:center;perspective:1000px;z-index:10;opacity:0;animation:carouselStageFade 2.8s cubic-bezier(.16,.8,.3,1) 7.2s forwards}
+@keyframes carouselStageFade{0%{opacity:0;transform:translateY(30px)}100%{opacity:1;transform:translateY(0)}}
+
+.intro-card{position:absolute;width:280px;padding:14px;background:rgba(13,18,30,.88);border:1px solid rgba(34,211,238,.4);backdrop-filter:blur(16px);border-radius:14px;color:#f1f5f9;font-size:12.5px;box-shadow:0 12px 36px rgba(0,0,0,.6);line-height:1.5}
+
+#introFinalStage{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:10;opacity:0;animation:finalStageFade 2s ease-out 9.8s forwards}
+@keyframes finalStageFade{0%{opacity:0;transform:scale(.9)}100%{opacity:1;transform:scale(1)}}
+
+#bootSkip{position:absolute;bottom:30px;z-index:20;background:rgba(18,25,42,.8);border:1px solid rgba(34,211,238,.35);color:var(--cy2);font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:2.5px;padding:8px 18px;border-radius:20px;cursor:pointer;backdrop-filter:blur(10px);transition:all .2s;box-shadow:0 0 14px rgba(34,211,238,.2)}
+#bootSkip:hover{background:rgba(34,211,238,.25);border-color:var(--cy);color:#fff;box-shadow:0 0 22px rgba(34,211,238,.4)}
+
+#boot.quick-intro #introBeam,#boot.quick-intro #introOrb,#boot.quick-intro #introLogoStage,#boot.quick-intro #introRingsStage,#boot.quick-intro #introCarouselStage,#boot.quick-intro #introFinalStage{animation-duration:.4s!important;animation-delay:0s!important}
 /* the reveal — violet flash bloom as the app fades in (video f24 moment) */
 body.boot-flash::after{content:"";position:fixed;inset:0;z-index:59;pointer-events:none;
   background:radial-gradient(circle at 50% 44%,rgba(216,180,254,.55),rgba(168,85,247,.25) 38%,transparent 70%);
@@ -946,15 +1570,50 @@ body.theme-gold.boot-flash::after,body.persona-zeus.boot-flash::after{background
 body.theme-classical.boot-flash::after{background:radial-gradient(circle at 50% 44%,rgba(139,94,52,.28),rgba(139,94,52,.12) 40%,transparent 70%)}
 @keyframes vioFlash{0%{opacity:0;transform:scale(.55)}22%{opacity:1}100%{opacity:0;transform:scale(1.6)}}
 
-/* ---------- DOCK — dreamy violet glass (input, mic, send, chips) ---------- */
-#q{background:var(--vioGlass);border:1px solid var(--vioLine);color:var(--vioTextBright);backdrop-filter:blur(14px)}
+/* ---------- DOCK — sound master switch + dreamy violet glass ---------- */
+#dock{position:fixed;left:0;right:0;margin:0 auto;bottom:20px;z-index:30;display:flex;flex-direction:column;align-items:center;gap:10px;width:min(680px,94vw);background:rgba(10,14,24,.92);border:1px solid rgba(34,211,238,.35);backdrop-filter:blur(20px);border-radius:24px;padding:12px 18px;box-shadow:0 12px 32px rgba(0,0,0,.55),0 0 24px rgba(34,211,238,.18)}
+#soundBtn{position:relative;top:auto;left:auto;margin:0;display:inline-flex!important;align-items:center;justify-content:center;line-height:1;height:auto;padding:7px 14px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;color:var(--cy2);border:1px solid rgba(34,211,238,.35);background:rgba(34,211,238,.12);backdrop-filter:blur(10px);border-radius:10px;cursor:pointer;transition:.2s;z-index:10;visibility:visible!important}
+#soundBtn:hover{color:var(--cy2);border-color:var(--cy);box-shadow:0 0 16px rgba(34,211,238,.35)}
+#soundBtn:active{color:var(--cy2);transform:scale(.97)}
+#soundBtn.off{opacity:0.65;border-color:rgba(255,255,255,0.18);background:rgba(20,20,35,0.4);color:var(--vioDim);box-shadow:none}
+#soundBtn .vBtnDot{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  width:7px;height:7px;border-radius:50%;background:var(--vio2);box-shadow:0 0 8px var(--vioGlow)}
+#micWrap{display:flex;align-items:center;gap:10px}
+#soundBtn .vDotBadge{display:none}
+/* ---------- BOTTOM RAIL — buttons wrap, nothing clips ----------
+   The row used to be one nowrap + overflow-x:auto line inside a 640px dock,
+   so the scroll position could push #soundBtn off-screen (left = -159px).
+   Wrapping + visible overflow makes every rail button reachable at any width. */
+.iconrow{flex-wrap:wrap;overflow:visible;justify-content:center;align-content:center;gap:7px 8px;width:100%;padding:2px 0}
+.iconrow>.ibtn{margin-left:0}
+#dock{max-width:none}
+/* ---------- BOTTOM RAIL — AUTO FRAME (phone / tablet / laptop, no hardcoded sizes) ----------
+   --railScale is written by the auto-fit pass at the end of this file: it shrinks the
+   chips just enough to keep the rail inside a tidy row count on ANY screen, so a 320px
+   phone, a 768px tablet and a 1440px laptop all frame the rail the same clean way. */
+.iconrow{gap:calc(6px * var(--railScale,1)) clamp(5px,1.6vw,9px)}
+/* auto-frame rewrites font-size/padding/letter-spacing on every resize — animating those
+   would make the fit pass measure half-finished geometry and make the chips wobble.
+   Paint-only transitions: hover/press still feel right. */
+.iconrow>.ibtn,#soundBtn{transition:color .2s,border-color .2s,box-shadow .2s,background .2s,opacity .2s,transform .12s}
+.iconrow>.ibtn{font-size:calc(9.5px * var(--railScale,1));letter-spacing:calc(1px * var(--railScale,1));padding:calc(6px * var(--railScale,1)) calc(11px * var(--railScale,1))}
+#soundBtn{font-size:calc(10px * var(--railScale,1));letter-spacing:calc(1px * var(--railScale,1));padding:calc(7px * var(--railScale,1)) calc(14px * var(--railScale,1))}
+#micBtn{width:clamp(52px,13vw,66px);height:clamp(52px,13vw,66px);font-size:clamp(19px,4.4vw,24px)}
+#dock{gap:clamp(8px,1.8vh,10px)}
+#q{font-size:clamp(15px,3.6vw,16px)}
+/* the rail wraps, so the dock is taller on narrow screens — lift the chat card by it.
+   64px (not 40) so the card also clears the mic that floats above the dock: the v5
+   14px starter chips pushed the card's bottom edge 4px into the mic. */
+body[data-tab="chat"] #conv{bottom:max(240px,calc(var(--dockH,150px) + 64px))}
+@media(max-width:860px){body[data-tab="chat"] #conv{bottom:max(232px,calc(var(--dockH,150px) + 100px))}}
+#q{background:rgba(4,18,26,.85);border:1px solid rgba(34,211,238,.3);color:var(--ice);font-family:'Rajdhani';font-size:16px;padding:12px 20px;border-radius:24px;backdrop-filter:blur(14px);outline:none;flex:1}
 #q::placeholder{color:var(--vioDim)}
-#q:focus{border-color:var(--vio);box-shadow:0 0 0 3px var(--vioGlowSoft),0 8px 30px var(--vioGlowSoft)}
-#sendBtn{background:linear-gradient(135deg,var(--vio),var(--vioDeep));border:0;color:#fff;box-shadow:0 6px 22px var(--vioGlow)}
-#sendBtn:hover{filter:brightness(1.12);background:linear-gradient(135deg,var(--vio),var(--vioDeep))}
-#micBtn{border:2px solid var(--vio);background:radial-gradient(circle at 50% 35%,var(--vioGlowSoft),var(--vioGlass));color:var(--vio2);
-  box-shadow:0 0 28px var(--vioGlow),inset 0 0 20px var(--vioGlowSoft);animation:vioBreathe 3.8s ease-in-out infinite}
-@keyframes vioBreathe{0%,100%{box-shadow:0 0 22px var(--vioGlowSoft),inset 0 0 18px var(--vioGlowSoft)}50%{box-shadow:0 0 46px var(--vioGlow),inset 0 0 26px var(--vioGlowSoft)}}
+#q:focus{border-color:var(--cy2);box-shadow:0 0 0 3px rgba(34,211,238,.2),0 8px 30px rgba(34,211,238,.2)}
+#sendBtn{background:linear-gradient(135deg,var(--cy),#0ea5e9);border:0;color:#000;border-radius:50%;width:44px;height:44px;font-size:18px;box-shadow:0 0 16px rgba(34,211,238,.35);cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center}
+#sendBtn:hover{filter:brightness(1.12);transform:scale(1.06)}
+#micBtn{border:2px solid var(--cy);background:radial-gradient(circle at 50% 35%,rgba(34,211,238,.35),rgba(4,18,26,.9));color:var(--cy2);
+  box-shadow:0 0 28px rgba(34,211,238,.35);animation:vioBreathe 3.8s ease-in-out infinite;width:44px;height:44px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+@keyframes vioBreathe{0%,100%{box-shadow:0 0 22px rgba(34,211,238,.25)}50%{box-shadow:0 0 46px rgba(34,211,238,.55)}}
 #micBtn.listening{border-color:var(--red)!important;color:#fecaca!important;box-shadow:0 0 34px rgba(248,113,113,.5)!important;animation:pp 1s infinite!important}
 #micHint{color:var(--vioText);text-shadow:0 0 12px var(--vioGlowSoft)}
 .ibtn{color:var(--vioText);border:1px solid var(--vioLine);background:var(--vioGlass);backdrop-filter:blur(8px)}
@@ -989,12 +1648,870 @@ body:not(.theme-classical):not(.theme-gold) .msg.user{border-left-color:var(--vi
 .msg.user .who{color:var(--vio2)}
 body.theme-gold .msg.user .who{color:#a16207}
 body.theme-classical .msg.user .who{color:#a16207}
+
+/* ============================================================
+   AURA 4.0 — LANDING PAGE (OUTSIDE) + PREMIUM INSIDE
+   ============================================================ */
+
+/* ---- Landing page container ---- */
+#landing{position:fixed;inset:0;z-index:200;background:#05070E;overflow-y:auto;overflow-x:hidden;scroll-behavior:smooth}
+#landing.gone{opacity:0;pointer-events:none;transition:opacity .8s ease}
+/* While landing exists and is not gone, suppress the old #boot from peeking through */
+#landing:not(.gone) ~ * #boot,
+body:has(#landing:not(.gone)) #boot { pointer-events:none!important; }
+/* Intro overlay sits above everything */
+
+
+/* Grid overlay */
+#landing::before{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background-image:linear-gradient(rgba(92,225,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(92,225,255,.03) 1px,transparent 1px);
+  background-size:60px 60px}
+
+/* ---- Landing nav ---- */
+#lnav{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 40px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(20px);border-bottom:1px solid rgba(92,225,255,.06);transition:all .3s}
+.lnav-logo{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:22px;letter-spacing:4px;color:#fff;text-shadow:0 0 30px rgba(92,225,255,.5)}
+.lnav-logo span{color:var(--cy)}
+.lnav-links{display:flex;gap:36px;font-size:13px;color:var(--dim-bright);font-family:'Inter',sans-serif;letter-spacing:.5px}
+.lnav-links a{color:inherit;text-decoration:none;transition:.2s}
+.lnav-links a:hover{color:var(--cy)}
+#enterBtn{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:14px;letter-spacing:1.5px;
+  background:linear-gradient(135deg,var(--cy),#8B5CFF);border:0;border-radius:50px;padding:11px 32px;
+  color:#05070E;cursor:pointer;transition:all .25s;box-shadow:0 0 30px rgba(92,225,255,.3)}
+#enterBtn:hover{transform:translateY(-2px);box-shadow:0 0 50px rgba(92,225,255,.5)}
+
+/* ---- Hero section ---- */
+.l-section{position:relative;z-index:2;min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:120px 40px 80px}
+.hero-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:4px;color:var(--cy);text-transform:uppercase;margin-bottom:28px;opacity:.85}
+.hero-h1{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(52px,9vw,100px);line-height:1.0;letter-spacing:-3px;color:#fff;margin-bottom:28px;text-shadow:0 0 80px rgba(92,225,255,.2)}
+.hero-h1 em{font-style:normal;color:var(--cy);text-shadow:0 0 60px rgba(92,225,255,.6)}
+.hero-sub{font-family:'Inter',sans-serif;font-size:clamp(15px,2vw,20px);color:var(--dim-bright);max-width:580px;line-height:1.65;margin-bottom:52px}
+.hero-cta-row{display:flex;gap:16px;align-items:center;justify-content:center;flex-wrap:wrap}
+.cta-primary{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:15px;letter-spacing:1px;
+  background:linear-gradient(135deg,var(--cy) 0%,#8B5CFF 100%);border:0;border-radius:50px;
+  padding:16px 44px;color:#05070E;cursor:pointer;transition:all .3s;
+  box-shadow:0 0 40px rgba(92,225,255,.3),0 4px 20px rgba(0,0,0,.4)}
+.cta-primary:hover{transform:translateY(-3px);box-shadow:0 0 60px rgba(92,225,255,.5),0 8px 30px rgba(0,0,0,.5)}
+.cta-ghost{font-family:'Space Grotesk',sans-serif;font-weight:500;font-size:14px;letter-spacing:.5px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:50px;
+  padding:15px 36px;color:var(--ice);cursor:pointer;transition:all .3s;backdrop-filter:blur(10px)}
+.cta-ghost:hover{background:rgba(255,255,255,.08);border-color:rgba(92,225,255,.4)}
+.hero-stats{display:flex;gap:48px;margin-top:72px;justify-content:center;flex-wrap:wrap}
+.hstat{text-align:center}
+.hstat-n{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(28px,4vw,42px);color:var(--cy)}
+.hstat-l{font-size:11px;color:var(--dim);letter-spacing:1.5px;margin-top:4px;text-transform:uppercase;font-family:var(--mono)}
+
+/* ---- Feature sections ---- */
+.l-feature{position:relative;z-index:2;padding:100px 40px;max-width:1100px;margin:0 auto}
+.l-feature-label{font-family:var(--mono);font-size:10px;letter-spacing:4px;color:var(--cy);margin-bottom:20px;text-transform:uppercase}
+.l-feature-h{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(32px,4.5vw,54px);line-height:1.1;letter-spacing:-1.5px;color:#fff;margin-bottom:24px}
+.l-feature-p{font-size:16px;color:var(--dim-bright);line-height:1.7;max-width:540px}
+.l-feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:64px}
+@media(max-width:640px){.l-feature-grid{grid-template-columns:1fr}}
+.l-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:32px;transition:all .3s;cursor:default}
+.l-card:hover{background:rgba(92,225,255,.04);border-color:rgba(92,225,255,.2);transform:translateY(-4px);box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 40px rgba(92,225,255,.08)}
+.l-card-icon{width:44px;height:44px;border-radius:12px;background:rgba(92,225,255,.1);border:1px solid rgba(92,225,255,.2);display:flex;align-items:center;justify-content:center;margin-bottom:20px}
+.l-card-icon svg{width:22px;height:22px;stroke:var(--cy);fill:none;stroke-width:1.5}
+.l-card h4{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:18px;color:#fff;margin-bottom:10px}
+.l-card p{font-size:13.5px;color:var(--dim-bright);line-height:1.6}
+
+/* ---- Voice visualizer section ---- */
+#voiceSection{position:relative;z-index:2;padding:100px 40px;text-align:center}
+.soundwave{display:flex;align-items:center;justify-content:center;gap:4px;height:80px;margin:48px auto}
+.sw-bar{width:3px;border-radius:3px;background:linear-gradient(180deg,var(--cy),#8B5CFF);animation:swv 1.2s ease-in-out infinite;transform-origin:bottom}
+.sw-bar:nth-child(1){height:20px;animation-delay:0s}
+.sw-bar:nth-child(2){height:45px;animation-delay:.1s}
+.sw-bar:nth-child(3){height:65px;animation-delay:.2s}
+.sw-bar:nth-child(4){height:80px;animation-delay:.15s}
+.sw-bar:nth-child(5){height:55px;animation-delay:.25s}
+.sw-bar:nth-child(6){height:72px;animation-delay:.05s}
+.sw-bar:nth-child(7){height:40px;animation-delay:.3s}
+.sw-bar:nth-child(8){height:60px;animation-delay:.18s}
+.sw-bar:nth-child(9){height:50px;animation-delay:.08s}
+.sw-bar:nth-child(10){height:30px;animation-delay:.22s}
+.sw-bar:nth-child(11){height:55px;animation-delay:.12s}
+.sw-bar:nth-child(12){height:42px;animation-delay:.35s}
+@keyframes swv{0%,100%{transform:scaleY(.4);opacity:.5}50%{transform:scaleY(1);opacity:1}}
+
+/* ---- Code forge section ---- */
+#codeSection{position:relative;z-index:2;padding:100px 40px}
+.code-glass{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:28px;font-family:var(--mono);font-size:13px;line-height:1.8;color:#9BCDD9;max-width:620px;margin:40px auto;position:relative;overflow:hidden}
+.code-glass::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(92,225,255,.5),transparent)}
+.code-line{display:block}.code-kw{color:#8B5CFF}.code-fn{color:var(--cy)}.code-str{color:#FFB84D}.code-cm{color:#3f6a72}
+
+/* ---- Maker section ---- */
+#makerSection{position:relative;z-index:2;padding:100px 40px;text-align:center}
+.maker-avatar{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,rgba(92,225,255,.3),rgba(139,92,255,.3));border:2px solid rgba(92,225,255,.4);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 24px;box-shadow:0 0 40px rgba(92,225,255,.2)}
+.maker-name{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:28px;color:#fff;margin-bottom:8px}
+.maker-title{font-size:13px;color:var(--dim);letter-spacing:2px;font-family:var(--mono);text-transform:uppercase;margin-bottom:32px}
+.maker-links{display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.maker-link{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border:1px solid rgba(255,255,255,.1);border-radius:50px;color:var(--ice);text-decoration:none;font-size:13px;transition:all .2s;background:rgba(255,255,255,.04)}
+.maker-link:hover{border-color:rgba(92,225,255,.4);color:var(--cy);background:rgba(92,225,255,.06)}
+.maker-link svg{width:16px;height:16px;fill:currentColor}
+
+/* ---- Final CTA section ---- */
+#finalCta{position:relative;z-index:2;padding:120px 40px;text-align:center}
+.final-h{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:clamp(36px,6vw,72px);letter-spacing:-2px;color:#fff;line-height:1.05;margin-bottom:28px}
+.final-h em{font-style:normal;background:linear-gradient(135deg,var(--cy),#8B5CFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.final-sub{font-size:16px;color:var(--dim-bright);margin-bottom:52px}
+.final-seal{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:rgba(92,225,255,.35);margin-top:64px}
+
+/* ---- Premium inside app updates ---- */
+#topbar{background:rgba(5,7,14,.8);backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,.05)}
+.wordmark{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:20px;letter-spacing:5px;color:#fff;text-shadow:0 0 20px rgba(92,225,255,.4)}
+.wordmark small{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--dim)}
+#stateBox{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(10px)}
+#stateDot{background:var(--cy);box-shadow:0 0 10px var(--cy)}
+#stateText{font-family:var(--mono);font-size:11px;letter-spacing:2px;color:var(--cy2)}
+#dock{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);backdrop-filter:blur(24px);border-radius:24px;box-shadow:0 8px 40px rgba(0,0,0,.5),0 0 0 1px rgba(92,225,255,.05)}
+#q{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09);border-radius:24px;color:var(--ice);font-family:'Inter',sans-serif;font-size:15px}
+#q:focus{border-color:rgba(92,225,255,.4);box-shadow:0 0 20px rgba(92,225,255,.12)}
+#q::placeholder{color:rgba(140,155,190,.5)}
+#sendBtn{background:linear-gradient(135deg,rgba(92,225,255,.3),rgba(139,92,255,.3));border:1px solid rgba(92,225,255,.4);color:var(--cy);border-radius:50%;width:46px;height:46px;font-size:18px}
+#sendBtn:hover{background:linear-gradient(135deg,rgba(92,225,255,.5),rgba(139,92,255,.5));box-shadow:0 0 20px rgba(92,225,255,.3)}
+#micBtn{background:radial-gradient(circle at 50% 35%,rgba(92,225,255,.25),rgba(5,7,14,.9));border:2px solid rgba(92,225,255,.5);box-shadow:0 0 30px rgba(92,225,255,.3),inset 0 0 20px rgba(92,225,255,.1)}
+#micBtn:hover{box-shadow:0 0 40px rgba(92,225,255,.5),inset 0 0 20px rgba(92,225,255,.2)}
+.ibtn{font-family:var(--mono);font-size:9.5px;letter-spacing:1px;color:rgba(140,155,190,.7);border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);border-radius:8px;padding:6px 11px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.ibtn:hover{color:var(--cy);border-color:rgba(92,225,255,.3);background:rgba(92,225,255,.06)}
+#conv{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);backdrop-filter:blur(20px);border-radius:20px}
+.msg.aura{background:rgba(92,225,255,.03);border-left:2px solid rgba(92,225,255,.25)}
+.msg.aura .who{color:var(--cy)}
+.msg.user .who{color:var(--amber)}
+#tabbar button{border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);color:var(--dim-bright);font-family:var(--mono);font-size:10px;letter-spacing:1.5px;border-radius:10px}
+#tabbar button:hover{border-color:rgba(92,225,255,.3);color:var(--cy)}
+#tabbar button.on{border-color:rgba(92,225,255,.4);color:var(--cy);background:rgba(92,225,255,.07);box-shadow:0 0 16px rgba(92,225,255,.15)}
+.chip{font-family:var(--mono);font-size:10px;color:var(--cy2);border:1px solid rgba(92,225,255,.18);background:rgba(92,225,255,.04);border-radius:14px;padding:5px 11px;cursor:pointer;transition:.2s}
+.chip:hover{background:rgba(92,225,255,.12);box-shadow:0 0 16px rgba(92,225,255,.2)}
+
+/* ---- Intro boot sequences override (inside #boot) ---- */
+#boot{background:#05070E;font-family:'Space Grotesk',sans-serif}
+#boot .b-sub{font-family:'Space Grotesk',sans-serif;font-size:clamp(28px,7vw,42px);letter-spacing:clamp(8px,3vw,16px);color:#fff;text-shadow:0 0 40px rgba(92,225,255,.6)}
+#boot .b-sub i{color:var(--cy)}
+#boot .b-tag{color:rgba(92,225,255,.55);letter-spacing:.35em}
+
+/* ---- prefers-reduced-motion safety ---- */
+@media(prefers-reduced-motion:reduce){
+  .sw-bar,.cta-primary,.l-card{animation:none!important;transition:none!important}
+  #landing{scroll-behavior:auto}
+}
+
+/* ---- Responsive landing ---- */
+@media(max-width:768px){
+  #lnav{padding:14px 20px}
+  .lnav-links{display:none}
+  .l-section{padding:100px 24px 60px}
+  .hero-stats{gap:28px}
+  .l-feature{padding:60px 24px}
+  .l-feature-grid{grid-template-columns:1fr}
+  #voiceSection,#codeSection,#makerSection,#finalCta{padding:60px 24px}
+  #enterBtn{padding:10px 22px;font-size:13px}
+}
+
+/* ---- Toast notifications ---- */
+#toastShelf{position:fixed;bottom:220px;right:24px;z-index:400;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{background:rgba(10,14,30,.92);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px 18px;font-size:12.5px;color:var(--ice);backdrop-filter:blur(16px);box-shadow:0 8px 32px rgba(0,0,0,.5);opacity:0;transform:translateX(20px);transition:all .3s ease;pointer-events:auto}
+.toast.show{opacity:1;transform:translateX(0)}
+.toast.ok{border-left:3px solid var(--ok)}.toast.err{border-left:3px solid var(--red)}.toast.info{border-left:3px solid var(--cy)}
+
+/* ---- Skeleton loader ---- */
+.skeleton{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:skel 1.5s ease-in-out infinite;border-radius:8px}
+@keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* ============================================================
+   AURA INSIDE v5 — FAITHFUL DESIGN PORT (v5 values, AURA's DOM)
+   Rebuilt to match aura-inside-v5.html exactly: same palette, type
+   scale, radii, spacing, borders and component shapes, applied to
+   AURA's own selectors.
+
+   NOT copied on purpose: v5's generic class names (.btn/.chip/.bar/
+   .item/.glass/.panel/.dot/.status/.user) — AURA already owns those
+   names on 26+ buttons and 7 panels, so restyling them globally
+   would repaint working UI. Every rule below names an AURA selector.
+   No id, class, handler or feature is touched: voice, ZEUS MESH,
+   memory, calendar, code forge, auth and backend stay as they are.
+   ============================================================ */
+
+/* ---------- 1. v5 palette, verbatim ---------------------------------- */
+:root{
+  --bg:#04060d;--g:#e9b949;--g2:#ffd98a;--tl:#6fe8d6;
+  --t:#f3ead6;--m:#a39776;--line:rgba(233,185,73,.2);--gl:rgba(233,185,73,.05);
+  /* AURA's own names point at the v5 values so existing rules inherit */
+  --cy:#e9b949;--cy2:#ffd98a;--ice:#f3ead6;--dim:#a39776;
+  --panel:rgba(233,185,73,.05);--line2:rgba(233,185,73,.09);--amber:#ffd98a;
+  --vio:#e9b949;--vio2:#ffd98a;--vioDeep:#6b4608;
+  --vioGlow:rgba(233,185,73,.45);--vioGlowSoft:rgba(233,185,73,.18);
+  --vioLine:rgba(233,185,73,.2);--vioGlass:rgba(233,185,73,.05);
+  --vioText:#f3ead6;--vioTextBright:#ffd98a;--vioDim:#a39776;
+  --r-lg:18px;--r-md:14px;--r-pill:99px;
+}
+body{
+  background:radial-gradient(110% 70% at 78% 0,#1b1608,var(--bg) 60%);
+  color:var(--t);font-weight:300;letter-spacing:.005em;
+}
+
+/* ---------- 2. v5 top bar: 68px, hairline, blur ---------------------- */
+#topbar{
+  border-bottom:1px solid var(--line);background:rgba(4,6,13,.55);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+}
+.wordmark,.lnav-logo{
+  font-family:'Space Grotesk',system-ui,sans-serif;font-weight:500;
+  font-size:18px;letter-spacing:.32em;color:var(--g);
+}
+.wordmark .tag,#buildSub,.tag{
+  font:400 9px 'JetBrains Mono',monospace;letter-spacing:.3em;color:#6f87a8;
+}
+/* v5 status pill */
+#statPill,.statusPill,.topStatus{
+  border:1px solid var(--line);border-radius:var(--r-pill);
+  padding:7px 16px;background:var(--gl);
+  font:400 12px 'JetBrains Mono',monospace;color:var(--m);
+}
+#statPill .dot,.statusPill .dot{
+  width:8px;height:8px;border-radius:50%;background:var(--tl);
+  box-shadow:0 0 10px var(--tl);animation:pp 2.4s infinite;
+}
+
+/* ---------- 3. v5 glass card ----------------------------------------- */
+#dock,#conv,.panel,#sessPanel,#codePage,#toastShelf{
+  border:1px solid var(--line)!important;
+  background:linear-gradient(180deg,rgba(18,15,8,.86),rgba(8,7,4,.82))!important;
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-radius:var(--r-lg)!important;
+  box-shadow:0 18px 44px rgba(0,0,0,.5);
+}
+#dock::before,#conv::before,.panel::before,#sessPanel::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s;z-index:0;
+  background:radial-gradient(260px circle at var(--x,50%) var(--y,50%),rgba(233,185,73,.16),transparent 70%);
+}
+#dock:hover::before,#conv:hover::before,.panel:hover::before,#sessPanel:hover::before{opacity:1}
+#dock>*,#conv>*{position:relative;z-index:1}
+
+/* ---------- 4. v5 panes: light headings + muted sub ------------------ */
+#conv h3,.panel h3,#conv .who,#sessPanel h3{
+  font-family:'Space Grotesk',system-ui,sans-serif;font-weight:300;
+  font-size:clamp(20px,2.2vw,26px);letter-spacing:-.03em;color:var(--t);
+}
+#conv .sub,.panel .sub,.sub,#conv h3 span:last-child{color:var(--m);font-size:13px}
+
+/* ---------- 5. v5 rail buttons (AURA's tab bar) ---------------------- */
+#tabbar{gap:8px}
+#tabbar button{
+  background:transparent!important;border:1px solid transparent!important;
+  border-radius:var(--r-md)!important;color:var(--m)!important;
+  font:400 10px 'JetBrains Mono',monospace;letter-spacing:.1em;
+  padding:10px 14px;transition:.25s;
+}
+#tabbar button:hover{color:var(--t)!important;background:var(--gl)}
+body[data-tab="chat"]   #tabbar button:nth-child(1),
+body[data-tab="chats"]  #tabbar button:nth-child(2),
+body[data-tab="code"]   #tabbar button:nth-child(3),
+body[data-tab="system"] #tabbar button:nth-child(4),
+body[data-tab="adm"]    #tabbar button:nth-child(5){
+  color:var(--g)!important;background:rgba(233,185,73,.1)!important;
+  box-shadow:inset 0 0 0 1px var(--line)!important;
+}
+
+/* ---------- 6. v5 messages ------------------------------------------- */
+body:not(.theme-classical):not(.theme-gold) .msg.aura,
+body:not(.theme-classical):not(.theme-gold) .msg.user{
+  background:var(--gl)!important;border-color:var(--line)!important;
+}
+.msg.aura{border-radius:var(--r-lg);border-top-left-radius:4px;padding:10px 14px}
+.msg.user{border-radius:var(--r-lg) var(--r-lg) 4px var(--r-lg)!important;padding:10px 16px;font-size:16px}
+.msg{font-family:'Space Grotesk',system-ui,sans-serif;font-weight:300;font-size:17px;line-height:1.6}
+.msg .who,.msg .mwhen{
+  font:400 11px 'JetBrains Mono',monospace;letter-spacing:.25em;color:var(--g);
+}
+.msg.user .who{color:var(--m);letter-spacing:.14em}
+
+/* ---------- 7. v5 composer ------------------------------------------ */
+#inputRow{gap:8px}
+#q{
+  background:rgba(0,0,0,.35)!important;border:1px solid var(--line)!important;
+  border-radius:var(--r-pill)!important;padding:13px 20px!important;
+  color:var(--t)!important;font-family:'Space Grotesk',system-ui,sans-serif;
+  backdrop-filter:blur(10px);
+}
+#q::placeholder{color:#7a6f52}
+#q:focus{outline:none;border-color:var(--g);box-shadow:0 0 0 3px rgba(233,185,73,.14)}
+#sendBtn{
+  width:46px!important;height:46px!important;border-radius:50%!important;
+  border:1px solid transparent!important;color:#1a1202!important;
+  background:linear-gradient(135deg,var(--tl),var(--g))!important;
+  box-shadow:0 6px 18px rgba(233,185,73,.20);transition:.25s;
+}
+#sendBtn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(233,185,73,.30)}
+#micBtn{
+  border-color:var(--g)!important;color:var(--g2)!important;
+  background:radial-gradient(circle at 50% 35%,rgba(233,185,73,.22),rgba(6,5,2,.92))!important;
+  box-shadow:0 0 24px rgba(233,185,73,.18);
+}
+#micBtn:hover{transform:scale(1.06);box-shadow:0 0 30px rgba(233,185,73,.30)}
+
+/* ---------- 8. v5 tool buttons + VOICE primary ----------------------- */
+.ibtn{
+  font-family:'JetBrains Mono',monospace;color:var(--m);
+  border:1px solid var(--line)!important;border-radius:var(--r-pill)!important;
+  background:transparent!important;transition:.25s;
+}
+.ibtn:hover{color:var(--g2)!important;border-color:var(--g)!important;background:rgba(233,185,73,.10)!important}
+/* font-size / padding stay under the AUTO FRAME pass — never fight it */
+#soundBtn{
+  color:#1a1202!important;background:linear-gradient(135deg,var(--tl),var(--g))!important;
+  border-color:transparent!important;font-weight:700;
+  box-shadow:0 6px 18px rgba(233,185,73,.22);
+}
+#soundBtn:hover{box-shadow:0 8px 26px rgba(233,185,73,.34)}
+#soundBtn.off{background:transparent!important;color:var(--m)!important;border-color:var(--line)!important;box-shadow:none}
+
+/* ---------- 9. v5 starter chips -------------------------------------- */
+.chip{
+  font-family:'Space Grotesk',system-ui,sans-serif;font-size:14px;
+  color:var(--g2);border:1px solid var(--line)!important;
+  border-radius:var(--r-pill)!important;background:var(--gl)!important;transition:.25s;
+}
+.chip:hover{background:rgba(233,185,73,.16)!important;border-color:var(--g)!important}
+/* The phone chip row (#chipsMobile) is a duplicate of the desktop #chips row.
+   At v5's 14px chip size it wrapped onto two lines and collided with the mic
+   (measured 172x43px overlap), so it is phone-only and stays compact there. */
+@media(min-width:601px){#chipsMobile{display:none!important}}
+@media(max-width:600px){#chipsMobile .chip{font-size:11px;padding:5px 11px}}
+
+/* ---------- 10. v5 HUD / system readouts ----------------------------- */
+#telemetry,#syslogLines,#pageFooter{color:var(--m);border-color:var(--line)!important}
+#pageFooter,#buildSub{font-family:'JetBrains Mono',monospace;letter-spacing:.12em}
+.tLabel,.telLabel,#telemetry .k,#telemetry .lbl{font:400 11px 'JetBrains Mono',monospace;letter-spacing:.18em;color:var(--m)}
+.tVal,.telValue,#telemetry .v{font-weight:300;font-size:22px;color:var(--g2)}
+#syslogLines,#term,#log.term{font-family:'JetBrains Mono',monospace;color:#cdbf98}
+.bar,.meter>i,.meterFill{background:rgba(255,255,255,.08)!important;border-radius:3px}
+.bar>i,.meterFill>i{background:linear-gradient(90deg,var(--g),var(--tl))!important}
+
+/* ---------- 11. v5 lists (chats page) -------------------------------- */
+.sessItem,.chatItem,.#list>div{
+  border:1px solid var(--line)!important;border-radius:var(--r-md)!important;
+  background:var(--gl)!important;transition:.25s;
+}
+.sessItem:hover,.chatItem:hover{border-color:var(--g)!important;transform:translateX(4px)}
+.grp,.listGroup{font:400 11px 'JetBrains Mono',monospace;letter-spacing:.2em;color:var(--m)}
+
+/* ---------- 12. v5 focus / selection / scrollbars -------------------- */
+:focus-visible{outline:2px solid var(--g);outline-offset:2px}
+::selection{background:rgba(233,185,73,.28)}
+*::-webkit-scrollbar{width:9px;height:9px}
+*::-webkit-scrollbar-thumb{background:rgba(233,185,73,.22);border-radius:var(--r-pill)}
+*::-webkit-scrollbar-track{background:transparent}
+@media(prefers-reduced-motion:reduce){
+  *{animation:none!important;transition-duration:.01s!important}
+}
+/* ============================================================
+   SLICE 7 — LANDING + INTRO + BOOT in the v5 gold language.
+   These three surfaces are AURA's own (v5 has no landing page),
+   so the port here is the v5 PALETTE applied to their existing
+   markup: gold --g #e9b949, warm text --t, muted --m, hairline
+   --line. Layout, copy, animation timing and every button id are
+   untouched — only colours move from cyan/violet to gold.
+   ============================================================ */
+
+/* ---- landing page ---- */
+#landing{background:#04060d}
+#landing::before{
+  background-image:linear-gradient(rgba(233,185,73,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(233,185,73,.03) 1px,transparent 1px);
+}
+#lnav{border-bottom:1px solid var(--line)}
+.lnav-logo{text-shadow:0 0 30px rgba(233,185,73,.5)}
+.lnav-logo span,.lnav-links a:hover{color:var(--g)}
+#enterBtn{background:var(--g);color:#1a1202;box-shadow:0 0 30px rgba(233,185,73,.3)}
+#enterBtn:hover{box-shadow:0 0 50px rgba(233,185,73,.5)}
+.hero-eyebrow,.l-feature-label{color:var(--g)}
+.hero-h1{text-shadow:0 0 80px rgba(233,185,73,.2)}
+.hero-h1 em{color:var(--g);text-shadow:0 0 60px rgba(233,185,73,.6)}
+.cta-primary{background:var(--g);color:#1a1202;box-shadow:0 0 30px rgba(233,185,73,.25)}
+.cta-primary:hover{box-shadow:0 0 60px rgba(233,185,73,.5),0 8px 30px rgba(0,0,0,.5)}
+.cta-ghost{border-color:var(--line)}
+.cta-ghost:hover{background:rgba(233,185,73,.06);border-color:var(--g)}
+.hstat-n{color:var(--g)}
+.l-card{background:var(--gl);border-color:var(--line)}
+.l-card:hover{background:rgba(233,185,73,.05);border-color:rgba(233,185,73,.35);box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 40px rgba(233,185,73,.1)}
+.l-card-icon{background:rgba(233,185,73,.08);border-color:rgba(233,185,73,.25)}
+.l-card-icon svg{stroke:var(--g)}
+.sw-bar{background:linear-gradient(180deg,var(--g),#6fe8d6)}
+.code-glass{background:var(--gl);border-color:var(--line)}
+.code-glass::before{background:linear-gradient(90deg,transparent,rgba(233,185,73,.5),transparent)}
+.code-line{display:block}
+.code-kw{color:var(--tl)}.code-fn{color:var(--g)}.code-str{color:#e0a95a}.code-cm{color:#6b6250}
+.maker-avatar{background:linear-gradient(135deg,rgba(233,185,73,.3),rgba(111,232,214,.3));border-color:rgba(233,185,73,.4);box-shadow:0 0 40px rgba(233,185,73,.2)}
+.maker-link:hover{border-color:rgba(233,185,73,.4);color:var(--g);background:rgba(233,185,73,.06)}
+.final-h em{background:linear-gradient(135deg,var(--g),var(--tl));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.final-seal{color:rgba(233,185,73,.35)}
+
+/* ---- boot screen ---- */
+#boot{background:radial-gradient(900px 520px at 50% 28%,rgba(233,185,73,.1),#04060d 72%)!important}
+#boot .b-sub{color:var(--t)!important;text-shadow:0 0 30px rgba(233,185,73,.5)}
+#boot .b-sub i{color:var(--g);font-style:normal}
+#boot .central-aura-orb{
+  background:radial-gradient(circle at 50% 40%,rgba(233,185,73,.28),rgba(4,6,13,.9))!important;
+  border-color:rgba(233,185,73,.4)!important;
+  box-shadow:0 0 60px rgba(233,185,73,.25),inset 0 0 30px rgba(233,185,73,.12)!important;
+}
+#boot .orbit-ring{border-color:rgba(233,185,73,.22)!important}
+#boot .orbit-bubble{border-color:rgba(233,185,73,.28)!important;background:rgba(233,185,73,.08)!important}
+#boot .orbit-bubble:hover{border-color:var(--g)!important;background:rgba(233,185,73,.16)!important}
+#boot #introBeam{background:linear-gradient(90deg,transparent,rgba(233,185,73,.5),transparent)!important}
+#boot #introOrb{
+  background:radial-gradient(circle,rgba(233,185,73,.4),transparent 70%)!important;
+  box-shadow:0 0 80px rgba(233,185,73,.35)!important;
+}
+#boot .b-tag{color:var(--m)!important}
+
+/* v5 .otp — the six separate digit boxes (v5 .otp/.otp input values) */
+.otp6{display:flex;gap:8px;justify-content:center;margin:2px 0 4px}
+.otp6 input{width:44px;height:52px;text-align:center;font-size:22px;background:rgba(0,0,0,.4);
+  border:1px solid var(--line);border-radius:12px;color:var(--t);font-family:'Space Grotesk',system-ui,sans-serif;
+  outline:0;transition:.2s;-moz-appearance:textfield}
+.otp6 input::-webkit-outer-spin-button,.otp6 input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.otp6 input:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(233,185,73,.14)}
+.otp6.bad input{border-color:#f87171;box-shadow:0 0 0 3px rgba(248,113,113,.16)}
+
+/* ============================================================
+   V5 — AUTHORITATIVE DESIGN LAYER
+   Placed last in <head> so v5 wins every fight. It does two jobs:
+   1. removes the old AURA chrome that v5 does not have
+      (NEURAL LINK bar, TELEMETRY bar, ABOUT card, watermark)
+   2. repaints AURA's own live markup with v5's exact tokens
+   Nothing is deleted from the file — only hidden or restyled.
+   ============================================================ */
+
+body{
+  background:radial-gradient(110% 70% at 78% 0,#1b1608,var(--bg) 60%)!important;
+  color:var(--t);font-family:'Space Grotesk',system-ui,sans-serif;
+}
+
+/* ---- chrome v5 does not have ---- */
+#aboutCard,#hudWord,#jumpLatest,#camWrap{display:none!important}
+#conv>h3,#telemetry>h3,#memPanel>h3,#syslog>h3,#sessPanel>h3{display:none!important}
+
+/* ---- chat pane = v5 .chat ---- */
+#conv{
+  background:none!important;border:0!important;backdrop-filter:none!important;
+  box-shadow:none!important;border-radius:0!important;
+  padding:28px clamp(16px,4vw,56px)!important;
+  display:flex!important;flex-direction:column!important;
+  top:68px!important;bottom:16px!important;
+  left:84px!important;right:0!important;
+  width:auto!important;margin:0!important;
+  max-width:none!important;
+}
+/* v5 .msgs */
+#log{
+  flex:1;overflow-y:auto;display:flex;flex-direction:column;
+  gap:18px;padding:8px 4px 16px;max-width:880px;width:100%;margin:0 auto;
+}
+/* v5 .m + v5 .m.u */
+.msg{max-width:92%;font-size:18px;line-height:1.6;font-weight:300;
+  background:none!important;border:0!important;border-radius:0!important;padding:0!important}
+.msg .who{display:block;font:400 11px 'JetBrains Mono',monospace;letter-spacing:.25em;
+  color:var(--g);margin-bottom:4px}
+.msg.user{margin-left:auto;width:fit-content;max-width:92%;
+  border:1px solid var(--line)!important;border-radius:18px 18px 4px 18px!important;
+  padding:10px 16px!important;background:var(--gl)!important;font-size:16px;line-height:1.5}
+.msg.user .who{color:var(--m)}
+.msg .mdel,.msg .mcopy{display:none!important}
+
+/* v5 .hero */
+#stageEmpty{display:flex!important;align-items:center;gap:18px;max-width:880px;
+  width:100%;margin:0 auto 8px;text-align:left;padding:0!important}
+#stageEmpty .se-orb{width:150px;height:150px;flex:none;border:0;background:none;font-size:0;
+  border-radius:50%;box-shadow:none}
+#stageEmpty h4{font-weight:300;font-size:clamp(26px,3.4vw,44px);letter-spacing:-.03em;
+  line-height:1.1;color:var(--t);margin:0 0 6px}
+#stageEmpty p{color:var(--m);font-size:16px;margin-bottom:22px;max-width:none;line-height:1.55}
+#stageChips{display:none!important}
+
+/* v5 .chips */
+#chips{display:flex!important;gap:8px!important;flex-wrap:wrap!important;
+  margin:0 auto 12px!important;max-width:880px;width:100%}
+#chips .chip{border:1px solid var(--line)!important;border-radius:99px!important;
+  padding:8px 16px!important;font-size:14px!important;color:var(--g2)!important;
+  background:var(--gl)!important;transition:.25s;font-family:inherit}
+#chips .chip:hover{background:rgba(233,185,73,.16)!important;border-color:var(--g)!important}
+
+/* v5 .comp */
+#dock{
+  position:static!important;margin:0 auto!important;width:100%!important;max-width:880px;
+  background:var(--gl)!important;border:1px solid var(--line)!important;
+  border-radius:26px!important;padding:10px!important;
+  backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px);
+  box-shadow:none!important;display:block!important;
+}
+#q{background:rgba(0,0,0,.35)!important;border:1px solid var(--line)!important;
+  border-radius:99px!important;padding:13px 20px!important;font-size:15px!important;
+  color:var(--t)!important;height:auto!important}
+#q::placeholder{color:#7a6f52!important}
+#sendBtn{width:46px!important;height:46px!important;border-radius:50%!important;
+  background:linear-gradient(135deg,var(--tl),var(--g))!important;
+  border:1px solid var(--line)!important;color:#1a1202!important;font-size:0!important}
+#sendBtn svg{width:20px;height:20px;stroke:#1a1202;fill:none;stroke-width:1.6}
+#micBtn{width:46px!important;height:46px!important;border-radius:50%!important;
+  background:var(--gl)!important;border:1px solid var(--line)!important;box-shadow:none!important}
+#micWrap{position:static!important;display:flex!important;gap:8px!important;
+  align-items:center!important;justify-content:flex-start!important;margin:0 0 8px}
+#micHint{display:none!important}
+#chipsMobile{position:static!important;display:flex!important;gap:6px!important;
+  overflow:auto!important;margin-top:8px!important;left:auto!important;right:auto!important;bottom:auto!important}
+#dock .line,#dock>div:first-child{display:flex;gap:8px;align-items:center}
+.ibtn,.cbtn,.tools button{border:1px solid var(--line)!important;border-radius:99px!important;
+  background:transparent!important;color:var(--m)!important;
+  font:400 11px 'JetBrains Mono',monospace!important;padding:6px 12px!important}
+
+/* ---- system page = v5 sys pane ---- */
+body[data-tab="system"] #telemetry{
+  position:fixed!important;left:110px!important;right:26px!important;
+  top:100px!important;bottom:auto!important;width:auto!important;
+  max-height:none!important;overflow:visible!important;
+  background:none!important;border:0!important;box-shadow:none!important;padding:0!important;
+}
+body[data-tab="system"] #gauges5{
+  display:grid!important;grid-template-columns:repeat(4,1fr)!important;gap:12px!important;margin-bottom:12px!important;
+}
+body[data-tab="system"] #telemetry .trow{
+  display:flex!important;justify-content:space-between;padding:7px 0!important;
+  border-bottom:1px solid var(--line)!important;font-size:14px!important;
+}
+body[data-tab="system"] #telemetry .trow span{font:400 11px 'JetBrains Mono',monospace!important;
+  letter-spacing:.14em;color:var(--m)!important}
+body[data-tab="system"] #telemetry .trow b{font-weight:400!important;color:var(--g2)!important}
+body[data-tab="system"] #telemetry>.trow:nth-of-type(odd){margin-right:calc(50% - 12px)}
+body[data-tab="system"] #memPanel,body[data-tab="system"] #syslog{
+  position:fixed!important;width:auto!important;
+  background:var(--gl)!important;border:1px solid var(--line)!important;
+  border-radius:18px!important;backdrop-filter:blur(14px);
+  box-shadow:none!important;overflow:auto!important;padding:18px 20px!important;
+}
+body[data-tab="system"] #memPanel{left:110px!important;top:calc(100px + 300px)!important;right:calc(50% + 16px)!important;bottom:auto!important;max-height:260px!important}
+body[data-tab="system"] #syslog{left:calc(50% + 16px)!important;right:26px!important;top:calc(100px + 300px)!important;bottom:auto!important;max-height:260px!important}
+body[data-tab="system"] #syslogLines,#memSide{font:400 13px/1.8 'JetBrains Mono',monospace!important;color:#cdbf98!important}
+
+/* ---- chats pane keeps the split, restyled to v5 tokens ---- */
+body[data-tab="chats"] #sessPanel{top:100px!important;bottom:26px!important}
+
+/* ---- phone: rail becomes a bottom bar (v5) ---- */
+@media(max-width:768px){
+  #conv{top:60px!important;bottom:78px!important;padding:20px 14px!important}
+  #stageEmpty .se-orb{width:110px;height:110px}
+  body[data-tab="chats"] #sessPanel{top:74px!important;bottom:84px!important;margin-left:0!important;left:8px!important;right:8px!important;width:auto!important}
+  body[data-tab="system"] #telemetry{left:8px!important;right:8px!important;top:74px!important;
+    bottom:410px!important;overflow:auto!important;position:fixed!important}
+  body[data-tab="system"] #gauges5{grid-template-columns:repeat(2,1fr)!important}
+  body[data-tab="system"] #memPanel,body[data-tab="system"] #syslog{
+    position:fixed!important;left:8px!important;right:8px!important;width:auto!important;
+    top:auto!important;margin:0!important;overflow:auto!important}
+  body[data-tab="system"] #memPanel{bottom:262px!important;max-height:150px!important}
+  body[data-tab="system"] #syslog{bottom:82px!important;max-height:168px!important}
+}
+
+/* ---- v5 master layer: corrections after live check ---- */
+/* the old centred-panel rules win with !important — clear them */
+#conv{margin:0!important;left:84px!important;right:0!important;
+  top:68px!important;bottom:132px!important;width:auto!important;max-width:none!important}
+/* #stageEmpty is a sibling of #log inside #conv, so v5's hero goes first */
+body:not([data-tab="chat"]) #conv{display:none!important}
+body[data-tab="chat"] #conv{display:flex!important;flex-direction:column!important}
+#stageEmpty{order:-1!important;flex:none!important}
+/* #dock is NOT inside #conv — it stays a fixed bottom composer like v5's
+   .comp: centred, max-width 880, sitting under the chips */
+#dock{position:fixed!important;left:84px!important;right:0!important;bottom:34px!important;
+  margin:0 auto!important;width:100%!important;max-width:880px;
+  display:flex!important;flex-direction:column!important;gap:8px}
+#micWrap{display:flex!important;gap:8px!important;align-items:center;margin:0!important;
+  position:static!important}
+#dock .line{display:flex;gap:8px;align-items:center;width:100%}
+#q{flex:1;min-width:0}
+#chipsMobile{margin:0!important}
+@media(max-width:768px){
+  #topbar{height:60px!important}
+  #conv{top:60px!important;bottom:150px!important;padding:20px 14px!important}
+  #dock{bottom:76px!important;max-width:none;left:0!important;right:0!important;
+    width:auto!important;margin:0 14px!important}
+}
+
+/* ---- specificity match: the old centred-panel rules are
+   body[data-tab="chat"] #conv{...!important} — an id-only rule cannot
+   beat that, so the v5 geometry repeats their exact selector ---- */
+body[data-tab="chat"] #conv{
+  left:84px!important;right:0!important;top:68px!important;bottom:186px!important;
+  width:auto!important;max-width:none!important;margin:0!important;transform:none!important;
+}
+body[data-tab="chat"] #conv>div#log{max-width:880px;margin:0 auto;width:100%}
+body[data-tab="chat"] #chips{max-width:880px;margin:0 auto 12px!important;width:100%}
+body[data-tab="chat"] #stageEmpty{max-width:880px;margin:0 auto 8px!important;width:100%}
+@media(max-width:768px){
+  body[data-tab="chat"] #conv{left:0!important;top:60px!important;bottom:150px!important;margin:0!important}
+}
+
+/* old AURA HUD overlays — v5 has no equivalent chrome */
+#hudL,#hudR,#hudWord{display:none!important}
+.msg.sys,#log .sys{display:none!important}
+
+/* v5 app panes have no spinning ring canvas — only the landing dust.
+   AURA full-bleed #fx ring field is switched off inside the app. */
+body:not(.on-landing) #fx{display:none!important}
+#fx{display:none!important}
+/* inner intro/landing removed — open straight into the app chat (matches aura-in-next reference) */
+#landing{display:none!important}
+#boot{display:none!important}
+
+/* ---- v5 parity pass 2: sizes, rows and copy locked to the reference file ---- */
+/* the phone chip row duplicates #chips — v5 ships exactly one .chips row */
+#chipsMobile{display:none!important}
+/* v5's .comp lives only inside .chat — never floating over the splits */
+body:not([data-tab="chat"]) #dock{display:none!important}
+/* v5 .line — input, mic and send share ONE row */
+#inputRow{display:flex!important;gap:8px!important;align-items:center!important;width:100%}
+#micWrap{position:static!important;display:flex!important;gap:8px!important;
+  align-items:center!important;margin:0!important;flex:0 0 auto}
+#micWrap #micHint{display:none!important}
+/* the chat card stops exactly where the dock starts, so the chips keep v5's 12px
+   breathing room above the composer at any dock height (--dockH is published by JS) */
+body[data-tab="chat"] #conv{
+  bottom:calc(var(--dockH,150px) + 34px)!important;
+  padding-bottom:0!important;
+}
+@media(max-width:768px){
+  body[data-tab="chat"] #conv{
+    bottom:calc(var(--dockH,150px) + 92px)!important;
+    padding-bottom:0!important;
+  }
+}
+
+/* ---- v5 parity pass 3: every remaining size taken from the reference file ---- */
+/* .cs — the card's two-line summary */
+body[data-tab="chats"] .ch2-prev{margin:4px 0 8px!important}
+/* .grp — group label */
+body[data-tab="chats"] .ch2-group{margin:18px 0 8px!important}
+/* .ct span — the time on the right of the title row (and the room it needs) */
+body[data-tab="chats"] .ch2-when{
+  font-family:'Space Grotesk',system-ui,sans-serif!important;
+  font-size:13px!important;font-weight:300!important;letter-spacing:0!important}
+body[data-tab="chats"] .ch2-title{padding-right:124px!important}
+/* .search — inherits the 16px body face, 22px above the filter row */
+#sessQ{font-size:16px!important;font-weight:300!important;margin:14px 0 22px!important}
+/* .tab — the file tabs in the code pane */
+#codeFiles .cfiletab{
+  display:flex;gap:10px;align-items:center;font:400 12px 'JetBrains Mono',monospace;
+  border:1px solid var(--line);border-radius:10px 10px 0 0!important;
+  padding:7px 14px;color:var(--m);background:transparent}
+#codeFiles .cfileadd{border-style:dashed}
+/* .btn — the BUILD button */
+#codeGen{padding:9px 16px!important;font-size:14px!important;font-weight:400!important}
+/* .bp — the build prompt */
+#codePrompt{font-size:16px!important;font-weight:300!important}
+/* .edwrap / .outw */
+#codeEdBody{background:rgba(0,0,0,.35)!important}
+#codeOutBody{background:#080b14!important}
+/* .gz — the gauge card */
+.gz{padding:18px!important}
+/* .sgrid — two equal columns, 12px apart */
+@media(min-width:769px){
+  body[data-tab="system"] #memPanel{right:calc(50% - 36px)!important}
+  body[data-tab="system"] #syslog{left:calc(50% + 48px)!important}
+}
+#q{flex:1;min-width:0;font-size:16px!important;font-weight:300!important;line-height:1.55}
+#log .msg.user{line-height:1.6!important}
+/* .tools — the composer's tool rail */
+.iconrow{gap:6px!important}
+
+/* ---- the composer only exists on the chat pane, so the code pane can use
+   the whole stage instead of leaving the dock's footprint empty ---- */
+body[data-tab="code"] #codePage{bottom:26px!important}
+@media(max-width:768px){body[data-tab="code"] #codePage{bottom:78px!important}}
+
+/* ---- aura-in-next: command palette, card tilt, staggered pane rise ---- */
+.kbtn{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:99px;
+  padding:7px 14px;color:var(--m);font-size:13px;background:var(--gl);cursor:pointer;transition:.25s}
+.kbtn:hover{border-color:var(--g);color:var(--g2)}
+kbd{font:400 10px 'JetBrains Mono',monospace;border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+#pal{position:fixed;inset:0;z-index:70;background:rgba(4,6,13,.7);backdrop-filter:blur(8px);
+  display:grid;justify-items:center;align-items:start;padding-top:16vh}
+#pal[hidden]{display:none}
+.pbox{width:min(560px,92vw);padding:10px;overflow:visible;background:#0b0d16;
+  border:1px solid var(--line);border-radius:18px;animation:rise .35s both}
+#pq{width:100%;background:rgba(0,0,0,.4);border:1px solid var(--line);border-radius:12px;
+  padding:14px 16px;font-size:16px;outline:0;color:var(--t);font-family:inherit}
+#pq::placeholder{color:#7a6f52}
+#plist{margin-top:8px;max-height:46vh;overflow:auto}
+.pi{display:block;width:100%;text-align:left;padding:11px 14px;border-radius:10px;color:var(--t);
+  background:none;border:0;font:inherit;cursor:pointer;transition:.15s}
+.pi.on,.pi:hover{background:rgba(233,185,73,.14);color:var(--g2)}
+.wd{font-style:normal;animation:wd .55s both}
+@keyframes wd{from{opacity:0;filter:blur(8px);transform:translateY(5px)}}
+@keyframes rise{from{opacity:0;transform:translateY(22px) scale(.97);filter:blur(6px)}}
+.tile,.gz,.gc,.ci,.ch2-row{transition:transform .25s ease,border-color .25s;will-change:transform}
+/* staggered pane rise — gauges + the preview column only: the chat list re-renders
+   every 4s, so animating it would restart the entrance on a loop */
+body[data-tab="system"] #gauges5 .gz{animation:rise .75s cubic-bezier(.2,.8,.2,1) backwards}
+body[data-tab="system"] #gauges5 .gz:nth-child(2){animation-delay:.07s}
+body[data-tab="system"] #gauges5 .gz:nth-child(3){animation-delay:.14s}
+body[data-tab="system"] #gauges5 .gz:nth-child(4){animation-delay:.21s}
+body[data-tab="chats"] #sessPrev{animation:rise .75s cubic-bezier(.2,.8,.2,1) backwards}
+@media(max-width:768px){.kbtn kbd{display:none}.kbtn{padding:7px 12px}}
+/* v5 `body` face — line-height 1.55 (shorthands like `font:` keep overriding it
+   locally, so only the genuinely unstyled text picks this up) */
+body{line-height:1.55}
+/* v5 `.sc .term{padding:0}` — the card already carries the padding, so the log
+   must not add a second one */
+#syslogLines{padding:0!important;max-height:190px!important}
+/* v5 `#src::selection` */
+#codeEditor::selection{background:rgba(233,185,73,.3)}
+
+/* ---- the heading rule above must not swallow the message speaker label.
+   v5's .m b is an 11px mono tag, not a 26px heading. ---- */
+#conv .msg .who{
+  display:block;font:400 11px 'JetBrains Mono',monospace;
+  letter-spacing:.25em!important;color:var(--g)!important;margin-bottom:4px}
+#conv .msg.user .who{color:var(--m)!important;letter-spacing:.14em!important}
+/* v5 .m (AI reply) is plain text — no card. The gold-tint card belongs to .m.u (user bubble) only. */
+#log .msg.aura,#conv .msg.aura{background:none!important;box-shadow:none!important}
+/* v5 never sets a heading font — everything is the body face */
+#stageEmpty h4,#sessPrev h3{font-family:'Space Grotesk',system-ui,sans-serif!important}
 </style>
 <script src="https://js.puter.com/v2/"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
+
+<!-- =====================================================
+     AURA 4.0 — LANDING PAGE (OUTSIDE: hero + scroll sections)
+     ===================================================== -->
+<div id="landing">
+
+  <!-- Nav -->
+  <nav id="lnav">
+    <div class="lnav-logo">AU<span>RA</span></div>
+    <div class="lnav-links">
+      <a href="#voiceSection">Voice</a>
+      <a href="#codeSection">Code Forge</a>
+      <a href="#makerSection">Maker</a>
+    </div>
+    <button id="enterBtn" onclick="enterAura()">Enter AURA →</button>
+  </nav>
+
+  <!-- Hero -->
+  <section class="l-section" id="heroSection">
+    <div class="hero-eyebrow">Holographic AI · JECRC University · 2026</div>
+    <h1 class="hero-h1">Meet <em>AURA.</em></h1>
+    <p class="hero-sub">The AI that speaks, codes and remembers. A premium holographic intelligence built in one file — no frameworks, no limits.</p>
+    <div class="hero-cta-row">
+      <button class="cta-primary" onclick="enterAura()">Enter AURA</button>
+      <button class="cta-ghost" onclick="document.getElementById('voiceSection').scrollIntoView({behavior:'smooth'})">Explore features</button>
+    </div>
+    <div class="hero-stats">
+      <div class="hstat"><div class="hstat-n" id="lstat1">6+</div><div class="hstat-l">AI Engines</div></div>
+      <div class="hstat"><div class="hstat-n" id="lstat2">40k</div><div class="hstat-l">Particles</div></div>
+      <div class="hstat"><div class="hstat-n" id="lstat3">1</div><div class="hstat-l">File · Zero Deps</div></div>
+    </div>
+  </section>
+
+  <!-- Voice Section -->
+  <section id="voiceSection">
+    <div class="l-feature">
+      <div class="l-feature-label">Voice Intelligence</div>
+      <h2 class="l-feature-h">Talks back like<br>it understands you.</h2>
+      <p class="l-feature-p">Real-time speech recognition, neural voice synthesis, and wake-word detection. AURA listens, reasons, and responds — hands-free.</p>
+    </div>
+    <div class="soundwave">
+      <div class="sw-bar"></div><div class="sw-bar"></div><div class="sw-bar"></div>
+      <div class="sw-bar"></div><div class="sw-bar"></div><div class="sw-bar"></div>
+      <div class="sw-bar"></div><div class="sw-bar"></div><div class="sw-bar"></div>
+      <div class="sw-bar"></div><div class="sw-bar"></div><div class="sw-bar"></div>
+    </div>
+  </section>
+
+  <!-- Code Forge Section -->
+  <section id="codeSection">
+    <div class="l-feature">
+      <div class="l-feature-label">Code Forge</div>
+      <h2 class="l-feature-h">Write, run and debug<br>code — in the chat.</h2>
+      <p class="l-feature-p">AURA generates full programs, runs them in a sandboxed iframe, and shows live output. Python, JS, HTML, SQL — whatever you need.</p>
+      <div class="code-glass">
+        <span class="code-line"><span class="code-kw">async function</span> <span class="code-fn">thinkAndCode</span>(task) {</span>
+        <span class="code-line">  <span class="code-cm">// AURA reasons first, then writes</span></span>
+        <span class="code-line">  <span class="code-kw">const</span> plan = <span class="code-kw">await</span> <span class="code-fn">reason</span>(task);</span>
+        <span class="code-line">  <span class="code-kw">const</span> code = <span class="code-kw">await</span> <span class="code-fn">generate</span>(plan);</span>
+        <span class="code-line">  <span class="code-kw">return</span> <span class="code-fn">sandbox</span>.<span class="code-fn">run</span>(code); <span class="code-cm">// live output</span></span>
+        <span class="code-line">}</span>
+      </div>
+    </div>
+
+    <!-- Feature cards grid -->
+    <div class="l-feature" style="padding-top:0">
+      <div class="l-feature-grid">
+        <div class="l-card">
+          <div class="l-card-icon">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <h4>Multi-turn Memory</h4>
+          <p>AURA remembers your name, preferences and past conversations across sessions — even without login.</p>
+        </div>
+        <div class="l-card">
+          <div class="l-card-icon">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          </div>
+          <h4>Live Research</h4>
+          <p>Agent mode runs real web searches, reads pages, and surfaces cited answers — no hallucination.</p>
+        </div>
+        <div class="l-card">
+          <div class="l-card-icon">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </div>
+          <h4>Vision & Camera</h4>
+          <p>Point your camera at anything — AURA sees, analyses and describes the scene in real-time.</p>
+        </div>
+        <div class="l-card">
+          <div class="l-card-icon">
+            <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <h4>System Telemetry</h4>
+          <p>Live HUD with network, battery, memory and FPS data. AURA knows your device state as well as you do.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Maker section -->
+  <section id="makerSection">
+    <div class="l-feature" style="text-align:center">
+      <div class="maker-avatar">🤖</div>
+      <div class="maker-name">Sourabh Singh</div>
+      <div class="maker-title">JECRC University · Jaipur · 2026</div>
+      <p style="color:var(--dim-bright);font-size:15px;max-width:480px;margin:0 auto 32px;line-height:1.7">Built AURA from scratch — one HTML file, zero frameworks, all original. Voice, AI, memory, camera, code forge and this entire landing page in ~9000 lines of hand-rolled code.</p>
+      <div class="maker-links">
+        <a class="maker-link" href="https://github.com/sourabh7300/aura" target="_blank">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+        <a class="maker-link" href="https://sourabh7300.github.io/aura/" target="_blank">
+          <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          Live Site
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section id="finalCta">
+    <h2 class="final-h">Ready to meet<br><em>holographic AI?</em></h2>
+    <p class="final-sub">No signup. No install. Just open and talk.</p>
+    <button class="cta-primary" onclick="enterAura()" style="font-size:17px;padding:18px 52px">Enter AURA →</button>
+    <div class="final-seal">AURA · © 2026 SOURABH SINGH · JECRC UNIVERSITY · ALL RIGHTS RESERVED</div>
+  </section>
+
+</div>
+<!-- END LANDING PAGE -->
+
+<!-- Toast shelf -->
+<div id="toastShelf"></div>
+
 <div class="wiz" id="wiz">
   <div class="wiz-card wiz-wrap">
     <button class="wiz-x" id="wizX" title="Later">✕</button>
@@ -1021,15 +2538,26 @@ body.theme-classical .msg.user .who{color:#a16207}
   <div class="wordmark">AURA<small>HOLOGRAPHIC AI INTERFACE</small></div>
   <div id="stateBox"><span id="stateDot"></span><span id="stateText">SYSTEM ONLINE</span></div>
   <div id="authBadge" title="AURA account — click to sign in"><span id="authRoleIcon">&#128100;</span><span id="authName">Guest</span><span id="authTag">USER</span></div>
+  <button class="kbtn" id="kbtn" aria-label="Search or run a command">Search<kbd>Ctrl K</kbd></button>
   <div id="clock"><b id="clockT">--:--</b><span id="clockD"></span></div>
 </div>
 
+<!-- aura-in-next · command palette -->
+<div id="pal" hidden><div class="pbox"><input id="pq" placeholder="Search or run a command…" aria-label="Command"><div id="plist"></div></div></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.600 7.100L4 20l1-4.600A8 8 0 1 1 21 12z"/></symbol>
+<symbol id="i-chats" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4zM8 9h8M8 12h5"/></symbol>
+<symbol id="i-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></symbol>
+<symbol id="i-sys" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+<symbol id="i-adm" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"/></symbol>
+</defs></svg>
 <div id="tabbar">
-  <button data-t="chat" class="on">💬 CHAT</button>
-  <button data-t="chats">📚 CHATS</button>
-  <button data-t="code">⌨ CODE</button>
-  <button data-t="system">🛠 SYSTEM</button>
-  <button data-t="admin" id="adminTabBtn" style="display:none">👑 ADMIN</button>
+  <button data-t="chat" class="on"><svg class="i"><use href="#i-chat"/></svg>CHAT</button>
+  <button data-t="chats"><svg class="i"><use href="#i-chats"/></svg>CHATS</button>
+  <button data-t="code"><svg class="i"><use href="#i-code"/></svg>CODE</button>
+  <button data-t="system"><svg class="i"><use href="#i-sys"/></svg>SYSTEM</button>
+  <button data-t="admin" id="adminTabBtn" style="display:none"><svg class="i"><use href="#i-adm"/></svg>ADMIN</button>
 </div>
 
 <div id="adminPage">
@@ -1103,6 +2631,7 @@ body.theme-classical .msg.user .who{color:#a16207}
 
 <div class="panel" id="telemetry">
   <h3>TELEMETRY</h3>
+  <div class="gauges" id="gauges5"></div>
   <div class="trow"><span>UPLINK</span><b id="tNet" class="on">ONLINE</b></div>
   <div class="trow"><span>RENDER</span><b id="tFps">— fps</b></div>
   <div class="trow"><span>CORE PTS</span><b id="tPts">—</b></div>
@@ -1139,8 +2668,8 @@ body.theme-classical .msg.user .who{color:#a16207}
 </div>
 
 <div class="panel" id="sessPanel">
-  <h3><span>CHATS</span><span id="sessCount"></span></h3>
   <div id="sessSide"></div>
+  <div id="sessPrev" class="pvcol"></div>
 </div>
 
 <div class="panel" id="conv">
@@ -1192,11 +2721,6 @@ body.theme-classical .msg.user .who{color:#a16207}
 
 <div id="dock">
   <div id="chipsMobile" style="display:flex;gap:7px;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none"></div>
-  <div id="micWrap">
-    <button id="micBtn" title="Tap and speak">🎙</button>
-    <span class="clipwrap"><button class="ibtn" id="clipBtn" title="Send an image — I'll describe it">📎</button><input type="file" id="imgInput" accept="image/*"></span>
-    <span id="micHint">TAP TO SPEAK</span>
-  </div>
   <div id="camWrap">
     <button id="camClose" title="Close camera">✕</button>
     <video id="camView" autoplay playsinline muted></video>
@@ -1207,11 +2731,16 @@ body.theme-classical .msg.user .who{color:#a16207}
     </div>
   </div>
   <div id="inputRow">
+    <div id="micWrap">
+      <button id="micBtn" title="Tap and speak">🎙</button>
+      <span class="clipwrap"><button class="ibtn" id="clipBtn" title="Send an image — I'll describe it">📎</button><input type="file" id="imgInput" accept="image/*"></span>
+      <span id="micHint">TAP TO SPEAK</span>
+    </div>
     <input id="q" placeholder="Type a command, or tap the mic and just talk…" autocomplete="off">
     <button id="sendBtn">▸</button>
   </div>
   <div class="iconrow">
-  <button class="ibtn" id="soundBtn" style="position: relative; top: 0; left: 0; margin: 0; display: inline-block;">VOICE: ON</button>
+  <button class="ibtn" id="soundBtn" style="position: relative; top: 0; left: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center; z-index: 10;">🔊 VOICE: ON</button>
   <button class="ibtn" id="voiceCfgBtn" title="Voice Studio — pick voices, tune speed & pitch for AURA and ZEUS">🎛 VOICE SET</button>
   <button class="ibtn" id="langBtn">LANG: ENG</button>   <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or ZEUS (owner's tactical protocol)">MODE: AURA</button>
   <button class="ibtn" id="camBtn" title="Live camera vision — show me your world">📷 CAM</button>
@@ -1230,13 +2759,45 @@ body.theme-classical .msg.user .who{color:#a16207}
 </div>
 
 <div id="boot">
-  <div id="bootRing"></div>
-  <div class="b-sub">AU<i>RA</i></div>
-  <div class="b-tag">holographic intelligence · own design</div>
-  <div class="b-bar"><i></i></div>
-  <div id="bootLog"></div>
-  <div id="bootSeal" style="margin-top:6px;font-size:9px;letter-spacing:.22em;color:rgba(63,122,138,.55);user-select:none">AURA · © 2026 SOURABH SINGH · JECRC UNIVERSITY · ALL RIGHTS RESERVED</div>
-  <div id="bootSkip">TAP TO SKIP</div>
+  <div id="introBeam"></div>
+  <div id="introOrb"></div>
+
+  <div id="introLogoStage">
+    <div style="font-size:36px;filter:drop-shadow(0 0 16px var(--cy2))">✨</div>
+    <div class="b-sub">AU<i>RA</i></div>
+  </div>
+
+  <div id="introRingsStage">
+    <div class="orbit-ring"></div>
+    <div class="orbit-ring r2"></div>
+    <div class="orbit-ring r3"></div>
+    <div class="central-aura-orb">AURA</div>
+    <div class="orbit-bubble b1" style="top:-10px;left:calc(50% - 22px)" title="Chat">💬</div>
+    <div class="orbit-bubble b2" style="top:calc(50% - 22px);right:-10px" title="Voice">🎙</div>
+    <div class="orbit-bubble b3" style="bottom:-10px;left:calc(50% - 22px)" title="Code">⌨</div>
+    <div class="orbit-bubble b4" style="top:calc(50% - 22px);left:-10px" title="Files">📚</div>
+    <div class="orbit-bubble b5" style="top:25px;right:15px" title="Camera">📷</div>
+    <div class="orbit-bubble b6" style="bottom:25px;left:15px" title="Memory">🧠</div>
+  </div>
+
+  <div id="introCarouselStage">
+    <div class="intro-card c1">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--cy2);margin-bottom:4px">YOU ▸</div>
+      <div>How can AURA help today?</div>
+    </div>
+    <div class="intro-card c2">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--cy2);margin-bottom:4px">AURA ▸</div>
+      <div>Reasoning ready. Voice, code, vision & web search active.</div>
+    </div>
+  </div>
+
+  <div id="introFinalStage">
+    <div class="b-tag">holographic intelligence · own design</div>
+    <div id="bootSeal" style="margin-top:6px;font-size:9px;letter-spacing:.22em;color:rgba(120,190,205,.65);user-select:none">AURA · © 2026 SOURABH SINGH · JECRC UNIVERSITY · ALL RIGHTS RESERVED</div>
+  </div>
+
+  <div id="bootLog" style="display:none"></div>
+  <button id="bootSkip">SKIP INTRO ⏭</button>
 </div>
 <button id="stopBtn">■ STOP VOICE</button>
 
@@ -3433,6 +4994,7 @@ function renderSessions(){
     let list=q?all.filter(s=>(s.title||"").toLowerCase().includes(ql)||(s.convo||[]).some(c=>String(c.content).toLowerCase().includes(ql))):all.slice();
     if(ch2View.t==="archived")list=list.filter(s=>meta.archived.includes(s.id));
     else if(ch2View.t==="folder")list=list.filter(s=>meta.folderOf[s.id]===ch2View.f&&!meta.archived.includes(s.id));
+    else if(ch2View.t==="pinned")list=list.filter(s=>pins.includes(s.id)&&!meta.archived.includes(s.id));
     else list=list.filter(s=>!meta.archived.includes(s.id));
     const activeCount=all.filter(s=>!meta.archived.includes(s.id)).length;
     const folderCount=f=>all.filter(s=>meta.folderOf[s.id]===f&&!meta.archived.includes(s.id)).length;
@@ -3444,6 +5006,7 @@ function renderSessions(){
         (count!=null?'<span class="n">'+count+'</span>':"")+(mini||"")+'</button>';
     }
     let filters=chip("all","All","💬",activeCount,ch2View.t==="all");
+    filters+=chip("pinned","Pinned","📌",list.filter(s=>pins.includes(s.id)).length,ch2View.t==="pinned");
     meta.folders.forEach(f=>{
       const del='<span class="fmini fdel" data-fdel="'+esc(f.id)+'" title="Delete folder">✕</span>';
       const ren='<span class="fmini" data-fren="'+esc(f.id)+'" title="Rename folder">✎</span>';
@@ -3461,7 +5024,7 @@ function renderSessions(){
       let acts='<button class="ch2-open" title="Continue this chat">↩</button>'+
         '<button class="ch2-ren" title="Rename">✎</button>'+
         '<button class="ch2-move" title="Move to folder / archive">📁</button>';
-      if(ch2View.t==="all")acts+='<button class="ch2-pin" title="'+(isPin?"Unpin":"Pin")+'">📌</button>';
+      if(ch2View.t==="all"||ch2View.t==="pinned")acts+='<button class="ch2-pin" title="'+(isPin?"Unpin":"Pin")+'">📌</button>';
       if(inArch)acts='<button class="ch2-open" title="Continue this chat">↩</button>'+
         '<button class="ch2-unarch" title="Move back to chats">📥</button>'+
         '<button class="ch2-ren" title="Rename">✎</button>';
@@ -3490,6 +5053,7 @@ function renderSessions(){
       (list.length?"":'<div class="ch2-empty"><span class="big">'+(inArch?"📦":ch2View.t==="folder"?"📁":"🗒️")+'</span>'+
         (inArch?'Nothing archived. The 📁 button on any chat parks it here — out of the way, never lost.':
          ch2View.t==="folder"?'This folder is empty. Use 📁 on any chat to file it here.':
+         ch2View.t==="pinned"?'No pinned chats yet — press 📌 on a chat to keep it on top.':
          q?'Nothing matches <b>'+esc(q)+'</b>.':'No chats yet — say something on the 💬 CHAT tab and it saves automatically.')+
         '</div>')+
       '</div>';
@@ -3500,6 +5064,7 @@ function renderSessions(){
         const v=c.getAttribute("data-fv");
         if(v==="all")ch2View={t:"all"};
         else if(v==="archived")ch2View={t:"archived"};
+        else if(v==="pinned")ch2View={t:"pinned"};
         else ch2View={t:"folder",f:v.split("folder:")[1]};
         renderSessions();
       };
@@ -3511,7 +5076,7 @@ function renderSessions(){
     side.querySelectorAll(".ch2-row").forEach(el=>{
       const id=el.dataset.id;
       const s=all.find(x=>x.id===id)||list.find(x=>x.id===id);
-      el.onclick=()=>openChat2(id);
+      el.onclick=()=>{ch2SelId=id;renderSessions();ch2RenderPrev()};
       const ob=el.querySelector(".ch2-open");if(ob)ob.onclick=e=>{e.stopPropagation();openChat2(id)};
       const rb=el.querySelector(".ch2-ren");if(rb)rb.onclick=e=>{e.stopPropagation();ch2PromptPop(e.target,"Rename chat",s?s.title:"",v=>{sessions.rename(id,v);renderSessions()})};
       const mb=el.querySelector(".ch2-move");if(mb)mb.onclick=e=>{
@@ -3549,10 +5114,100 @@ function renderSessions(){
       const tb=el.querySelector(".ch2-txt");if(tb)tb.onclick=e=>{e.stopPropagation();if(s)ch2Export(s);else pushSys("chat not found")};
       const db2=el.querySelector(".ch2-del");if(db2)db2.onclick=e=>{e.stopPropagation();if(confirm("Delete this chat permanently?")){const m2=ch2Meta();delete m2.folderOf[id];m2.archived=m2.archived.filter(x=>x!==id);ch2SaveMeta(m2);const p2=ch2Pins();const i=p2.indexOf(id);if(i>=0){p2.splice(i,1);ch2SetPin(p2)}sessions.del(id);pushSys("chat deleted");renderSessions()}};
       el.ondblclick=()=>{ch2PromptPop(el,"Rename chat",s?s.title:"",v=>{sessions.rename(id,v);renderSessions()})};
+      el.onmouseenter=()=>{ch2SelId=id;ch2RenderPrev()};
     });
   }catch(e){}
+  try{ch2RenderPrev()}catch(e){}
 }
-
+/* ============================================================
+   SLICE 5 runtime — v5's .rcol preview column.
+   Clicking a chat card selects it and paints the preview here
+   (v5 behaviour); the "Continue chat" button then reopens it in
+   the CHAT tab, exactly like v5. Every button is wired to AURA's
+   OWN existing session functions — nothing is stubbed.
+   ============================================================ */
+var ch2SelId="";
+function ch2Selected(){
+  var cur="";
+  try{cur=sessions.currentId()}catch(e){}
+  return ch2SelId||cur;
+}
+function ch2RenderPrev(){
+  try{
+    var box=document.getElementById("sessPrev");
+    if(!box)return;
+    var all=sessions.all(),sel=ch2Selected();
+    var s=all.filter(function(x){return x.id===sel})[0];
+    var P=(typeof PERSONAS!=="undefined"&&PERSONAS[persona()]?PERSONAS[persona()].name:"AURA");
+    if(!s){
+      box.innerHTML='<div class="pvempty"><h3>No chats yet</h3><div class="pvsub">Start one with New chat.</div></div>';
+      return;
+    }
+    var when=s.at?new Date(s.at).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+    var grp=ch2Group(s.at);
+    var msgs=(s.convo||[]).slice(-24).map(function(m){
+      var txt=typeof m.content==="string"?m.content:JSON.stringify(m.content||"");
+      return m.role==="user"
+        ?'<div class="pvm u"></div>'
+        :'<div class="pvm"><b></b><span></span></div>';
+    }).join("");
+    var pins=ch2Pins(),isPin=pins.indexOf(s.id)>=0;
+    var meta=ch2Meta(),fid=meta.folderOf[s.id];
+    var fname=fid?((meta.folders.filter(function(f){return f.id===fid})[0]||{}).name||""):"";
+    box.innerHTML='<h3></h3><div class="pvsub"></div>'+msgs+
+      '<div class="acts2">'+
+      '<button class="pvbtn p" id="pvCont">Continue chat</button>'+
+      '<button class="pvbtn" id="pvPin"></button>'+
+      (fname||fid?'<button class="pvbtn" id="pvUnfile">Remove from folder</button>':'')+
+      '<button class="pvbtn danger" id="pvDel">Delete</button></div>';
+    box.querySelector("h3").textContent=s.title||"New chat";
+    var ps=box.querySelector(".pvsub");
+    ps.textContent=grp+" · "+when+" · "+(s.convo?s.convo.length:0)+" messages"+((isPin||fname)?" · "+(isPin?"pinned":"")+(isPin&&fname?" · ":"")+(fname?fname:""):"");
+    var raw=(s.convo||[]).slice(-24);
+    box.querySelectorAll(".pvm").forEach(function(el,i){
+      var m=raw[i];if(!m)return;
+      var txt=typeof m.content==="string"?m.content:JSON.stringify(m.content||"");
+      if(m.role==="user"){el.textContent=txt}
+      else{el.querySelector("b").textContent=P;el.querySelector("span").textContent=txt}
+    });
+    box.querySelector("#pvPin").textContent=isPin?"Unpin":"Pin";
+    box.querySelector("#pvCont").onclick=function(){openChat2(s.id)};
+    box.querySelector("#pvPin").onclick=function(){
+      var p=ch2Pins(),i=p.indexOf(s.id);
+      if(i>=0)p.splice(i,1);else p.push(s.id);
+      ch2SetPin(p);renderSessions();
+      pushSys(i>=0?"chat unpinned":"chat pinned to the top of your chats");
+    };
+    var uf=box.querySelector("#pvUnfile");
+    if(uf)uf.onclick=function(){
+      var m2=ch2Meta();delete m2.folderOf[s.id];ch2SaveMeta(m2);
+      renderSessions();pushSys("moved back to All chats");
+    };
+    box.querySelector("#pvDel").onclick=function(){
+      if(!confirm("Delete this chat permanently?"))return;
+      var m2=ch2Meta();delete m2.folderOf[s.id];
+      m2.archived=m2.archived.filter(function(x){return x!==s.id});
+      ch2SaveMeta(m2);
+      var p=ch2Pins(),i=p.indexOf(s.id);
+      if(i>=0){p.splice(i,1);ch2SetPin(p)}
+      ch2SelId="";
+      sessions.del(s.id);renderSessions();pushSys("chat deleted");
+    };
+  }catch(e){}
+}
+/* keep the spotlight following the cursor on the new preview glass */
+(function(){
+  try{
+    var sel="#sessPrev,.ch2-row";
+    document.addEventListener("pointermove",function(e){
+      var g=e.target&&e.target.closest?e.target.closest(sel):null;
+      if(!g)return;
+      var r=g.getBoundingClientRect();
+      g.style.setProperty("--x",(e.clientX-r.left)+"px");
+      g.style.setProperty("--y",(e.clientY-r.top)+"px");
+    },{passive:true});
+  }catch(e){}
+})();
 
 /* ask-before-open: no more surprise print windows */
 function askOpenDoc(label,fn){
@@ -3580,6 +5235,8 @@ try{(function(){const list=sessions.all();if(!list.length){const saved=hist.load
   document.addEventListener("keydown",ev=>{
     if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==="k"){
       ev.preventDefault();
+      /* aura-in-next: Ctrl/⌘+K opens the command palette (New chat lives inside it) */
+      if(typeof window.__auraPalOpen==="function"){window.__auraPalOpen();return}
       try{sessions.newChat()}catch(e){}
       try{log.innerHTML="";document.body.dataset.tab="chat";document.querySelectorAll("#tabbar button").forEach(b=>b.classList.toggle("on",b.dataset.t==="chat"));renderSessions()}catch(e){}
       pushSys("new chat (ctrl+k)");
@@ -5373,7 +7030,11 @@ if(matchMedia("(max-width:860px)").matches){
 /* VOICE MASTER SWITCH — the one button that decides whether AURA and ZEUS speak */
 (function(){
   const vb=$("soundBtn");if(!vb)return;
-  const paint=()=>{vb.textContent="VOICE: "+(soundOn?"ON":"OFF")};
+  const paint=()=>{
+    const on=soundOn;
+    vb.textContent=on?"🔊 VOICE: ON":"🔇 VOICE: OFF";
+    vb.classList.toggle("off",!on);
+  };
   try{if(localStorage.getItem("aura_voice_consent")==="denied")soundOn=false}catch(e){}
   paint();
   vb.onclick=()=>{setVoiceConsent(!soundOn);paint();};
@@ -5393,10 +7054,10 @@ const bootAt=Date.now();
 setInterval(()=>{
   /* busy watchdog — a hung network call must never deadlock the conversation */
   if(busy&&askAt&&Date.now()-askAt>45000){busy=false;setMode("idle");pushSys("recovered from a stalled query — try again")}
-  if(document.body.getAttribute("data-tab")!=="system")return;
   const n=new Date();
   $("clockT").textContent=n.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   $("clockD").textContent=n.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"}).toUpperCase();
+  if(document.body.getAttribute("data-tab")!=="system")return;
   $("tFps").textContent=(fpsVal||"—")+" fps";
   try{const te=$("tEng");if(te&&AuraConfig&&AuraConfig.cache&&AuraConfig.cache.aiEngine)te.textContent=AuraConfig.cache.aiEngine}catch(e){}
   $("tPts").textContent=N+" / "+NMAX;
@@ -5575,8 +7236,19 @@ function canAutoSpeak(){try{return localStorage.getItem("aura_voice_consent")!==
 function setVoiceConsent(on){
   try{localStorage.setItem("aura_voice_consent",on?"granted":"denied")}catch(e){}
   soundOn=!!on;
-  try{const vb=document.getElementById("soundBtn");if(vb)vb.textContent="VOICE: "+(on?"ON":"OFF")}catch(e){}
-  if(on){__onceAllowVoice(45000);speak("Voice on — we'll speak now.")}
+  try{
+    const vb=document.getElementById("soundBtn");
+    if(vb){
+      vb.textContent=on?"🔊 VOICE: ON":"🔇 VOICE: OFF";
+      vb.classList.toggle("off",!on);
+    }
+  }catch(e){}
+  if(on){
+    try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC&&AC.state==="suspended")AC.resume().catch(()=>{});}catch(e){}
+    try{if(window.speechSynthesis){window.speechSynthesis.cancel();window.speechSynthesis.resume()}}catch(e){}
+    __onceAllowVoice(45000);
+    speak("Voice on — we'll speak now.")
+  }
   else{stopSpeech();try{pushSys("🔇 VOICE OFF — AURA and ZEUS are muted everywhere")}catch(e){}
     try{addMsg(msgTag(),"🔇 Voice off — total silence. Tap the button (or say 'enable voice') to bring us back.","aura")}catch(e){}}
 }
@@ -5713,7 +7385,13 @@ function visitorGreeting(){
 /* GREETING v3 END */
 (function boot(){
   const el=$("bootLog");let i=0;
-  (function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();
+  if(el){(function step(){if(i<BOOT.length){const d=document.createElement("div");d.innerHTML=BOOT[i++];el.appendChild(d);setTimeout(step,i===BOOT.length?650:300)}})();}
+  
+  const played = (function(){try{return sessionStorage.getItem("aura_intro_played")==="1"}catch(e){return false}})() || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const duration = played ? 800 : 11500;
+  try{sessionStorage.setItem("aura_intro_played","1")}catch(e){}
+  if(played&&$("boot")) try{$("boot").classList.add("quick-intro")}catch(e){}
+
   let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;try{document.body.classList.add("booted")}catch(e){}try{document.body.classList.add("boot-flash");setTimeout(()=>{try{document.body.classList.remove("boot-flash")}catch(e){}},1100)}catch(e){}$("boot").classList.add("gone");
     setTimeout(()=>{try{scheduleDailyBrief()}catch(e){}try{cloudPullAndRestore()}catch(e){}try{sleepConsolidate(false)}catch(e){}try{morningDigest()}catch(e){}try{applyPersonaVisual()}catch(e){}try{applyPersonaTheme()}catch(e){}const n=memGet().name;const P0=PERSONAS[persona()];const histN=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();const replay=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).slice(-6)}catch(e){return []}})();
     if(replay.length){const hd=addMsg("SYS","— previous conversation restored —","sys");hd.style.opacity=".55";
@@ -5721,8 +7399,13 @@ function visitorGreeting(){
       const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
     try{memRender()}catch(e){}
     try{visitorGreeting()}catch(e){}},350)};
-  $("boot").addEventListener("click",end,{once:true});
-  setTimeout(end,2600);
+  const bootElem=$("boot");
+  if(bootElem){
+    bootElem.addEventListener("click",end,{once:true});
+    const skipBtn=$("bootSkip");
+    if(skipBtn)skipBtn.addEventListener("click",function(e){e.stopPropagation();end();});
+  }
+  setTimeout(end,duration);
 })();
 /* ================= PUBLIC CONFIG — maker/ceo edit these values in the database; every visitor receives them ================= */
 const AuraConfig={cache:{},
@@ -5930,7 +7613,22 @@ updateEngTag();
 /* ---------------- TAB PAGES wiring ---------------- */
 (function(){
   const bar=document.getElementById("tabbar");if(!bar)return;
-  const fitCodePage=()=>{try{const pg=document.getElementById("codePage");if(!pg)return;const b=bar.getBoundingClientRect();pg.style.top=Math.ceil(b.bottom)+12+"px";const dk=document.getElementById("dock");const mh=window.innerWidth<=860?24:132;if(dk){const h=dk.getBoundingClientRect().height;pg.style.bottom=Math.max(mh,Math.ceil(h)+16)+"px"}else pg.style.bottom=mh+"px"}catch(e){}};
+  const fitCodePage=()=>{try{const pg=document.getElementById("codePage");if(!pg)return;
+    /* the rail is a LEFT column on desktop and a BOTTOM bar on a phone,
+       so its .bottom means nothing for the ceiling. The TOP BAR owns the
+       ceiling; the floor clears the dock, or the bottom rail when the
+       dock is hidden on a phone. */
+    const topbar=document.getElementById("topbar");
+    const ceil=topbar?topbar.getBoundingClientRect().bottom:68;
+    pg.style.top=Math.ceil(ceil)+12+"px";
+    const dk=document.getElementById("dock");
+    const mh=window.innerWidth<=860?24:132;
+    const dRect=dk?dk.getBoundingClientRect():null;
+    const dockVisible=dRect&&dRect.height>4&&dRect.top<window.innerHeight;
+    if(dockVisible){pg.style.bottom=Math.max(mh,Math.ceil(window.innerHeight-dRect.top)+16)+"px";return}
+    const railBottom=bar.getBoundingClientRect().bottom;
+    const railIsBottomBar=window.innerWidth<=768&&railBottom>window.innerHeight-140;
+    pg.style.bottom=Math.max(mh,railIsBottomBar?Math.ceil(window.innerHeight-railBottom)+12:mh)+"px"}catch(e){}};
   const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage()};
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>{const t=b.dataset.t;if(t==="admin"&&typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Mission Control","This page is reserved for maker and CEO accounts — roles are verified on the server.");return}apply(t);if(t==="admin"&&window.adminLoad)try{window.adminLoad()}catch(e){}});
   apply("chat");
@@ -7310,6 +9008,9 @@ const AuraAuth = (function(){
     if(!fbInit()) return {ok:false, why:"Phone sign-in engine is still loading — check your connection and retry."};
     try{
       if(boxEl){ fbAuthObj.settings.appVerifier = null; }
+      /* the human-check object is required — without it Firebase fails on a
+         bare "reading 'verify'". Fail with the real reason instead. */
+      if(!window.__auraVerifier) return {ok:false, why:"The human-check did not load — reload the page and try again."};
       fbConfirm = await fbAuthObj.signInWithPhoneNumber(phoneE164, window.__auraVerifier);
       return {ok:true};
       }catch(e){
@@ -7797,6 +9498,7 @@ document.addEventListener("DOMContentLoaded",function(){
     const r = await AuraAuth.fbVerifyOtp(code);
     verifyBtn2.disabled = false;
     if(!r.ok){
+      if(window.__otp6Flash)window.__otp6Flash();
       $("accOtpInput").style.borderColor = "#f87171";
       setTimeout(function(){ $("accOtpInput").style.borderColor = ""; }, 1800);
       pushSys("⚠ " + r.why);
@@ -8479,6 +10181,297 @@ document.addEventListener("DOMContentLoaded",function(){
 });
 
 
+/* ================================================================
+   AURA 4.0 — LANDING PAGE + CINEMATIC INTRO (Three.js)
+   ================================================================ */
+
+(function initLandingAndIntro(){
+  'use strict';
+
+  /* ---------- Helpers ---------- */
+  const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let introPlayed = false;
+  try{ introPlayed = sessionStorage.getItem('aura_landing_played')==='1'; }catch(e){}
+
+  /* ---------- enterAura() — transition landing → app ---------- */
+  window.enterAura = function(){
+    const landing = document.getElementById('landing');
+    if(landing){ landing.classList.add('gone'); setTimeout(()=>{ try{landing.style.display='none';}catch(e){} },900); }
+    /* trigger boot if not already done */
+    try{
+      if(!document.body.classList.contains('booted')){
+        /* simulate skip */
+        const bs = document.getElementById('bootSkip');
+        if(bs) bs.click();
+      }
+    }catch(e){}
+  };
+
+  /* Auto-enter: show the app chat immediately — no inner landing/intro screens */
+  setTimeout(function(){ try{ window.enterAura(); }catch(e){} }, 40);
+
+  /* ---------- Toast system ---------- */
+  window.auraToast = function(msg, type='info', dur=3500){
+    const shelf = document.getElementById('toastShelf');
+    if(!shelf) return;
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    t.textContent = msg;
+    shelf.appendChild(t);
+    requestAnimationFrame(()=>{ requestAnimationFrame(()=>{ t.classList.add('show'); }); });
+    setTimeout(()=>{ t.classList.remove('show'); setTimeout(()=>{ try{t.remove();}catch(e){} }, 350); }, dur);
+  };
+
+  /* ---------- Landing page particle background (lightweight) ---------- */
+  function initLandingBg(){
+    /* Simple CSS-only — no canvas needed on landing, saves resources */
+    /* The intro canvas is reused; after intro ends, landing shows */
+  }
+
+  /* ---------- Scroll-driven animations on landing ---------- */
+  function initScrollAnimations(){
+    if(rm) return;
+    const cards = document.querySelectorAll('#landing .l-card');
+    const observer = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting){
+          e.target.style.opacity='1';
+          e.target.style.transform='translateY(0)';
+        }
+      });
+    }, {threshold:0.15});
+
+    cards.forEach((c,i)=>{
+      c.style.opacity='0';
+      c.style.transform='translateY(30px)';
+      c.style.transition=`opacity .6s ease ${i*0.1}s, transform .6s ease ${i*0.1}s`;
+      observer.observe(c);
+    });
+
+    /* Feature headings */
+    const headings = document.querySelectorAll('#landing .l-feature-h, #landing .final-h');
+    const hobs = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{
+        if(e.isIntersecting){ e.target.style.opacity='1'; e.target.style.transform='translateY(0)'; }
+      });
+    }, {threshold:0.2});
+    headings.forEach(h=>{
+      h.style.opacity='0'; h.style.transform='translateY(24px)';
+      h.style.transition='opacity .8s ease, transform .8s ease';
+      hobs.observe(h);
+    });
+  }
+
+  /* ---------- Animated counters ---------- */
+  function animateCounters(){
+    /* Hero stats are static for now; could be wired to backend */
+  }
+
+  /* ---------- Init sequence ---------- */
+  /* Landing shows right away — intro overlay removed ---------- */
+
+  /* Initialize landing scroll animations */
+  setTimeout(()=>{
+    initScrollAnimations();
+    animateCounters();
+  }, 500);
+
+  /* If already played: show landing immediately */
+  if(introPlayed){
+    initScrollAnimations();
+  }
+
+})();
+
+/* ---------------- BOTTOM RAIL FIT — keep the chat card clear of the dock ----------------
+   Two jobs, one pass:
+   1. AUTO FRAME — measure the row, then shrink the chips (--railScale) until the rail
+      sits in a tidy row count for whatever screen it landed on (2 rows on tablet/laptop,
+      up to 3 on a narrow phone). No hardcoded per-device sizes, no horizontal clipping.
+   2. Publish the resulting dock height as --dockH so CSS lifts #conv clear of the dock
+      and the mic floating above it. Same idea as fitCodePage. */
+(function(){
+  const dock=document.getElementById("dock");
+  const row=document.querySelector(".iconrow");
+  if(!dock)return;
+  const root=document.documentElement;
+  const MIN=0.86,STEP=0.03,MAX_PASSES=14;
+  let scale=1,queued=false,lastW=-1;
+
+  const chips=()=>{try{
+    return [...row.querySelectorAll(".ibtn")].filter(b=>getComputedStyle(b).display!=="none"&&b.offsetParent!==null);
+  }catch(e){return []}};
+  const rows=()=>{try{
+    const bs=chips();if(!bs.length)return 0;
+    const tops=new Set();for(const b of bs)tops.add(Math.round(b.getBoundingClientRect().top));
+    return tops.size;
+  }catch(e){return 0}};
+  const wantRows=()=>(window.innerWidth>=420?2:3);
+  const setScale=s=>{try{root.style.setProperty("--railScale",s.toFixed(2))}catch(e){}};
+
+  const autoFrame=()=>{
+    if(!row)return;
+    const target=wantRows();
+    setScale(scale);
+    let pass=0,r=rows();
+    /* shrink only while it still keeps the chips legible (MIN≈8.2px text); if the rail
+       still needs an extra row at the floor, take the extra row rather than shrink more */
+    while(r>target&&+(scale-STEP).toFixed(2)>=MIN&&pass++<MAX_PASSES){scale=+(scale-STEP).toFixed(2);setScale(scale);r=rows();}
+    if(r>target&&scale>MIN){scale=MIN;setScale(scale);r=rows();}
+    /* room to spare: walk the scale back up and keep it only while the rail still fits
+       the target row count — a tablet has spare width, so it must not stay shrunk */
+    pass=0;
+    while(pass++<MAX_PASSES&&scale<1){
+      const next=+(scale+STEP).toFixed(2);
+      if(next>1)break;
+      setScale(next);
+      if(rows()>target){setScale(scale);break;}
+      scale=next;
+    }
+  };
+
+  const refit=()=>{
+    queued=false;
+    try{
+      const w=row?row.clientWidth:dock.clientWidth;
+      /* only re-frame when the available width really changed — the scale pass changes
+         the dock height, and a ResizeObserver on height would otherwise ping-pong */
+      if(Math.abs(w-lastW)>0.5){lastW=w;autoFrame();}
+      const h=Math.ceil(dock.getBoundingClientRect().height);
+      if(h>0)root.style.setProperty("--dockH",h+"px");
+    }catch(e){}
+  };
+  const queue=()=>{if(queued)return;queued=true;
+    /* setTimeout, not requestAnimationFrame: rAF is suspended entirely in a backgrounded
+       or occluded tab, which would leave the rail unframed until the user focused it */
+    try{setTimeout(refit,16)}catch(e){refit()}};
+
+  queue();
+  try{window.addEventListener("resize",queue,{passive:true});}catch(e){}
+  try{window.addEventListener("orientationchange",()=>setTimeout(queue,120));}catch(e){}
+  try{if(window.ResizeObserver)new ResizeObserver(queue).observe(dock);}catch(e){}
+  /* ResizeObserver can be throttled while the tab is occluded/backgrounded, which
+     leaves --dockH stale, so a slow poll keeps it honest. One rect read per tick. */
+  try{setInterval(queue,1200);}catch(e){}
+  try{document.addEventListener("visibilitychange",()=>{if(!document.hidden)queue()});}catch(e){}
+  /* the rail gains/losses buttons as features arm (MESH, SET AI KEY…), so re-frame */
+  try{if(window.MutationObserver)new MutationObserver(queue).observe(row,{childList:true,attributes:true,attributeFilter:["style","class"]});}catch(e){}
+  setTimeout(queue,300);setTimeout(queue,1200);setTimeout(queue,3000);
+})();
+
+/* ---------------- v5 RING GAUGES — read AURA's own live telemetry ----------------
+   v5's System page leads with four SVG ring gauges. AURA already tracks the same
+   four metrics (tTemp / tBat / tFps / tMem), so this only *draws* what already
+   exists — no new data source, no extra polling. */
+(function(){try{
+  const host=document.getElementById("gauges5");
+  if(!host)return;
+  /* label, source id, max, unit */
+  const G=[["CORE TEMP","tTemp",100,"°C"],["POWER","tBat",100,"%"],["RENDER","tFps",60,"fps"],["MEMORY","tMem",100,""]];
+  host.innerHTML=G.map(function(g,i){
+    return '<div class="gz"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" class="gb"></circle>'+
+           '<circle cx="50" cy="50" r="42" class="gf" id="gf5-'+i+'"></circle></svg>'+
+           '<div class="gv"><span id="gv5-'+i+'">—</span><small>'+g[3]+'</small></div>'+
+           '<div class="gl">'+g[0]+'</div></div>';
+  }).join("");
+  const num=t=>{const m=String(t||"").match(/-?\d+/);return m?parseFloat(m[0]):null};
+  const paint=()=>{
+    for(let i=0;i<G.length;i++){
+      const src=document.getElementById(G[i][1]);
+      const arc=document.getElementById("gf5-"+i),val=document.getElementById("gv5-"+i);
+      if(!src||!arc||!val)continue;
+      const v=num(src.textContent);
+      if(v===null)continue;
+      arc.style.strokeDashoffset=String(264*(1-Math.min(1,Math.abs(v)/G[i][2])));
+      val.textContent=String(Math.round(Math.abs(v)));
+    }
+  };
+  paint();
+  setInterval(paint,1500);
+}catch(e){}})();
+
+/* ---------------- INSIDE v5 GLASS SPOTLIGHT — design only ----------------
+   Feeds the cursor position to the ::before highlight on AURA's glass surfaces.
+   One passive listener, no feature logic, wrapped so it can never break boot. */
+(function(){try{
+  const sel="#dock,#conv,.panel,#sessPanel";
+  document.addEventListener("pointermove",function(e){
+    const g=e.target&&e.target.closest?e.target.closest(sel):null;
+    if(!g)return;
+    const r=g.getBoundingClientRect();
+    g.style.setProperty("--x",(e.clientX-r.left)+"px");
+    g.style.setProperty("--y",(e.clientY-r.top)+"px");
+  },{passive:true});
+}catch(e){}})();
+
+/* ============================================================
+   SLICE 8 — v5's six separate OTP digit boxes.
+   The auth markup lives below this script, so the boxes are built as
+   soon as the document is parsed. #accOtpInput keeps its id, maxlength
+   and value semantics — the Firebase verify path is untouched.
+   ============================================================ */
+function __auraOtp6Init(){
+  (function(){
+    try{
+      var host=document.getElementById("otp6Boxes");
+      var field=document.getElementById("accOtpInput");
+      if(!host||!field)return;
+      host.innerHTML=Array.from({length:6},function(_,i){
+        return '<input maxlength="1" inputmode="numeric" aria-label="Digit '+(i+1)+'" data-i="'+i+'">';
+      }).join("");
+      var boxes=Array.prototype.slice.call(host.children);
+      function sync(){
+        field.value=boxes.map(function(b){return b.value}).join("");
+        host.classList.remove("bad");
+      }
+      boxes.forEach(function(b,i){
+        b.addEventListener("input",function(){
+          b.value=b.value.replace(/\D/g,"");
+          /* a pasted 6-digit code fills every box */
+          if(b.value.length>1){
+            var d=b.value.split("");
+            boxes.forEach(function(x,j){if(d[j])x.value=d[j]});
+            sync();
+            var next=boxes.find(function(x,j){return !x.value&&j>i});
+            if(next)next.focus();else boxes[5].focus();
+            return;
+          }
+          sync();
+          if(b.value&&boxes[i+1])boxes[i+1].focus();
+        });
+        b.addEventListener("keydown",function(e){
+          if(e.key==="Backspace"&&!b.value&&boxes[i-1]){boxes[i-1].focus();boxes[i-1].value="";sync()}
+          else if(e.key==="ArrowLeft"&&boxes[i-1])boxes[i-1].focus();
+          else if(e.key==="ArrowRight"&&boxes[i+1])boxes[i+1].focus();
+        });
+        b.addEventListener("focus",function(){b.select&&b.select()});
+        b.addEventListener("paste",function(e){
+          e.preventDefault();
+          var t=(e.clipboardData||window.clipboardData).getData("text")||"";
+          var d=t.replace(/\D/g,"").split("");
+          boxes.forEach(function(x,j){x.value=d[j]||""});
+          sync();
+          var next=boxes.find(function(x,j){return !x.value});
+          (next||boxes[5]).focus();
+        });
+      });
+      /* the verify button flashes the boxes instead of the hidden field */
+      var vb=document.getElementById("verifyCodeBtn");
+      if(vb)vb.addEventListener("click",function(){host.classList.remove("bad")});
+      window.__otp6Flash=function(){
+        host.classList.add("bad");
+        setTimeout(function(){host.classList.remove("bad")},1800);
+      };
+      /* focus the first box whenever the OTP step is shown */
+      var back=document.getElementById("otpBackBtn");
+      if(back)back.addEventListener("click",function(){sync()});
+      host.addEventListener("click",function(e){
+        if(e.target===host){var f=boxes.find(function(b){return !b.value})||boxes[0];f.focus()}
+      });
+    }catch(e){}
+  })();
+}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",__auraOtp6Init);else __auraOtp6Init();
 </script>
 
 <div class="wiz" id="authModal" style="display:none;z-index:10000">
@@ -8502,7 +10495,8 @@ document.addEventListener("DOMContentLoaded",function(){
 <div id="authStep2" style="display:none">
 <div class="auth-status-box"><b>OTP sent to your phone.</b> Enter the 6-digit code to continue.</div>
 <div class="auth-field"><label>6-Digit Code</label>
-<input id="accOtpInput" placeholder="000000" maxlength="6" style="letter-spacing:4px;font-size:18px;text-align:center" autocomplete="one-time-code">
+<div class="otp6" id="otp6Boxes" aria-label="6 digit code"></div>
+<input id="accOtpInput" placeholder="000000" maxlength="6" autocomplete="one-time-code" aria-hidden="true" tabindex="-1" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;left:-9999px">
 <small id="accOtpHint" style="display:block;margin-top:5px;color:#34d399;font-family:monospace;font-size:11px"></small></div>
 <button class="auth-btn" id="verifyCodeBtn">&#10003; VERIFY &amp; CONTINUE</button>
 <button class="auth-btn" id="otpBackBtn" style="background:transparent;border:1px solid var(--line2);color:var(--ice);margin-top:6px">← use a different number</button>
@@ -8541,5 +10535,79 @@ document.addEventListener("DOMContentLoaded",function(){
 </div>
 </div>
 </div>
+<script>
+/* ================================================================
+   aura-in-next — command palette (Ctrl/⌘+K) + 3D tilt on small cards
+   Lives in its own block so it can see every element the app builds.
+   ================================================================ */
+(function(){
+  'use strict';
+  var pal=document.getElementById('pal'),pq=document.getElementById('pq'),plist=document.getElementById('plist');
+  if(!pal||!pq||!plist)return;
+  var pSel=0,pItems=[];
+  function go(t){var b=document.querySelector('#tabbar button[data-t="'+t+'"]');if(b)b.click()}
+  function tap(id){var e=document.getElementById(id);if(e){e.click();return true}return false}
+  function ask(txt){var q=document.getElementById('q'),s=document.getElementById('sendBtn');
+    if(!q||!s)return;q.value=txt;s.click()}
+  function CMDS(){
+    var list=[];
+    [].forEach.call(document.querySelectorAll('#tabbar button'),function(b){
+      if(!b.offsetParent)return; /* hidden tabs — Mission Control stays owner-only */
+      var t=b.getAttribute('data-t');
+      var label=t==='chat'?'Go to Chat':t==='chats'?'Go to Chats':t==='code'?'Go to Code Forge':
+                t==='system'?'Go to System':'Open Mission Control';
+      list.push([label,function(){go(t)}]);
+    });
+    list.push(['New chat',function(){tap('sessNew2');go('chat')}]);
+    list.push(['Run diagnostics',function(){go('chat');ask('run diagnostics')}]);
+    list.push(['Tell me a joke',function(){go('chat');ask('tell me a joke')}]);
+    [['soundBtn','Toggle voice'],['personaBtn','Switch AURA / ZEUS'],['langBtn','Change language'],
+     ['voiceCfgBtn','Open Voice Studio'],['camBtn','Live camera vision'],['toolBtn','Open tools'],
+     ['docsBtn','Open docs'],['themeBtn','Switch theme'],['signOutBtn','Sign out']
+    ].forEach(function(p){if(document.getElementById(p[0]))list.push([p[1],function(){tap(p[0])}])});
+    return list;
+  }
+  function pDraw(){
+    var v=(pq.value||'').toLowerCase();
+    pItems=CMDS().filter(function(c){return c[0].toLowerCase().indexOf(v)>-1});
+    if(pSel>pItems.length-1)pSel=Math.max(0,pItems.length-1);
+    plist.innerHTML='';
+    pItems.forEach(function(c,i){
+      var b=document.createElement('button');
+      b.className='pi'+(i===pSel?' on':'');
+      b.type='button';b.textContent=c[0];
+      b.onclick=function(){pRun(i)};
+      plist.appendChild(b);
+    });
+    if(!pItems.length)plist.innerHTML='<div style="color:var(--m);font-size:13px;padding:10px 14px">No match.</div>';
+  }
+  function pOpen(){pal.hidden=false;pq.value='';pSel=0;pDraw();try{pq.focus()}catch(e){}}
+  function pClose(){pal.hidden=true}
+  function pRun(i){var c=pItems[i];pClose();if(c&&c[1])try{c[1]()}catch(e){}}
+  window.__auraPalOpen=function(){pal.hidden?pOpen():pClose()};
+  var kb=document.getElementById('kbtn');if(kb)kb.onclick=function(){window.__auraPalOpen()};
+  pal.onclick=function(e){if(e.target===pal)pClose()};
+  pq.oninput=function(){pSel=0;pDraw()};
+  document.addEventListener('keydown',function(e){
+    if(pal.hidden)return;
+    if(e.key==='Escape'){pClose()}
+    else if(e.key==='ArrowDown'){e.preventDefault();pSel=Math.min(pItems.length-1,pSel+1);pDraw()}
+    else if(e.key==='ArrowUp'){e.preventDefault();pSel=Math.max(0,pSel-1);pDraw()}
+    else if(e.key==='Enter'){e.preventDefault();pRun(pSel)}
+  });
+  /* 3D tilt on small cards */
+  var TILt='.tile,.gz,.gc,.ci,.ch2-row';
+  document.addEventListener('pointermove',function(e){
+    if(!e.target.closest)return;var g=e.target.closest(TILt);if(!g)return;
+    var r=g.getBoundingClientRect();if(!r.width||!r.height)return;
+    var px=(e.clientX-r.left)/r.width-.5,py=(e.clientY-r.top)/r.height-.5;
+    g.style.transform='perspective(700px) rotateX('+(-py*9).toFixed(2)+'deg) rotateY('+(px*9).toFixed(2)+'deg) translateZ(4px)';
+  });
+  document.addEventListener('pointerout',function(e){
+    if(!e.target.closest)return;var g=e.target.closest(TILt);
+    if(g&&(!e.relatedTarget||!g.contains(e.relatedTarget)))g.style.transform='';
+  });
+})();
+</script>
 </body>
 </html>
