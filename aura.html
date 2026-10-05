@@ -2382,7 +2382,8 @@ body{line-height:1.55}
 #dust{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
 /* v5 .hero is a row: orb left, copy right */
 #stageEmpty{flex-direction:row!important;justify-content:flex-start!important;align-items:center!important;text-align:left!important}
-#stageEmpty .se-orb{width:150px;height:150px;flex:none;font-size:0;border:0!important;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff2c4,#e9b949 38%,#6b4608 75%)!important;box-shadow:0 0 44px rgba(233,185,73,.45)}
+#stageEmpty .se-orb{width:150px;height:150px;flex:none;font-size:0;border:0!important;border-radius:50%;background:none!important;box-shadow:none!important;position:relative}
+#stageEmpty .se-orb canvas{display:block;width:100%;height:100%}
 @media(max-width:768px){#stageEmpty .se-orb{width:110px;height:110px}}
 /* reference preview pane is dark, never white */
 body:not(.theme-classical) #codeFrame{background:#080b14!important}
@@ -2396,12 +2397,42 @@ body:not(.theme-classical) #codeFrame{background:#080b14!important}
 .gc{pointer-events:auto;text-align:left;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--gl);transition:.25s}
 .gc:hover{border-color:var(--g);transform:translateY(-2px)}.gc b{display:block;font-weight:400}.gc span{font:400 11px 'JetBrains Mono',monospace;color:var(--m)}
 
-/* ---- hero = reference grid: orb left, heading over sub, one clean column ---- */
-#stageEmpty{display:grid!important;grid-template-columns:150px minmax(0,1fr);grid-template-rows:auto auto;column-gap:18px;row-gap:2px;align-content:center;justify-items:start;flex-direction:unset!important;justify-content:unset!important;text-align:left!important}
-#stageEmpty .se-orb{grid-row:1/3;grid-column:1;align-self:center}
-#stageEmpty h4{grid-row:1;grid-column:2;width:100%;margin:0}
-#stageEmpty p{grid-row:2;grid-column:2;width:100%;margin:0!important}
-@media(max-width:768px){#stageEmpty{grid-template-columns:110px minmax(0,1fr)}}
+/* ---- hero = reference .hero: particle orb, then heading over a one-line state ---- */
+#stageEmpty{display:flex!important;flex-direction:row!important;flex-wrap:wrap;align-items:center!important;gap:18px!important;justify-content:flex-start!important;text-align:left!important;max-width:880px}
+#stageEmpty .se-copy{flex:1;min-width:0}
+#stageEmpty h4{font-weight:300!important;font-size:clamp(26px,3.4vw,44px)!important;letter-spacing:-.03em!important;line-height:1.06!important;margin:0!important}
+#stageEmpty #state{color:var(--m);font:400 12.5px 'JetBrains Mono',monospace;letter-spacing:.06em;margin:2px 0 0!important}
+#stageEmpty #stageChips{width:100%}
+
+/* ---- v5 sign-in page (reference #auth / .acard) ---- */
+.acard [hidden]{display:none!important}
+.acard .btn{background:var(--gl);border:1px solid var(--line);border-radius:12px;padding:9px 16px;font-size:14px;display:inline-flex;gap:8px;align-items:center}
+.acard .btn:hover{border-color:var(--g);color:var(--g2)}
+.acard .btn.p{background:var(--g);color:#1a1202;border-color:var(--g)}
+.acard .bp{flex:1;min-width:220px;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:12px;padding:10px 16px}
+.acard .btn,.acard .acct,.acard .lnk{cursor:pointer;font:inherit;color:inherit}
+.acard .acct{background:none}
+#authPage{position:fixed;inset:0;z-index:60;display:none;place-items:center;background:rgba(4,6,13,.84);backdrop-filter:blur(14px);padding:16px}
+body.auth #authPage{display:grid}
+.acard{width:min(420px,100%);padding:26px 28px;display:flex;flex-direction:column;gap:12px;text-align:center;overflow:visible}
+.acard .logo{font:500 16px 'Space Grotesk',system-ui,sans-serif;letter-spacing:.32em;color:var(--g)}
+.aslot{width:110px;height:110px;margin:0 auto}
+.aslot canvas{display:block;width:100%;height:100%}
+.acard .stack{display:flex;flex-direction:column;gap:12px}
+.acard .gbtn{justify-content:center;width:100%;padding:13px;font-size:15px;gap:10px}
+.acard .gl4{width:20px;height:20px;border-radius:50%;background:#fff;color:#1f2937;font:700 12px/20px 'Space Grotesk',system-ui,sans-serif;text-align:center}
+.acard .or{color:var(--m);font:400 11px 'JetBrains Mono',monospace;letter-spacing:.2em}
+.acard .line{display:flex;gap:8px;align-items:center}
+.acard .lnk{color:var(--m);font-size:14px;text-decoration:underline;align-self:center;background:none;border:0;padding:0}
+.acard .sub{margin:0}
+.acard .otp{display:flex;gap:8px;justify-content:center}
+.acard .otp input{width:46px;height:56px;text-align:center;font:400 20px 'JetBrains Mono',monospace;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:12px;color:var(--t)}
+.acard .chooser{display:flex;flex-direction:column;gap:8px}
+.acard .acct{display:flex;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;text-align:left;width:100%}
+.acard .acct:hover{background:rgba(233,185,73,.08);border-color:var(--g)}
+.acard .acct b{display:block;font-weight:400;font-size:14px}
+.acard .acct small{display:block;color:var(--m);font-size:12px}
+.acard .av{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:linear-gradient(135deg,var(--g),#8a5a10);display:grid;place-items:center;font-weight:500;color:#1a1202}
 
 /* ---- SYSTEM pane = reference flow: no floating/overlapping cards ---- */
 #sysPane{display:none;position:relative;z-index:8;width:min(1180px,calc(100vw - 148px));margin:0 auto;padding:92px 0 46px}
@@ -2740,9 +2771,11 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
   <div id="auraTyping" aria-live="polite"><i></i><i></i><i></i><span style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--dim)">AURA IS THINKING</span></div>
   <button id="jumpLatest" title="Jump to latest">↓ LATEST</button>
   <div id="stageEmpty">
-    <div class="se-orb">🤖</div>
-    <h4>What are we making today?</h4>
-    <p>Ask anything — she answers out loud, remembers what matters, and keeps every chat in <b style="color:var(--cy2)">📚 CHATS</b> so you can continue later.</p>
+    <div class="se-orb" id="heroSlot"></div>
+    <div class="se-copy">
+      <h4>What are we making today?</h4>
+      <div class="sub" id="state">ZEUS is online and listening.</div>
+    </div>
     <div id="stageChips">
       <button data-t="Explain quantum computing like I'm five">🧒 Explain like I'm 5</button>
       <button data-t="Write a python script that renames all files in a folder">🐍 Write a Python script</button>
@@ -10344,6 +10377,105 @@ document.addEventListener("DOMContentLoaded",function(){
   setInterval(function(){if(document.body.getAttribute('data-tab')!=='system')return;LAT.push(55+Math.random()*40);LAT.shift();sparkDraw()},1500);
   })()}catch(e){}
 
+  /* ---------- v5 sign-in page + particle orb (reference #auth / #heroSlot) ---------- */
+  (function(){
+  var go=function(){
+  try{
+    var dpr=Math.min(window.devicePixelRatio||1,2);
+    function orb(slot,size){
+      if(!slot||slot.firstChild) return;
+      var cv=document.createElement('canvas');
+      cv.width=Math.round(size*dpr); cv.height=Math.round(size*dpr);
+      cv.style.width='100%'; cv.style.height='100%';
+      slot.appendChild(cv);
+      var x=cv.getContext('2d'); if(!x) return;
+      var R=size/2-2, N=Math.round(size*3.4), pts=[], i, u, th, r;
+      for(i=0;i<N;i++){u=Math.random()*2-1; th=Math.random()*Math.PI*2; r=Math.sqrt(Math.max(0,1-u*u));
+        pts.push({x:Math.cos(th)*r,y:u,z:Math.sin(th)*r,tw:Math.random()*6.283});}
+      function frame(t){
+        requestAnimationFrame(frame);
+        if(!cv.isConnected) return;
+        var a=t*0.00022, ca=Math.cos(a), sa=Math.sin(a);
+        x.clearRect(0,0,cv.width,cv.height);
+        x.save(); x.translate(cv.width/2,cv.height/2); x.scale(dpr,dpr);
+        for(var k=0;k<pts.length;k++){var p=pts[k];
+          var px=p.x*ca-p.z*sa, pz=p.x*sa+p.z*ca, dep=(pz+1)/2, Rr=R*(0.60+0.40*dep);
+          var tw2=0.72+0.28*Math.sin(t*0.0018+p.tw);
+          x.fillStyle='rgba('+(232+Math.round(22*dep))+','+(186+Math.round(54*(1-dep)))+',73,'+((0.16+0.84*dep*dep)*tw2).toFixed(3)+')';
+          x.beginPath(); x.arc(px*Rr,p.y*Rr,0.8+1.0*dep,0,6.2832); x.fill();
+        }
+        x.restore();
+      }
+      requestAnimationFrame(frame);
+    }
+    var hero=document.getElementById('heroSlot'); if(hero) orb(hero,150);
+
+    var page=document.getElementById('authPage'); if(!page) return;
+    var slot=document.getElementById('authSlot');
+    function step(id){
+      ['ap1','ap2','ap3'].forEach(function(k){var e=document.getElementById(k); if(e) e.hidden=(k!==id)});
+      if(id==='ap1') orb(slot,110);
+    }
+    function byId(i){return document.getElementById(i)}
+    function close(){ document.body.classList.remove('auth'); try{localStorage.setItem('aura_auth_seen','1')}catch(e){} }
+
+    var OT=[], box=byId('apOtp'), k, inp;
+    if(box) for(k=0;k<6;k++){
+      inp=document.createElement('input'); inp.inputMode='numeric'; inp.maxLength=1;
+      inp.setAttribute('aria-label','Digit '+(k+1));
+      inp.addEventListener('input',function(){ this.value=this.value.replace(/\D/g,''); var n=this.nextElementSibling; if(n&&this.value)n.focus(); });
+      inp.addEventListener('keydown',function(e){ if(e.key==='Backspace'&&!this.value&&this.previousElementSibling)this.previousElementSibling.focus(); });
+      box.appendChild(inp); OT.push(inp);
+    }
+    var gBtn=byId('apGoogle'), sendBtn=byId('apSend'), skipBtn=byId('apSkip');
+    var backBtn=byId('apBack'), mkBtn=byId('apMaker'), otBtn=byId('apOther'), vfBtn=byId('apVerify');
+
+    if(skipBtn) skipBtn.onclick=function(){
+      try{ if(window.AuraAuth&&AuraAuth.fbGuest) AuraAuth.fbGuest(''); }catch(e){}
+      close(); step('ap1');
+    };
+    if(gBtn) gBtn.onclick=function(){ step('ap2'); };
+    if(backBtn) backBtn.onclick=function(){ step('ap1'); };
+    function google(){ step('ap1');
+      var r; try{ r=Promise.resolve(AuraAuth.fbGoogle()); }catch(e){ return; }
+      r.then(function(res){ if(res&&res.ok) close(); else pushSys('⚠ '+((res&&res.why)||'Google sign-in was cancelled')); })
+       .catch(function(){ pushSys('⚠ Google sign-in failed — try the phone code instead'); });
+    }
+    if(mkBtn) mkBtn.onclick=google;
+    if(otBtn) otBtn.onclick=google;
+    if(sendBtn) sendBtn.onclick=function(){
+      var raw=(byId('apPhone').value||'').trim(), d=raw.replace(/\D/g,'');
+      if(d.length<10){ pushSys('⚠ Enter a valid mobile number.'); byId('apPhone').focus(); return; }
+      var e164=raw.charAt(0)==='+'?'+'+d:(d.length===10?'+91'+d:'+'+d), r;
+      sendBtn.disabled=true; sendBtn.textContent='Sending…';
+      try{ r=Promise.resolve(AuraAuth.fbSendOtp(e164)); }catch(e){ sendBtn.disabled=false; sendBtn.textContent='Send code'; return; }
+      r.then(function(res){
+        sendBtn.disabled=false; sendBtn.textContent='Send code';
+        if(!res||!res.ok){ pushSys('⚠ '+((res&&res.why)||'code could not be sent')); return; }
+        byId('apPhoneNo').textContent='••••••'+d.slice(-4);
+        step('ap3'); if(OT[0]) OT[0].focus();
+      }).catch(function(){ sendBtn.disabled=false; sendBtn.textContent='Send code'; pushSys('⚠ code could not be sent'); });
+    };
+    if(vfBtn) vfBtn.onclick=function(){
+      var code=OT.map(function(e){return e.value}).join('');
+      if(code.length<6){ pushSys('⚠ Enter all 6 digits.'); return; }
+      var r; try{ r=Promise.resolve(AuraAuth.fbVerifyOtp(code)); }catch(e){ return; }
+      r.then(function(res){ if(res&&res.ok){ close(); } else pushSys('⚠ '+((res&&res.why)||'that code did not match')); })
+       .catch(function(){ pushSys('⚠ verification failed'); });
+    };
+
+    /* gate: first visit only, and never on top of a live session */
+    if(localStorage.getItem('aura_auth_seen')!=='1'&&!(window.AuraAuth&&AuraAuth.firebaseUser&&AuraAuth.firebaseUser())){
+      document.body.classList.add('auth'); step('ap1');
+    }
+    if(window.AuraAuth&&AuraAuth.fbReady) AuraAuth.fbReady().then(function(){
+      try{ if(AuraAuth.firebaseUser&&AuraAuth.firebaseUser()) close(); }catch(e){}
+    })['catch'](function(){});
+  }catch(e){ console.error('AURA sign-in init failed',e); }
+  };
+  try{ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go(); }catch(e){ console.error('AURA sign-in gate failed',e); }
+  })();
+
   /* ---------- Toast system ---------- */
   window.auraToast = function(msg, type='info', dur=3500){
     const shelf = document.getElementById('toastShelf');
@@ -10607,6 +10739,33 @@ function __auraOtp6Init(){
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",__auraOtp6Init);else __auraOtp6Init();
 </script>
+
+<div id="authPage"><div class="acard glass">
+<div class="aslot" id="authSlot"></div>
+<div class="logo">AURA</div>
+<div id="ap1" class="stack">
+<h3 style="font-size:28px">Sign in</h3>
+<div class="sub">Your chats, projects and memory follow you on every device.</div>
+<button class="btn gbtn" id="apGoogle"><b class="gl4">G</b>Continue with Google</button>
+<div class="or">OR</div>
+<div class="line"><input id="apPhone" class="bp" placeholder="Mobile number" inputmode="tel" aria-label="Mobile number"><button class="btn p" id="apSend">Send code</button></div>
+<button class="lnk" id="apSkip">Skip for now</button>
+</div>
+<div id="ap2" class="stack" hidden>
+<h3 style="font-size:24px">Choose an account</h3>
+<div class="chooser">
+<button class="acct" id="apMaker"><span class="av">S</span><span><b>Sourabh Singh</b><small>Maker account</small></span></button>
+<button class="acct" id="apOther"><span class="av" style="background:#2a3550;color:#cfe">+</span><span><b>Use another Google account</b><small>Regular account</small></span></button>
+</div>
+<button class="lnk" id="apBack">Back</button>
+</div>
+<div id="ap3" class="stack" hidden>
+<h3 style="font-size:24px">Enter the code</h3>
+<div class="sub">We sent a 6-digit code to <b id="apPhoneNo">your phone</b></div>
+<div class="otp" id="apOtp"></div>
+<button class="btn p gbtn" id="apVerify">Verify and continue</button>
+</div>
+</div></div>
 
 <div class="wiz" id="authModal" style="display:none;z-index:10000">
 <div class="auth-modal-card">
