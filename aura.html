@@ -772,6 +772,12 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
 }
 /* v5 .acard .ds / muted note */
 .auth-modal-card small{color:var(--m);font-size:12px;line-height:1.6}
+/* v5 .chooser / .acct / .av — "Choose an account" rows */
+.auth-acct{display:flex;gap:12px;align-items:center;padding:12px 14px;margin:0 0 8px;border:1px solid var(--line);border-radius:14px;background:transparent;text-align:left;width:100%;color:inherit;font:inherit;cursor:pointer}
+.auth-acct:hover{background:rgba(233,185,73,.08);border-color:var(--g)}
+.auth-acct b{display:block;font-weight:400;font-size:14px}
+.auth-acct small{display:block;color:var(--m);font-size:12px}
+.auth-av{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:linear-gradient(135deg,var(--g),#8a5a10);display:grid;place-items:center;font-weight:500;color:#1a1202}
 /* v5 glass note box */
 .auth-status-box{
   background:var(--gl);border:1px solid var(--line);border-radius:12px;
@@ -2389,6 +2395,41 @@ body:not(.theme-classical) #codeFrame{background:#080b14!important}
 .gcs{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
 .gc{pointer-events:auto;text-align:left;padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:var(--gl);transition:.25s}
 .gc:hover{border-color:var(--g);transform:translateY(-2px)}.gc b{display:block;font-weight:400}.gc span{font:400 11px 'JetBrains Mono',monospace;color:var(--m)}
+
+/* ---- hero = reference grid: orb left, heading over sub, one clean column ---- */
+#stageEmpty{display:grid!important;grid-template-columns:150px minmax(0,1fr);grid-template-rows:auto auto;column-gap:18px;row-gap:2px;align-content:center;justify-items:start;flex-direction:unset!important;justify-content:unset!important;text-align:left!important}
+#stageEmpty .se-orb{grid-row:1/3;grid-column:1;align-self:center}
+#stageEmpty h4{grid-row:1;grid-column:2;width:100%;margin:0}
+#stageEmpty p{grid-row:2;grid-column:2;width:100%;margin:0!important}
+@media(max-width:768px){#stageEmpty{grid-template-columns:110px minmax(0,1fr)}}
+
+/* ---- SYSTEM pane = reference flow: no floating/overlapping cards ---- */
+#sysPane{display:none;position:relative;z-index:8;width:min(1180px,calc(100vw - 148px));margin:0 auto;padding:92px 0 46px}
+body[data-tab="system"] #sysPane{display:block!important}
+body[data-tab="system"] #sysPane #telemetry,
+body[data-tab="system"] #sysPane #memPanel,
+body[data-tab="system"] #sysPane #syslog,
+body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;width:auto!important;max-height:none!important;margin:0!important;transform:none!important}
+#sysPane #telemetry{background:var(--gl)!important;border:1px solid var(--line)!important;border-radius:18px!important;padding:18px 20px!important;overflow:visible!important;backdrop-filter:blur(14px)!important;box-shadow:none!important}
+#sysPane h3{margin:0 0 2px!important}
+#sysPane>.sub{margin:0 0 16px!important}
+#sysPane #memPanel,#sysPane #syslog,#sysPane #aboutCard{background:var(--gl)!important;border:1px solid var(--line)!important;border-radius:18px!important;padding:18px 20px!important;overflow:visible!important;backdrop-filter:blur(14px)!important;box-shadow:none!important}
+#sysPane #telemetry>.trow{margin-right:0!important}
+#sysPane #syslogLines,#sysPane #memSide{max-height:210px!important;overflow:auto!important}
+#sysPane .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-bottom:12px}
+@media(max-width:900px){#sysPane{width:calc(100vw - 24px);padding-top:74px}#sysPane .sgrid{grid-template-columns:1fr}}
+/* v5 sparkline (reference: LATENCY · LAST 60 SECONDS) */
+#spark{width:100%;height:150px}#sl{fill:none;stroke:var(--g);stroke-width:2;vector-effect:non-scaling-stroke}#sa{fill:rgba(233,185,73,.1);stroke:none}
+.fact .btn{padding:4px 12px;font-size:12px}
+/* reference @media(max-width:900px): stacks + 2-col gauges */
+@media(max-width:900px){
+  body[data-tab="system"] #sysPane #gauges5{grid-template-columns:repeat(2,1fr)!important}
+  body[data-tab="chats"] #sessPanel{grid-template-columns:1fr!important;height:auto!important;left:8px!important;right:8px!important;margin-left:0!important;width:auto!important;max-width:none!important}
+  #sessPrev{min-height:240px}
+  #codeSplit{grid-template-columns:1fr!important;min-height:0}
+  #codeEdWrap,#codeOutWrap{min-height:320px}
+  .tag{display:none}
+}
 /* v5 never sets a heading font — everything is the body face */
 #stageEmpty h4,#sessPrev h3{font-family:'Space Grotesk',system-ui,sans-serif!important}
 </style>
@@ -9503,8 +9544,9 @@ document.addEventListener("DOMContentLoaded",function(){
     }
     try{ if(window.__auraVerifier) { /* verifier persists across sends */ } }catch(e){}
     const r = await AuraAuth.fbSendOtp(e164);
-    sendBtn2.disabled = false; sendBtn2.textContent = "\ud83d\udcf8 SEND OTP CODE";
+    sendBtn2.disabled = false; sendBtn2.textContent = "Send code";
     if(!r.ok){ pushSys("⚠ " + r.why); return; }
+    try{ var psh=$("accPhoneShown"); if(psh) psh.textContent = e164; }catch(e){}
     $("authStep1").style.display = "none";
     $("authStep2").style.display = "block";
     pushSys("📱 Code sent to " + e164 + " — it expires in 5 minutes");
@@ -9549,6 +9591,26 @@ document.addEventListener("DOMContentLoaded",function(){
     AuraAuth.closeModal();
     pushSys("Guest mode — saved on this device only. Sign in later to take your data to the cloud.");
   };
+
+  /* ---- v5 sign-in: "Choose an account" gate before the Google popup (reference flow) ---- */
+  (function(){
+    var g=$("googleSignInBtn"), sg=$("authStepG"), mk=$("accMaker"), ot=$("accOther"), bk=$("accBack");
+    if(!g||!sg) return;
+    var real=g.onclick;
+    g.onclick=function(){ $("authStep1").style.display="none"; sg.style.display="block"; };
+    function pick(){ sg.style.display="none"; if(typeof real==="function") real.call(g); }
+    if(mk) mk.onclick=pick;
+    if(ot) ot.onclick=pick;
+    if(bk) bk.onclick=function(){ sg.style.display="none"; $("authStep1").style.display="block"; };
+    var s1=$("authStep1"), s2=$("authStep2"), dn=$("authDone"), md=$("authModal");
+    if(md&&window.MutationObserver){
+      new MutationObserver(function(){
+        if(getComputedStyle(sg).display==="none") return;
+        var other=[s1,s2,dn].some(function(e){return e&&getComputedStyle(e).display!=="none"});
+        if(other) sg.style.display="none";
+      }).observe(md,{attributes:true,subtree:true,attributeFilter:["style"]});
+    }
+  })();
 
   /* done-screen actions: export / delete my data */const expBtn = $("exportDataBtn");
   if(expBtn) expBtn.onclick = async function(){
@@ -10250,6 +10312,37 @@ document.addEventListener("DOMContentLoaded",function(){
     if(t&&t[2]!=null){ed.value=t[2];try{ed.dispatchEvent(new Event('input'))}catch(e){}}upd()}});
   ed.addEventListener('input',upd);upd()})()}catch(e){}
 
+  /* SYSTEM pane → reference flow layout: wrap the panels so nothing floats over anything */
+  try{(function(){
+  var host=document.createElement('div');host.id='sysPane';document.body.appendChild(host);
+  var tel=document.getElementById('telemetry');
+  if(tel){
+    var hh=tel.querySelector('h3');if(hh){hh.textContent='System';host.appendChild(hh);
+      var sb=document.createElement('div');sb.className='sub';sb.id='ssub';host.appendChild(sb);}
+    var gg=document.getElementById('gauges5');if(gg)host.appendChild(gg);
+    var st=document.createElement('div');st.className='glass sc';st.id='telemetry';
+    var gr=document.createElement('div');gr.className='grp0';gr.textContent='STATUS';st.appendChild(gr);
+    Array.prototype.slice.call(tel.children).forEach(function(c){if(c!==hh&&c!==gg)st.appendChild(c)});
+    tel.parentNode.replaceChild(st,tel);
+    var g1=document.createElement('div');g1.className='sgrid';
+    var sp=document.createElement('div');sp.className='glass sc';sp.id='sparkCard';
+    sp.innerHTML='<div class="grp0">LATENCY · LAST 60 SECONDS</div><svg id="spark" viewBox="0 0 300 80" preserveAspectRatio="none"><polygon id="sa"></polygon><polyline id="sl"></polyline></svg>';
+    g1.appendChild(sp);g1.appendChild(st);
+    host.appendChild(g1);
+  }
+  var g2=document.createElement('div');g2.className='sgrid';
+  var mp=document.getElementById('memPanel');if(mp){var mh=mp.querySelector('h3');if(mh){var lb=mh.querySelector('span');if(lb)lb.textContent='MEMORY BANK';else mh.textContent='MEMORY BANK'}g2.appendChild(mp)}
+  var sy=document.getElementById('syslog');if(sy){var sh=sy.querySelector('h3');if(sh)sh.textContent='LIVE LOG';g2.appendChild(sy)}
+  host.appendChild(g2);
+  var ab=document.getElementById('aboutCard');if(ab)host.appendChild(ab);
+  var LAT=Array.from({length:40},function(){return 60+Math.random()*30});
+  var slE=document.getElementById('sl'),saE=document.getElementById('sa');
+  function sparkDraw(){var p=LAT.map(function(v,i){return (i*300/39).toFixed(1)+','+(80-(v-40)*.9).toFixed(1)}).join(' ');
+    if(slE)slE.setAttribute('points',p);if(saE)saE.setAttribute('points','0,80 '+p+' 300,80')}
+  sparkDraw();
+  setInterval(function(){if(document.body.getAttribute('data-tab')!=='system')return;LAT.push(55+Math.random()*40);LAT.shift();sparkDraw()},1500);
+  })()}catch(e){}
+
   /* ---------- Toast system ---------- */
   window.auraToast = function(msg, type='info', dur=3500){
     const shelf = document.getElementById('toastShelf');
@@ -10527,18 +10620,26 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 <div style="display:flex;align-items:center;gap:10px;margin:14px 0"><div style="flex:1;height:1px;background:var(--line2)"></div><span style="font-size:10px;color:var(--dim)">or sign in with phone</span><div style="flex:1;height:1px;background:var(--line2)"></div></div>
 <div class="auth-field"><label>Mobile number</label><input id="accPhoneInput" placeholder="+91 98765 43210" autocomplete="tel"></div>
 <div id="recaptchaBox" style="margin:6px 0"></div>
-<button class="auth-btn" id="sendCodeBtn">&#128242; SEND OTP CODE</button>
+<button class="auth-btn" id="sendCodeBtn">&#128242; Send code</button>
 <div style="margin-top:14px;font-size:11px;color:#4b5563;text-align:center">Just trying her out?</div>
-<button class="auth-btn" id="skipNameBtn" style="background:transparent;border:1px solid var(--line2);color:var(--ice)">&#9889; CONTINUE AS GUEST</button>
+<button class="auth-btn" id="skipNameBtn" style="background:transparent;border:1px solid var(--line2);color:var(--ice)">&#9889; Skip for now</button>
 <small style="display:block;margin-top:8px;text-align:center;font-size:10px;color:var(--dim)">Guest mode saves only on this device — sign in to sync everywhere.</small>
 </div>
+<div id="authStepG" style="display:none">
+<h3 style="font-size:20px;margin:0 0 6px">Choose an account</h3>
+<div class="auth-status-box" style="margin:0 0 10px">The account AURA remembers — chats, memory and voice follow you on every device.</div>
+<button class="auth-acct" id="accMaker"><span class="auth-av" style="background:linear-gradient(135deg,#e9b949,#8a6b1f);color:#141414">S</span><span><b>Sourabh Singh</b><small>Maker account</small></span></button>
+<button class="auth-acct" id="accOther"><span class="auth-av" style="background:#2a3550;color:#cfe">+</span><span><b>Use another Google account</b><small>Regular account</small></span></button>
+<button class="auth-btn" id="accBack" style="background:transparent;border:1px solid var(--line2);color:var(--ice);margin-top:6px">← Back</button>
+</div>
 <div id="authStep2" style="display:none">
-<div class="auth-status-box"><b>OTP sent to your phone.</b> Enter the 6-digit code to continue.</div>
+<h3 style="font-size:20px;margin:0 0 6px">Enter the code</h3>
+<div class="auth-status-box">We sent a 6-digit code to <b id="accPhoneShown">your phone</b></div>
 <div class="auth-field"><label>6-Digit Code</label>
 <div class="otp6" id="otp6Boxes" aria-label="6 digit code"></div>
 <input id="accOtpInput" placeholder="000000" maxlength="6" autocomplete="one-time-code" aria-hidden="true" tabindex="-1" style="position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;left:-9999px">
 <small id="accOtpHint" style="display:block;margin-top:5px;color:#34d399;font-family:monospace;font-size:11px"></small></div>
-<button class="auth-btn" id="verifyCodeBtn">&#10003; VERIFY &amp; CONTINUE</button>
+<button class="auth-btn" id="verifyCodeBtn">&#10003; Verify and continue</button>
 <button class="auth-btn" id="otpBackBtn" style="background:transparent;border:1px solid var(--line2);color:var(--ice);margin-top:6px">← use a different number</button>
 </div>
 <div id="authDone" style="display:none">
