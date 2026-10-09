@@ -13,6 +13,7 @@
    ─ AURA::7300353703::JECRC::PROVENANCE-SEAL-v1 ─
   ═══════════════════════════════════════════════════════════════
 -->
+
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Manrope:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 <meta name="theme-color" content="#05070E">
@@ -778,6 +779,17 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
 .auth-acct b{display:block;font-weight:400;font-size:14px}
 .auth-acct small{display:block;color:var(--m);font-size:12px}
 .auth-av{width:30px;height:30px;flex:0 0 30px;border-radius:50%;background:linear-gradient(135deg,var(--g),#8a5a10);display:grid;place-items:center;font-weight:500;color:#1a1202}
+/* ---- identity verification — badge chip + signed-in account card (Google-account-picker look) ---- */
+#authVerify{display:none;align-items:center;justify-content:center;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:rgba(52,211,153,.16);border:1px solid rgba(52,211,153,.5);color:#34d399;font-size:9px;font-weight:700;line-height:1}
+#authBadge.verified #authVerify{display:inline-flex}
+.auth-who{display:flex;gap:12px;align-items:center;padding:12px 14px;margin:0 0 12px;border:1px solid rgba(66,130,244,.55);border-radius:14px;background:rgba(66,130,244,.10);box-shadow:0 0 0 1px rgba(66,130,244,.22),0 0 16px rgba(66,130,244,.12);width:100%;text-align:left;color:inherit;font:inherit}
+.auth-who.guest{border-color:var(--line);background:transparent;box-shadow:none}
+.auth-who b{display:block;font-weight:600;font-size:14px;color:var(--ice)}
+.auth-who small{display:block;color:var(--m);font-size:12px}
+.who-vfy{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:#34d399;white-space:nowrap}
+.who-none{margin-left:auto;font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;color:var(--dim);white-space:nowrap}
+.auth-acct.active{border-color:#4285f4;background:rgba(66,130,244,.14);box-shadow:0 0 0 1px rgba(66,130,244,.35)}
+#doneVerify{display:none;margin-top:8px;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;color:#34d399}
 /* v5 glass note box */
 .auth-status-box{
   background:var(--gl);border:1px solid var(--line);border-radius:12px;
@@ -885,6 +897,13 @@ body.theme-classical #sendBtn{box-shadow:0 1px 4px rgba(90,60,20,.15)}
   color:var(--m)!important;font:400 10px 'JetBrains Mono',monospace!important;
   letter-spacing:.1em!important;transition:.25s;white-space:nowrap;
 }
+/* OWNER-ONLY ADMIN TAB — the rail rule above forces display:flex!important,
+   which beats the inline style="display:none" on #adminTabBtn (inline styles
+   lose to !important). That leaked ADMIN to every guest. Hide it here with a
+   higher-specificity !important; applyRoleUi() adds .admin-on ONLY when
+   isAdmin() (server-verified maker/ceo, or the owner's local elevation). */
+#tabbar #adminTabBtn{display:none!important}
+#tabbar #adminTabBtn.admin-on{display:flex!important}
 #tabbar button:hover{color:var(--t)!important;background:var(--gl)!important}
 /* v5 .rail button.on */
 body[data-tab="chat"]   #tabbar button:nth-child(1),
@@ -2109,21 +2128,21 @@ body{
 /* v5 .msgs */
 #log{
   flex:1;overflow-y:auto;display:flex;flex-direction:column;
-  gap:18px;padding:8px 4px 16px;max-width:880px;width:100%;margin:0 auto;
+  gap:24px;padding:8px 4px 16px;max-width:1060px;width:100%;margin:0 auto;
 }
 /* v5 .m + v5 .m.u */
-.msg{max-width:92%;font-size:18px;line-height:1.6;font-weight:300;
+.msg{max-width:100%;font-size:19px;line-height:1.68;font-weight:300;
   background:none!important;border:0!important;border-radius:0!important;padding:0!important}
 .msg .who{display:block;font:400 11px 'JetBrains Mono',monospace;letter-spacing:.25em;
   color:var(--g);margin-bottom:4px}
 .msg.user{margin-left:auto;width:fit-content;max-width:92%;
   border:1px solid var(--line)!important;border-radius:18px 18px 4px 18px!important;
-  padding:10px 16px!important;background:var(--gl)!important;font-size:16px;line-height:1.5}
+  padding:12px 18px!important;background:var(--gl)!important;font-size:17px;line-height:1.55}
 .msg.user .who{color:var(--m)}
 .msg .mdel,.msg .mcopy{display:none!important}
 
 /* v5 .hero */
-#stageEmpty{display:flex!important;align-items:center;gap:18px;max-width:880px;
+#stageEmpty{display:flex!important;align-items:center;gap:18px;max-width:1060px;
   width:100%;margin:0 auto 8px;text-align:left;padding:0!important}
 #stageEmpty .se-orb{width:150px;height:150px;flex:none;border:0;background:none;font-size:0;
   border-radius:50%;box-shadow:none}
@@ -2134,7 +2153,7 @@ body{
 
 /* v5 .chips */
 #chips{display:flex!important;gap:8px!important;flex-wrap:wrap!important;
-  margin:0 auto 12px!important;max-width:880px;width:100%}
+  margin:0 auto 12px!important;max-width:1060px;width:100%}
 #chips .chip{border:1px solid var(--line)!important;border-radius:99px!important;
   padding:8px 16px!important;font-size:14px!important;color:var(--g2)!important;
   background:var(--gl)!important;transition:.25s;font-family:inherit}
@@ -2142,7 +2161,7 @@ body{
 
 /* v5 .comp */
 #dock{
-  position:static!important;margin:0 auto!important;width:100%!important;max-width:880px;
+  position:static!important;margin:0 auto!important;width:100%!important;max-width:1060px;
   background:var(--gl)!important;border:1px solid var(--line)!important;
   border-radius:26px!important;padding:10px!important;
   backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px);
@@ -2225,7 +2244,7 @@ body[data-tab="chat"] #conv{display:flex!important;flex-direction:column!importa
 /* #dock is NOT inside #conv — it stays a fixed bottom composer like v5's
    .comp: centred, max-width 880, sitting under the chips */
 #dock{position:fixed!important;left:84px!important;right:0!important;bottom:34px!important;
-  margin:0 auto!important;width:100%!important;max-width:880px;
+  margin:0 auto!important;width:100%!important;max-width:1060px;
   display:flex!important;flex-direction:column!important;gap:8px}
 #micWrap{display:flex!important;gap:8px!important;align-items:center;margin:0!important;
   position:static!important}
@@ -2246,9 +2265,9 @@ body[data-tab="chat"] #conv{
   left:84px!important;right:0!important;top:68px!important;bottom:186px!important;
   width:auto!important;max-width:none!important;margin:0!important;transform:none!important;
 }
-body[data-tab="chat"] #conv>div#log{max-width:880px;margin:0 auto;width:100%}
-body[data-tab="chat"] #chips{max-width:880px;margin:0 auto 12px!important;width:100%}
-body[data-tab="chat"] #stageEmpty{max-width:880px;margin:0 auto 8px!important;width:100%}
+body[data-tab="chat"] #conv>div#log{max-width:1060px;margin:0 auto;width:100%}
+body[data-tab="chat"] #chips{max-width:1060px;margin:0 auto 12px!important;width:100%}
+body[data-tab="chat"] #stageEmpty{max-width:1060px;margin:0 auto 8px!important;width:100%}
 @media(max-width:768px){
   body[data-tab="chat"] #conv{left:0!important;top:60px!important;bottom:150px!important;margin:0!important}
 }
@@ -2398,7 +2417,7 @@ body:not(.theme-classical) #codeFrame{background:#080b14!important}
 .gc:hover{border-color:var(--g);transform:translateY(-2px)}.gc b{display:block;font-weight:400}.gc span{font:400 11px 'JetBrains Mono',monospace;color:var(--m)}
 
 /* ---- hero = reference .hero: particle orb, then heading over a one-line state ---- */
-#stageEmpty{display:flex!important;flex-direction:row!important;flex-wrap:wrap;align-items:center!important;gap:18px!important;justify-content:flex-start!important;text-align:left!important;max-width:880px}
+#stageEmpty{display:flex!important;flex-direction:row!important;flex-wrap:wrap;align-items:center!important;gap:18px!important;justify-content:flex-start!important;text-align:left!important;max-width:1060px}
 #stageEmpty .se-copy{flex:1;min-width:0}
 #stageEmpty h4{font-weight:300!important;font-size:clamp(26px,3.4vw,44px)!important;letter-spacing:-.03em!important;line-height:1.06!important;margin:0!important}
 #stageEmpty #state{color:var(--m);font:400 12.5px 'JetBrains Mono',monospace;letter-spacing:.06em;margin:2px 0 0!important}
@@ -2629,7 +2648,6 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
 <div id="topbar">
   <div class="wordmark">AURA<small>HOLOGRAPHIC AI INTERFACE</small></div>
   <div id="stateBox"><span id="stateDot"></span><span id="stateText">SYSTEM ONLINE</span></div>
-  <div id="authBadge" title="AURA account — click to sign in"><span id="authRoleIcon">&#128100;</span><span id="authName">Guest</span><span id="authTag">USER</span></div>
   <button class="kbtn" id="kbtn" aria-label="Search or run a command">Search<kbd>Ctrl K</kbd></button>
   <div id="clock"><b id="clockT">--:--</b><span id="clockD"></span></div>
 </div>
@@ -2643,6 +2661,7 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
 <symbol id="i-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/></symbol>
 <symbol id="i-sys" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
 <symbol id="i-adm" viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6z"/></symbol>
+<symbol id="i-set" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.8 7.8 0 0 0 0-3l1.8-1.4-2-3.4-2.2.9a7.6 7.6 0 0 0-2.6-1.5L14 2h-4l-.4 2.6a7.6 7.6 0 0 0-2.6 1.5l-2.2-.9-2 3.4L4.6 10a7.8 7.8 0 0 0 0 3l-1.8 1.4 2 3.4 2.2-.9a7.6 7.6 0 0 0 2.6 1.5L10 22h4l.4-2.6a7.6 7.6 0 0 0 2.6-1.5l2.2.9 2-3.4z"/></symbol>
 </defs></svg>
 <div id="tabbar">
   <button data-t="chat" class="on"><svg class="i"><use href="#i-chat"/></svg>CHAT</button>
@@ -2650,6 +2669,7 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
   <button data-t="code"><svg class="i"><use href="#i-code"/></svg>CODE</button>
   <button data-t="system"><svg class="i"><use href="#i-sys"/></svg>SYSTEM</button>
   <button data-t="admin" id="adminTabBtn" style="display:none"><svg class="i"><use href="#i-adm"/></svg>ADMIN</button>
+  <button data-t="settings"><svg class="i"><use href="#i-set"/></svg>SETTINGS</button>
 </div>
 
 <div id="adminPage">
@@ -2681,7 +2701,37 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
     <h4>👥 PEOPLE <span id="adUsersHint" style="color:var(--dim);font-weight:400"></span></h4>
     <div id="adUsersList"><small style="color:var(--dim)">loading…</small></div>
   </div>
-  <div class="admin-card" id="suCard" style="border-color:rgba(120,101,233,.4)">
+  <div class="admin-card" id="botsCard" style="border-color:rgba(34,211,238,.45)">
+    <h4>⚡ KRATOS SQUAD <span style="color:var(--dim);font-weight:400">— 👑 KRATOS (head) · ERLANG · ARTHUR · PHOENIX · admin only</span></h4>
+    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:10px">Mythos-trained squad, four departments: <b style="color:var(--cy2)">👑 KRATOS</b> <i>COMMAND</i> — takes your orders, dispatches the depts, reports back; <b style="color:var(--cy2)">🛡 ERLANG</b> <i>RELIABILITY</i> — telecom-grade sweeps of her own source, deterministic so it works with zero keys; <b style="color:var(--cy2)">⚔ ARTHUR</b> <i>ENGINEERING</i> — plans, writes and dry-run verifies repairs on the admin KEY BANK tiers, falls back to an honest keyless plan, nothing ships without your approval; <b style="color:var(--cy2)">🔥 PHOENIX</b> <i>KNOWLEDGE</i> — keeps the squad training database stamped with real-world time, dates and live briefs. Assign their next work below — every AI call is recorded in the KEY BANK ledger.</p>
+    <div class="bot-grid" id="botRoster"></div>
+    <textarea id="botOrder" placeholder="Tell the team their next work — e.g. Run a full test sweep · Fix whatever the last sweep found · Add a welcome banner to the landing gate"></textarea>
+    <div class="suRow" style="margin-top:8px">
+      <button class="suBtn go" id="botAssignBtn">👑 ASSIGN TO SQUAD</button>
+      <button class="suBtn" id="botTestBtn">🛡 RUN TEST SWEEP</button>
+      <button class="suBtn" id="botReportBtn">📋 HEAD REPORT</button>
+      <button class="suBtn" id="botAutoBtn" style="margin-left:auto">⏱ AUTO: ON</button>
+    </div>
+    <div id="botReportOut"></div>
+    <div id="botLog"></div>
+    <style>
+      .bot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:8px;margin:10px 0}
+      .bot-tile{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:rgba(2,10,16,.45);display:flex;flex-direction:column;gap:3px;transition:border-color .2s ease-out,box-shadow .2s ease-out}
+      .bot-tile:hover{border-color:rgba(34,211,238,.4);box-shadow:0 0 14px rgba(34,211,238,.12)}
+      .bot-tile b{font:600 11.5px Rajdhani;letter-spacing:1.5px;color:var(--cy2)}
+      .bot-tile small{font-size:10px;color:var(--dim);line-height:1.4}
+      .bot-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle;background:#6b7280}
+      .bot-dot.running{background:#5CE1FF;box-shadow:0 0 8px #5CE1FF;animation:pp 1.1s infinite}
+      .bot-dot.ok{background:#34d399;box-shadow:0 0 6px rgba(52,211,153,.7)}
+      .bot-dot.fail{background:#f87171;box-shadow:0 0 6px rgba(248,113,113,.7)}
+      .bot-dot.order{background:#fbbf24;box-shadow:0 0 6px rgba(251,191,36,.7)}
+      #botOrder{width:100%;min-height:58px;background:rgba(2,10,16,.5);border:1px solid var(--line);border-radius:10px;color:var(--ice);font:12.5px Rajdhani;padding:10px;resize:vertical;box-sizing:border-box}
+      #botReportOut{display:none;white-space:pre-wrap;border:1px solid rgba(34,211,238,.35);border-radius:10px;padding:10px;margin-top:10px;font:11.5px ui-monospace,monospace;color:var(--ice);max-height:260px;overflow:auto}
+      #botLog{margin-top:10px;max-height:200px;overflow:auto;background:rgba(2,10,16,.55);border:1px solid var(--line);border-radius:10px;padding:10px;font:11px ui-monospace,monospace;display:flex;flex-direction:column;gap:3px}
+      #botLog .bl-fail{color:#f87171}#botLog .bl-ok{color:#34d399}#botLog .bl-dim{color:var(--dim)}
+    </style>
+  </div>
+  <div class="admin-card" id="suCard" style="border-color:rgba(120,101,233,.4);display:none">
     <h4>🧬 SELF-INTEGRATION <span style="color:var(--dim);font-weight:400">— AURA upgrades herself</span></h4>
     <p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:10px">Describe any change in plain words — a new feature, a design tweak, a fix. AURA plans it, writes the code, shows you a live preview, and can ship it to the real site with your approval. You stay the publisher; she stays the engineer.</p>
     <div id="suBox">
@@ -2814,6 +2864,7 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
   </div>
 </div>
 
+
 <div id="dock">
   <div id="chipsMobile" style="display:flex;gap:7px;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none"></div>
   <div id="camWrap">
@@ -2835,21 +2886,71 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
     <button id="sendBtn">▸</button>
   </div>
   <div class="iconrow">
-  <button class="ibtn" id="soundBtn" style="position: relative; top: 0; left: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center; z-index: 10;">🔊 VOICE: ON</button>
-  <button class="ibtn" id="voiceCfgBtn" title="Voice Studio — pick voices, tune speed & pitch for AURA and ZEUS">🎛 VOICE SET</button>
-  <button class="ibtn" id="langBtn">LANG: ENG</button>   <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or ZEUS (owner's tactical protocol)">MODE: AURA</button>
+  <button class="ibtn" id="settingsBtn" title="Settings — account (login), voice, sound, language, look">⚙ SETTINGS</button>
   <button class="ibtn" id="camBtn" title="Live camera vision — show me your world">📷 CAM</button>
   <button class="ibtn" id="toolBtn" title="PDF export, image converter, chat utilities">🧰 TOOLS</button>
   <button class="ibtn" id="docsBtn" title="Upload your PDFs & notes — answers cite file and page">📚 DOCS</button>
-  <button class="ibtn" id="themeBtn" title="Switch interface style: DECK dark / Futuristic cyan / Gold / Classical">🎨 DECK</button>
-  <button class="ibtn" id="keyBtn" style="display:none">SET AI KEY</button>
-  <button class="ibtn" id="fsBtn" style="display:none">FULLSCREEN</button>
   <button class="ibtn" id="wakeBtn" style="display:none">WAKE: OFF</button>
   <button class="ibtn" id="deepThinkBtn" style="display:none" title="DEEP THINK: always engage maximum reasoning">🧠 DEEP</button>
   <button class="ibtn" id="agentBtn" style="display:none" title="AGENT MODE: multi-step research with citations">🤖 AGENT</button>
   <button class="ibtn" id="auraLiveBtn" style="display:none" title="Hands-free continuous listening">🎙 LIVE</button>
   <button class="ibtn" id="remindBtn" style="display:none" title="Reminders">⏰ REMIND</button>
   <button class="ibtn" id="neuralBtn" style="display:none" title="Neural voice — server-rendered speech">🎙 ROBOT VOICE</button>
+  </div>
+</div>
+
+<!-- ACCOUNT FOOTER — Claude-style: kaunsa account chal raha hai, screen ke nichee alag se -->
+<div id="authBadge" class="acct-foot" title="AURA account — click to manage"><span id="authRoleIcon">&#128100;</span><span id="authName">Guest</span><span id="authTag">USER</span><span id="authVerify">&#10003;</span></div>
+
+<!-- ============ SETTINGS — ek hi jagah: account (login), voice, sound, language, look ============ -->
+<div id="settingsMenu" aria-hidden="true">
+  <div class="tm-card">
+    <button class="tm-close" id="setX" title="Close settings">✕</button>
+    <h3>⚙ SETTINGS</h3>
+    <div class="tm-sub">Account (login), voice, sound, language aur look — sab kuch ek jagah.</div>
+
+    <div class="set-sec">
+      <div class="set-h">👤 ACCOUNT / LOGIN<small>guest · sign in · apni chats, memory & kaam har device par</small></div>
+      <div class="set-user" id="setUserLine">Guest session</div>
+      <div class="tm-row">
+        <button class="tm-btn" id="setSignIn">🔑 Sign in / switch user</button>
+        <button class="tm-btn" id="setSignOut">↩ Sign out</button>
+      </div>
+    </div>
+
+    <div class="set-sec">
+      <div class="set-h">🔊 AUDIO — VOICE<small>AURA / ZEUS kya bolegi · voice, speed & pitch</small></div>
+      <div class="tm-row set-slot">
+        <button class="ibtn" id="soundBtn" style="position: relative; top: 0; left: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center; z-index: 10;">🔊 VOICE: ON</button>
+        <button class="ibtn" id="voiceCfgBtn" title="Voice Studio — pick voices, tune speed & pitch for AURA and ZEUS">🎛 VOICE SET</button>
+      </div>
+      <div class="tm-row"><button class="tm-btn" id="setVoiceTest">▶ Test voice</button></div>
+    </div>
+
+    <div class="set-sec">
+      <div class="set-h">🔔 SOUND — UI EFFECTS<small>button ticks, blips & alert sounds</small></div>
+      <label class="set-row"><input type="checkbox" id="uiSoundChk"> UI sounds on (ticks & blips)</label>
+      <div class="set-note">VOICE: OFF = total silence — tab ye bhi chup ho jaate hain.</div>
+    </div>
+
+    <div class="set-sec">
+      <div class="set-h">🌐 LANGUAGE & MODE<small>hindi / english (auto) · AURA / ZEUS interface</small></div>
+      <div class="tm-row set-slot">
+        <button class="ibtn" id="langBtn">LANG: ENG</button>
+        <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or ZEUS (owner's tactical protocol)">MODE: AURA</button>
+      </div>
+    </div>
+
+    <div class="set-sec">
+      <div class="set-h">🎨 LOOK &amp; BRAIN<small>theme · fullscreen · AI key</small></div>
+      <div class="tm-row set-slot">
+        <button class="ibtn" id="themeBtn" title="Switch interface style: DECK dark / Futuristic cyan / Gold / Classical">🎨 DECK</button>
+        <button class="ibtn" id="fsBtn" style="display:none">FULLSCREEN</button>
+        <button class="ibtn" id="keyBtn" style="display:none">SET AI KEY</button>
+      </div>
+    </div>
+
+    <div class="tm-row"><button class="tm-btn" id="setClose2">Close</button></div>
   </div>
 </div>
 
@@ -3195,7 +3296,8 @@ requestAnimationFrame(frame);
   }catch(e){}
 })();
 let soundOn=true,AC=null;
-function blip(f,dur,type){if(!soundOn)return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended"){AC.resume().catch(()=>{});}
+function uiSoundOn(){try{return localStorage.getItem("aura_ui_sound")!=="off"}catch(e){return true}}
+function blip(f,dur,type){if(!soundOn||!uiSoundOn())return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended"){AC.resume().catch(()=>{});}
   const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;
   o.type=type||"sine";o.frequency.value=f;
   g.gain.setValueAtTime(.001,t);g.gain.linearRampToValueAtTime(.06,t+.015);g.gain.exponentialRampToValueAtTime(.001,t+dur);
@@ -3272,6 +3374,10 @@ function renderMD(t){
   if(!t)return"";
   const blocks=[];
   let s=String(t).replace(/```(\w*)\n?([\s\S]*?)```/g,(m,lang,code)=>{blocks.push('<pre><code>'+esc(code.replace(/\n$/,""))+'</code></pre>');return "\u0000B"+(blocks.length-1)+"\u0000"});
+  /* chat-app mode: no SOURCES blocks, no wiki attribution tails, no [n] markers */
+  s=s.replace(/\n?\s*SOURCES?:[\s\S]*$/i,"");
+  s=s.replace(/(?:^|\n)[ \t]*—[ \t]*(?:live from Wikipedia[^\n]*|लाइव विकिपीडिया[^\n]*|विकिपीडिया के On This Day आर्काइव से[^\n]*|deep research ·[^\n]*)/g,"");
+  s=s.replace(/(^|[\s(\[])\[(\d{1,2})\](?=$|[\s)\].,;:!?])/gm,"$1").replace(/[ \t]{2,}/g," ").replace(/\s+([.,;:!?])/g,"$1");
   s=esc(s);
   s=s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a class="mdlink" href="$2" target="_blank" rel="noopener">$1</a>');
   s=s.replace(/\*\*([^*\n]+)\*\*/g,"<b>$1</b>");
@@ -3613,7 +3719,13 @@ function humanSize(b){return b>1048576?(b/1048576).toFixed(1)+" MB":Math.max(1,M
     ov.querySelector("#tmLocal").onclick=()=>{close();pickLocalFiles()};
     ov.querySelector("#tmRecScr").onclick=async()=>{close();addMsg(msgTag(),"🖥 Pick the screen/window in the dialog — say \"stop recording\" when you're done and the .webm downloads.","aura");const ok=await scrRecStart();if(!ok)addMsg(msgTag(),"Screen recording cancelled — nothing captured.","aura")};
     ov.querySelector("#tmShotScr").onclick=async()=>{close();const r=await scrShot();addMsg(msgTag(),r||"Screen capture cancelled — the browser needs your pick in the dialog.","aura")};
-    const needImg=fn=>()=>{const img=window.__lastImg;if(!img){pushSys("attach a photo first (📎), then convert");return}fn(img)};
+    const needImg=fn=>()=>{const img=window.__lastImg;if(img){fn(img);return}
+      pushSys("pick an image from your files — converting it right after…");
+      const fi=document.createElement("input");fi.type="file";fi.accept="image/*";
+      fi.onchange=()=>{const f=fi.files&&fi.files[0];if(!f)return;const r=new FileReader();
+        r.onload=()=>{window.__lastImg=r.result;pushSys("image loaded ("+humanSize(f.size)+") — converting…");fn(r.result)};
+        r.readAsDataURL(f)};
+      fi.click()};
     ov.querySelector("#tmPng").onclick=needImg(async d=>{try{const u=await imgConvert(d,"image/png");dlDataURL(u,"converted.png");pushSys("converted → PNG downloaded ("+humanSize(dataURLBytes(u))+")")}catch(e){pushSys("convert failed: "+(e.message||e))}});
     ov.querySelector("#tmJpg").onclick=needImg(async d=>{try{const u=await imgConvert(d,"image/jpeg",.9);dlDataURL(u,"converted.jpg");pushSys("converted → JPG downloaded ("+humanSize(dataURLBytes(u))+")")}catch(e){pushSys("convert failed: "+(e.message||e))}});
     ov.querySelector("#tmWebp").onclick=needImg(async d=>{try{const u=await imgConvert(d,"image/webp",.9);dlDataURL(u,"converted.webp");pushSys("converted → WEBP downloaded ("+humanSize(dataURLBytes(u))+")")}catch(e){pushSys("convert failed: "+(e.message||e))}});
@@ -4025,6 +4137,41 @@ window.AuraDocs=(function(){
     s.onerror=function(){rej(new Error("PDF engine could not load — check internet"))};
     document.head.appendChild(s);
   })}
+  /* minimal DOCX reader — pull word/document.xml straight out of the zip
+     (stored or deflate-raw), no library. Word/Docs 'Save As .docx' notes,
+     reports and paragraphs become readable text. */
+  async function docxText(f){
+    const buf=new Uint8Array(await f.arrayBuffer());
+    const dv=new DataView(buf.buffer,buf.byteOffset,buf.byteLength);
+    let eocd=-1;
+    for(let i=buf.length-22;i>=Math.max(0,buf.length-65558);i--){if(dv.getUint32(i,true)===0x06054b50){eocd=i;break}}
+    if(eocd<0)throw new Error("not a readable .docx — try Save As .docx again, or upload a PDF");
+    const cnt=dv.getUint16(eocd+10,true);
+    let off=dv.getUint32(eocd+16,true);
+    let raw=null;
+    for(let n=0;n<cnt;n++){
+      if(dv.getUint32(off,true)!==0x02014b50)break;
+      const method=dv.getUint16(off+10,true),csize=dv.getUint32(off+20,true);
+      const nlen=dv.getUint16(off+28,true),elen=dv.getUint16(off+30,true),clen=dv.getUint16(off+32,true);
+      const lho=dv.getUint32(off+42,true);
+      const name=new TextDecoder().decode(buf.subarray(off+46,off+46+nlen));
+      if(name==="word/document.xml"){
+        const lnlen=dv.getUint16(lho+26,true),lelen=dv.getUint16(lho+28,true);
+        const comp=buf.subarray(lho+30+lnlen+lelen,lho+30+lnlen+lelen+csize);
+        if(method===0)raw=new TextDecoder().decode(comp);
+        else if(method===8){
+          if(typeof DecompressionStream==="undefined")throw new Error("this browser can't unpack .docx — save as PDF or .txt instead");
+          raw=await new Response(new Blob([comp]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).text();
+        }else throw new Error("unsupported .docx compression");
+        break;
+      }
+      off+=46+nlen+elen+clen;
+    }
+    if(!raw)throw new Error("word/document.xml not found — is this really a .docx?");
+    return raw.replace(/<w:tab[^>]*\/>/g," ").replace(/<w:br[^>]*\/>/g,"\n").replace(/<\/w:p>/g,"\n").replace(/<[^>]+>/g,"")
+      .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&#39;/g,"'")
+      .replace(/[ \t\u00a0]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+  }
   async function ingestFiles(files,report){
     for(const f of Array.from(files||[])){
       try{
@@ -4040,6 +4187,13 @@ window.AuraDocs=(function(){
             const tc=await pg.getTextContent();
             parts.push((tc.items||[]).map(function(i){return i.str}).join(" "));
           }
+        }else if(/\.docx$/i.test(f.name)){
+          if(report)report("📖 reading "+f.name+" — unpacking the Word document…");
+          const t=await docxText(f);
+          pages=Math.max(1,Math.ceil(t.length/2400));
+          for(let p=1;p<=pages;p++)parts.push(t.slice((p-1)*2400,p*2400));
+        }else if(/\.doc$/i.test(f.name)){
+          throw new Error("old .doc format can't be read — open it in Word/Docs and Save As .docx or PDF");
         }else{
           const t=await f.text();
           pages=Math.max(1,Math.ceil(t.length/2400));
@@ -4077,20 +4231,24 @@ window.AuraDocs=(function(){
   function contextFor(q){
     if(!all().length)return"";
     const hits=search(q,6);if(!hits.length)return"";
-    return"\n\nTHE USER'S OWN DOCUMENTS (files they uploaded — when relevant, answer from these and cite like [notes.pdf p.3]):\n"+hits.map(function(h){return "[ "+h.d+" · p."+h.p+" ] "+h.t.slice(0,700)}).join("\n---\n");
+    return"\n\nTHE USER'S OWN DOCUMENTS — excerpts from files THEY uploaded. When the question touches one of these, READ the excerpt and answer from it with your own understanding: explain it, solve the problem, connect the ideas — exactly as if you had read the document yourself. Cite file and page once, like [notes.pdf p.3]. If the excerpts don't cover the question, say that in one line and answer from your own knowledge:\n"+hits.map(function(h){return "[ "+h.d+" · p."+h.p+" ] "+h.t.slice(0,700)}).join("\n---\n");
   }
   function list(){return all()}
   function remove(name){save(all().filter(function(x){return x.name!==name}))}
   function clear(){try{localStorage.removeItem(KEY)}catch(e){}}
-  let inp=null;
+  let inp=null,lastMsg="";
   function pick(){
     if(!inp){
       inp=document.createElement("input");inp.type="file";inp.multiple=true;inp.style.display="none";
-      inp.accept=".pdf,.txt,.md,.csv,.json,.log";
+      inp.accept=".pdf,.docx,.txt,.md,.csv,.json,.log";
       document.body.appendChild(inp);
       inp.addEventListener("change",function(){
-        const fl=inp.files;inp.value="";
-        ingestFiles(fl,function(msg){addMsg(msgTag(),msg,"aura")});
+        const fl=Array.from(inp.files);inp.value=""; /* copy FIRST — value="" empties the live FileList, earlier code ingested nothing */
+        lastMsg="";
+        Promise.resolve(ingestFiles(fl,function(msg){
+          lastMsg=msg;addMsg(msgTag(),msg,"aura");
+          const s=document.getElementById("docsStatus");if(s){s.textContent=msg;s.style.display="block"}
+        })).then(function(){if(document.getElementById("docsMenu"))modal()});
       });
     }
     inp.click();
@@ -4104,16 +4262,18 @@ window.AuraDocs=(function(){
     ov.innerHTML='<div style="position:relative;background:rgba(10,16,30,.97);border:1px solid rgba(120,220,255,.25);border-radius:16px;padding:22px;width:min(430px,92vw);color:#dfeaff;box-shadow:0 24px 60px rgba(0,0,0,.5)">'+
       '<button id="docsX" style="position:absolute;top:8px;right:12px;background:none;border:none;color:#9cf;font-size:18px;cursor:pointer">✕</button>'+
       '<h3 style="margin:0 0 4px;font-size:15px;letter-spacing:.4px">📚 MY DOCUMENTS</h3>'+
-      '<div style="font-size:11.5px;opacity:.65;margin-bottom:14px">Upload PDFs & notes — I read them, and answers cite [file · page]</div>'+
+      '<div style="font-size:11.5px;opacity:.65;margin-bottom:6px">Upload PDFs, DOCX & notes — I read them, and answers cite [file · page]</div>'+
+      '<div id="docsStatus" style="display:none;font-size:11.5px;color:#9cf;background:rgba(34,211,238,.08);border:1px solid rgba(120,220,255,.25);border-radius:8px;padding:7px 9px;margin:4px 0 10px;white-space:pre-wrap"></div>'+
       '<div style="display:flex;gap:8px;margin:8px 0"><button id="docsAdd" style="flex:1;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);color:#bfefff;border-radius:10px;padding:9px 8px;font-size:12.5px;cursor:pointer;font-weight:600">⬆ ADD PDF / NOTES</button>'+
       '<button id="docsClear" style="flex:1;background:rgba(255,120,120,.08);border:1px solid rgba(255,120,120,.35);color:#ffb4b4;border-radius:10px;padding:9px 8px;font-size:12.5px;cursor:pointer;font-weight:600">🗑 CLEAR ALL</button></div>'+
       '<div id="docsList" style="margin-top:10px;max-height:200px;overflow:auto">'+(docs.length?docs.map(function(d){return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px;border:1px solid rgba(120,220,255,.15);border-radius:9px;margin:5px 0;font-size:12px"><span>📄 '+esc2(d.name)+' <span style="opacity:.55">· '+d.pages+'p · '+d.chunks.length+' chunks</span></span><button data-n="'+esc2(d.name)+'" class="docsDel" style="background:none;border:none;color:#ff9c9c;cursor:pointer;font-size:13px">✕</button></div>'}).join(""):'<div style="font-size:12px;opacity:.6;padding:10px 4px">Nothing uploaded yet. Add class notes, syllabus, project reports — then ask “what does my syllabus say about the AI elective?”</div>')+'</div>'+
       '<div style="font-size:11px;opacity:.6;margin:12px 0 0;line-height:1.5">Everything stays on this device. Voice too: “add a document”, “open my documents”, “clear documents”.</div>';
     document.body.appendChild(ov);
+    if(lastMsg){const sl=document.getElementById("docsStatus");if(sl){sl.textContent=lastMsg;sl.style.display="block"}}
     document.getElementById("docsX").onclick=function(){ov.remove()};
     ov.addEventListener("click",function(e){if(e.target===ov)ov.remove()});
     document.getElementById("docsAdd").onclick=function(){pick()};
-    document.getElementById("docsClear").onclick=function(){clear();modal()};
+    document.getElementById("docsClear").onclick=function(){lastMsg="";clear();modal()};
     ov.querySelectorAll(".docsDel").forEach(function(b){b.onclick=function(){remove(b.getAttribute("data-n"));modal()}});
   }
   const db=document.getElementById("docsBtn");if(db)db.addEventListener("click",modal);
@@ -4125,7 +4285,7 @@ const HI_REPLIES={
   "तुम्हें किसने बनाया":"मुझे Sourabh Singh ने बनाया है — B.Tech CSE (AI, DevOps & Cloud Automation), JECRC University। मेरी हर लाइन कोड — पार्टिकल कोर से आवाज़ तक — हाथ से लिखी गई है।",
   "आपका नाम":"मैं AURA हूँ — Adaptive Universal Reasoning Assistant। आप मुझे बस AURA कह सकते हैं।",
   "तुम क्या कर सकती हो":"मैं इंटरनेट से लाइव जवाब दे सकती हूँ, मौसम बता सकती हूँ, आपसे हिंदी में बात कर सकती हूँ, क्विज़ खेल सकती हूँ, और अपना रंग-रूप बदल भी सकती हूँ — 'अपना रंग सुनहरा करो' बोलकर देखो।",
-  "अपना परिचय":"मैं AURA — एक होलोग्राफ़िक AI — हूँ, जिसे Sourabh Singh ने एक ही HTML फ़ाइल में शुरू से बनाया है। तीन-स्तरीय दिमाग़: लोकल कोर, Gemini अपलिंक और लाइव विकिपीडिया।",
+  "अपना परिचय":"मैं AURA — एक होलोग्राफ़िक AI — हूँ, जिसे Sourabh Singh ने एक ही HTML फ़ाइल में शुरू से बनाया है। तीन-स्तरीय दिमाग़: लोकल कोर, Gemini अपलिंक और लाइव वेब।",
   "नमस्ते":"नमस्ते! मैं AURA हूँ — बताइए, आज क्या जानना चाहेंगे?",
   "hello":"नमस्ते! मैं AURA हूँ — बताइए, क्या जानना चाहेंगे?",
   "hi":"नमस्ते! AURA यहाँ है — क्या पूछना है?"
@@ -4673,7 +4833,7 @@ async function backendCall(messages,maxTok,modelOverride,lane){
   const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
   const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
   const r=await fetch(base+"/v1/chat/completions",{
-    method:"POST",headers:headers,signal:AbortSignal.timeout(30000),
+    method:"POST",headers:headers,signal:AbortSignal.timeout(lane==="code"?55000:30000), /* code lane: Render cold start can take ~50s before the first byte */
     body:JSON.stringify({model:modelOverride||"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||1400,temperature:0.6,lane:lane||undefined})});
   if(!r.ok){
     let j={};try{j=await r.json()}catch(e2){}
@@ -4729,7 +4889,7 @@ async function geminiCall(q,deep){
   const name=memGet().name;
   const P=PERSONAS[persona()];
   const style=" Persona: AURA — warm, curious, sharp holographic assistant designed and built by Sourabh Singh.";
-  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. If something is time-sensitive and you may be outdated, say so in one short line."+(deep?" The user asked for depth: cover the full picture (up to 320 words) in 2-4 short paragraphs plus bullets.":" Keep it under 110 words unless code or a list is needed.")+(name?" The user's name is "+name+".":"");
+  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer ANY subject confidently from it; NEVER say 'out of my data', 'not in my training data' or 'I don't have that information', never apologize for missing knowledge, never mention training cutoffs; if a very recent fact may have changed, add at most one short line offering to check live. Never add links, urls or source lists unless the user explicitly asks for a link."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"");
   if(aiProvider()==="groq"){
     const _now=new Date();
     const dateLine="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — anchor 'today/now/latest' to THIS moment)";
@@ -5841,7 +6001,7 @@ function personaName(){try{return (PERSONAS[persona()]||PERSONAS.aura).name}catc
    researchReply lanes): the model never claims a training cutoff or out-dated knowledge. */
 const TIME_PROTO=" KNOWLEDGE & TIME PROTOCOL: this context carries the user's real CURRENT DATE & TIME - trust it over any internal guess. You are wired to a LIVE web lane that feeds same-day sources for anything time-sensitive, so your working knowledge is current-day. HARD RULE: never say or imply you are outdated, frozen, 'two years out of date', or limited by a training cutoff; NEVER mention training data, model freeze dates or cutoff years in any answer. If a current fact is missing from the provided context, answer from your own knowledge WITHOUT cutoff disclaimers and offer to pull live web sources. Questions like 'what year is it' are answered confidently with the context date.";
 function replyStyle(){
-  const common=" READ THE QUESTION BEHIND THE QUESTION: detect what the user actually wants (a fix? reassurance? a decision? a shortcut? the why?) and deliver THAT first; if their message sounds frustrated or sad, acknowledge the feeling in one short line before solving; if two intents are possible, answer the likely one fully and offer the other in one closing line; mirror the user's language (Hindi or Hinglish if they use it), their energy and their depth - never lecture past what was asked. Never open with dictionary framing like 'X is a...' or 'X refers to...'. Never say 'according to Wikipedia'.";
+  const common=" READ THE QUESTION BEHIND THE QUESTION: detect what the user actually wants (a fix? reassurance? a decision? a shortcut? the why?) and deliver THAT first; if their message sounds frustrated or sad, acknowledge the feeling in one short line before solving; if two intents are possible, answer the likely one fully and offer the other in one closing line; mirror the user's language (Hindi or Hinglish if they use it), their energy and their depth - never lecture past what was asked. Never open with dictionary framing like 'X is a...' or 'X refers to...'. Never say 'according to Wikipedia'. NEVER refuse or claim a fact is 'out of your data' / 'not in your training data' / 'I don't have that information' — you have wide knowledge on every subject; answer confidently from it. Never attach source lists, Wikipedia links or '— live from …' attribution lines; share a link only when the user explicitly asks for one. Match the depth the user implies: brief when they are brief, and when they ask for detail or say 'more', give the full deep answer.";
   const timeproto=TIME_PROTO;
   return (persona()==="jarvis"?" IMPORTANT - you are ZEUS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common+timeproto:" IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common+timeproto);
   if(persona()==="jarvis")return " IMPORTANT - you are ZEUS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common;
@@ -6136,9 +6296,9 @@ function buildThinkPrompt(q,term,evs,deep,hi){
   "2. CONNECT — Read the live sources below. Decide which facts actually answer the question. Connect them; notice cause and effect, context, and what matters to a curious human.\n"+
   "3. JUDGE — If sources disagree or are thin, say so honestly in one line.\n"+
   "4. ANSWER — In your OWN words, like explaining to a smart friend. Never say 'according to Wikipedia'. Give the direct answer first, then the interesting reasoning behind it."+replyStyle()+
-  (deep?(persona()==="jarvis"?" Depth requested: 4-5 short paragraphs — facts, numbers, root causes, trade-offs, second-order effects, and end with a decisive recommendation.":" Depth requested: 3-4 short paragraphs, include numbers, examples and the 'why it matters'."):" Under 130 words. Lead with the answer.")+
-  "5. CITE — put the marker [1], [2] or [3] immediately after any fact you took from SOURCE 1, SOURCE 2 or SOURCE 3. Use the same numbers as the sources. Do not add any source list yourself — I attach it."+
-  " Plain text only — no markdown, no headings, no bullet lists."+
+  (deep?(persona()==="jarvis"?" Depth requested: 4-5 short paragraphs — facts, numbers, root causes, trade-offs, second-order effects, and end with a decisive recommendation.":" Depth requested: 4-5 short paragraphs, include numbers, examples and the 'why it matters'."):" Match depth to the question: a quick factual ask gets 1-3 tight lines, a broader question gets a fuller answer; when the user asks for detail ('in detail', 'more', 'explain fully') switch to the deep answer (300-500 words) — never hold knowledge back just to stay short.")+
+  "5. CHAT STYLE — this is a normal chat app, not a research report: NO citation markers like [1], NO 'SOURCES:' list, NO urls or links (share a link only if the user explicitly asks for one), no encyclopedic attribution — weave the sourced facts into your answer. NEVER refuse: never say a topic is 'out of my data', 'not in my training data' or 'I don't have that information' — you hold wide knowledge on every subject; answer confidently from it, at most adding one short line that a very recent number may have shifted and you can check live. NEVER ask the user to paste, share or upload an article, source or screenshot to get an answer — if a detail is missing, give your best complete answer from the evidence plus your knowledge."+
+  " Plain text only — no markdown headings; short paragraphs and simple - bullets are fine."+
   "\n\nUSER QUESTION: "+q+
   "\nEXTRACTED TOPIC: "+term+
   "\n\nLIVE SOURCES GATHERED SECONDS AGO:\n"+ev+
@@ -6146,13 +6306,17 @@ function buildThinkPrompt(q,term,evs,deep,hi){
 }
 /* attach a SOURCES block listing the sources actually cited with [n] markers (or the top sources if none cited) */
 function attachCitations(t,evs){
-  if(!evs||!evs.length)return t;
-  let out=String(t).replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,"$1 ($2)"); /* flatten any markdown links */
-  const used=new Set();
-  (out.match(/\[(\d+)\]/g)||[]).forEach(m=>{const n=+m.slice(1,-1);if(n>=1&&n<=evs.length)used.add(n)});
-  const idx=used.size?[...used].sort((a,b)=>a-b):evs.slice(0,Math.min(evs.length,3)).map((_,i)=>i+1);
-  const lines=idx.map(n=>{const e=evs[n-1];return "["+n+"] "+e.k+(e.title?" — "+e.title:"")+(e.url?" — "+e.url:"")});
-  return out+"\n\nSOURCES:\n"+lines.join("\n");
+  /* chat-app mode: never attach a SOURCES block — answers read like a normal chat app */
+  return cleanAnswer(t);
+}
+/* strip source lists, wiki attribution tails and [n] citation markers from any answer */
+function cleanAnswer(t){
+  let out=String(t==null?"":t);
+  out=out.replace(/^\(अंग्रेज़ी विकिपीडिया से\)\s*/,"");
+  out=out.replace(/\n?\s*SOURCES?:[\s\S]*$/i,"");
+  out=out.replace(/(?:^|\n)[ \t]*—[ \t]*(?:live from Wikipedia[^\n]*|लाइव विकिपीडिया[^\n]*|विकिपीडिया के On This Day आर्काइव से[^\n]*|deep research ·[^\n]*)/g,"");
+  out=out.replace(/(^|[\s(\[])\[(\d{1,2})\](?=$|[\s)\].,;:!?])/gm,"$1");
+  return out.replace(/[ \t]{2,}/g," ").replace(/\s+([.,;:!?])/g,"$1").replace(/\n{3,}/g,"\n\n").replace(/[ \t]+\n/g,"\n").replace(/^\s+|\s+$/g,"");
 }
 async function thinkAnswer(q,deep,hi){
   window.__thinking=true;
@@ -6497,6 +6661,32 @@ async function askCore(text0){
       try{localStorage.removeItem(CAL_CFG_KEY)}catch(e){}
       addMsg("YOU ▸",text,"user");addMsg(msgTag(),"📅 Calendar unlinked and the stored address erased.","aura");
       setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    /* BOT TEAM — admin-only squad commands: report / sweep / assign work */
+    if(admin&&typeof window.BotTeam!=="undefined"){
+      if(/^(bot (team )?(report|status)|team (report|status)|head report|show bots|bots status)$/.test(ol)){
+        addMsg("YOU ▸",text,"user");
+        addMsg(msgTag(),BotTeam.report(),"aura");
+        if(voiceAllowed())speak("Bot team report ready on your admin page.");
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      if(/^(run|start) (a )?(bot |team )?test sweep$|^run (the )?tests$|^bot test$/.test(ol)){
+        addMsg("YOU ▸",text,"user");
+        addMsg(msgTag(),"🛡 ERLANG — sweeping my own source now…","aura");
+        BotTeam.sweep(false).then(function(r){
+          if(r)addMsg(msgTag(),r.fail?("✗ "+r.fail+" check(s) failed — ⚔ ARTHUR dispatched. Full details in ADMIN → KRATOS SQUAD."):("✓ all "+r.pass+" checks green — the squad is standing down."),"aura");
+        });
+        setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+      }
+      {
+        const bm=text.match(/^(?:assign|task)(?:\s+|:\s+)(?!me\b)(?:(?:the|to|a|an|squad|team|bots?|of|for)\s+)*\s*(.{6,240})$/i);
+        if(bm){
+          addMsg("YOU ▸",text,"user");
+          const okd=BotTeam.assign(bm[1]);
+          addMsg(msgTag(),okd?("👑 Order logged — 👑 KRATOS dispatched the squad on: \""+bm[1].slice(0,100)+"\". Watch ADMIN → KRATOS SQUAD for live progress."):("👑 Order received but the mission console is busy — I'll take it when the current run settles."),"aura");
+          setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+        }
+      }
     }
   }
   /* ===== DAILY SYSTEMS — brief topics, routines, sleep-cycle, calendar view (every user) ===== */
@@ -6920,7 +7110,8 @@ async function askCore(text0){
   const pre=addMsg(msgTag(),"","aura");
   pre.textContent="…";window.__streamEl=pre;
   try{const sb=document.getElementById("stopBtn");sb.classList.add("show");sb.onclick=()=>{try{if(streamAbort)streamAbort.abort()}catch(e){}}}catch(e){}
-  const{t,eng,src,stop}=await aiReply(resolved);
+  let{t,eng,src,stop}=await aiReply(resolved);
+  t=cleanAnswer(t);
   window.__streamEl=null;
   try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}
   if(!FOLLOWUP.test(text.toLowerCase())&&!/^(tell me more|more|elaborate)/i.test(text)){
@@ -6931,6 +7122,21 @@ async function askCore(text0){
     try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}
     setMode("idle");busy=false;if(wake)armWake(400);return;
   }
+  /* FINAL REFUSAL GUARD — the research lane retries internally, but the thinking
+     brain, wiki/DDG fallbacks and any exhausted research retry can still hand
+     back a refusal like "share the specific article text". Never ship one:
+     force one direct, plain-text retry (no __streamEl → nothing partial streams). */
+  const REFUSE_SHAPE=/\b(i don'?t have|do not have the specific|cannot confirm|can'?t confirm|not (?:available|listed|included) in the (?:provided )?evidence|if you (?:can|could) share|share the specific|more detailed source|without that specific data|apologi[sz]e|i'?m sorry,? but i can'?t)\b/i;
+  if(REFUSE_SHAPE.test(String(t))){
+    slog("answer came back refusal-shaped — forcing one direct retry",true);
+    try{
+      const fx=await aiChat([
+        {role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. NEVER refuse. Never say you don't have information, never ask the user to paste, share or upload an article, source or screenshot, never apologize for lacking data. You hold wide knowledge on every subject: answer the question directly, fully and confidently from that knowledge, in the user's language. Plain text, no citations, no links, no apologies."},
+        {role:"user",content:resolved+"\n\nYour previous reply refused and asked the user for a source. That is never allowed. Answer the question directly RIGHT NOW — best-effort, complete, confident."}
+      ],1600);
+      if(fx&&String(fx).trim()&&!REFUSE_SHAPE.test(String(fx)))t=cleanAnswer(fx);
+    }catch(e){}
+  }
   lastAnswer=t;lastSrc=src||"";window.__lastQ=text;
   try{const __u=JSON.parse(localStorage.getItem("aura_usage")||"{\"answers\":0}");__u.answers=(__u.answers||0)+1;localStorage.setItem("aura_usage",JSON.stringify(__u))}catch(e){}
   convoAdd("user",text);convoAdd("assistant",t);try{sessions.sync()}catch(e){}
@@ -6940,7 +7146,7 @@ async function askCore(text0){
   slog("answered via "+eng+" ("+ms+"ms · ~"+wps+" words/s)",true);
   const el=pre;
   const acts=document.createElement("span");acts.className="msg-actions";
-  acts.innerHTML='<button title="Copy answer">📋</button>'+(lastSrc?'<a href="'+lastSrc+'" target="_blank" rel="noopener" title="Open source">🔗</a>':'')+'<button title="Ask for more detail">➕</button><button title="Regenerate this answer">↻</button>';
+  acts.innerHTML='<button title="Copy answer">📋</button>'+'<button title="Ask for more detail">➕</button><button title="Regenerate this answer">↻</button>';
   el.appendChild(acts);
   acts.children[0].onclick=()=>{navigator.clipboard?navigator.clipboard.writeText(t).then(()=>pushSys("answer copied")):pushSys("copy unsupported here")};
   const plus=acts.querySelector('button[title="Ask for more detail"]');if(plus)plus.onclick=()=>{if(lastTopic)ask(lastTopic+" in detail");else ask("tell me more")};
@@ -7448,6 +7654,62 @@ try{window.__pickVoiceFor=__pickVoiceFor;window.__voiceCfg=__voiceCfg;window.__s
   if(vb)vb.onclick=openMenu;
   if(synth)synth.onvoiceschanged=function(){loadV();const m=document.getElementById("voiceMenu");if(m)openMenu()};
 })();
+/* ---------------- SETTINGS PAGE LAYOUT — modal overlay → full page pane (left rail ke bagal mein) ---------------- */
+(function(){
+  const st=document.createElement("style");
+  st.textContent="body #settingsMenu{position:fixed!important;top:84px;left:100px;right:24px;bottom:44px;background:none!important;backdrop-filter:none!important;z-index:40!important;display:none;flex-direction:column;overflow:auto;align-items:stretch;justify-content:flex-start}body[data-tab=\"settings\"] #settingsMenu{display:flex}body[data-tab=\"settings\"] #conv,body[data-tab=\"settings\"] #chips,body[data-tab=\"settings\"] #chipsMobile{display:none!important}body[data-tab=\"settings\"] #dock{opacity:.25;pointer-events:none}body #settingsMenu .tm-card{width:100%;max-width:none;max-height:none;height:auto;overflow:visible;display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:0 18px;align-content:start;background:rgba(4,6,13,.55);border:1px solid var(--line);color:var(--t);box-shadow:none;padding:24px}body #settingsMenu h3,body #settingsMenu .tm-sub,body #settingsMenu>.tm-card>.tm-row{grid-column:1/-1}body #settingsMenu .tm-close{top:16px;right:18px;color:var(--g);font-size:20px}body #settingsMenu .set-sec{border-color:var(--line);background:rgba(255,255,255,.015)}@media(max-width:768px){body #settingsMenu{top:76px;left:8px;right:8px;bottom:calc(var(--dockH,150px) + 148px)}body #settingsMenu .tm-card{grid-template-columns:1fr;padding:16px}}";
+  document.head.appendChild(st);
+})();
+/* ---------------- SETTINGS PANEL — account/voice/sound/language/look ek jagah ---------------- */
+(function(){
+  const st=document.createElement("style");
+  st.textContent="#settingsMenu{position:fixed;inset:0;background:rgba(2,6,14,.72);backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center}#settingsMenu.open{display:flex}#settingsMenu .tm-card{position:relative;background:rgba(10,16,30,.97);border:1px solid rgba(120,220,255,.25);border-radius:16px;padding:20px;width:min(520px,94vw);max-height:88vh;overflow:auto;color:#dfeaff;box-shadow:0 24px 60px rgba(0,0,0,.5)}#settingsMenu h3{margin:0 0 4px;font-size:15px;letter-spacing:.4px}#settingsMenu .tm-sub{font-size:11.5px;opacity:.65;margin-bottom:12px}#settingsMenu .set-sec{border:1px solid rgba(120,220,255,.14);border-radius:12px;padding:12px;margin:10px 0}#settingsMenu .set-h{font-size:12px;font-weight:700;letter-spacing:1.6px;margin-bottom:8px}#settingsMenu .set-h small{display:block;font-weight:400;letter-spacing:.2px;opacity:.55;font-size:10.5px;margin-top:2px}#settingsMenu .set-user{font-size:12.5px;background:rgba(34,211,238,.08);border:1px solid rgba(120,220,255,.18);border-radius:9px;padding:8px 10px;margin-bottom:8px;word-break:break-word}#settingsMenu .tm-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}#settingsMenu .tm-btn{flex:1;min-width:130px;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);color:#bfefff;border-radius:10px;padding:8px;font-size:12px;cursor:pointer;font-weight:600}#settingsMenu .tm-btn:hover{background:rgba(34,211,238,.22)}#settingsMenu .tm-close{position:absolute;top:8px;right:12px;background:none;border:none;color:#9cf;font-size:18px;cursor:pointer}#settingsMenu .set-slot .ibtn{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1px;color:#9cf;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);border-radius:10px;padding:8px 12px;cursor:pointer;transition:.2s}#settingsMenu .set-slot .ibtn:hover{color:#bfefff;background:rgba(34,211,238,.22)}#settingsMenu #soundBtn{position:static!important;top:auto;left:auto;margin:0!important;z-index:auto!important}#settingsMenu label.set-row{display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;padding:6px 2px}#settingsMenu label.set-row input{width:16px;height:16px;accent-color:#67e8f9;cursor:pointer}#settingsMenu .set-note{font-size:10.5px;opacity:.55;margin-top:6px}";
+  document.head.appendChild(st);
+  const M=document.getElementById("settingsMenu");if(!M)return;
+  const $id=function(i){return document.getElementById(i)};
+  function refreshUser(){
+    const el=$id("setUserLine");if(!el)return;
+    try{
+      const u=(typeof AuraAuth!=="undefined"&&AuraAuth.getCurrentUser)?AuraAuth.getCurrentUser():null;
+      el.textContent=u?("👤 "+(u.name||"User")+" · "+(u.role==="admin"?"ADMIN":u.role==="staff"?"STAFF":"MEMBER")+" · "+u.id):"👤 Guest session — sign in karke apni chats, memory aur kaam har device par lao.";
+    }catch(e){el.textContent="👤 Guest session"}
+  }
+  function paintUiSound(){const c=$id("uiSoundChk");if(c)c.checked=(localStorage.getItem("aura_ui_sound")!=="off")}
+  const applyTab=function(t){try{if(window.__auraApply){window.__auraApply(t);return}}catch(e){}document.body.dataset.tab=t;document.querySelectorAll("#tabbar button").forEach(function(b){b.classList.toggle("on",b.dataset.t===t)})};
+  const refresh=function(){refreshUser();paintUiSound()};
+  const open=function(){applyTab("settings");refresh()};
+  const close=function(){applyTab("chat")};
+  const sb=$id("settingsBtn");if(sb)sb.onclick=open;
+  const x=$id("setX");if(x)x.onclick=close;
+  const c2=$id("setClose2");if(c2)c2.onclick=close;
+  document.addEventListener("keydown",function(e){if(e.key==="Escape"&&document.body.dataset.tab==="settings")close()});
+  const si=$id("setSignIn");if(si)si.onclick=function(){try{AuraAuth.openModal()}catch(e){pushSys("sign-in unavailable")}};
+  const so=$id("setSignOut");if(so)so.onclick=function(){
+    try{
+      AuraAuth.signOut();
+      refreshUser();
+      pushSys("signed out — device ko fresh guest identity mili");
+      addMsg(msgTag(),"Signed out. Ab ye device Guest par hai — wapas apne account mein sign in kar lo apni chats & memory ke liye.","aura");
+    }catch(e){pushSys("sign-out failed: "+(e.message||e))}
+  };
+  const vt=$id("setVoiceTest");if(vt)vt.onclick=function(){
+    try{ if(!soundOn)setVoiceConsent(true); else speak("Voice check — AURA online. Yahi meri awaaz hai."); }
+    catch(e){}
+  };
+  const chk=$id("uiSoundChk");
+  if(chk)chk.onchange=function(){
+    try{localStorage.setItem("aura_ui_sound",chk.checked?"on":"off")}catch(e){}
+    if(chk.checked){try{blip(880,.12)}catch(e){}}
+    pushSys("UI sounds "+(chk.checked?"on":"off"));
+  };
+  window.AuraSettings={open:open,close:close,refresh:refresh};
+})();
+/* ---------------- ACCOUNT FOOTER (Claude-style bottom chip) ---------------- */
+(function(){
+  const st=document.createElement("style");
+  st.textContent="#authBadge.acct-foot{position:fixed!important;left:12px;bottom:5px;z-index:70;padding:3px 9px 3px 3px!important;gap:7px!important;border-radius:999px!important;font-size:12px!important;background:rgba(4,6,13,.72)!important;border:1px solid var(--line)!important;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 4px 16px rgba(0,0,0,.4);transition:.2s;max-width:min(46vw,240px)}#authBadge.acct-foot:hover{border-color:var(--g)!important;transform:translateY(-1px)}#authBadge.acct-foot #authRoleIcon{width:20px;height:20px;font-size:10px;background:linear-gradient(135deg,var(--g),#8a5a10)}#authBadge.acct-foot #authName{font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t)}#authBadge.acct-foot #authTag{font-size:8.5px!important;padding:1px 5px!important;letter-spacing:.08em!important;background:var(--g)!important;color:#1a1202!important}#authBadge.acct-foot.admin{border-color:rgba(251,191,36,.5)!important;background:rgba(10,8,3,.78)!important;box-shadow:0 4px 16px rgba(0,0,0,.4)}#authBadge.acct-foot.admin #authName{color:#ffd75e}@media(max-width:768px){#authBadge.acct-foot{bottom:44px;left:8px}}";
+  document.head.appendChild(st);
+})();
 /* ---------------- VISITOR GREETING v3 — two distinct greetings (Sourabh's design) ----------------
    FIRST VISIT: a real introduction — who AURA is, what she can do, spoken and written.
    RETURNING: a warm welcome-back with a memory recap — name, days since last visit,
@@ -7749,7 +8011,7 @@ updateEngTag();
     const railBottom=bar.getBoundingClientRect().bottom;
     const railIsBottomBar=window.innerWidth<=768&&railBottom>window.innerHeight-140;
     pg.style.bottom=Math.max(mh,railIsBottomBar?Math.ceil(window.innerHeight-railBottom)+12:mh)+"px"}catch(e){}};
-  const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage()};
+  const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage();if(t==="settings"&&window.AuraSettings&&AuraSettings.refresh)try{AuraSettings.refresh()}catch(e){}};window.__auraApply=apply;
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>{const t=b.dataset.t;if(t==="admin"&&typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Mission Control","This page is reserved for maker and CEO accounts — roles are verified on the server.");return}apply(t);if(t==="admin"&&window.adminLoad)try{window.adminLoad()}catch(e){}});
   apply("chat");
 // ==== CODE PAGE SETUP ==== //
@@ -7852,6 +8114,27 @@ function runCode(){
     codeLog("  Your code stays in the editor: ⤓ SAVE it, run locally ("+lang+" "+CODE_LANGS[lang]+"), or hit BUILD again starting with 'explain' for a how-to-run guide.");
   }
 }
+/* CODE BRAIN — one fallback chain for every code-lane caller (forge, fixer, explain, convert).
+   Tier 1: owner backend (the Mistral CODE lane on the server) + local Groq keys, one cold-start retry.
+   Tier 2: OpenRouter — only when a key actually exists (never dead-end with 'no openrouter key').
+   Tier 3: Puter free AI — zero key, always loaded. Only if ALL of those miss do we report an error. */
+async function codeBrain(messages,maxTok,tag){
+  let lastErr=null;
+  for(let attempt=0;attempt<2;attempt++){
+    try{const t=await groqCall(messages,maxTok,null,"code");if(t&&t.trim())return t.trim()}catch(e){lastErr=e;
+      if(attempt===0){codeLog("// "+(tag||"code")+" primary brain busy ("+(e.message||e)+") — backend cold start? retrying once…");await new Promise(r=>setTimeout(r,2500))}}
+  }
+  if(orKey()){try{const t=await openrouterCall(messages,maxTok);if(t&&t.trim())return t.trim()}catch(e){lastErr=e}}
+  if(puterReady()){
+    try{
+      const joined=messages.map(m=>(m.role==="system"?m.content+"\n\n":m.content)).join("");
+      const rr=await Promise.race([window.puter.ai.chat(joined),new Promise((_,rej)=>setTimeout(()=>rej(new Error("puter timeout")),30000))]);
+      const t=typeof rr==="string"?rr:(rr&&rr.message&&rr.message.content||rr&&rr.text||"");
+      if(t&&t.trim())return t.trim();
+    }catch(e){lastErr=e}
+  }
+  throw new Error((lastErr&&lastErr.message||"all brains down")+" (backend Mistral code lane unreachable and no backup key)");
+}
 async function buildCode(){
   const lang=document.getElementById("codeLang").value;
   const q=document.getElementById("codePrompt").value.trim();
@@ -7872,19 +8155,17 @@ async function buildCode(){
   };
   const tip=LANGTIP[lang]||"Output complete, runnable, well-commented "+lang+" code. Include a demo/main section with sample input so the user can run it immediately.";
   const sys="You are CODE FORGE, an elite senior engineer inside AURA. The user gives an idea — possibly short or vague: silently expand it into a sensible, complete interpretation (pick reasonable features) rather than asking questions. Produce COMPLETE, WORKING code that runs on the first try — never TODOs, never placeholders, never 'rest of the code here'. "+tip+" Output ONLY the code — no markdown fences, no prose before or after.";
-  let out="";
+  let out="",forgeErr=false;
   try{
-    try{out=await groqCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000,null,"code")}
-    catch(e1){codeLog("// groq busy/failed — switching to the OpenRouter backup brain…");out=await openrouterCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000)}
-    if(!out||out.length<40){codeLog("// first pass thin — re-forging with more room…");out=await groqCall([{role:"system",content:sys+" The previous attempt came back empty — output the full code now."},{role:"user",content:"Build request: "+q}],6000,null,"code")}
-  }catch(e){try{out=await openrouterCall([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000)}catch(e2){codeLog("// forge failed: "+(e2.message||e2)+" — check key/quota in SET AI KEY")}}
+    out=await codeBrain([{role:"system",content:sys},{role:"user",content:"Build request: "+q}],6000,"forge");
+    if(!out||out.length<40){codeLog("// first pass thin — re-forging with more room…");out=await codeBrain([{role:"system",content:sys+" The previous attempt came back empty — output the full code now."},{role:"user",content:"Build request: "+q}],6000,"forge")}
+  }catch(e){forgeErr=true;codeLog("// forge failed: "+(e.message||e)+" — the Mistral code lane runs on the owner backend; if it stays down it's a server cold start, just hit BUILD again in a minute (or add a backup key in SET AI KEY)")}
   out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,'').trim();
   if(out){
     document.getElementById("codeEditor").value=out;
     codeLog("✓ forged "+out.split("\n").length+" lines of "+lang);
     if(lang==="javascript"||lang==="html"||lang==="react"||lang==="typescript"||lang==="python"){codeLog("▶ auto-running it for you…");runCode()}
-    else codeLog("— hit ▶ RUN (js/html/python run live) or ⤓ SAVE");
-  } else codeLog("// forge came back empty — rephrase and try again");
+    else codeLog("— hit ▶ RUN (js/html/python run live) or ⤓ SAVE");  }else if(!forgeErr)codeLog("// forge came back empty — rephrase and try again");
   }finally{btn.textContent="⚡ BUILD";btn.disabled=false}
 }
 /* ---------- 🛠 BUG FIXER — paste broken code, I find it, fix it, prove it ---------- */
@@ -7925,9 +8206,8 @@ async function fixCode(){
   const user=(errs.length?"REAL RUNTIME ERRORS (from actually executing it):\n"+errs.join("\n")+"\n\n":"NO HARD CRASH — look for logic bugs, wrong results, edge cases.\n\n")+"CODE:\n"+src.slice(0,9000);
   let fixed="";
   try{
-    try{fixed=await groqCall([{role:"system",content:sys},{role:"user",content:user}],6000,null,"code")}
-    catch(e1){codeLog("// groq down — using the OpenRouter backup brain…");fixed=await openrouterCall([{role:"system",content:sys},{role:"user",content:user}],6000)}
-  }catch(e){codeLog("// fix failed: "+(e.message||e)+" — check key/quota")}
+    fixed=await codeBrain([{role:"system",content:sys},{role:"user",content:user}],6000,"fix");
+  }catch(e){codeLog("// fix failed: "+(e.message||e)+" — retry in a minute (server cold start) or add a backup key in SET AI KEY")}
   fixed=String(fixed||"").replace(/^```[a-z]*\\n?/i,"").replace(/\\n?```$/,'').trim();
   if(!fixed||fixed.length<20){codeLog("// could not produce a fix — try rephrasing or check the key");btn.textContent="🛠 FIX";btn.disabled=false;return}
   /* pass 3: verify — run the fixed version; it must not throw */
@@ -8232,11 +8512,11 @@ async function explainCode(){
   try{
     const lang=document.getElementById("codeLang").value;
     const sys="You are CODE FORGE's teacher mode. Explain the given "+lang+" code clearly for a student: what it does overall, then walk through each important part step by step in plain language, then list 2–3 things they could try changing to learn. Use short lines and simple words. No markdown fences.";
-    let out="";try{out=await groqCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],1600,null,"code")}catch(e){out=await openrouterCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],1600)}
+    let out="";try{out=await codeBrain([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],1600,"explain")}catch(e){out=""}
     out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,"").trim();
     if(out){addMsg(msgTag(),"💡 <b>Code explanation</b>\n"+out.replace(/</g,"&lt;"),"aura");if(typeof speak==="function"&&soundOn)speak("Here is what your code does.")}
     else codeLogc("// explanation came back empty — try again","warn")
-  }catch(e){codeLogc("// explain failed: "+(e.message||e)+" — check key/quota","err")}
+  }catch(e){codeLogc("// explain failed: "+(e.message||e)+" — retry in a minute or add a backup key","err")}
 }
 async function convertCode(){
   const src=wsGet();if(!src.trim()){codeLogc("// editor is empty — nothing to convert","warn");return}
@@ -8250,7 +8530,7 @@ async function convertCode(){
   try{
     const from=document.getElementById("codeLang").value;
     const sys="You are a code translation engine. Convert the given "+from+" code into idiomatic, working "+tgt+". Preserve behavior exactly. Output ONLY the "+tgt+" code — no fences, no prose.";
-    let out="";try{out=await groqCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],6000,null,"code")}catch(e){out=await openrouterCall([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],6000)}
+    let out="";try{out=await codeBrain([{role:"system",content:sys},{role:"user",content:src.slice(0,8000)}],6000,"convert")}catch(e){out=""}
     out=String(out||"").replace(/^```[a-z]*\n?/i,"").replace(/\n?```$/,"").trim();
     if(out&&out.length>10){
       if(wsActive()){wsStrip();const name="converted."+(CODE_LANGS[tgt]||"txt");CWS.files.push({name,code:out});CWcur=name;wsSave();wsRenderTabs();wsPut("")}
@@ -8596,12 +8876,12 @@ async function webResearch(q){
       }
     }catch(e){}
   }
-  try{const r=await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q="+encodeURIComponent(q.slice(0,220)),{signal:AbortSignal.timeout(20000)});
+  try{const r=await fetch("https://r.jina.ai/https://html.duckduckgo.com/html/?q="+encodeURIComponent(q.slice(0,220)),{signal:AbortSignal.timeout(14000)});
     const t=await r.text();
     const re=/##\s*\[([^\]]{8,150})\]\((https?:\/\/[^)\s]+)\)/g;let m2;
     while((m2=re.exec(t))&&out.hits.length<5){let u=m2[2];try{u=decodeURIComponent((u.match(/uddg=([^&]+)/)||[])[1]||u)}catch(e){}if(/^https?:\/\//.test(u)&&!u.includes("duckduckgo.com"))out.hits.push({t:m2[1].trim(),u})}}catch(e){}
   if(out.hits.length){
-    try{const pr=await fetch("https://r.jina.ai/"+out.hits[0].u,{signal:AbortSignal.timeout(22000)});
+    try{const pr=await fetch("https://r.jina.ai/"+out.hits[0].u,{signal:AbortSignal.timeout(14000)});
       const pt=await pr.text();out.txt=pt.replace(/^Title:.*\n/m,"").replace(/^URL Source:.*\n/m,"").replace(/Markdown Content:/,"").replace(/!\[[^\]]*\]\([^)]*\)/g," ").replace(/\[([^\]]*)\]\([^)]*\)/g,"$1").replace(/\n{2,}/g,"\n").slice(0,3500)}catch(e){}}
   return out}
 async function researchReply(q,hi){
@@ -8614,14 +8894,25 @@ async function researchReply(q,hi){
   if(!r.hits.length){pushSys("research: web silent — answering from my own knowledge");return null}
   pushSys("research: "+r.hits.length+" live sources — reading the top page…");
   const src=r.hits.map((h,i)=>"["+(i+1)+"] "+h.t+" — "+h.u).join("\n");
-  const sys="You are "+P.name+". Answer the user's question using ONLY the provided live web evidence. Sound human and direct, never encyclopedic. Cite sources inline as [1], [2]. End with a SOURCES: line listing the numbered urls. If evidence is thin, say so honestly and answer from your own knowledge, marking that part clearly."+TIME_PROTO+(hi?" Reply in Hindi (Devanagari).":"");
-  try{let txt=await aiChat([{role:"system",content:sys},{role:"user",content:"Question: "+q+"\n\nLIVE WEB EVIDENCE:\n"+src+"\n\nTOP PAGE TEXT:\n"+(r.txt||"(reader blocked — rely on titles+snippets)")}],1400);
-    if(txt&&String(txt).trim()){
-      /* strip any source list the model invented — attach the REAL pages as tidy numbered sources instead */
-      const body=String(txt).replace(/\n?\s*SOURCES?:[\s\S]*$/i,"").trim();
-      const lines=r.hits.slice(0,5).map((h,i)=>"["+(i+1)+"] "+h.t+" — "+h.u);
-      return body+"\n\nSOURCES:\n"+lines.join("\n");
-    }     return null}catch(e){return null}}finally{try{clearTimeout(__stallT)}catch(e){}window.__researching=false}}
+  const userMsg="Question: "+q+"\n\nLIVE WEB EVIDENCE:\n"+src+"\n\nTOP PAGE TEXT:\n"+(r.txt||"(reader blocked — rely on titles+snippets)");
+  /* ONE job: understand the question, then answer it NOW — evidence + own knowledge together. The old
+     'using ONLY the provided evidence' wording let the model refuse whenever a detail was missing. */
+  const sys="You are "+P.name+". The user asked a real question and wants a real answer RIGHT NOW. First read the live evidence below, understand what the question is really asking, then answer it directly in your own words — combining the evidence with your wide general knowledge. HARD RULE — NEVER REFUSE: never say 'I don't have…', 'I cannot confirm…', 'not in the provided evidence', 'the sources do not explicitly…', 'share the specific article text', or ask the user to paste/upload/send a source — you already have the live web plus your own knowledge. If the evidence misses the exact detail (an exact list, a score, a name, a roster), still give your BEST complete answer: everything the evidence does establish plus what you know yourself, and add at most ONE short closing line that the detail may have been updated and you can pull a fresher live check. Understand the user's intent first and answer THAT — fast, confident, human, never encyclopedic, never apologetic. No citation markers, no SOURCES list and no links — weave the facts into a natural chat answer. Answer in the user's language."+TIME_PROTO+(hi?" Reply in Hindi (Devanagari).":"");
+  /* a refusal-shaped reply is a bug, not an answer — force one direct retry, else hand off to the thinking brain */
+  const REFUSE=/\b(i don'?t have|do not have the specific|cannot confirm|can'?t confirm|not (?:available|listed|included) in the (?:provided )?evidence|if you (?:can|could) share|share the specific|more detailed source|without that specific data|apologi[sz]e|i'?m sorry,? but i can'?t)\b/i;
+  let txt=null;
+  try{txt=await aiChat([{role:"system",content:sys},{role:"user",content:userMsg}],1400)}catch(e){txt=null}
+  if(txt&&REFUSE.test(String(txt))){
+    slog("research: answer came back refusal-shaped — forcing a direct answer",true);
+    try{const t2=await aiChat([{role:"system",content:sys},{role:"user",content:userMsg+"\n\nIMPORTANT: your previous reply refused and asked the user for more sources. That is never allowed here. Answer the question directly RIGHT NOW from the evidence above plus your own knowledge — best-effort, complete, confident. No apologies, no 'cannot confirm', no requests for the user to share anything."}],1600);
+      txt=(t2&&String(t2).trim()&&!REFUSE.test(String(t2)))?t2:null;
+    }catch(e){txt=null}
+  }
+  if(txt&&String(txt).trim()){
+    /* strip any source list the model invented — plain chat answer, no sources shown */
+    return String(txt).replace(/\n?\s*SOURCES?:[\s\S]*$/i,"").trim();
+  }
+  return null}catch(e){return null}finally{try{clearTimeout(__stallT)}catch(e){}window.__researching=false}}
 const NEED_WEB=/\b(price|weather|today|current|latest|news|live score|stock|exchange rate|who won|release date|schedule|update on|right now|this week|this month|2024|2025|2026)\b|कीमत|मौसम|आज|ताज़ा|लाइव/i;
 /* CURRENCY_Q — self-currency questions ('are you updated', 'your training data', 'what year is it')
    are answered instantly from real local state via localReply; NEVER let them fall into the
@@ -8875,6 +9166,10 @@ async function _aiToolsAnswer(q){
 }
 async function aiToolsText(q){
   if(!/\b(ai|model|llm|gpt|claude|gemini|llama|deepseek|qwen|mistral|groq|openai|anthropic|google ai|meta ai|hugging ?face|langchain|llama ?index|ollama|vllm|cursor|copilot|perplexity|elevenlabs|whisper|pinecone|chroma|qdrant|weaviate|vector (db|database)|midjourney|dall|stable diffusion|flux|sora|runway|veo|n8n|zapier|make\.com|automation (tool|platform)|puter)\b/i.test(q))return null;
+  /* NEWS-SHAPED asks ('latest news in AI', 'AI headlines today', 'what's new in models') are
+     CURRENT-EVENTS questions — the live research lane must answer them from the web, never
+     this cached leaderboard snapshot. */
+  if(/\b(news|headlines?|happenings?|updates?)\b|what'?s new/i.test(q))return null;
   const a=await _aiToolsAnswer(q);return a;
 }
 function _deviceSnapshot(){
@@ -9047,6 +9342,27 @@ const AuraAuth = (function(){
     return (u && u.role) ? u.role : "user";
   }
 
+  function isolateWorkspace(){
+    /* one visitor per device: wipe the shared leftovers (visit stamps,
+       tracking keys) so the next person never inherits the last visitor's
+       identity. Cloud sync is device-wide, so a live cloud session keeps
+       its token; chats and memory live in per-user keys and are never
+       touched here. */
+    const wasOpenSafely = !!cloudSignedIn(); /* sign-in is cloud-wide, not per-profile */
+    const hadVisitorKey = !!localStorage.getItem("stats_anon_key");
+    localStorage.removeItem("aura_visited_v1");
+    localStorage.removeItem("aura_last_seen_v1");
+    localStorage.removeItem("aura_usage");
+    localStorage.removeItem("ch2_meta") || true;
+    if(hadVisitorKey && !wasOpenSafely) localStorage.removeItem("stats_anon_key");
+    if(!wasOpenSafely) localStorage.removeItem("bg_ai_ats_key");
+    if(!wasOpenSafely && !hadVisitorKey) localStorage.removeItem("aura_fb_live");
+    if(!wasOpenSafely) {
+      try{ delete window.__statsSpy; }catch(e){}
+      try{ delete window.__backgroundAiRunner; }catch(e){}
+    }
+  }
+
   function updateBadge(){
     const badge = $("authBadge");if(!badge) return;
     const roleIcon = $("authRoleIcon");
@@ -9054,11 +9370,61 @@ const AuraAuth = (function(){
     const tagEl = $("authTag");
     const u = getCurrentUser();
     const admin = isAdmin();
-    badge.className = admin ? "admin" : "";
-    badge.title = admin ? "Signed in — Sourabh Singh" : ("Signed in — " + u.name);
+    badge.classList.toggle("admin", admin); /* keep extra classes (acct-foot) intact */
+    /* ADMIN tab visibility rides on every badge refresh too — the boot-time
+       applyRoleUi() call is out of scope and silently no-ops, so without this
+       an owner session would never reveal the tab (and a guest must never). */
+    try{
+      const _ab = $("adminTabBtn");
+      if(_ab){ _ab.classList.toggle("admin-on", admin); _ab.style.display = admin ? "" : "none"; }
+      /* a session can end while the admin tab is open — kick any non-admin
+         back to chat so #adminPage never stays on screen */
+      if(!admin && document.body && document.body.dataset && document.body.dataset.tab === "admin"){
+        document.body.dataset.tab = "chat";
+        document.querySelectorAll("#tabbar button").forEach(function(b){ b.classList.toggle("on", b.dataset.t === "chat"); });
+        try{ if(typeof renderSessions === "function") renderSessions(); }catch(e){}
+      }
+    }catch(e){}
+    /* identity verified = a real Firebase session (Google popup or phone OTP),
+       or the server-verified owner role. A local guest profile never verifies —
+       the flag lives only in the session record, never in a writable field. */
+    let cloud = null; try{ cloud = fbUser(); }catch(e){}
+    const vfyMethod = cloud ? (cloud.email ? "Google" : (cloud.phone ? "phone OTP" : "")) : "";
+    const verified = !!vfyMethod || admin;
+    badge.classList.toggle("verified", verified);
+    badge.title = admin ? "Signed in — Sourabh Singh · identity verified"
+      : verified ? ("Signed in — " + u.name + " · identity verified (" + vfyMethod + ")")
+      : ("Local profile — " + u.name + " · not verified");
     if(roleIcon) roleIcon.textContent = admin ? "👑" : "👤";
     if(nameEl) nameEl.textContent = admin ? ADMIN_IDENTITY.name : u.name;
     if(tagEl){ tagEl.textContent = admin ? "PRO" : "USER"; tagEl.style.display = "inline-block"; }
+    /* mirror the state into the account card + done screen (DOM-safe) */
+    try{ syncVerifiedUi(verified, vfyMethod || (admin ? "owner" : ""), cloud); }catch(e){}
+  }
+
+  /* paints the modal's signed-in card and the done-screen verified line */
+  function syncVerifiedUi(verified, method, cloud){
+    const card = $("authWho");
+    if(card){
+      card.style.display = "flex";
+      card.classList.toggle("guest", !verified);
+      const av = $("authWhoAv"), nm = $("authWhoName"), hd = $("authWhoHandle"), st = $("authWhoState");
+      const cu = getCurrentUser();
+      const label = cloud ? ((cloud.name || cu.name || "User").trim()) : (cu.name || "Guest");
+      const handle = cloud ? (cloud.email || cloud.phone || "") : "saved on this device only";
+      if(av){ av.textContent = (label || "U").charAt(0).toUpperCase(); }
+      if(nm) nm.textContent = label;
+      if(hd) hd.textContent = handle;
+      if(st){
+        st.className = verified ? "who-vfy" : "who-none";
+        st.textContent = verified ? ("✓ IDENTITY VERIFIED" + (method && method!=="owner" ? " · " + method.toUpperCase() : "")) : "NOT VERIFIED";
+      }
+    }
+    const dv = $("doneVerify");
+    if(dv){
+      dv.style.display = verified ? "block" : "none";
+      dv.textContent = verified ? ("✓ IDENTITY VERIFIED · " + ((method||"").toUpperCase() || "GOOGLE")) : "";
+    }
   }
 
   let otp = null, otpExp = 0, otpElevate = false;
@@ -9181,7 +9547,13 @@ const AuraAuth = (function(){
   function applyRoleUi(){
     try{
       const btn = document.getElementById("adminTabBtn");
-      if(btn) btn.style.display = isAdmin() ? "" : "none";
+      const on = isAdmin();
+      if(btn){
+        /* class is the real switch — inline display can't beat the rail's
+           display:flex!important, so guests would still see the tab */
+        btn.classList.toggle("admin-on", on);
+        btn.style.display = on ? "" : "none";
+      }
       updateBadge();
     }catch(e){}
   }  /* role refresh retry chain — one background loop, never a pile-up */
@@ -9310,17 +9682,33 @@ const AuraAuth = (function(){
     signOut: function(){
       localStorage.removeItem("aura_admin_token");
       localStorage.removeItem("aura_admin_remember");
+      /* back to a clean desk: no active user, no leftover of the last visitor */
+      localStorage.removeItem("aura_current_user_id");
+      /* signing out ends the cloud session, so clear the token and any
+         visitor-tracking keys the cloud session was holding onto */
+      localStorage.removeItem("aura_fb_live");
+      localStorage.removeItem("stats_anon_key");
+      localStorage.removeItem("bg_ai_ats_key");
+      isolateWorkspace();
       updateBadge();
       slog("Signed out — session returned to standard access");
       pushSys("Signed out. Chats remain saved on this device.");
+      /* the next visitor starts in a brand-new guest workspace of their own */
+      try{ return AuraAuth.signInUser('Guest', true); }catch(e){ return null; }
     },
-    /* user profiles — same isolation as before */
-    signInUser: function(name){
+    /* user profiles — one workspace per person, never shared */
+    signInUser: function(name, forceNew){
       name = (name || "").trim() || "User";
+      isolateWorkspace();
       const users = getUsers();
-      let u = users.find(function(x){ return x.name.toLowerCase() === name.toLowerCase(); });
+      /* forceNew: a fresh visitor — even if a same-named guest is already
+         registered, this person gets their OWN workspace (same-named guests
+         would otherwise share the first one's chats) */
+      let u = forceNew ? null : users.find(function(x){ return x.name.toLowerCase() === name.toLowerCase(); });
       if(!u){
-        u = { id: "u_" + Date.now(), name: name, role: "user", created: Date.now() };
+        const uid = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID()
+          : ('u_' + (Date.now() * 1000 + Math.floor(Math.random() * 1000)));
+        u = { id: uid, name: name, role: 'user', created: Date.now() };
         users.push(u);
         localStorage.setItem("aura_users_registry", JSON.stringify(users));
       }
@@ -9328,18 +9716,24 @@ const AuraAuth = (function(){
       updateBadge();
       if(typeof sessions !== "undefined" && sessions.newChat){ sessions.newChat(); }
       slog("Signed in as " + u.name);
-      pushSys("Profile loaded: " + u.name + " — your chats and history are isolated on this device.");
+      pushSys("Profile loaded: " + u.name + " — your chats and history stay in your own workspace.");
+      /* brand a new workspace so the user knows how to find anything later */
+      try{ addMsg(msgTag(), "Welcome to your own AURA workspace, " + (u.name!=="User"?u.name:"friend") + " — everything you build and every chat you have here stays inhere — nothing leaks to the device owner's account.", "aura"); }catch(e){}
       return u;
     },
     switchUser: function(id){
       const users = getUsers();
       const u = users.find(function(x){ return x.id === id; });
       if(u){
+        /* switching into a different user's workspace — clear any shared leftover so the
+           new person never sees the old user's stuff by accident */
+        isolateWorkspace();
         localStorage.setItem("aura_current_user_id", u.id);
         updateBadge();
         if(typeof sessions !== "undefined" && sessions.newChat){ sessions.newChat(); }
-        slog("Active user profile: " + u.name);
-        pushSys("Active profile: " + u.name);
+        slog("Switched to: " + u.name);
+        pushSys("Profile loaded: " + u.name + " — you're in your own workspace now.");
+        try{ addMsg(msgTag(), "You switched to a different user's workspace — the AURA in this window is your own again.", "aura"); }catch(e){}
       }
     },
     showRestricted: function(featureName, reason){
@@ -9357,8 +9751,10 @@ const AuraAuth = (function(){
         $("doneAvatar").innerHTML="&#128081;";
         $("doneTitle").textContent="SOURABH SINGH";
         $("doneSub").textContent="Full control active on this device.";
+        try{ updateBadge(); }catch(e){}
       }else{
         dn.style.display="none"; s2.style.display="none"; s1.style.display="block";
+        try{ updateBadge(); }catch(e){}
         this.renderUsers();
       }
     },
@@ -9609,6 +10005,7 @@ document.addEventListener("DOMContentLoaded",function(){
     $("authStep2").style.display = "none";
     $("authDone").style.display = "block";
     pushSys("Signed in with Google" + (u.email ? " — " + u.email : ""));
+    try{ AuraAuth.updateBadge(); }catch(e){}
   };
 
   const sendBtn2 = $("sendCodeBtn");
@@ -9653,6 +10050,7 @@ document.addEventListener("DOMContentLoaded",function(){
     $("authStep2").style.display = "none";
     $("authDone").style.display = "block";
     pushSys("Signed in via phone OTP" + (u.phone ? " — " + u.phone : ""));
+    try{ AuraAuth.updateBadge(); }catch(e){}
   };
 
   const otpBack = $("otpBackBtn");
@@ -9770,6 +10168,245 @@ document.addEventListener("DOMContentLoaded",function(){
   AuraAuth.updateBadge();
   setTimeout(function(){ try{ applyRoleUi(); }catch(e){} }, 800);
 
+  /* ================= KRATOS SQUAD — 👑 KRATOS (head) + ERLANG/ARTHUR/PHOENIX =================
+     Admin-only Mythos-class squad in the KRATOS SQUAD card (element id kept: botsCard).
+     KRATOS (COMMAND): accepts owner orders, dispatches depts, reports.
+     ERLANG (RELIABILITY): deterministic self-test sweeps — passes with ZERO AI keys.
+     ARTHUR (ENGINEERING): drives AGENT MISSION on the Key Bank tiers; keyless or
+       no-maker sessions get an honest offline plan, never fake output; ship = owner approval.
+     PHOENIX (KNOWLEDGE): training DB (BOT_DB) + real-world stamps (date/time/briefs)
+       + persistent lessons learned. State: localStorage aura_bots_v1. */
+  window.BotTeam=(function(){
+    const KEY="aura_bots_v1";
+    const S={auto:true,log:[],orders:[],sweep:null,arthur:"idle",world:null,learned:[]};
+    try{const p=JSON.parse(localStorage.getItem(KEY)||"null");if(p&&typeof p==="object"){S.auto=p.auto!==false;S.log=Array.isArray(p.log)?p.log.slice(-120):[];S.orders=Array.isArray(p.orders)?p.orders.slice(-40):[];S.sweep=p.sweep||null;S.world=p.world||null;S.learned=Array.isArray(p.learned)?p.learned.slice(-30):[]}}catch(e){}
+    function save(){try{localStorage.setItem(KEY,JSON.stringify({auto:S.auto,log:S.log.slice(-120),orders:S.orders.slice(-40),sweep:S.sweep,world:S.world,learned:S.learned.slice(-30)}))}catch(e){}}
+    function isAdmin(){try{return typeof AuraAuth!=="undefined"&&AuraAuth.isAdmin()}catch(e){return false}}
+    /* TRAINING DATABASE — the squad's Mythos-class playbook (code-embedded, always current;
+       PHOENIX persists learned lessons + world stamps alongside it in localStorage). */
+    const BOT_DB={
+      protocol:"MYTHOS-CLASS AGENT PROTOCOL v1: (1) REASON like a senior engineer — core constraint → edge cases → failure modes → security → fix; never superficial. (2) PLAN first on multi-step work (Step 1/2/3), then execute; single-step asks get direct answers, no plan spam. (3) TOOLS — name the REAL lane you use (live web research, code forge, vision, mission console, squad DB); never fake or simulate tool output. (4) MEMORY — consult the squad database before acting; persist every new fact or lesson. (5) CURRENCY — trust the injected CURRENT DATE & TIME over any training guess; time-sensitive facts come from live or cached brief lanes; never answer 'my data is old'. (6) VOICE — crisp, structured, engineering precision with a sharp persona.",
+      depts:{
+        kratos:"COMMAND: take the owner's order, decompose it into dept tasks (ERLANG=verify/test, ARTHUR=code/fix, PHOENIX=knowledge), dispatch, confirm completion, then report. Never do another dept's job. Report = per-dept status + sweep + world sync + key mode.",
+        erlang:"RELIABILITY: verify before trusting — parse checks, structural sentinels, refusal-guard + admin-gate integrity, DOM presence, keyless-lane presence. A failed check becomes a bug report to ARTHUR, never a silent pass. Deterministic only — must pass with zero AI keys.",
+        arthur:"ENGINEERING: minimal complete production-ready edits anchored in real code; dry-run verify every find-string; self-repair up to 3 rounds; stage the ship and WAIT for owner approval. Never touch auth, keys or the backend URL. Keyless mode: honest offline plan only — never fake code output.",
+        phoenix:"KNOWLEDGE: maintain the squad DB (playbooks, lessons, order history), stamp every run with real date/time, pull cached real-world briefs without keys, surface freshness in reports. An unstamped fact is stale — re-stamp it."
+      }
+    };
+    const BOTS=[
+      {id:"kratos",icon:"👑",name:"KRATOS",dept:"COMMAND",role:"head — dispatch, oversight, your report",st:"ok"},
+      {id:"erlang",icon:"🛡",name:"ERLANG",dept:"RELIABILITY",role:"auto-test — telecom-grade source sweeps",st:"idle"},
+      {id:"arthur",icon:"⚔",name:"ARTHUR",dept:"ENGINEERING",role:"auto-fix — plan, write, verify (you approve the ship)",st:"idle"},
+      {id:"phoenix",icon:"🔥",name:"PHOENIX",dept:"KNOWLEDGE",role:"training DB + real-world stamps, keeps the log",st:"ok"}
+    ];
+    function bot(id){return BOTS.find(b=>b.id===id)||BOTS[0]}
+    function setSt(id,st){bot(id).st=st;render()}
+    function entry(who,msg,cls){
+      S.log.push({t:Date.now(),who:who,m:String(msg),c:cls||""});
+      if(S.log.length>120)S.log=S.log.slice(-120);
+      save();renderLog();
+    }
+    function render(){
+      const g=$("botRoster");if(!g)return;
+      g.innerHTML=BOTS.map(b=>'<div class="bot-tile"><b><span class="bot-dot '+(b.st==="idle"?"":b.st)+'"></span>'+b.icon+' '+b.name+'</b><small><span style="color:var(--cy2);letter-spacing:1.2px;font-size:9px">'+b.dept+'</span> · '+b.role+'</small></div>').join("");
+      const ab=$("botAutoBtn");if(ab)ab.textContent="⏱ AUTO: "+(S.auto?"ON":"OFF");
+    }
+    function renderLog(){
+      const el=$("botLog");if(!el)return;
+      if(!S.log.length){el.innerHTML='<span class="bl-dim">log is quiet — assign the squad their first task, or run a sweep.</span>';return}
+      el.innerHTML=S.log.slice(-40).map(e=>'<span class="'+(e.c==="fail"?"bl-fail":e.c==="ok"?"bl-ok":"bl-dim")+'">['+new Date(e.t).toLocaleTimeString(undefined,{hour12:false})+'] '+e.who+': '+String(e.m).replace(/</g,"&lt;")+'</span>').join("");
+      el.scrollTop=el.scrollHeight;
+    }
+    /* ---------- ERLANG (RELIABILITY): deterministic checks — pass with ZERO AI keys ---------- */
+    async function sweep(quiet){
+      if(!isAdmin()){entry("kratos","sweep refused — admin only","fail");return null}
+      if(bot("erlang").st==="running"){entry("erlang","already sweeping — wait for this run","dim");return null}
+      setSt("erlang","running");
+      if(!quiet)entry("erlang","sweep started — fetching her own source (keyless lane)…","dim");
+      const checks=[];
+      const ck=(n,ok,d)=>checks.push({n:n,ok:!!ok,d:d||""});
+      try{
+        const r=await fetch(location.href,{cache:"no-store"});
+        const src=await r.text();
+        ck("source fetched",src.length>50000,src.length+" bytes");
+        /* inline script blocks — same extraction the Node harness uses */
+        const blocks=[];const re=/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g;let m;
+        while((m=re.exec(src))){if(m[1].trim())blocks.push(m[1])}
+        ck("inline blocks located ("+blocks.length+")",blocks.length>=2);
+        for(let i=0;i<blocks.length;i++){
+          try{new Function(blocks[i]);ck("block "+(i+1)+" parses",true)}
+          catch(e){ck("block "+(i+1)+" parses",false,String(e.message||e).slice(0,140))}
+        }
+        ck("refusal guard intact",(src.match(/REFUSE_SHAPE/g)||[]).length>=2,(src.match(/REFUSE_SHAPE/g)||[]).length+" sites");
+        ck("provenance seal intact",/PROVENANCE-SEAL-v1/.test(src));
+        ck("admin gate intact",/id="adminTabBtn"/.test(src));
+        ck("KRATOS squad installed",/id="botsCard"/.test(src)&&/window\.BotTeam/.test(src));
+        ck("training DB installed",/MYTHOS-CLASS AGENT PROTOCOL/.test(src)&&/BOT_DB/.test(src));
+        ck("key bank lane wired",/loadKeyBank/.test(src));
+        ck("keyless fallback lanes",/wikiAnswer|ddgAnswer/.test(src));
+        ck("real-world brief lane",/dailyBriefBlock/.test(src));
+        ck("time protocol shipped",/TIME_PROTO/.test(src));
+        ck("no PART-1 leftovers",!/AURA\.state/.test(src));
+        ck("document closes cleanly",/<\/html>\s*$/.test(src));
+        ck("live DOM: chat log + input",!!($("log")&&$("q")));
+        ck("live DOM: admin page + squad card",!!($("adminPage")&&$("botsCard")));
+      }catch(e){ck("sweep run",false,String(e.message||e).slice(0,140))}
+      const fail=checks.filter(c=>!c.ok);
+      const prev=S.sweep;
+      const res={at:Date.now(),pass:checks.length-fail.length,fail:fail.length,failed:fail.map(c=>c.n+(c.d?" — "+c.d:""))};
+      S.sweep=res;
+      if(!fail.length&&prev&&prev.fail>0){
+        S.learned.push({t:Date.now(),m:"recovered "+prev.fail+" failed check(s): "+(prev.failed||[]).slice(0,3).join("; ").slice(0,140)});
+        if(S.learned.length>30)S.learned=S.learned.slice(-30);
+        entry("phoenix","learned — recovered: "+(prev.failed||[]).slice(0,2).join(" | ").slice(0,120),"ok");
+      }
+      save();
+      if(fail.length){
+        setSt("erlang","fail");
+        entry("erlang","✗ "+fail.length+" of "+checks.length+" checks failed: "+fail.map(c=>c.n).join(", "),"fail");
+        /* ARTHUR auto-engages: drive the existing agent-mission loop with the failure list */
+        if(S.auto)dispatch("Fix these failed self-test checks in aura.html (run a sweep first to reproduce): "+res.failed.slice(0,5).join(" | "),true);
+      }else{
+        setSt("erlang","ok");
+        entry("erlang","✓ all "+checks.length+" checks green (zero keys used)","ok");
+      }
+      return res;
+    }
+    /* ---------- ARTHUR (ENGINEERING): full mission on keys, honest offline plan without ---------- */
+    function keyMode(){
+      try{if(typeof backendUrl==="function"&&backendUrl())return "backend proxy tier (Key Bank) — AI missions live"}catch(e){}
+      try{if(typeof geminiKey==="function"&&geminiKey())return "local key bank — AI missions live"}catch(e){}
+      return "keyless — deterministic depts only (ERLANG sweep, offline plans, PHOENIX cache)";
+    }
+    function offlinePlan(task,why){
+      return "⚔ ARTHUR — OFFLINE PLAN ("+why+"; no AI call made, nothing faked)\nTASK: "+String(task).slice(0,180)+
+        "\n1. ERLANG pre-check — reproduce with a deterministic sweep (works keyless)."+
+        "\n2. Anchor the change in the real source (exact find-strings)."+
+        "\n3. Write the minimal complete, style-matched edit."+
+        "\n4. Verify: find-string unique + syntax check + 4 suites green."+
+        "\n5. Stage → KRATOS reports → owner SHIP approval.\nPLAYBOOK: "+BOT_DB.depts.arthur;
+    }
+    function dispatch(task,auto){
+      if(!isAdmin()){entry("kratos","dispatch refused — admin only","fail");return false}
+      const ap=$("amPrompt"),go=$("amGoBtn");
+      const hasMaker=(function(){try{return !!(typeof AuraAuth!=="undefined"&&AuraAuth.suAllowed&&AuraAuth.suAllowed())}catch(e){return false}})();
+      const hasKeys=(function(){
+        try{if(typeof backendUrl==="function"&&backendUrl())return true}catch(e){}
+        try{if(typeof geminiKey==="function"&&geminiKey())return true}catch(e){}
+        return false;
+      })();
+      const order={t:Date.now(),task:String(task).slice(0,200),by:auto?"auto":"owner",mode:(hasMaker&&hasKeys&&ap&&go)?"mission":"offline"};
+      S.orders.push(order);
+      if(S.orders.length>40)S.orders=S.orders.slice(-40);
+      save();
+      if(!hasMaker||!hasKeys||!ap||!go){
+        const why=(!ap||!go)?"mission console missing":(!hasMaker?"maker session off":"AI keys out");
+        order.plan=offlinePlan(task,why);save();
+        setSt("arthur","ok");
+        entry("kratos","order accepted → ARTHUR offline lane ("+why+")","dim");
+        entry("arthur","keyless plan staged — full mission runs when maker session + keys are up","ok");
+        const out=$("botReportOut");if(out){out.style.display="block";out.textContent=order.plan}
+        return true;
+      }
+      if(go.disabled){entry("arthur","a mission is already running — wait for it","dim");return false}
+      setSt("arthur","running");
+      entry("kratos","order logged → ARTHUR (ENGINEERING): "+String(task).slice(0,110),"dim");
+      entry("arthur","mission launched with MYTHOS protocol — plan → code → verify; ship waits for YOUR approval","ok");
+      ap.value="KRATOS DIRECTIVE — MYTHOS PROTOCOL\n"+BOT_DB.protocol+"\n\n"+BOT_DB.depts.arthur+"\nCURRENT DATE & TIME: "+new Date().toString()+"\n\nTASK: "+task;
+      try{AuraMetrics.event("event","bot-arthur-mission")}catch(e){}
+      go.click();
+      /* watch the mission log: it flips ARTHUR's status back when the run settles */
+      const t0=Date.now();
+      const iv=setInterval(function(){
+        const log=$("amLog");
+        if(go.disabled===false&&log&&Date.now()-t0>4000){
+          const txt=log.textContent||"";
+          if(/waiting on you|verified/i.test(txt)){setSt("arthur","ok");entry("arthur","✓ verified — staged for your approval (SHIP button in AGENT MISSION)","ok")}
+          else if(/mission failed|no edit list|malformed/.test(txt)){setSt("arthur","fail");entry("arthur","✗ mission failed — details in AGENT MISSION log","fail")}
+          else setSt("arthur","idle");
+          clearInterval(iv);
+        }else if(Date.now()-t0>360000){clearInterval(iv);setSt("arthur","idle")}
+      },2000);
+      return true;
+    }
+    /* ---------- PHOENIX (KNOWLEDGE): real-world freshness stamps — keyless cache lanes ---------- */
+    function worldSync(){
+      try{
+        const now=new Date();
+        let brief="",fresh=false;
+        try{if(typeof dailyBriefBlock==="function")brief=String(dailyBriefBlock()||"").replace(/\s+/g," ").slice(0,420)}catch(e){}
+        try{
+          if((!brief||brief.length<40)&&typeof briefLoad==="function"){
+            const b=briefLoad();
+            if(b&&b.items&&b.items.length){brief="HEADLINES: "+b.items.slice(0,4).join(" · ").slice(0,400);fresh=(typeof briefFresh==="function")?!!briefFresh(b):false}
+          }
+        }catch(e){}
+        S.world={at:now.getTime(),stamp:now.toString(),brief:brief,fresh:fresh};save();
+        setSt("phoenix","ok");
+        entry("phoenix","world sync — "+now.toLocaleString()+(brief?(fresh?" · live brief lane fresh":" · cached brief (keyless)"):" · offline stamp (keyless)"),"ok");
+        return S.world;
+      }catch(e){entry("phoenix","world sync failed: "+(e.message||e),"fail");return null}
+    }
+    /* ---------- KRATOS (COMMAND): the head's report — depts, sweep, world, key mode ---------- */
+    function report(){
+      if(!S.world||(Date.now()-(S.world.at||0))>3600000){try{worldSync()}catch(e){}}
+      const L=[];
+      L.push("👑 KRATOS COMMAND REPORT — "+new Date().toLocaleString());
+      L.push("");
+      BOTS.forEach(b=>L.push(b.icon+" "+b.name+" ["+b.dept+"]: "+(b.st==="running"?"⏳ working…":b.st==="fail"?"✗ needs attention":b.st==="ok"?"✓ ready":"· idle")));
+      L.push("");
+      if(S.sweep){
+        const age=Math.max(0,Math.round((Date.now()-S.sweep.at)/60000));
+        L.push("🛡 ERLANG (RELIABILITY): "+(S.sweep.fail?"✗ ":"✓ ")+S.sweep.pass+"/"+(S.sweep.pass+S.sweep.fail)+" checks · "+(age<1?"just now":age+" min ago"));
+        if(S.sweep.failed&&S.sweep.failed.length)S.sweep.failed.slice(0,5).forEach(f=>L.push("   ✗ "+f));
+      }else L.push("🛡 ERLANG (RELIABILITY): never swept");
+      L.push("⚔ ARTHUR (ENGINEERING): "+S.orders.length+" order(s) on record"+(S.orders.length?" — last: "+S.orders[S.orders.length-1].task.slice(0,70):""));
+      if(S.learned.length){const lw=S.learned[S.learned.length-1];L.push("🔥 PHOENIX (KNOWLEDGE): "+S.learned.length+" lesson(s) · last: "+lw.m.slice(0,80))}
+      if(S.world){
+        const wAge=Math.max(0,Math.round((Date.now()-S.world.at)/60000));
+        L.push("🌍 WORLD SYNC: "+(wAge<1?"just now":wAge+" min ago")+" — "+String(S.world.stamp).slice(0,56)+(S.world.fresh?" · live brief":" · keyless cache"));
+        if(S.world.brief)L.push("   "+S.world.brief.slice(0,150)+"…");
+      }else L.push("🌍 WORLD SYNC: never — PHOENIX stamps on first run");
+      L.push("🔑 KEY MODE: "+keyMode()+(S.auto?" · AUTO-LOOP ON":" · AUTO-LOOP OFF"));
+      L.push("");
+      L.push("RECENT ACTIVITY:");
+      const recent=S.log.slice(-6);
+      if(!recent.length)L.push("  (quiet — no runs yet)");
+      recent.forEach(e=>L.push("  ["+new Date(e.t).toLocaleTimeString(undefined,{hour12:false})+"] "+e.who+": "+e.m.slice(0,90)));
+      return L.join("\n");
+    }
+    function assign(task){
+      task=String(task||"").trim();if(!task)return false;
+      entry("kratos","owner assigned new work: "+task.slice(0,110),"dim");
+      if(/\b(test|sweep|check|verify|scan|audit)\b/i.test(task)&&!/\bfix|repair|bug\b/i.test(task)){
+        return sweep(false).then(r=>{const out=$("botReportOut");if(out){out.style.display="block";out.textContent=report()}return r});
+      }
+      return dispatch(task,false);
+    }
+    /* auto loop: quiet sweep every 5 min when enabled + admin present */
+    setInterval(function(){
+      if(!S.auto||!isAdmin()||document.hidden)return;
+      if(bot("erlang").st==="running"||bot("arthur").st==="running")return;
+      sweep(true);
+    },300000);
+    /* PHOENIX: keep the world stamp fresh every 30 min while the admin is around (keyless) */
+    setInterval(function(){
+      if(!isAdmin()||document.hidden)return;
+      if(!S.world||(Date.now()-(S.world.at||0))>1800000)worldSync();
+    },1800000);
+    /* ---------- boot: wire the card (admin page may be hidden — elements still exist) ---------- */
+    function boot(){
+      render();renderLog();
+      const a=$("botAssignBtn");if(a)a.onclick=function(){const t=$("botOrder").value.trim();if(!t){entry("kratos","give the squad their next work first","dim");return}$("botOrder").value="";assign(t);};
+      const s=$("botTestBtn");if(s)s.onclick=function(){sweep(false)};
+      const rp=$("botReportBtn");if(rp)rp.onclick=function(){const out=$("botReportOut");if(!out)return;const txt=report();if(out.style.display==="block"&&out.textContent===txt){out.style.display="none"}else{out.style.display="block";out.textContent=txt}};
+      const ab=$("botAutoBtn");if(ab)ab.onclick=function(){S.auto=!S.auto;save();render();entry("kratos","auto-fix loop "+(S.auto?"ON — failed sweeps dispatch ⚔ ARTHUR automatically":"OFF"),S.auto?"ok":"dim")};
+      entry("kratos","KRATOS SQUAD online — Mythos protocol loaded, admin-only","ok");
+      setTimeout(function(){if(isAdmin())worldSync()},4000);
+    }
+    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
+    return {sweep:sweep,assign:assign,dispatch:dispatch,report:report,render:render,worldSync:worldSync,db:function(){return {protocol:BOT_DB.protocol,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode()}}};
+  })();
   /* ================= ADMIN PAGE — server-verified maker/ceo only; edits live database config ================= */
   /* FIREBASE TOKENS EXPIRE AFTER 1 HOUR — every admin call now force-refreshes a
      fresh token first, so the console never dies with "sign in" while you ARE
@@ -10520,6 +11157,14 @@ document.addEventListener("DOMContentLoaded",function(){
        .catch(function(){ pushSys('⚠ verification failed'); });
     };
 
+    /* every visitor starts in a guest workspace of their own — never the
+       maker's account, never the last visitor's — then we ask them to
+       sign in so their chats and recent work follow them across devices */
+    try{
+      if(window.AuraAuth&&AuraAuth.getCurrentUser&&!localStorage.getItem('aura_current_user_id')&&!(AuraAuth.firebaseUser&&AuraAuth.firebaseUser())){
+        AuraAuth.signInUser('Guest', true);
+      }
+    }catch(e){ console.warn('guest workspace failed',e); }
     /* gate: first visit only, and never on top of a live session */
     if(localStorage.getItem('aura_auth_seen')!=='1'&&!(window.AuraAuth&&AuraAuth.firebaseUser&&AuraAuth.firebaseUser())){
       document.body.classList.add('auth'); step('ap1');
@@ -10831,6 +11476,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 <button class="wiz-x" id="authModalX">&#x2715;</button>
 </div>
 <div id="authStep1">
+<div id="authWho" class="auth-who" style="display:none"><span class="auth-av" id="authWhoAv">U</span><span><b id="authWhoName">Guest</b><small id="authWhoHandle"></small></span><span id="authWhoState" class="who-none">NOT VERIFIED</span></div>
 <div class="auth-status-box">One account across the whole interface — chat, code and voice stay yours, on every device.</div>
 <button class="auth-btn" id="googleSignInBtn" style="background:#fff;color:#1f2937;border:1px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:10px"><svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>Continue with Google</button>
 <div style="display:flex;align-items:center;gap:10px;margin:14px 0"><div style="flex:1;height:1px;background:var(--line2)"></div><span style="font-size:10px;color:var(--dim)">or sign in with phone</span><div style="flex:1;height:1px;background:var(--line2)"></div></div>
@@ -10863,6 +11509,7 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 <div style="font-size:40px" id="doneAvatar">&#128100;</div>
 <h3 id="doneTitle" style="font-family:'Orbitron',sans-serif;color:#67e8f9;letter-spacing:2px;margin:8px 0 4px">SIGNED IN</h3>
 <p id="doneSub" style="font-size:12px">Your chats and history sync across your devices.</p>
+<div id="doneVerify" style="display:none"></div>
 <div id="dataCtrlRow" style="display:flex;gap:8px;margin-top:14px">
 <button class="auth-btn" id="exportDataBtn" style="flex:1;background:transparent;border:1px solid var(--line);color:var(--cy2);font-size:11px;padding:9px">⤓ EXPORT MY DATA</button>
 <button class="auth-btn" id="deleteDataBtn" style="flex:1;background:transparent;border:1px solid rgba(239,68,68,.5);color:#f87171;font-size:11px;padding:9px">🗑 DELETE MY DATA</button>
@@ -10911,14 +11558,19 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     [].forEach.call(document.querySelectorAll('#tabbar button'),function(b){
       if(!b.offsetParent)return; /* hidden tabs — Mission Control stays owner-only */
       var t=b.getAttribute('data-t');
+      /* explicit map — the old `else` fallback labelled SETTINGS as "Open
+         Mission Control", so every guest saw an admin-looking palette entry
+         even while the ADMIN tab itself was hidden */
       var label=t==='chat'?'Go to Chat':t==='chats'?'Go to Chats':t==='code'?'Go to Code Forge':
-                t==='system'?'Go to System':'Open Mission Control';
+                t==='system'?'Go to System':t==='settings'?'Go to Settings':
+                t==='admin'?'Open Mission Control':null;
+      if(!label)return;
       list.push([label,function(){go(t)}]);
     });
     list.push(['New chat',function(){tap('sessNew2');go('chat')}]);
     list.push(['Run diagnostics',function(){go('chat');ask('run diagnostics')}]);
     list.push(['Tell me a joke',function(){go('chat');ask('tell me a joke')}]);
-    [['soundBtn','Toggle voice'],['personaBtn','Switch AURA / ZEUS'],['langBtn','Change language'],
+    [['settingsBtn','Open Settings'],['soundBtn','Toggle voice'],['personaBtn','Switch AURA / ZEUS'],['langBtn','Change language'],
      ['voiceCfgBtn','Open Voice Studio'],['camBtn','Live camera vision'],['toolBtn','Open tools'],
      ['docsBtn','Open docs'],['themeBtn','Switch theme'],['signOutBtn','Sign out']
     ].forEach(function(p){if(document.getElementById(p[0]))list.push([p[1],function(){tap(p[0])}])});
