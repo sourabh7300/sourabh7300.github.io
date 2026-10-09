@@ -22,6 +22,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E🤖%3C/text%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.webmanifest">
+<!-- share card — rich preview on WhatsApp, Telegram, Google, iMessage -->
+<meta name="description" content="AURA — a voice you can talk to, a mind that codes, a memory that stays. Holographic AI assistant.">
+<meta property="og:title" content="AURA — Holographic AI Assistant">
+<meta property="og:description" content="A voice you can talk to. A mind that codes. A memory that stays.">
+<meta property="og:image" content="https://sourabh7300.github.io/og-card.png">
+<meta property="og:url" content="https://sourabh7300.github.io/aura.html">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AURA — Holographic AI Assistant">
+<meta name="twitter:description" content="A voice you can talk to. A mind that codes. A memory that stays.">
+<meta name="twitter:image" content="https://sourabh7300.github.io/og-card.png">
 <style>
 :root{
   /* AURA 4.0 — award-winning AI product design system */
@@ -2468,6 +2479,36 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
 #sysPane #syslogLines,#sysPane #memSide{max-height:210px!important;overflow:auto!important}
 #sysPane .sgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;margin-bottom:12px}
 @media(max-width:900px){#sysPane{width:calc(100vw - 24px);padding-top:74px}#sysPane .sgrid{grid-template-columns:1fr}}
+/* SYSTEM page scroll — sysPane lives in body(overflow:hidden), so the page itself must scroll */
+body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
+/* core dock slot in the top bar — the particle orb follows you across tabs (prototype parity) */
+#topSlot{width:44px;height:44px;flex:none;position:relative;align-self:center}
+#topSlot canvas,#heroSlot canvas{display:block;width:100%;height:100%}
+#helpBtn{font-weight:700;letter-spacing:0;min-width:34px}
+@media(max-width:768px){#topSlot{width:34px;height:34px}#helpBtn{padding:6px 9px!important}}
+/* ? help sheet + guided tour */
+#helpOv{position:fixed;inset:0;z-index:9997;background:rgba(3,6,12,.8);backdrop-filter:blur(10px);display:grid;place-items:center;padding:16px}
+#helpOv[hidden]{display:none}
+.help-card{width:min(560px,96vw);max-height:86vh;overflow:auto;background:rgba(9,13,24,.97);border:1px solid var(--line);border-radius:16px;padding:22px 24px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.help-card h3{font-family:'Orbitron';font-size:12px;letter-spacing:3px;color:var(--cy2);margin-bottom:14px;font-weight:800}
+.help-row{display:flex;justify-content:space-between;gap:14px;padding:8px 0;border-bottom:1px dashed rgba(34,211,238,.12);font-size:13.5px;align-items:center}
+.help-row:last-of-type{border-bottom:0}
+.help-row span{color:var(--ice);opacity:.85}
+.help-row kbd{font-family:var(--mono);font-size:10.5px;letter-spacing:1px;color:var(--cy2);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:3px 9px;background:var(--panel);white-space:nowrap}
+.help-acts{display:flex;gap:10px;margin-top:16px}
+.help-acts button{flex:1;font-family:var(--mono);font-size:11.5px;letter-spacing:1.5px;padding:11px 10px;border-radius:10px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--cy2);transition:.2s}
+.help-acts button:hover{border-color:var(--cy);background:rgba(34,211,238,.14)}
+.help-acts button.p{background:rgba(34,211,238,.18);border-color:var(--cy);color:#dff}
+#tourOv{position:fixed;inset:0;z-index:9998;pointer-events:none}
+#tourOv[hidden]{display:none}
+#tourSpot{position:fixed;border-radius:12px;box-shadow:0 0 0 9999px rgba(3,6,12,.8),0 0 0 2px var(--cy);transition:all .45s cubic-bezier(.2,.8,.2,1)}
+#tourCard{position:fixed;width:min(330px,92vw);padding:16px 18px;background:rgba(9,13,24,.98);border:1px solid var(--cy);border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.55);transition:all .45s cubic-bezier(.2,.8,.2,1);pointer-events:auto}
+#tourCard b{display:block;font-family:'Orbitron';font-size:11px;letter-spacing:2.5px;color:var(--cy2);margin-bottom:6px}
+#tourCard p{font-size:13.5px;line-height:1.55;color:var(--ice);opacity:.88;margin:0 0 12px}
+.tour-row{display:flex;justify-content:space-between;gap:10px}
+.tour-row button{font-family:var(--mono);font-size:11px;letter-spacing:1.2px;padding:8px 16px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--panel);color:var(--dim)}
+.tour-row button:hover{color:var(--cy2);border-color:var(--cy)}
+.tour-row button.p{background:rgba(34,211,238,.18);border-color:var(--cy);color:#dff}
 /* v5 sparkline (reference: LATENCY · LAST 60 SECONDS) */
 #spark{width:100%;height:150px}#sl{fill:none;stroke:var(--g);stroke-width:2;vector-effect:non-scaling-stroke}#sa{fill:rgba(233,185,73,.1);stroke:none}
 .fact .btn{padding:4px 12px;font-size:12px}
@@ -2647,8 +2688,10 @@ body[data-tab="system"] #sysPane #aboutCard{display:block!important;position:sta
 
 <div id="topbar">
   <div class="wordmark">AURA<small>HOLOGRAPHIC AI INTERFACE</small></div>
+  <div id="topSlot" aria-hidden="true"></div>
   <div id="stateBox"><span id="stateDot"></span><span id="stateText">SYSTEM ONLINE</span></div>
   <button class="kbtn" id="kbtn" aria-label="Search or run a command">Search<kbd>Ctrl K</kbd></button>
+  <button class="kbtn" id="helpBtn" aria-label="Help — press question mark" title="Help — press ?" style="padding:7px 12px;font-weight:700;letter-spacing:0">?</button>
   <div id="clock"><b id="clockT">--:--</b><span id="clockD"></span></div>
 </div>
 
@@ -3047,6 +3090,44 @@ function drawStars(t){
 }
 let rot=0,wavePhase=0,amp=0,ampTarget=0,heart=0;
 let spinBoost=0,spinTarget=0;
+/* VOICE-CORE — the real mic level drives the particle core while listening:
+   louder voice = harder beat (ampTarget) + faster spin (spinTarget). Prototype parity. */
+let _vcAC=null,_vcStream=null,_vcTimer=0,_vcMuted=false;
+function voiceCoreStart(){
+  if(_vcStream)return;
+  try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return}catch(e){return}
+  navigator.mediaDevices.getUserMedia({audio:true}).then(st=>{
+    if(_vcStream){st.getTracks().forEach(t=>t.stop());return}
+    _vcStream=st;
+    const AC=window.AudioContext||window.webkitAudioContext;_vcAC=new AC();
+    const src=_vcAC.createMediaStreamSource(st),an=_vcAC.createAnalyser();
+    an.fftSize=256;src.connect(an);
+    const buf=new Uint8Array(an.frequencyBinCount);
+    let silent=0;
+    /* setInterval (not rAF): keeps listening even when the tab isn't presenting frames,
+       and the mode gate + 15s window guarantee the mic is never held open */
+    clearInterval(_vcTimer);
+    _vcTimer=setInterval(()=>{
+      if(!_vcStream){clearInterval(_vcTimer);return}
+      if(mode!=="listening"){if(++silent>60){voiceCoreStop()}return} /* 3s grace: never keep the mic open */
+      silent=0;
+      an.getByteFrequencyData(buf);
+      let q=0;for(let i=0;i<buf.length;i++)q+=buf[i];
+      const lvl=q/buf.length/128; /* ~0 quiet … 1+ loud speech */
+      ampTarget=Math.min(1.4,.25+lvl*2.4);
+      spinTarget=Math.max(spinTarget,Math.min(6,lvl*4)); /* louder = faster gyro */
+    },50);
+  }).catch(()=>{
+    if(!_vcMuted){_vcMuted=true;try{pushSys("mic level feed unavailable — core follows its states instead")}catch(e){}}
+  });
+}
+function voiceCoreStop(){
+  try{clearInterval(_vcTimer)}catch(e){}
+  try{if(_vcStream)_vcStream.getTracks().forEach(t=>t.stop())}catch(e){}
+  try{if(_vcAC&&_vcAC.close)_vcAC.close()}catch(e){}
+  _vcStream=null;_vcAC=null;_vcTimer=0;spinTarget=0;
+  if(typeof ttsActive==="undefined"||!ttsActive)ampTarget=0;
+}
 function setHue(name){
   const map={red:0,orange:25,gold:50,yellow:55,lime:90,green:130,blue:217,indigo:245,purple:270,violet:275,pink:330,magenta:320,cyan:187};
   const fx=document.getElementById("fx");if(!fx)return false;
@@ -7256,7 +7337,7 @@ function startListen(hiEar){
   try{ if(wake&&recog&&listening){try{recog.abort()}catch(e2){}} }catch(e2){}
   clearTimeout(voiceCap);
   voiceCap=setTimeout(()=>{try{if(recog===r)r.stop()}catch(e2){}},14000); /* never listen forever */
-  r.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent=hiEar?"सुन रही हूँ… (हिंदी)":"LISTENING…";setMode("listening");blip(880,.1);
+  r.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent=hiEar?"सुन रही हूँ… (हिंदी)":"LISTENING…";setMode("listening");voiceCoreStart();blip(880,.1);
     pushSys(hiEar?"hindi ear online — boliye":"mic online — speak naturally")};
   r.onresult=e=>{lastAlts=[];interim="";
     for(let i=e.resultIndex;i<e.results.length;i++){
@@ -7280,7 +7361,7 @@ function startListen(hiEar){
   };
   r.onerror=e=>{
     clearTimeout(voiceCap);
-    listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";
+    listening=false;voiceCoreStop();$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";
     if(mode==="listening")setMode("idle");
     if(e.error==="not-allowed"||e.error==="service-not-allowed")pushSys("mic blocked — allow microphone in browser settings");
     else if(e.error==="no-speech")pushSys("didn't catch that — tap and speak a little louder");
@@ -7288,7 +7369,7 @@ function startListen(hiEar){
   };
   r.onend=()=>{
     clearTimeout(voiceCap);
-    listening=false;$("micBtn").classList.remove("listening");$("micHint").textContent=wake?"WAKE WORD: 'HEY AURA'":"TAP TO SPEAK";
+    listening=false;voiceCoreStop();$("micBtn").classList.remove("listening");$("micHint").textContent=wake?"WAKE WORD: 'HEY AURA'":"TAP TO SPEAK";
     if(mode==="listening")setMode("idle");
     /* no final result before the mic closed → keep the interim words instead of dropping the question */
     if(!finalText.trim()&&interimKeep.trim()){finalText=interimKeep;slog("no final transcript — used the live words",true)}
@@ -11077,11 +11158,17 @@ document.addEventListener("DOMContentLoaded",function(){
       function frame(t){
         requestAnimationFrame(frame);
         if(!cv.isConnected) return;
-        var a=t*0.00022, ca=Math.cos(a), sa=Math.sin(a);
+        var dt=t-(frame.last||t); frame.last=t;
+        /* state + voice driven motion: thinking spins fast, listening/speaking medium,
+           real voice loudness (amp) makes the sphere beat */
+        var mlt=(typeof mode!=='undefined')?(mode==='thinking'?6:mode==='listening'?3:mode==='speaking'?4:1):1;
+        var a=(frame.pa=(frame.pa||0)+dt*0.00022*mlt), ca=Math.cos(a), sa=Math.sin(a);
+        var ampNow=(typeof amp==='number')?amp:0;
+        var beat=1+ampNow*0.10*Math.sin(t*0.006);
         x.clearRect(0,0,cv.width,cv.height);
         x.save(); x.translate(cv.width/2,cv.height/2); x.scale(dpr,dpr);
         for(var k=0;k<pts.length;k++){var p=pts[k];
-          var px=p.x*ca-p.z*sa, pz=p.x*sa+p.z*ca, dep=(pz+1)/2, Rr=R*(0.60+0.40*dep);
+          var px=p.x*ca-p.z*sa, pz=p.x*sa+p.z*ca, dep=(pz+1)/2, Rr=R*(0.60+0.40*dep)*beat;
           var tw2=0.72+0.28*Math.sin(t*0.0018+p.tw);
           x.fillStyle='rgba('+(232+Math.round(22*dep))+','+(186+Math.round(54*(1-dep)))+',73,'+((0.16+0.84*dep*dep)*tw2).toFixed(3)+')';
           x.beginPath(); x.arc(px*Rr,p.y*Rr,0.8+1.0*dep,0,6.2832); x.fill();
@@ -11616,6 +11703,86 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
     if(!e.target.closest)return;var g=e.target.closest(TILt);
     if(g&&(!e.relatedTarget||!g.contains(e.relatedTarget)))g.style.transform='';
   });
+})();
+/* ============ CORE DOCK — the particle orb follows you across tabs ============ */
+function dockCore(){
+  try{
+    var oc=document.querySelector('#heroSlot canvas')||document.querySelector('#topSlot canvas');
+    if(!oc)return;
+    var to=(document.body.dataset.tab==='chat')?document.getElementById('heroSlot'):document.getElementById('topSlot');
+    if(to&&oc.parentElement!==to)to.appendChild(oc);
+  }catch(e){}
+}
+try{new MutationObserver(dockCore).observe(document.body,{attributes:true,attributeFilter:['data-tab']})}catch(e){}
+dockCore();
+/* ============ ? HELP SHEET + GUIDED TOUR (replay any time) ============ */
+(function(){
+  if(window.__auraHelpInit)return; window.__auraHelpInit=1;
+  var ov=document.createElement('div');ov.id='helpOv';ov.hidden=true;
+  ov.innerHTML='<div class="help-card" role="dialog" aria-label="Help"><h3>? HELP — SHORTCUTS</h3>'+
+    '<div class="help-row"><span>Open / close this sheet</span><kbd>?</kbd></div>'+
+    '<div class="help-row"><span>Command palette — jump anywhere</span><kbd>Ctrl / ⌘ K</kbd></div>'+
+    '<div class="help-row"><span>Send message</span><kbd>Enter</kbd></div>'+
+    '<div class="help-row"><span>New line in the box</span><kbd>Shift Enter</kbd></div>'+
+    '<div class="help-row"><span>Close overlays / exit focus</span><kbd>Esc</kbd></div>'+
+    '<div class="help-row"><span>Talk hands-free — the core beats with your REAL voice: louder = harder beat + spin</span><kbd>🎙 + Hey Aura</kbd></div>'+
+    '<div class="help-row"><span>Personas, themes, engine — everything</span><kbd>SETTINGS</kbd></div>'+
+    '<div class="help-acts"><button class="p" id="helpTour">▶ REPLAY TOUR</button><button id="helpX">✕ CLOSE</button></div></div>';
+  document.body.appendChild(ov);
+  function hOpen(){ov.hidden=false} function hClose(){ov.hidden=true}
+  document.getElementById('helpX').onclick=hClose;
+  ov.onclick=function(e){if(e.target===ov)hClose()};
+  var hb=document.getElementById('helpBtn'); if(hb)hb.onclick=hOpen;
+  var STEPS=[
+    ['#tabbar [data-t="chat"]','CHAT','Talk or type — AURA answers out loud, and the core reacts to your voice.'],
+    ['#tabbar [data-t="chats"]','CHATS','Every session is saved — continue, search or start fresh any time.'],
+    ['#tabbar [data-t="code"]','CODE','Describe what to build — it writes the code, runs it and shows the result.'],
+    ['#tabbar [data-t="system"]','SYSTEM','Live gauges, latency sparkline and the memory bank — what AURA knows.'],
+    ['#dock','COMMAND BAR','Type anything here. Enter sends; Shift+Enter makes a new line.'],
+    ['#micBtn','MIC','Tap and speak. The louder you talk, the harder the core beats and spins.'],
+    ['#kbtn','PALETTE','Ctrl K opens the palette. Press ? anytime for this help sheet.']
+  ];
+  var ti=0,tour=document.createElement('div');tour.id='tourOv';tour.hidden=true;
+  tour.innerHTML='<div id="tourSpot"></div><div id="tourCard"><b id="tourT"></b><p id="tourP"></p><div class="tour-row"><button id="tourSkip">SKIP</button><button class="p" id="tourNext">NEXT</button></div></div>';
+  document.body.appendChild(tour);
+  var spot=document.getElementById('tourSpot'),card=document.getElementById('tourCard');
+  function tShow(){
+    while(ti<STEPS.length){var el=document.querySelector(STEPS[ti][0]);if(el&&el.getClientRects().length&&getComputedStyle(el).visibility!=='hidden')break;ti++}
+    if(ti>=STEPS.length)return tEnd();
+    var s=STEPS[ti],e2=document.querySelector(s[0]),r=e2.getBoundingClientRect();
+    spot.style.left=(r.left-7)+'px';spot.style.top=(r.top-7)+'px';spot.style.width=(r.width+14)+'px';spot.style.height=(r.height+14)+'px';
+    document.getElementById('tourT').textContent=s[1];
+    document.getElementById('tourP').textContent=s[2];
+    document.getElementById('tourNext').textContent=(ti===STEPS.length-1)?'DONE':'NEXT';
+    var w=Math.min(330,innerWidth*.92);
+    var L=Math.min(innerWidth-w-14,Math.max(14,r.left)),T=Math.min(innerHeight-200,r.bottom+14);
+    if(T<14)T=Math.max(14,r.top-180);
+    card.style.left=L+'px';card.style.top=T+'px';
+  }
+  function tStart(){ti=0;hClose();tour.hidden=false;tShow()}
+  function tEnd(){tour.hidden=true;try{localStorage.setItem('aura_tour_seen','1')}catch(e){}}
+  document.getElementById('tourNext').onclick=function(){ti++;tShow()};
+  document.getElementById('tourSkip').onclick=tEnd;
+  var ht=document.getElementById('helpTour'); if(ht)ht.onclick=function(){hClose();tStart()};
+  window.__auraTourStart=tStart;
+  document.addEventListener('keydown',function(e){
+    if(e.key!=='?'||e.ctrlKey||e.metaKey||e.altKey)return;
+    var ae=document.activeElement;
+    if(ae&&(/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)||ae.isContentEditable))return;
+    if(document.body.classList.contains('auth'))return;
+    var pal=document.getElementById('pal'); if(pal&&!pal.hidden)return;
+    e.preventDefault(); ov.hidden?hOpen():hClose();
+  });
+  /* first-run tour — once the deck is up and the sign-in sheet is gone */
+  var tries=0,iv=setInterval(function(){
+    tries++;
+    var seen=false; try{seen=!!localStorage.getItem('aura_tour_seen')}catch(e){seen=true}
+    if(seen||tries>40){clearInterval(iv);return}
+    if(document.body.classList.contains('auth'))return;
+    if(!document.getElementById('tabbar'))return;
+    clearInterval(iv);
+    setTimeout(function(){try{if(!localStorage.getItem('aura_tour_seen'))tStart()}catch(e){}},1400);
+  },1000);
 })();
 </script>
 </body>
