@@ -24,8 +24,12 @@ jobs:
       - name: Fetch latest AURA build (aura repo is source of truth)
         run: |
           set -euo pipefail
-          curl -fsSL --retry 3 --retry-delay 5 --max-time 120 -o fetched.html \
-            https://raw.githubusercontent.com/sourabh7300/aura/main/aura.html
+          # cache-bust: raw.githubusercontent edge caches can serve a stale blob
+          # right after a push, which would make the mirror think it is in sync.
+          curl -fsSL --retry 3 --retry-delay 5 --max-time 120 \
+            -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' \
+            -o fetched.html \
+            "https://raw.githubusercontent.com/sourabh7300/aura/main/aura.html?cb=$(date -u +%s%N)"
           size=$(wc -c < fetched.html)
           echo "fetched $size bytes"
           [ "$size" -gt 100000 ] || { echo "::error::truncated download ($size bytes)"; exit 1; }
