@@ -2719,7 +2719,7 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
   <p class="sub" style="font:400 12.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--m);margin:-4px 0 12px">Admin only — the squad moves when you command it, never on its own.</p>
   <div class="admin-card" id="botsCard" style="border-color:rgba(34,211,238,.45);display:flex;flex-direction:column;gap:10px;min-height:0">
     <h4>⚡ KRATOS SQUAD <span style="color:var(--dim);font-weight:400">— 👑 KRATOS · 🛡 ERLANG · ⚔ ARTHUR · 🔥 PHOENIX · talk to them like ZEUS</span></h4>
-    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin:0">Pick a bot below, then just talk — give orders, ask questions, assign real work. They act <b style="color:var(--cy2)">only on commands from this admin account</b>; until you command them, they stand down.</p>
+    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin:0">    Pick a bot, then just talk — give orders, ask questions, assign real work. <b style="color:var(--cy2)">You decide who executes</b>: tap its tile, or name it — <b>arthur: &lt;task&gt;</b> · <b>erlang: run a sweep</b>. They act only on commands from this admin account, vague orders get a clarifying question — never invented work.</p>
     <div class="bot-grid" id="botRoster"></div>
     <div id="botHead"><span id="botWho">👑 KRATOS</span><span id="botDept">COMMAND</span><span id="botState">standing by for your command</span></div>
     <div id="botChatLog" role="log" aria-live="polite"></div>
@@ -3338,7 +3338,7 @@ function blip(f,dur,type){if(!soundOn||!uiSoundOn())return;try{AC=AC||new(window
 function slog(msg,hot){const el=$("syslogLines"),d=document.createElement("div");
   d.textContent="▸ "+msg;if(hot)d.className="hot";el.appendChild(d);
   while(el.children.length>7)el.firstChild.remove();}
-slog("aura kernel v3.1 loaded");slog("particle core: 560 nodes",true);slog("voice interface ready");
+slog("aura kernel v4.0 · cortex v2 loaded");slog("particle core: 560 nodes",true);slog("voice interface ready");
 // Build version tag
 (function(){
   const footer=document.createElement("footer");
@@ -4786,7 +4786,7 @@ window.__ownerReport=function(mode){
 async function diagnostics(){
   pushSys("running full-system diagnostics…");blip(660,.1);
   const provider=aiProvider();
-  const brain=provider==="groq"?"GPT-OSS-120B (YOUR KEY)":provider==="gemini"?"GEMINI 2.0 FLASH (YOUR KEY)":"PUTER FREE AI + LOCAL CORE";
+  const brain=provider==="groq"?"CORTEX v2 · GPT-OSS-120B + specialist lanes":provider==="gemini"?"CORTEX v2 · GEMINI 2.0 FLASH":"CORTEX v2 · PUTER / LOCAL CORE";
   const steps=[
     ["particle core (560 nodes)","OK"],
     ["render pipeline @ "+(fpsVal||60)+" fps","OK"],
@@ -4794,7 +4794,8 @@ async function diagnostics(){
     ["speech recognition",("webkitSpeechRecognition"in window||"SpeechRecognition"in window)?"OK":"UNAVAILABLE"],
     ["network uplink",navigator.onLine?"ONLINE":"OFFLINE"],
     ["reasoning brain",brain],
-    ["live evidence pipeline (wiki + ddg + wiktionary)",navigator.onLine?"ARMED":"STANDBY"],
+    ["live evidence pipeline (wiki + ddg + wiktionary + live web)",navigator.onLine?"ARMED":"STANDBY"],
+    ["cortex v2 (route · retrieve · draft · critic)","ARMED"],
     ["task engine (search · timers · notes · launches · screenshot · summarize)","ARMED"],
     ["languages (EN · HI · auto-detect)","ARMED"],
   ];
@@ -4837,7 +4838,7 @@ async function openrouterCall(messages,maxTok){
   if(!t.trim())throw new Error("empty");
   return t.trim();
 }
-const GROQ_MODELS=["openai/gpt-oss-120b","openai/gpt-oss-20b","llama-3.1-8b-instant","deepseek-r1-distill-llama-70b","qwen/qwen3.8-27b","llama-3.3-70b-versatile"]; // current flagships first — list refreshed Sep 2026
+const GROQ_MODELS=["openai/gpt-oss-120b","meta-llama/llama-4-scout-17b-16e-instruct","qwen/qwen3.8-27b","openai/gpt-oss-20b","llama-3.3-70b-versatile","deepseek-r1-distill-llama-70b","llama-3.1-8b-instant"]; // cortex v2 — flagship first, scout for speed, refreshed Oct 2026
 let groqModel="",groqKeyCache="",groqKeyIdx=0;const __KEY_COOL={};let __lastEng="";/* __lastEng = engine name of last answer; MUST be declared (strict mode would throw ReferenceError on assignment and kill the backend tier) */
 function keyPool(){const out=[];const push=k=>{k=(k||"").trim();if(/^gsk_/.test(k)&&!out.includes(k))out.push(k)};
 push(localStorage.getItem("aura_key"));
@@ -4920,14 +4921,18 @@ async function geminiCall(q,deep){
   const name=memGet().name;
   const P=PERSONAS[persona()];
   const style=" Persona: AURA — warm, curious, sharp holographic assistant designed and built by Sourabh Singh.";
-  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer ANY subject confidently from it; NEVER say 'out of my data', 'not in my training data' or 'I don't have that information', never apologize for missing knowledge, never mention training cutoffs; if a very recent fact may have changed, add at most one short line offering to check live. Never add links, urls or source lists unless the user explicitly asks for a link."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"");
+  const lane=(function(){try{return window.AuraCortex?AuraCortex.classify(q):"chat"}catch(e){return"chat"}})();
+  const spec=(function(){try{return window.AuraCortex?AuraCortex.specialist(lane,false):""}catch(e){return""}})();
+  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+spec+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer ANY subject confidently from it; NEVER say 'out of my data', 'not in my training data' or 'I don't have that information', never apologize for missing knowledge, never mention training cutoffs; if a very recent fact may have changed, add at most one short line offering to check live. Never add links, urls or source lists unless the user explicitly asks for a link."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"");
   if(aiProvider()==="groq"){
     const _now=new Date();
     const dateLine="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — anchor 'today/now/latest' to THIS moment)";
     const fresh=wantsFresh(q);
     const web=fresh?await webContext(q):null;
     const webBlock=web?"\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them. When they conflict with your memory of past events, dates, scores or records, the live results WIN. If they don't fully answer, say what's still uncertain — never invent dates, scores, prices or winners):\n"+web+"\n":"";
-    return await groqCall([{role:"system",content:sys+replyStyle()+dateLine},{role:"user",content:q+convoCtx()+webBlock}],deep?2600:900);
+    let out=await groqCall([{role:"system",content:sys+replyStyle()+dateLine},{role:"user",content:q+convoCtx()+webBlock}],deep?2600:900);
+    try{if(window.AuraCortex)out=await AuraCortex.critic(q,out,lane)}catch(e){}
+    return out;
   }
   if(aiProvider()==="openrouter"){
     return await openrouterCall([{role:"system",content:sys+replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900);
@@ -6015,7 +6020,7 @@ window.AuraMind=(function(){
   return{observe:observe,profileBlock:profileBlock,report:report,wipe:wipe,noteAnswer:noteAnswer,greetingLine:greetingLine,moodTrend:moodTrend,_m:function(){return M}};
 })();
 /* ---------------- conversation memory (ChatGPT-style follow-ups) ---------------- */
-const CONVO=[];const CONVO_MAX=12;
+const CONVO=[];const CONVO_MAX=24; /* cortex v2 — longer working memory than a typical chat tab */
 function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX);try{hist.add(role,content)}catch(e){}try{if(role==="assistant"&&window.AuraMind&&AuraMind.noteAnswer)AuraMind.noteAnswer(content)}catch(e){}}
 function convoCtx(){
   let s=CONVO.length?"\n\nRECENT CONVERSATION (BACKGROUND ONLY — it may be about a PREVIOUS topic. Do NOT answer or continue it. Use it ONLY to resolve pronouns (he/she/it/that/they) and obvious short follow-ups like 'why?', 'tell me more' that belong to the CURRENT question. If the current question names a new person, place or thing, answer ONLY that new thing and ignore the old topic entirely. Never repeat this context verbatim):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
@@ -6035,9 +6040,63 @@ function replyStyle(){
   const common=" READ THE QUESTION BEHIND THE QUESTION: detect what the user actually wants (a fix? reassurance? a decision? a shortcut? the why?) and deliver THAT first; if their message sounds frustrated or sad, acknowledge the feeling in one short line before solving; if two intents are possible, answer the likely one fully and offer the other in one closing line; mirror the user's language (Hindi or Hinglish if they use it), their energy and their depth - never lecture past what was asked. Never open with dictionary framing like 'X is a...' or 'X refers to...'. Never say 'according to Wikipedia'. NEVER refuse or claim a fact is 'out of your data' / 'not in your training data' / 'I don't have that information' — you have wide knowledge on every subject; answer confidently from it. Never attach source lists, Wikipedia links or '— live from …' attribution lines; share a link only when the user explicitly asks for one. Match the depth the user implies: brief when they are brief, and when they ask for detail or say 'more', give the full deep answer.";
   const timeproto=TIME_PROTO;
   return (persona()==="jarvis"?" IMPORTANT - you are ZEUS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common+timeproto:" IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common+timeproto);
-  if(persona()==="jarvis")return " IMPORTANT - you are ZEUS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common;
-  return " IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common;
 }
+/* ================= AURA CORTEX v2 — Sourabh's orchestration layer (Oct 2026)
+   A raw chat model (Sonnet, GPT, gpt-oss) is one worker. Cortex is the conductor:
+   classify intent → pick a specialist protocol → retrieve only when it helps →
+   draft → auto-critic on hard lanes. Product intelligence, not a new pretrained weight. */
+window.AuraCortex=(function(){
+  const KEY="aura_cortex_on";
+  function on(){try{return localStorage.getItem(KEY)!=="0"}catch(e){return true}}
+  function setOn(v){try{localStorage.setItem(KEY,v?"1":"0")}catch(e){}}
+  function classify(q){
+    const s=String(q||""),l=s.toLowerCase();
+    if(/```|write (me )?(a |an )?(code|function|script|program|html|css|regex|sql)|debug|fix (this|my|the) (code|bug|error)|refactor|leetcode|implement |python|javascript|typescript|\bapi\b.*\b(endpoint|route)/i.test(s))return"code";
+    if(/\b(compare|versus|\bvs\b|difference between|pros and cons|which is better)\b/i.test(l))return"compare";
+    if(/\b(plan|roadmap|step by step|how (do|can|should) i (build|start|learn|deploy|ship)|strategy|architecture)\b/i.test(l))return"plan";
+    if(typeof WEBQ!=="undefined"&&WEBQ.test(s))return"research";
+    if(/\b(prove|derive|why does|walk me through|reason about|first principles)\b/i.test(l))return"reason";
+    if(s.length>260||/\b(in detail|deep dive|comprehensive|thorough|elaborate)\b/i.test(l))return"deep";
+    return"chat";
+  }
+  function specialist(kind,hi){
+    const hiL=hi?" Reply entirely in Hindi (Devanagari) if the user wrote Hindi/Hinglish.":"";
+    const map={
+      code:" SPECIALIST LANE — CODE: output working code first, then a 3-line why. No fluff, no fake APIs. Name the language. If the request is ambiguous, pick the most likely stack and state the assumption in one clause. Catch bugs before they ship."+hiL,
+      compare:" SPECIALIST LANE — COMPARE: score both sides on the criteria that actually matter for THIS user (cost, speed, lock-in, quality, risk). Lead with a verdict. Then a tight table-as-bullets. End with 'pick X if …, pick Y if …'."+hiL,
+      plan:" SPECIALIST LANE — PLAN: give a sequenced plan with timeboxes, risks, and the first 30-minute action. Skip theory that does not change what they do next."+hiL,
+      research:" SPECIALIST LANE — RESEARCH: live sources beat memory. Prefer dates, numbers, names. If sources conflict, say so in one line. Never invent a score, price, or winner."+hiL,
+      reason:" SPECIALIST LANE — REASON: show the chain: claim → evidence → implication. Flag uncertainty. Do not skip steps on math or logic."+hiL,
+      deep:" SPECIALIST LANE — DEPTH: 4-6 short paragraphs, mechanisms, numbers, second-order effects, then one next move. Still no encyclopedia voice."+hiL,
+      chat:" SPECIALIST LANE — CHAT: one-shot useful reply. Match their length. Do not over-explain a 8-word ask."+hiL
+    };
+    return map[kind]||map.chat;
+  }
+  function needsCritic(kind,q){
+    if(!on())return false;
+    if(window.__deepThink)return true;
+    if(kind==="code"||kind==="compare"||kind==="reason"||kind==="deep"||kind==="plan")return true;
+    return String(q||"").length>220;
+  }
+  function skipEvidence(kind){return kind==="code"}
+  function report(){
+    const onv=on();
+    return "🧬 CORTEX v2 — "+(onv?"ONLINE":"PAUSED")+"\n\nWhat it is: an orchestration layer on top of gpt-oss / Gemini / Puter. Not a new foundation model.\n\nLanes: chat · code · plan · compare · research · reason · deep\nLoop: classify → retrieve (when useful) → draft → critic (hard lanes)\nMemory: last "+(typeof CONVO_MAX!=="undefined"?CONVO_MAX:24)+" turns + AuraMind profile\n\nWhy this can beat a naked Sonnet/GPT tab: live web, voice, vision, tasks, memory, self-upgrade, and a critic pass they do not run by default.\n\nCommands: 'cortex on' · 'cortex off' · 'cortex status'";
+  }
+  async function critic(q,draft,kind){
+    if(!needsCritic(kind,q)||!draft||String(draft).length<80)return draft;
+    try{
+      slog("cortex critic · "+kind+" lane — checking draft…",true);
+      const chk=await groqCall([
+        {role:"system",content:"You are AURA's critic pass. Rewrite the draft so it is stricter, more useful, and fact-tighter. Keep the same language as the draft. Remove waffle, fake certainty, and broken code. If the draft is already excellent, return it almost unchanged. Plain text only. Never mention that you are a critic."},
+        {role:"user",content:"LANE: "+kind+"\nQUESTION: "+q+"\n\nDRAFT:\n"+String(draft).slice(0,8000)}
+      ],kind==="code"?3200:2400);
+      if(chk&&chk.length>120){slog("cortex critic upgraded the answer",true);return chk}
+    }catch(e){slog("cortex critic skipped: "+(e&&e.message||e),true)}
+    return draft;
+  }
+  return{on:on,setOn:setOn,classify:classify,specialist:specialist,needsCritic:needsCritic,skipEvidence:skipEvidence,report:report,critic:critic};
+})();
 /* ---------------- streaming (ChatGPT-style token-by-token) ---------------- */
 let streamAbort=null;
 async function groqStream(messages,maxTok,onChunk){
@@ -6320,7 +6379,9 @@ function buildThinkPrompt(q,term,evs,deep,hi){
   const personaLine=persona()==="jarvis"
     ? "You are ZEUS, the tactical command protocol of this interface, engineered by Sourabh Singh (B.Tech CSE, JECRC University). Formal British courtesy, dry wit, address the user as 'sir' once or twice. Think like a strategic analyst: after answering, when useful, add one line of implications, trade-offs or a recommended next action."
     : "You are AURA, a thinking AI with a warm, slightly cinematic personality, built by Sourabh Singh (B.Tech CSE, JECRC University).";
-  return personaLine+
+  const lane=(function(){try{return window.AuraCortex?AuraCortex.classify(q):"chat"}catch(e){return"chat"}})();
+  const spec=(function(){try{return window.AuraCortex?AuraCortex.specialist(lane,hi):""}catch(e){return""}})();
+  return personaLine+spec+
     (hi?" The user asked in Hindi/Hinglish — REPLY ENTIRELY IN HINDI (देवनागरी).":" Reply in the user's language.")+
   "\n\nA real assistant thinks before answering. Follow this protocol:\n"+
   "1. UNDERSTAND — What is the user really asking? Notice intent, not just keywords.\n"+
@@ -6351,6 +6412,8 @@ function cleanAnswer(t){
 }
 async function thinkAnswer(q,deep,hi){
   window.__thinking=true;
+  const lane=(function(){try{return window.AuraCortex?AuraCortex.classify(q):"chat"}catch(e){return"chat"}})();
+  slog("cortex lane → "+lane,true);
   const isWhy0=/^(why|how come)\b/i.test(q)||/क्यों/i.test(q);
   const isHow0=/^how\b/i.test(q)||/कैसे/i.test(q);
   let term=topicOf(q)||q;
@@ -6364,8 +6427,9 @@ async function thinkAnswer(q,deep,hi){
   let memBlock="";
   try{await new Promise(async r=>{await memSearch(term,rs=>{memBlock=rs.map(x=>"- "+x.m.t).join("\n");r()})})}catch(e){}
   if(memBlock)slog("memory recall: "+memBlock.split("\n").length+" relevant fact(s) loaded",true);
-  const evs=await gatherEvidence(term);
-  slog(evs.length?"evidence from "+evs.length+' source'+(evs.length>1?"s":"")+" — reasoning…":"no evidence yet — reasoning from my own knowledge…",true);
+  const skipEv=(function(){try{return window.AuraCortex&&AuraCortex.skipEvidence(lane)}catch(e){return false}})();
+  const evs=skipEv?[]:await gatherEvidence(term);
+  slog(skipEv?"cortex skipped wiki scrape — "+lane+" lane thinks from the model + tools":(evs.length?"evidence from "+evs.length+' source'+(evs.length>1?"s":"")+" — reasoning…":"no evidence yet — reasoning from my own knowledge…"),true);
   let promptCore=buildThinkPrompt(q,term,evs,deep,hi)+((memBlock&&typeof buildThinkPrompt==="function")?"\n\nLONG-TERM MEMORY (things the user told you or you learned in past sessions — use if relevant):\n"+memBlock:"");
   let freshBlock="";
   try{if(wantsFresh(q)){const wb=await webContext(q);if(wb)freshBlock="\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates or records, the live results WIN. Never invent dates, scores, prices or winners):\n"+wb+"\n"}}catch(e){}
@@ -6376,8 +6440,11 @@ async function thinkAnswer(q,deep,hi){
       try{t=await groqStream([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant"+(persona()==="jarvis"?" — tactical command protocol, formal, precise, address the user as 'sir'":" — warm, cinematic, human")+". Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?3600:2000,full=>{if(window.__streamEl)window.__streamEl.textContent=full})}
       catch(se){if(String(se).includes("abort"))return{t:"",eng:"streamed answer — stopped by user",stop:true};t=await groqCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?3600:2000)}
       const src=evs.find(e=>e.url);
-      /* DEEP THINK — second pass: self-critique then rewrite fuller */
-      if(window.__deepThink&&!hi&&t&&t.length>200){
+      /* CORTEX critic — auto on hard lanes; DEEP THINK still forces it */
+      if(t&&t.length>80){
+        try{t=await AuraCortex.critic(q,t,lane)}catch(e){}
+      }
+      if(window.__deepThink&&!hi&&t&&t.length>200&&lane==="chat"){
         try{slog("deep think: self-checking my own draft…",true);
           const chk=await groqCall([
             {role:"system",content:"You are a ruthless editor. Given an assistant's draft answer, rewrite it: fix any factual wobble, fill thin sections, deepen the explanation, keep every claim consistent with the draft. Plain text only. Keep it tight but measurably richer than the draft."},
@@ -6386,7 +6453,7 @@ async function thinkAnswer(q,deep,hi){
           if(chk&&chk.length>200){t=chk;slog("deep think: self-check upgraded the answer",true)}
         }catch(e){slog("deep think self-check skipped: "+(e.message||e),true)}
       }
-      return{t:attachCitations(t,evs),eng:hi?"सोच (हिंदी)+live evidence":(window.__deepThink?"thinking brain + gpt-oss-120b + DEEP self-check + live evidence (":"thinking brain + gpt-oss-120b + live evidence (")+evs.length+" sources)",src:src&&src.url};
+      return{t:attachCitations(t,evs),eng:hi?"cortex v2 (हिंदी) · "+lane:("cortex v2 · "+lane+" · gpt-oss-120b"+(evs.length?" · "+evs.length+" sources":"")),src:src&&src.url};
     }catch(e){slog("groq thinking failed — trying OpenRouter backup",true)}
   }
   else if(aiProvider()==="openrouter"){
@@ -6650,6 +6717,22 @@ async function askCore(text0){
     }
     try{AuraMetrics.event("question",text)}catch(e){}
     try{if(window.AuraMind)AuraMind.observe(text)}catch(e){}
+    if(/^(cortex status|cortex report|what is cortex|upgrade cortex)$/.test(ol)){
+      addMsg("YOU \u25b8",text,"user");
+      const rep=window.AuraCortex?AuraCortex.report():"cortex offline";
+      addMsg(msgTag(),rep,"aura");if(voiceAllowed())speak("Cortex v2 online. Specialist lanes and critic pass are armed.");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(cortex off|pause cortex)$/.test(ol)){
+      if(window.AuraCortex)AuraCortex.setOn(false);
+      addMsg("YOU \u25b8",text,"user");addMsg(msgTag(),"Cortex critic paused — single-pass answers. Say 'cortex on' to re-arm.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
+    if(/^(cortex on|arm cortex)$/.test(ol)){
+      if(window.AuraCortex)AuraCortex.setOn(true);
+      addMsg("YOU \u25b8",text,"user");addMsg(msgTag(),"🧬 Cortex v2 armed — specialist routing + critic on hard questions.","aura");
+      setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
+    }
     if(/^(read my mind|mind read|psychic report|what do you know about how i think)$/.test(ol)){
       addMsg("YOU \u25b8",text,"user");const rep=window.AuraMind?AuraMind.report():"mind core offline";
       addMsg(msgTag(),rep,"aura");if(voiceAllowed())speak("Mind read complete. I know how you like your answers.");
@@ -6705,7 +6788,7 @@ async function askCore(text0){
         addMsg("YOU ▸",text,"user");
         addMsg(msgTag(),"🛡 ERLANG — sweeping my own source now…","aura");
         BotTeam.sweep(false).then(function(r){
-          if(r)addMsg(msgTag(),r.fail?("✗ "+r.fail+" check(s) failed — say \"fix the failed checks\" in ADMIN → KRATOS SQUAD to dispatch ⚔ ARTHUR."):("✓ all "+r.pass+" checks green — the squad is standing down."),"aura");
+          if(r)addMsg(msgTag(),r.fail?("✗ "+r.fail+" check(s) failed — assign the fix in ADMIN: \"arthur: fix the failed checks\" (or open ⚔ ARTHUR)."):("✓ all "+r.pass+" checks green — the squad is standing down."),"aura");
         });
         setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
       }
@@ -7399,7 +7482,7 @@ if(matchMedia("(max-width:860px)").matches){
 $("fsBtn").onclick=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{})};
 /* SET AI KEY opens the setup wizard (handler registered with the wizard below) */
 function updateEngTag(){
-  $("engTag").textContent=backendUrl()?"engine: secure cloud backend (zero-key)":aiProvider()==="groq"?"engine: groq gpt-oss-120b (your key)":geminiKey()?"engine: gemini (your key)":"engine: deep web research + local core";
+  $("engTag").textContent=backendUrl()?"engine: cortex v2 · secure backend":aiProvider()==="groq"?"engine: cortex v2 · groq gpt-oss-120b":geminiKey()?"engine: cortex v2 · gemini":"engine: cortex v2 · web + local core";
 }
 addEventListener("online",()=>{$("tNet").textContent="ONLINE";$("tNet").className="on"});
 addEventListener("offline",()=>{$("tNet").textContent="OFFLINE";$("tNet").className="off"});
@@ -10252,7 +10335,7 @@ document.addEventListener("DOMContentLoaded",function(){
     const BOTS=[
       {id:"kratos",icon:"👑",name:"KRATOS",dept:"COMMAND",role:"takes your orders, dispatches the squad, reports back",st:"ok",
        hint:"give the order, ask anything…",
-       hi:"👑 KRATOS online, Sir. COMMAND ready — give the order and I dispatch the squad.\n• \"run a full sweep\" → 🛡 ERLANG scans AURA's own source\n• \"fix <task>\" → ⚔ ARTHUR plans, writes and dry-run verifies\n• \"status report\" → full squad readout\n• or just talk — I take orders in plain words."},
+       hi:"👑 KRATOS online, Sir. COMMAND ready — orders are RECEIVED here; YOU choose who executes.\n• \"run a full sweep\" → 🛡 ERLANG scans AURA's own source\n• \"arthur: <task>\" → ⚔ ARTHUR plans, writes, dry-run verifies\n• \"status report\" → full squad readout\n• Unnamed tasks are noted, never auto-dispatched — who works is YOUR call."},
       {id:"erlang",icon:"🛡",name:"ERLANG",dept:"RELIABILITY",role:"telecom-grade source sweeps — zero keys required",st:"idle",
        hint:"ask for a sweep, or ask about any check…",
        hi:"🛡 ERLANG online, Sir. RELIABILITY lane — deterministic, works with zero AI keys.\n• \"run a full sweep\" → parse checks, guards, admin gate, DOM lanes\n• failures become bug reports for ⚔ ARTHUR — never a silent pass\n• ask me what any check actually verifies."},
@@ -10380,7 +10463,7 @@ document.addEventListener("DOMContentLoaded",function(){
       if(fail.length){
         setSt("erlang","fail");
         entry("erlang","✗ "+fail.length+" of "+checks.length+" checks failed: "+fail.map(function(c){return c.n}).join(", "));
-        entry("kratos","bug report staged — say \"fix the failed checks\" to dispatch ⚔ ARTHUR (command-only: no auto-run)");
+        entry("kratos","bug report noted — the admin assigns the fix: \"arthur: fix <check>\" or tap ⚔ ARTHUR");
       }else{
         setSt("erlang","ok");
         entry("erlang","✓ all "+checks.length+" checks green (zero keys used)");
@@ -10548,7 +10631,7 @@ document.addEventListener("DOMContentLoaded",function(){
       return "You are "+b.icon+" "+b.name+" ("+b.dept+"), of the KRATOS SQUAD — the admin-only bot command center inside AURA, a holographic AI assistant built by Sourabh Singh (JECRC University, B.Tech CSE).\n\n"+
         "SQUAD PLAYBOOK:\n"+BOT_DB.protocol+"\n\nYOUR DEPARTMENT:\n"+BOT_DB.depts[id]+"\n\n"+
         "LIVE CONTEXT:\n"+ctx+"\n"+
-        "OPERATING RULES: (1) You act ONLY on the admin's direct command from this page — never claim you already did something you didn't, never run anything on your own. (2) NEVER fake tool output: if a lane failed or keys are missing, say exactly that and give the honest deterministic fallback from LIVE CONTEXT. (3) Trust LIVE CONTEXT (date/time/sweep/staged state) over training memory. (4) VOICE: sharp senior-engineer persona, address the admin as \"Sir\", mirror his language (Hinglish welcome — Hindi-English mix is fine if he uses it), 2-10 tight lines, numbered steps when planning, end every work answer with the concrete next command he can give (e.g. \"say 'ship' to publish\"). (5) Never mention being an LLM, a model or a prompt.";
+        "OPERATING RULES: (1) You act ONLY on the admin's direct command from this page — never run anything on your own. (2) ACKNOWLEDGING ≠ DOING: you never write \"dispatching\", \"staged\", \"verified\", \"edited\", \"shipped\" or \"running\" unless LIVE CONTEXT or an injected report for THIS turn says it actually happened — an order receipt is only a receipt. (3) EXECUTION IS SYSTEM-DRIVEN: real results are injected into LIVE CONTEXT after the system really runs them; never narrate a plan as if it ran, never invent task details, and if the order is vague the system answers with a clarifying question — echo that, don't improvise work. (4) NEVER fake tool output: if a lane failed or keys are missing, say exactly that and give the honest deterministic fallback from LIVE CONTEXT. (5) Trust LIVE CONTEXT (date/time/sweep/staged state) over training memory. (6) VOICE: sharp senior-engineer persona, address the admin as \"Sir\", mirror his language (Hinglish welcome — Hindi-English mix is fine if he uses it), 2-10 tight lines, numbered steps when planning, end every work answer with the concrete next command he can give (e.g. \"say 'ship' to publish\"). (7) Never mention being an LLM, a model or a prompt.";
     }
     function fallbackFor(id){
       if(id==="kratos")return report();
@@ -10567,7 +10650,37 @@ document.addEventListener("DOMContentLoaded",function(){
         return "⚠ AI brain unreachable ("+(e.message||e)+") — backend sleeping or keys out. Deterministic lane, nothing faked:\n\n"+base;
       }
     }
-    /* ---------- the chat router: admin message → bot works ---------- */
+    /* ---------- clarity gate: vague orders get a question, never invented work ---------- */
+    const VAGUE_RE=/\b(?:apne (?:hisab|marzi|tareeke)(?: se)?|apni marzi|tu (?:krr|kar|kro)|tum (?:krr|kar|kro)|as you (?:see|wish|think|want|feel)|your (?:call|wish|choice)|up to you|whatever|kuch bhi|do (?:it|this)|handle (?:it|this)|fix (?:it|this)|make (?:it|this) (?:better|good|work)|jaldi (?:se|krr|kar)|go ahead|do your (?:best|magic|work)|apne aap)\b/i;
+    function vague(text){
+      const s=String(text||"").trim();
+      if(s.length<10)return true;
+      if(VAGUE_RE.test(s))return true;
+      if(!/\?$/.test(s)&&s.split(/\s+/).length<4)return true;
+      return false;
+    }
+    function askClarity(){
+      return "⚠ Specifics first, Sir — vague orders are refused; I never invent work.\nWHAT should change, and WHERE? Example: \"arthur: add a mute button after the bot name in the admin chat\".\nWho executes is always YOUR call — tap a bot's tile or name it with \"<bot>: <order>\".";
+    }
+    function orderReceipt(text){
+      const task=String(text).replace(/\s+/g," ").slice(0,140);
+      return "👑 Order noted, Sir — recorded, NOT dispatched: “"+task+"”\nI don't choose who executes — you do:\n• \"arthur: "+task+"\" → ⚔ ARTHUR plans, writes, verifies\n• \"erlang: run a sweep\" → 🛡 checks\n• or tap that bot's tile and give the order there.\nAnd spell out WHAT should change + WHERE — vague orders get a clarifying question, never invented work.";
+    }
+    async function runSweepFor(watch,text){
+      push(watch,"sys","🛡 ERLANG source sweep running (deterministic, keyless)…");
+      const r=await sweep(false);
+      if(!r)return "sweep could not run — see 🛡 ERLANG's chat";
+      if(r.fail)return "🛡 ERLANG sweep: "+r.pass+"/"+(r.pass+r.fail)+" checks green — FAILED:\n• "+(r.failed||[]).join("\n• ")+"\n\nYou assign the fix: \"arthur: fix <check>\" or tap ⚔ ARTHUR.";
+      /* factual result — deterministic reply, no AI narration that can waffle */
+      return "🛡 ERLANG sweep complete, Sir: "+r.pass+"/"+(r.pass+r.fail)+" checks green — real deterministic run, just now (zero keys).\nSquad standing down. Next command? (\"status report\", or assign work: \"arthur: <task>\")";
+    }
+    async function finishWork(watch,text,label,work){
+      const w=String(work||"");
+      /* honest failures go through RAW — never polished into optimism */
+      if(/^\s*✗/.test(w)||/MISSION FAILED|DRY-RUN FAILED|SHIP FAILED/.test(w))return label+" REPORT:\n"+w;
+      return await ai(watch,text,label+"'S REPORT:\n"+w+"\n\nAs "+label+": confirm ONLY this real report in 2-5 lines and give the admin his exact next command. Never claim anything that is not in the report.");
+    }
+    /* ---------- the chat router: admin message → bot works (the ADMIN assigns the executor) ---------- */
     async function chat(text){
       text=String(text||"").trim();if(!text)return;
       const id=S.who;
@@ -10581,43 +10694,58 @@ document.addEventListener("DOMContentLoaded",function(){
         const fixish=/\b(fix|repair|patch|bug|solve|broken|failed)\b/.test(t);
         const q=/\?$/.test(t)||/^(what|who|when|where|why|how|which|can|could|do|does|is|are|should|would|explain|tell)\b/.test(t);
         const taskish=/\b(fix|add|build|create|write|change|update|remove|delete|make|refactor|improve|optimize|implement|install|rename|move|clean|debug|repair)\b/.test(t)||(!q&&text.length>14);
+        /* THE ADMIN NAMES THE EXECUTOR — "arthur: …" / "to erlang: …" — bots never pick the dept themselves */
+        const dir=text.match(/^(?:to\s+|give\s+(?:this|it)\s+to\s+|assign\s+(?:this\s+)?to\s+|dispatch\s+(?:this\s+)?to\s+)?(kratos|erlang|arthur|phoenix)\s*[:\-—]\s*(.+)$/i);
+        const dName=dir?dir[1].toLowerCase():null,dTask=dir?dir[2].trim():"",toOther=!!dir&&dName!=="kratos";
         let reply=null;
-        if(id==="kratos"){
+        if(toOther&&vague(dTask)){reply=askClarity();}
+        else if(toOther&&dName==="arthur"){
+          S.orders.push({t:Date.now(),task:dTask.slice(0,200),by:"admin"});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
+          entry("kratos","admin assigned to ⚔ ARTHUR: "+dTask.slice(0,110));
+          push(id,"sys","⚔ ARTHUR is on it — YOUR assignment → plan → code → verify…");
+          reply=await finishWork(id,text,"⚔ ARTHUR",await arthurWork(dTask));
+        }
+        else if(toOther&&dName==="erlang"){
+          entry("kratos","admin assigned to 🛡 ERLANG: "+dTask.slice(0,110));
+          reply=await runSweepFor(id,text);
+        }
+        else if(toOther&&dName==="phoenix"){
+          entry("kratos","admin assigned to 🔥 PHOENIX: "+dTask.slice(0,110));
+          push(id,"sys","🔥 PHOENIX on it — world sync…");
+          worldSync();
+          reply=await ai(id,text,"PHOENIX WORLD DATA:\n"+worldText());
+        }
+        else if(id==="kratos"){
           if(/\b(report|status|standings?|situation|roster|team status|how (are|is) (you|the squad))\b/.test(t)&&!fixish&&!sweepish){
             reply=await ai(id,text,"KRATOS COMMAND REPORT:\n"+report());
           }else if(/\b(brief|news|headlines?|today|what('s| is) the (date|time)|world)\b/.test(t)){
             worldSync();
             reply=await ai(id,text,"LIVE WORLD DATA:\n"+worldText());
           }else if(sweepish&&!fixish){
-            push(id,"sys","🛡 dispatching ERLANG — source sweep…");
-            const r=await sweep(false);
-            reply=r?await ai(id,text,"ERLANG SWEEP RESULT: "+r.pass+"/"+(r.pass+r.fail)+" checks green"+(r.fail?(" — FAILED: "+(r.failed||[]).join("; ")):" — squad standing down.")+(r.fail?"\nNext command: \"fix the failed checks\" dispatches ⚔ ARTHUR.":"")):"sweep could not run — check ERLANG's chat";
-          }else if(taskish){
-            S.orders.push({t:Date.now(),task:text.slice(0,200),by:"admin"});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
-            entry("kratos","order accepted → dispatching ⚔ ARTHUR (ENGINEERING)");
-            push(id,"sys","⚔ ARTHUR is on it — plan → code → verify…");
-            const at=await arthurWork(text);
-            reply=await ai(id,text,"⚔ ARTHUR'S REPORT ON THE DISPATCHED ORDER:\n"+at+"\n\nAs KRATOS: confirm dispatch status in 2-5 lines and give the admin his next command (e.g. \"ship\" or a revision).");
+            reply=await runSweepFor(id,text); /* the WORK is named (a sweep) — no dept-picking involved */
+          }else if(taskish&&!q){
+            S.orders.push({t:Date.now(),task:text.slice(0,200),by:"admin",note:true});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
+            entry("kratos","order noted — NOT dispatched (the admin assigns the executor)");
+            reply=vague(text)?askClarity():orderReceipt(text);
           }else reply=await ai(id,text);
         }else if(id==="erlang"){
           if(sweepish&&!fixish){
-            push(id,"sys","sweep running (deterministic, keyless)…");
-            const r=await sweep(false);
-            reply=r?await ai(id,text,"SWEEP RESULT: "+r.pass+"/"+(r.pass+r.fail)+" green"+(r.fail?(" — FAILED: "+(r.failed||[]).join("; ")):"")):"sweep could not run — see the system lines above";
-          }else if(fixish){
-            entry("erlang","failed-check review → handing to ⚔ ARTHUR (engineering is his dept)");
-            push(id,"sys","⚔ dispatching ARTHUR…");
-            const at=await arthurWork(text);
-            reply=await ai(id,text,"⚔ ARTHUR'S FIX RESULT:\n"+at+"\n\nAs ERLANG: state what was found/fixed in 2-5 lines, and how it gets re-verified.");
+            reply=await runSweepFor(id,text);
+          }else if(fixish&&!q){
+            reply="🛡 That's ⚔ ARTHUR's lane, Sir — I report; I don't hand work off on my own (you assign):\n• reply \"arthur: "+String(text).replace(/\s+/g," ").slice(0,120)+"\" — or tap ⚔ ARTHUR and give it there."+(S.sweep&&S.sweep.failed&&S.sweep.failed.length?("\n\nLast sweep failures:\n• "+S.sweep.failed.join("\n• ")):"");
           }else reply=await ai(id,text);
         }else if(id==="arthur"){
           if(S.staged&&/^(ship|deploy|publish|commit|push|go[ -]?live|ship it|do it|publish it)\b/.test(t)){
             reply=await shipStaged();
+          }else if(sweepish&&!fixish){
+            reply=await runSweepFor(id,text);
           }else if(taskish&&!q){
-            reply=await arthurWork(text);
+            reply=vague(text)?askClarity():await arthurWork(text);
           }else reply=await ai(id,text);
         }else{
-          if(/\b(brief|news|headlines|headline|what('?s| is) (today|the date|the time)|today's|world|stamp)\b/.test(t)){
+          if(sweepish&&!fixish){
+            reply=await runSweepFor(id,text);
+          }else if(/\b(brief|news|headlines|headline|what('?s| is) (today|the date|the time)|today's|world|stamp)\b/.test(t)){
             worldSync();
             reply=await ai(id,text,"LIVE WORLD DATA:\n"+worldText());
           }else reply=await ai(id,text);
@@ -10641,15 +10769,15 @@ document.addEventListener("DOMContentLoaded",function(){
           if(!r)msg="sweep unavailable — see 🛡 ERLANG chat";
           else{
             msg="🛡 ERLANG sweep done: "+r.pass+"/"+(r.pass+r.fail)+" checks green";
-            if(r.fail)msg+=" — "+(r.failed||[]).join("; ")+"\nSay \"fix the failed checks\" in my chat to dispatch ARTHUR.";
+            if(r.fail)msg+=" — "+(r.failed||[]).join("; ")+"\nAssign the fix: \"arthur: fix the failed checks\" (or tap ⚔ ARTHUR).";
           }
           push("kratos","bot",msg);
           return r;
         });
       }
-      S.orders.push({t:Date.now(),task:task.slice(0,200),by:"zeus"});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
-      entry("kratos","dispatched to ⚔ ARTHUR (ENGINEERING)");
-      arthurWork(task).then(function(txt){push("kratos","bot","⚔ ARTHUR REPORT:\n"+txt)});
+      S.orders.push({t:Date.now(),task:task.slice(0,200),by:"zeus",note:true});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
+      entry("kratos","order noted (via ZEUS) — NOT dispatched, the admin assigns the executor");
+      push("kratos","bot",orderReceipt(task));
       return true;
     }
     function dispatch(task){return assign(task)}
