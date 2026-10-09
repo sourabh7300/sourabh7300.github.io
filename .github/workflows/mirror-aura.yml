@@ -1,0 +1,77 @@
+name: Mirror AURA build → root site
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "3,18,33,48 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+  pages: write
+
+concurrency:
+  group: mirror-aura
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latest AURA build (aura repo is source of truth)
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 5 --max-time 120 -o fetched.html \
+            https://raw.githubusercontent.com/sourabh7300/aura/main/aura.html
+          size=$(wc -c < fetched.html)
+          echo "fetched $size bytes"
+          [ "$size" -gt 100000 ] || { echo "::error::truncated download ($size bytes)"; exit 1; }
+          tail -c 4096 fetched.html | grep -qi '</html>' || { echo "::error::incomplete HTML document"; exit 1; }
+
+      - name: Mirror commit when different
+        id: mirror
+        run: |
+          set -euo pipefail
+          if cmp -s fetched.html aura.html; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "root site already serves the latest AURA build"
+          else
+            mv fetched.html aura.html
+            git config user.name "aura-mirror[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add aura.html
+            git commit -m "Mirror AURA build: auto-sync $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "mirror commit pushed"
+          fi
+
+      - name: Rebuild Pages + verify live site
+        if: steps.mirror.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          want=$(sha256sum aura.html | cut -d' ' -f1)
+          # Pushes made with GITHUB_TOKEN do not fire the Pages build workflow —
+          # request a build explicitly (legacy API + workflow dispatch), then poll.
+          code1=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/builds" || echo 000)
+          code2=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            -d '{"ref":"main"}' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/pages-build-deployment/dispatches" || echo 000)
+          echo "pages build API: $code1, pages workflow dispatch: $code2"
+          for i in $(seq 1 30); do
+            sleep 10
+            live=$(curl -fsSL --max-time 30 "https://sourabh7300.github.io/aura.html" | sha256sum | cut -d' ' -f1 || echo none)
+            echo "poll $i: live=$live want=$want"
+            if [ "$live" = "$want" ]; then echo "✓ live site verified"; exit 0; fi
+          done
+          echo "::error::live site did not update within 5 minutes"
+          exit 1
