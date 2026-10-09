@@ -10303,8 +10303,9 @@ document.addEventListener("DOMContentLoaded",function(){
       const inp=$("botChatIn");if(inp)inp.placeholder="Talk to "+b.name+" — "+b.hint;
       log.innerHTML="";
       const arr=S.chats[S.who]||[];
-      if(!arr.length){log.appendChild(bubbleEl({who:"bot",m:b.hi}));}
-      else arr.forEach(function(m){log.appendChild(bubbleEl(m))});
+      const talked=arr.some(function(m){return m.who!=="sys"});
+      arr.forEach(function(m){log.appendChild(bubbleEl(m))});
+      if(!talked)log.appendChild(bubbleEl({who:"bot",m:b.hi}));
       paintTyping();
       log.scrollTop=log.scrollHeight;
     }
