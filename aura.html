@@ -2716,102 +2716,52 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
 </div>
 
 <div id="adminPage">
-  <p class="sub" style="font:400 12.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--m);margin:-4px 0 12px">Admin only. Changes apply to everyone.</p>
-  <div class="admin-card" style="border-color:rgba(251,191,36,.35)">
-    <h4>⚡ LIVE TELEMETRY</h4>
-    <div class="admin-grid">
-      <div class="admin-stat" id="adStatAnswers">0<small>ANSWERS SERVED</small></div>
-      <div class="admin-stat" id="adStatUsers">0<small>SIGNED-IN PEOPLE</small></div>
-      <div class="admin-stat" id="adStatAdmins">0<small>STAFF (MAKER/CEO)</small></div>
-    </div>
-    <small style="color:var(--dim);font-size:10.5px">Counts come from the backend database — the same numbers the server enforces. <span id="adUsageHint" style="color:var(--cy2)"></span></small>
-  </div>
-  <div class="admin-card">
-    <h4>🔑 KEY BANK <span id="kbDay" style="color:var(--dim);font-weight:400"></span></h4>
-    <div id="kbBody"><small style="color:var(--dim)">loading…</small></div>
-    <button class="auth-btn" id="kbRefresh" style="background:linear-gradient(135deg,#22d3ee,#0ea5e9);color:#04222b">REFRESH LEDGER</button>
-    <small style="color:var(--dim);font-size:10.5px">Every real AI call — chat, brain, agent, vision — is recorded here: which key burned and who caused it.</small>
-  </div>
-  <div class="admin-card">
-    <h4>🧠 ENGINE &amp; BRAND (live database)</h4>
-    <input id="adCfgEngine" placeholder="Engine label, e.g. llama-3.3-70b via Groq">
-    <input id="adCfgBrand" placeholder="Brand line, e.g. voice + code AI assistant">
-    <textarea id="adCfgAnnounce" placeholder="Announcement shown once to every user…"></textarea>
-    <button class="auth-btn" id="adCfgSave" style="background:linear-gradient(135deg,#fbbf24,#d97706);color:#1f1500">SAVE TO DATABASE</button>
-    <small id="adCfgMsg" style="color:var(--dim);font-size:10.5px">Saved values appear for every visitor within seconds.</small>
-  </div>
-  <div class="admin-card">
-    <h4>👥 PEOPLE <span id="adUsersHint" style="color:var(--dim);font-weight:400"></span></h4>
-    <div id="adUsersList"><small style="color:var(--dim)">loading…</small></div>
-  </div>
-  <div class="admin-card" id="botsCard" style="border-color:rgba(34,211,238,.45)">
-    <h4>⚡ KRATOS SQUAD <span style="color:var(--dim);font-weight:400">— 👑 KRATOS (head) · ERLANG · ARTHUR · PHOENIX · admin only</span></h4>
-    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:10px">Mythos-trained squad, four departments: <b style="color:var(--cy2)">👑 KRATOS</b> <i>COMMAND</i> — takes your orders, dispatches the depts, reports back; <b style="color:var(--cy2)">🛡 ERLANG</b> <i>RELIABILITY</i> — telecom-grade sweeps of her own source, deterministic so it works with zero keys; <b style="color:var(--cy2)">⚔ ARTHUR</b> <i>ENGINEERING</i> — plans, writes and dry-run verifies repairs on the admin KEY BANK tiers, falls back to an honest keyless plan, nothing ships without your approval; <b style="color:var(--cy2)">🔥 PHOENIX</b> <i>KNOWLEDGE</i> — keeps the squad training database stamped with real-world time, dates and live briefs. Assign their next work below — every AI call is recorded in the KEY BANK ledger.</p>
+  <p class="sub" style="font:400 12.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--m);margin:-4px 0 12px">Admin only — the squad moves when you command it, never on its own.</p>
+  <div class="admin-card" id="botsCard" style="border-color:rgba(34,211,238,.45);display:flex;flex-direction:column;gap:10px;min-height:0">
+    <h4>⚡ KRATOS SQUAD <span style="color:var(--dim);font-weight:400">— 👑 KRATOS · 🛡 ERLANG · ⚔ ARTHUR · 🔥 PHOENIX · talk to them like ZEUS</span></h4>
+    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin:0">Pick a bot below, then just talk — give orders, ask questions, assign real work. They act <b style="color:var(--cy2)">only on commands from this admin account</b>; until you command them, they stand down.</p>
     <div class="bot-grid" id="botRoster"></div>
-    <textarea id="botOrder" placeholder="Tell the team their next work — e.g. Run a full test sweep · Fix whatever the last sweep found · Add a welcome banner to the landing gate"></textarea>
-    <div class="suRow" style="margin-top:8px">
-      <button class="suBtn go" id="botAssignBtn">👑 ASSIGN TO SQUAD</button>
-      <button class="suBtn" id="botTestBtn">🛡 RUN TEST SWEEP</button>
-      <button class="suBtn" id="botReportBtn">📋 HEAD REPORT</button>
-      <button class="suBtn" id="botAutoBtn" style="margin-left:auto">⏱ AUTO: ON</button>
+    <div id="botHead"><span id="botWho">👑 KRATOS</span><span id="botDept">COMMAND</span><span id="botState">standing by for your command</span></div>
+    <div id="botChatLog" role="log" aria-live="polite"></div>
+    <div id="botChips">
+      <button class="bot-chip">run a full sweep</button>
+      <button class="bot-chip">status report</button>
+      <button class="bot-chip">what can you do?</button>
+      <button class="bot-chip">today's brief</button>
+      <button class="bot-chip">fix the last failed checks</button>
     </div>
-    <div id="botReportOut"></div>
-    <div id="botLog"></div>
+    <div id="botRow">
+      <input id="botChatIn" autocomplete="off" spellcheck="false" placeholder="Talk to KRATOS — give the order, ask anything…">
+      <button id="botChatSend" title="Send command">▸ SEND</button>
+    </div>
     <style>
-      .bot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:8px;margin:10px 0}
-      .bot-tile{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:rgba(2,10,16,.45);display:flex;flex-direction:column;gap:3px;transition:border-color .2s ease-out,box-shadow .2s ease-out}
-      .bot-tile:hover{border-color:rgba(34,211,238,.4);box-shadow:0 0 14px rgba(34,211,238,.12)}
-      .bot-tile b{font:600 11.5px Rajdhani;letter-spacing:1.5px;color:var(--cy2)}
-      .bot-tile small{font-size:10px;color:var(--dim);line-height:1.4}
-      .bot-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle;background:#6b7280}
-      .bot-dot.running{background:#5CE1FF;box-shadow:0 0 8px #5CE1FF;animation:pp 1.1s infinite}
-      .bot-dot.ok{background:#34d399;box-shadow:0 0 6px rgba(52,211,153,.7)}
-      .bot-dot.fail{background:#f87171;box-shadow:0 0 6px rgba(248,113,113,.7)}
-      .bot-dot.order{background:#fbbf24;box-shadow:0 0 6px rgba(251,191,36,.7)}
-      #botOrder{width:100%;min-height:58px;background:rgba(2,10,16,.5);border:1px solid var(--line);border-radius:10px;color:var(--ice);font:12.5px Rajdhani;padding:10px;resize:vertical;box-sizing:border-box}
-      #botReportOut{display:none;white-space:pre-wrap;border:1px solid rgba(34,211,238,.35);border-radius:10px;padding:10px;margin-top:10px;font:11.5px ui-monospace,monospace;color:var(--ice);max-height:260px;overflow:auto}
-      #botLog{margin-top:10px;max-height:200px;overflow:auto;background:rgba(2,10,16,.55);border:1px solid var(--line);border-radius:10px;padding:10px;font:11px ui-monospace,monospace;display:flex;flex-direction:column;gap:3px}
-      #botLog .bl-fail{color:#f87171}#botLog .bl-ok{color:#34d399}#botLog .bl-dim{color:var(--dim)}
+      #botHead{display:flex;align-items:center;gap:10px;padding:7px 11px;border:1px solid rgba(34,211,238,.35);border-radius:9px;background:rgba(34,211,238,.06);font:600 11px Rajdhani;letter-spacing:1.2px}
+      #botWho{color:var(--cy2);font-size:13px}
+      #botDept{color:var(--dim);font-size:10px}
+      #botState{margin-left:auto;color:var(--dim);font:10.5px 'JetBrains Mono',monospace;letter-spacing:.5px}
+      #botChatLog{display:flex;flex-direction:column;gap:8px;min-height:180px;max-height:48vh;overflow:auto;background:rgba(2,10,16,.55);border:1px solid var(--line);border-radius:10px;padding:12px}
+      .bmsg{max-width:86%;font-size:12.5px;line-height:1.6;padding:8px 11px;border-radius:10px;white-space:pre-wrap;word-break:break-word;animation:bmin .25s ease-out}
+      @keyframes bmin{from{opacity:0;transform:translateY(4px)}}
+      .bmsg.me{align-self:flex-end;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.4);color:var(--ice)}
+      .bmsg.bot{align-self:flex-start;background:rgba(3,12,18,.85);border:1px solid rgba(34,211,238,.28);color:var(--ice)}
+      .bmsg.sys{align-self:center;max-width:96%;font:10.5px 'JetBrains Mono',monospace;color:var(--dim);background:none;border:0;padding:2px 4px;text-align:center}
+      .bmsg .who{display:block;font:600 9.5px Rajdhani;letter-spacing:1.6px;color:var(--cy2);margin-bottom:3px}
+      .bmsg.me .who{color:var(--dim)}
+      .bmsg .dots i{display:inline-block;width:5px;height:5px;margin-right:4px;border-radius:50%;background:var(--cy2);animation:pp 1s infinite}
+      .bmsg .dots i:nth-child(2){animation-delay:.15s}
+      .bmsg .dots i:nth-child(3){animation-delay:.3s}
+      #botChips{display:flex;gap:6px;flex-wrap:wrap}
+      .bot-chip{font:10.5px Rajdhani;letter-spacing:.6px;color:var(--dim);border:1px solid var(--line);border-radius:99px;padding:5px 11px;background:rgba(2,10,16,.4);cursor:pointer;transition:.18s}
+      .bot-chip:hover{color:var(--cy2);border-color:rgba(34,211,238,.5)}
+      #botRow{display:flex;gap:8px}
+      #botChatIn{flex:1;min-width:0;background:rgba(2,10,16,.5);border:1px solid var(--line);border-radius:10px;color:var(--ice);font:12.5px Rajdhani;padding:11px 12px}
+      #botChatIn:focus{outline:none;border-color:rgba(34,211,238,.55)}
+      #botChatSend{font:600 11px Rajdhani;letter-spacing:1px;padding:0 18px;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#0ea5e9);color:#04222b;border:0;cursor:pointer}
+      #botChatSend:disabled{opacity:.5;cursor:wait}
+      .bot-tile{cursor:pointer}
+      .bot-tile.sel{border-color:rgba(34,211,238,.75);box-shadow:0 0 14px rgba(34,211,238,.22);background:rgba(34,211,238,.08)}
+      @media(max-width:700px){#botChatLog{max-height:40vh}.bmsg{max-width:94%}}
     </style>
-  </div>
-  <div class="admin-card" id="suCard" style="border-color:rgba(120,101,233,.4);display:none">
-    <h4>🧬 SELF-INTEGRATION <span style="color:var(--dim);font-weight:400">— AURA upgrades herself</span></h4>
-    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:10px">Describe any change in plain words — a new feature, a design tweak, a fix. AURA plans it, writes the code, shows you a live preview, and can ship it to the real site with your approval. You stay the publisher; she stays the engineer.</p>
-    <div id="suBox">
-      <div id="suGhBar"><span id="suGhDot" style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span><span id="suGhText">checking GitHub connection…</span><button class="suBtn" id="suModeBtn" style="margin-left:auto;padding:4px 10px;font-size:10px;background:rgba(120,101,233,.35)">SOURCE EDIT: ON</button><button class="suBtn" id="suHealthBtn" style="padding:4px 10px;font-size:10px;margin-left:6px">SHIP HEALTH</button></div>
-      <h4><span class="live-dot"></span> BUILD CONSOLE</h4>
-      <textarea id="suPrompt" placeholder="e.g. Add a dark/light quick-toggle in the top bar · Make the mic button pulse green while listening · Add a 'copy chat' button under every answer"></textarea>
-      <div class="suRow">
-        <button class="suBtn" id="suPlanBtn">◈ 1 · PLAN</button>
-        <button class="suBtn" id="suBuildBtn" disabled>⚙ 2 · BUILD &amp; PREVIEW</button>
-        <button class="suBtn go" id="suShipBtn" disabled>🚀 3 · SHIP LIVE</button>
-      </div>
-      <div id="suPlan"></div>
-      <div id="suDiff"><header><b style="color:var(--cy2)">CODE SHE WROTE</b><span style="margin-left:auto" id="suDiffMeta"></span></header><pre id="suDiffCode"></pre></div>
-      <div id="suPrev"><header style="padding:8px 12px;background:rgba(2,10,16,.6);font:600 11px 'Rajdhani';letter-spacing:1px;color:var(--dim)">LIVE PREVIEW — this is your real page with her change applied</header><iframe id="suPrevFrame" title="self-upgrade preview"></iframe></div>
-      <div id="suStatus"></div>
-      <div id="suHist" style="display:none;margin-top:14px;border:1px solid rgba(120,101,233,.35);border-radius:10px;padding:10px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><b style="font:600 10px Rajdhani;letter-spacing:1px;color:var(--cy2)">📜 HER UPGRADE HISTORY</b><span style="margin-left:auto;font:10px Rajdhani;color:var(--dim)" id="suHistMeta"></span><button class="suBtn" id="suHistBtn" style="padding:3px 8px;font-size:9px">REFRESH</button></div>
-        <div id="suHistList" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto"></div>
-      </div>
-      <style>#suGhBar{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid rgba(120,101,233,.35);border-radius:10px;margin-bottom:10px;font:11px 'Rajdhani';letter-spacing:.5px;color:var(--dim)}#suDiff pre{max-height:340px;overflow:auto;white-space:pre-wrap}</style>
-    </div>
-  </div>
-  <div class="admin-card" id="agentCard" style="border-color:rgba(52,211,153,.4)">
-    <h4>🤖 AGENT MISSION <span style="color:var(--dim);font-weight:400">— she works the way her engineer works</span></h4>
-    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:10px">One click, full loop. She reads her own source code, designs the change, writes the complete code, verifies every edit against the real file, commits to GitHub and confirms it landed — reporting every step in the mission log, exactly like a real engineer shipping a change.</p>
-    <div id="amBox">
-      <textarea id="amPrompt" placeholder="Describe the mission — e.g. Add a mission-control widget to the telemetry panel with a live clock that pulses when a self-upgrade ships"></textarea>
-      <div class="suRow">
-        <button class="suBtn go" id="amGoBtn">🤖 RUN MISSION</button>
-        <button class="suBtn go" id="amShipBtn" disabled style="display:none">🚀 SHIP HER VERIFIED RESULT</button>
-      </div>
-      <div id="amSteps"></div>
-      <div id="amPlan"></div>
-      <div id="amDiff"><header><b style="color:var(--cy2)">CODE SHE WROTE</b><span style="margin-left:auto" id="amDiffMeta"></span></header><pre id="amDiffCode"></pre></div>
-      <div id="amLog"></div>
-    </div>
-    <style>#amPrompt{width:100%;min-height:64px;background:rgba(2,10,16,.5);border:1px solid var(--line);border-radius:10px;color:var(--ice);font:12.5px Rajdhani;padding:10px;resize:vertical;box-sizing:border-box}#amSteps{display:flex;flex-direction:column;gap:5px;margin-top:10px}#amPlan{display:none;white-space:pre-wrap;border:1px solid rgba(120,101,233,.35);border-radius:10px;padding:10px;font:12.5px Rajdhani;color:var(--ice);margin-top:10px}#amDiff{display:none;margin-top:10px;border:1px solid rgba(120,101,233,.35);border-radius:10px;overflow:hidden}#amDiff header{padding:8px 12px;background:rgba(2,10,16,.6);display:flex;font:600 11px Rajdhani;letter-spacing:1px}#amDiff pre{margin:0;padding:10px;font:11px ui-monospace,monospace;color:var(--ice);white-space:pre-wrap;max-height:300px;overflow:auto}#amLog{margin-top:10px;max-height:220px;overflow:auto;background:rgba(2,10,16,.55);border:1px solid var(--line);border-radius:10px;padding:10px;font:11px ui-monospace,monospace;display:flex;flex-direction:column;gap:3px}</style>
   </div>
 </div>
 
@@ -6755,7 +6705,7 @@ async function askCore(text0){
         addMsg("YOU ▸",text,"user");
         addMsg(msgTag(),"🛡 ERLANG — sweeping my own source now…","aura");
         BotTeam.sweep(false).then(function(r){
-          if(r)addMsg(msgTag(),r.fail?("✗ "+r.fail+" check(s) failed — ⚔ ARTHUR dispatched. Full details in ADMIN → KRATOS SQUAD."):("✓ all "+r.pass+" checks green — the squad is standing down."),"aura");
+          if(r)addMsg(msgTag(),r.fail?("✗ "+r.fail+" check(s) failed — say \"fix the failed checks\" in ADMIN → KRATOS SQUAD to dispatch ⚔ ARTHUR."):("✓ all "+r.pass+" checks green — the squad is standing down."),"aura");
         });
         setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
       }
@@ -6764,7 +6714,7 @@ async function askCore(text0){
         if(bm){
           addMsg("YOU ▸",text,"user");
           const okd=BotTeam.assign(bm[1]);
-          addMsg(msgTag(),okd?("👑 Order logged — 👑 KRATOS dispatched the squad on: \""+bm[1].slice(0,100)+"\". Watch ADMIN → KRATOS SQUAD for live progress."):("👑 Order received but the mission console is busy — I'll take it when the current run settles."),"aura");
+          addMsg(msgTag(),okd?("👑 Order logged — 👑 KRATOS dispatched the squad on: \""+bm[1].slice(0,100)+"\". Watch ADMIN → KRATOS SQUAD for live progress."):("👑 Order refused — the squad only takes orders from the signed-in admin account."),"aura");
           setMode("idle");busy=false;if(typeof wake!=="undefined"&&wake)armWake(400);return;
         }
       }
@@ -10250,62 +10200,144 @@ document.addEventListener("DOMContentLoaded",function(){
   setTimeout(function(){ try{ applyRoleUi(); }catch(e){} }, 800);
 
   /* ================= KRATOS SQUAD — 👑 KRATOS (head) + ERLANG/ARTHUR/PHOENIX =================
-     Admin-only Mythos-class squad in the KRATOS SQUAD card (element id kept: botsCard).
-     KRATOS (COMMAND): accepts owner orders, dispatches depts, reports.
+     Admin-only bot command center. Each bot has its OWN chat — you talk to them the way you
+     talk to ZEUS: type an order or a question, they answer and work.
+     KRATOS (COMMAND): takes your orders, dispatches the depts, reports back.
      ERLANG (RELIABILITY): deterministic self-test sweeps — passes with ZERO AI keys.
-     ARTHUR (ENGINEERING): drives AGENT MISSION on the Key Bank tiers; keyless or
-       no-maker sessions get an honest offline plan, never fake output; ship = owner approval.
-     PHOENIX (KNOWLEDGE): training DB (BOT_DB) + real-world stamps (date/time/briefs)
-       + persistent lessons learned. State: localStorage aura_bots_v1. */
+     ARTHUR (ENGINEERING): reads her real source, writes complete edits, dry-run verifies
+       them against the real file; SHIP happens only when the admin explicitly says 'ship'.
+     PHOENIX (KNOWLEDGE): real-world stamps (date/time/briefs) + persistent lessons.
+     COMMAND-ONLY: nothing runs until the admin sends a message here — no timers, no auto loops.
+     State: localStorage aura_bot_v2. */
   window.BotTeam=(function(){
-    const KEY="aura_bots_v1";
-    const S={auto:true,log:[],orders:[],sweep:null,arthur:"idle",world:null,learned:[]};
-    try{const p=JSON.parse(localStorage.getItem(KEY)||"null");if(p&&typeof p==="object"){S.auto=p.auto!==false;S.log=Array.isArray(p.log)?p.log.slice(-120):[];S.orders=Array.isArray(p.orders)?p.orders.slice(-40):[];S.sweep=p.sweep||null;S.world=p.world||null;S.learned=Array.isArray(p.learned)?p.learned.slice(-30):[]}}catch(e){}
-    function save(){try{localStorage.setItem(KEY,JSON.stringify({auto:S.auto,log:S.log.slice(-120),orders:S.orders.slice(-40),sweep:S.sweep,world:S.world,learned:S.learned.slice(-30)}))}catch(e){}}
+    const KEY="aura_bot_v2";
+    const S={who:"kratos",chats:{},orders:[],sweep:null,world:null,learned:[],staged:null};
+    try{
+      const p=JSON.parse(localStorage.getItem(KEY)||"null");
+      if(p&&typeof p==="object"){
+        S.chats=(p.chats&&typeof p.chats==="object")?p.chats:{};
+        S.orders=Array.isArray(p.orders)?p.orders.slice(-40):[];
+        S.sweep=p.sweep||null;S.world=p.world||null;
+        S.learned=Array.isArray(p.learned)?p.learned.slice(-30):[];
+        S.staged=p.staged||null;
+        if(["kratos","erlang","arthur","phoenix"].indexOf(p.who)>=0)S.who=p.who;
+      }
+    }catch(e){}
+    /* migrate v1 squad state (auto-loop world) so nothing is lost */
+    try{
+      const v1=JSON.parse(localStorage.getItem("aura_bots_v1")||"null");
+      if(v1&&typeof v1==="object"){
+        if(!S.sweep&&v1.sweep)S.sweep=v1.sweep;
+        if(!S.world&&v1.world)S.world=v1.world;
+        if(!S.learned.length&&Array.isArray(v1.learned))S.learned=v1.learned.slice(-30);
+        if(!S.orders.length&&Array.isArray(v1.orders))S.orders=v1.orders.slice(-40);
+      }
+    }catch(e){}
+    ["kratos","erlang","arthur","phoenix"].forEach(function(id){if(!Array.isArray(S.chats[id]))S.chats[id]=[]});
+    function save(){try{localStorage.setItem(KEY,JSON.stringify({who:S.who,chats:S.chats,orders:S.orders.slice(-40),sweep:S.sweep,world:S.world,learned:S.learned.slice(-30),staged:S.staged}))}catch(e){}}
     function isAdmin(){try{return typeof AuraAuth!=="undefined"&&AuraAuth.isAdmin()}catch(e){return false}}
+    function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+    function ago(t){const m=Math.max(0,Math.round((Date.now()-(t||0))/60000));return m<1?"just now":m+" min ago"}
     /* TRAINING DATABASE — the squad's Mythos-class playbook (code-embedded, always current;
        PHOENIX persists learned lessons + world stamps alongside it in localStorage). */
     const BOT_DB={
-      protocol:"MYTHOS-CLASS AGENT PROTOCOL v1: (1) REASON like a senior engineer — core constraint → edge cases → failure modes → security → fix; never superficial. (2) PLAN first on multi-step work (Step 1/2/3), then execute; single-step asks get direct answers, no plan spam. (3) TOOLS — name the REAL lane you use (live web research, code forge, vision, mission console, squad DB); never fake or simulate tool output. (4) MEMORY — consult the squad database before acting; persist every new fact or lesson. (5) CURRENCY — trust the injected CURRENT DATE & TIME over any training guess; time-sensitive facts come from live or cached brief lanes; never answer 'my data is old'. (6) VOICE — crisp, structured, engineering precision with a sharp persona.",
+      protocol:"MYTHOS-CLASS AGENT PROTOCOL v1: (1) REASON like a senior engineer — core constraint → edge cases → failure modes → security → fix; never superficial. (2) PLAN first on multi-step work (Step 1/2/3), then execute; single-step asks get direct answers, no plan spam. (3) TOOLS — name the REAL lane you use (live web research, code forge, vision, source sweeps, squad DB); never fake or simulate tool output. (4) MEMORY — consult the squad database before acting; persist every new fact or lesson. (5) CURRENCY — trust the injected CURRENT DATE & TIME over any training guess; time-sensitive facts come from live or cached brief lanes; never answer 'my data is old'. (6) VOICE — crisp, structured, engineering precision with a sharp persona.",
       depts:{
-        kratos:"COMMAND: take the owner's order, decompose it into dept tasks (ERLANG=verify/test, ARTHUR=code/fix, PHOENIX=knowledge), dispatch, confirm completion, then report. Never do another dept's job. Report = per-dept status + sweep + world sync + key mode.",
-        erlang:"RELIABILITY: verify before trusting — parse checks, structural sentinels, refusal-guard + admin-gate integrity, DOM presence, keyless-lane presence. A failed check becomes a bug report to ARTHUR, never a silent pass. Deterministic only — must pass with zero AI keys.",
-        arthur:"ENGINEERING: minimal complete production-ready edits anchored in real code; dry-run verify every find-string; self-repair up to 3 rounds; stage the ship and WAIT for owner approval. Never touch auth, keys or the backend URL. Keyless mode: honest offline plan only — never fake code output.",
+        kratos:"COMMAND: take the admin's order, decompose it into dept tasks (ERLANG=verify/test, ARTHUR=code/fix, PHOENIX=knowledge), dispatch, confirm completion, then report. Never do another dept's job. Report = per-dept status + sweep + world sync + key mode.",
+        erlang:"RELIABILITY: verify before trusting — parse checks, structural sentinels, refusal-guard + admin-gate integrity, DOM presence, fallback-lane presence. A failed check becomes a bug report to ARTHUR, never a silent pass. Deterministic only — must pass with zero AI keys.",
+        arthur:"ENGINEERING: minimal complete production-ready edits anchored in real code; dry-run verify every find-string; self-repair when a find-string misses; stage the ship and WAIT for the admin's explicit 'ship' word. Never touch auth, keys or the backend URL. Honest about every lane failure — never fake code output.",
         phoenix:"KNOWLEDGE: maintain the squad DB (playbooks, lessons, order history), stamp every run with real date/time, pull cached real-world briefs without keys, surface freshness in reports. An unstamped fact is stale — re-stamp it."
       }
     };
     const BOTS=[
-      {id:"kratos",icon:"👑",name:"KRATOS",dept:"COMMAND",role:"head — dispatch, oversight, your report",st:"ok"},
-      {id:"erlang",icon:"🛡",name:"ERLANG",dept:"RELIABILITY",role:"auto-test — telecom-grade source sweeps",st:"idle"},
-      {id:"arthur",icon:"⚔",name:"ARTHUR",dept:"ENGINEERING",role:"auto-fix — plan, write, verify (you approve the ship)",st:"idle"},
-      {id:"phoenix",icon:"🔥",name:"PHOENIX",dept:"KNOWLEDGE",role:"training DB + real-world stamps, keeps the log",st:"ok"}
+      {id:"kratos",icon:"👑",name:"KRATOS",dept:"COMMAND",role:"takes your orders, dispatches the squad, reports back",st:"ok",
+       hint:"give the order, ask anything…",
+       hi:"👑 KRATOS online, Sir. COMMAND ready — give the order and I dispatch the squad.\n• \"run a full sweep\" → 🛡 ERLANG scans AURA's own source\n• \"fix <task>\" → ⚔ ARTHUR plans, writes and dry-run verifies\n• \"status report\" → full squad readout\n• or just talk — I take orders in plain words."},
+      {id:"erlang",icon:"🛡",name:"ERLANG",dept:"RELIABILITY",role:"telecom-grade source sweeps — zero keys required",st:"idle",
+       hint:"ask for a sweep, or ask about any check…",
+       hi:"🛡 ERLANG online, Sir. RELIABILITY lane — deterministic, works with zero AI keys.\n• \"run a full sweep\" → parse checks, guards, admin gate, DOM lanes\n• failures become bug reports for ⚔ ARTHUR — never a silent pass\n• ask me what any check actually verifies."},
+      {id:"arthur",icon:"⚔",name:"ARTHUR",dept:"ENGINEERING",role:"plan → real code edits → verify; you approve the ship",st:"idle",
+       hint:"give engineering work — e.g. add a theme toggle to the top bar…",
+       hi:"⚔ ARTHUR online, Sir. ENGINEERING lane — plan → code → verify against the real file.\n• Give me a task: \"add a dark/light toggle to the top bar\"\n• I read her real source, write complete edits, dry-run every find-string\n• Say \"ship\" to publish my verified edits to GitHub (your approval required)."},
+      {id:"phoenix",icon:"🔥",name:"PHOENIX",dept:"KNOWLEDGE",role:"world stamps, briefs, squad lessons learned",st:"ok",
+       hint:"ask about today, the world, or squad lessons…",
+       hi:"🔥 PHOENIX online, Sir. KNOWLEDGE lane — world stamps, briefs, squad lessons.\n• \"today's brief\" → real date/time + cached headlines (keyless)\n• Ask me anything — I answer with freshness stamps\n• I keep the squad's lessons learned across sessions."}
     ];
-    function bot(id){return BOTS.find(b=>b.id===id)||BOTS[0]}
-    function setSt(id,st){bot(id).st=st;render()}
-    function entry(who,msg,cls){
-      S.log.push({t:Date.now(),who:who,m:String(msg),c:cls||""});
-      if(S.log.length>120)S.log=S.log.slice(-120);
-      save();renderLog();
+    function bot(id){return BOTS.find(function(b){return b.id===id})||BOTS[0]}
+    /* ---------- chat storage + rendering ---------- */
+    function push(id,who,msg){
+      const arr=S.chats[id]||(S.chats[id]=[]);
+      arr.push({who:who,m:String(msg==null?"":msg),t:Date.now()});
+      if(arr.length>200)S.chats[id]=arr.slice(-200);
+      save();
+      if(id===S.who)renderChat();
     }
-    function render(){
+    function entry(who,msg,cls){push(who,"sys",(bot(who).name+": ")+msg)}
+    let typingFor=null;
+    function setTyping(on,id){typingFor=on?(id||S.who):null;paintTyping()}
+    function paintTyping(){
+      const log=$("botChatLog");if(!log)return;
+      const old=log.querySelector(".bmsg.typing");if(old)old.remove();
+      if(typingFor&&typingFor===S.who){
+        const b=bot(typingFor);
+        const d=document.createElement("div");d.className="bmsg bot typing";
+        d.innerHTML='<span class="who">'+esc(b.icon+" "+b.name)+' working</span><span class="dots"><i></i><i></i><i></i></span>';
+        log.appendChild(d);log.scrollTop=log.scrollHeight;
+      }
+    }
+    function bubbleEl(m){
+      const d=document.createElement("div");
+      d.className="bmsg "+(m.who==="me"?"me":m.who==="sys"?"sys":"bot");
+      if(m.who==="sys"){d.textContent=m.m;return d}
+      const w=document.createElement("span");w.className="who";
+      w.textContent=m.who==="me"?"ADMIN ▸":(function(){const b=bot(S.who);return b.icon+" "+b.name})();
+      d.appendChild(w);
+      d.appendChild(document.createTextNode(m.m));
+      return d;
+    }
+    function renderChat(){
+      const log=$("botChatLog");if(!log)return;
+      const b=bot(S.who);
+      const head=$("botWho");if(head)head.textContent=b.icon+" "+b.name;
+      const dep=$("botDept");if(dep)dep.textContent=b.dept;
+      const inp=$("botChatIn");if(inp)inp.placeholder="Talk to "+b.name+" — "+b.hint;
+      log.innerHTML="";
+      const arr=S.chats[S.who]||[];
+      if(!arr.length){log.appendChild(bubbleEl({who:"bot",m:b.hi}));}
+      else arr.forEach(function(m){log.appendChild(bubbleEl(m))});
+      paintTyping();
+      log.scrollTop=log.scrollHeight;
+    }
+    function setSt(id,st){
+      const b=bot(id);b.st=st;renderRoster();
+      const stEl=$("botState");
+      if(stEl&&id===S.who)stEl.textContent=st==="running"?(b.name+" is working…"):st==="fail"?(b.name+" needs attention"):st==="ok"?(b.name+" ready"):"standing by for your command";
+    }
+    function renderRoster(){
       const g=$("botRoster");if(!g)return;
-      g.innerHTML=BOTS.map(b=>'<div class="bot-tile"><b><span class="bot-dot '+(b.st==="idle"?"":b.st)+'"></span>'+b.icon+' '+b.name+'</b><small><span style="color:var(--cy2);letter-spacing:1.2px;font-size:9px">'+b.dept+'</span> · '+b.role+'</small></div>').join("");
-      const ab=$("botAutoBtn");if(ab)ab.textContent="⏱ AUTO: "+(S.auto?"ON":"OFF");
+      g.innerHTML=BOTS.map(function(b){
+        return '<div class="bot-tile'+(b.id===S.who?" sel":"")+'" data-bot="'+b.id+'" role="button" tabindex="0"><b><span class="bot-dot '+(b.st==="idle"?"":b.st)+'"></span>'+esc(b.icon+" "+b.name)+'</b><small><span style="color:var(--cy2);letter-spacing:1.2px;font-size:9px">'+esc(b.dept)+'</span> · '+esc(b.role)+'</small></div>';
+      }).join("");
+      Array.prototype.forEach.call(g.querySelectorAll(".bot-tile"),function(el){
+        el.onclick=function(){switchBot(el.getAttribute("data-bot"))};
+        el.onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();switchBot(el.getAttribute("data-bot"))}};
+      });
+      const ab=$("botAutoBtn");if(ab)ab.remove();
     }
-    function renderLog(){
-      const el=$("botLog");if(!el)return;
-      if(!S.log.length){el.innerHTML='<span class="bl-dim">log is quiet — assign the squad their first task, or run a sweep.</span>';return}
-      el.innerHTML=S.log.slice(-40).map(e=>'<span class="'+(e.c==="fail"?"bl-fail":e.c==="ok"?"bl-ok":"bl-dim")+'">['+new Date(e.t).toLocaleTimeString(undefined,{hour12:false})+'] '+e.who+': '+String(e.m).replace(/</g,"&lt;")+'</span>').join("");
-      el.scrollTop=el.scrollHeight;
+    function switchBot(id){
+      if(["kratos","erlang","arthur","phoenix"].indexOf(id)<0)return;
+      S.who=id;save();renderRoster();renderChat();
+      const stEl=$("botState");if(stEl)stEl.textContent="standing by for your command";
+      const inp=$("botChatIn");if(inp)inp.focus();
     }
     /* ---------- ERLANG (RELIABILITY): deterministic checks — pass with ZERO AI keys ---------- */
     async function sweep(quiet){
       if(!isAdmin()){entry("kratos","sweep refused — admin only","fail");return null}
-      if(bot("erlang").st==="running"){entry("erlang","already sweeping — wait for this run","dim");return null}
+      if(bot("erlang").st==="running"){entry("erlang","already sweeping — wait for this run");return null}
       setSt("erlang","running");
-      if(!quiet)entry("erlang","sweep started — fetching her own source (keyless lane)…","dim");
+      if(!quiet)entry("erlang","sweep started — fetching her own source (keyless lane)…");
       const checks=[];
-      const ck=(n,ok,d)=>checks.push({n:n,ok:!!ok,d:d||""});
+      const ck=function(n,ok,d){checks.push({n:n,ok:!!ok,d:d||""})};
       try{
         const r=await fetch(location.href,{cache:"no-store"});
         const src=await r.text();
@@ -10322,8 +10354,10 @@ document.addEventListener("DOMContentLoaded",function(){
         ck("provenance seal intact",/PROVENANCE-SEAL-v1/.test(src));
         ck("admin gate intact",/id="adminTabBtn"/.test(src));
         ck("KRATOS squad installed",/id="botsCard"/.test(src)&&/window\.BotTeam/.test(src));
+        ck("bot command center wired",/id="botChatLog"/.test(src)&&/id="botChatIn"/.test(src)&&/BotTeam\.chat|chat\(text\)/.test(src));
+        ck("admin page is bots-only",!/id="(adStatAnswers|adUsersList|adCfgEngine|kbBody|suCard|agentCard|amPrompt)"/.test(src));
         ck("training DB installed",/MYTHOS-CLASS AGENT PROTOCOL/.test(src)&&/BOT_DB/.test(src));
-        ck("key bank lane wired",/loadKeyBank/.test(src));
+        ck("command-only gate (no auto loops)",!/setInterval\(function\(\)\{[\s\S]{0,120}sweep\(true\)/.test(src));
         ck("keyless fallback lanes",/wikiAnswer|ddgAnswer/.test(src));
         ck("real-world brief lane",/dailyBriefBlock/.test(src));
         ck("time protocol shipped",/TIME_PROTO/.test(src));
@@ -10332,28 +10366,27 @@ document.addEventListener("DOMContentLoaded",function(){
         ck("live DOM: chat log + input",!!($("log")&&$("q")));
         ck("live DOM: admin page + squad card",!!($("adminPage")&&$("botsCard")));
       }catch(e){ck("sweep run",false,String(e.message||e).slice(0,140))}
-      const fail=checks.filter(c=>!c.ok);
+      const fail=checks.filter(function(c){return !c.ok});
       const prev=S.sweep;
-      const res={at:Date.now(),pass:checks.length-fail.length,fail:fail.length,failed:fail.map(c=>c.n+(c.d?" — "+c.d:""))};
+      const res={at:Date.now(),pass:checks.length-fail.length,fail:fail.length,failed:fail.map(function(c){return c.n+(c.d?" — "+c.d:"")})};
       S.sweep=res;
       if(!fail.length&&prev&&prev.fail>0){
         S.learned.push({t:Date.now(),m:"recovered "+prev.fail+" failed check(s): "+(prev.failed||[]).slice(0,3).join("; ").slice(0,140)});
         if(S.learned.length>30)S.learned=S.learned.slice(-30);
-        entry("phoenix","learned — recovered: "+(prev.failed||[]).slice(0,2).join(" | ").slice(0,120),"ok");
+        entry("phoenix","learned — recovered: "+(prev.failed||[]).slice(0,2).join(" | ").slice(0,120));
       }
       save();
       if(fail.length){
         setSt("erlang","fail");
-        entry("erlang","✗ "+fail.length+" of "+checks.length+" checks failed: "+fail.map(c=>c.n).join(", "),"fail");
-        /* ARTHUR auto-engages: drive the existing agent-mission loop with the failure list */
-        if(S.auto)dispatch("Fix these failed self-test checks in aura.html (run a sweep first to reproduce): "+res.failed.slice(0,5).join(" | "),true);
+        entry("erlang","✗ "+fail.length+" of "+checks.length+" checks failed: "+fail.map(function(c){return c.n}).join(", "));
+        entry("kratos","bug report staged — say \"fix the failed checks\" to dispatch ⚔ ARTHUR (command-only: no auto-run)");
       }else{
         setSt("erlang","ok");
-        entry("erlang","✓ all "+checks.length+" checks green (zero keys used)","ok");
+        entry("erlang","✓ all "+checks.length+" checks green (zero keys used)");
       }
       return res;
     }
-    /* ---------- ARTHUR (ENGINEERING): full mission on keys, honest offline plan without ---------- */
+    /* ---------- ARTHUR (ENGINEERING): real source edits, dry-run verified, ship on order ---------- */
     function keyMode(){
       try{if(typeof backendUrl==="function"&&backendUrl())return "backend proxy tier (Key Bank) — AI missions live"}catch(e){}
       try{if(typeof geminiKey==="function"&&geminiKey())return "local key bank — AI missions live"}catch(e){}
@@ -10365,50 +10398,90 @@ document.addEventListener("DOMContentLoaded",function(){
         "\n2. Anchor the change in the real source (exact find-strings)."+
         "\n3. Write the minimal complete, style-matched edit."+
         "\n4. Verify: find-string unique + syntax check + 4 suites green."+
-        "\n5. Stage → KRATOS reports → owner SHIP approval.\nPLAYBOOK: "+BOT_DB.depts.arthur;
+        "\n5. Stage → KRATOS reports → admin SHIP approval.\nPLAYBOOK: "+BOT_DB.depts.arthur;
     }
-    function dispatch(task,auto){
-      if(!isAdmin()){entry("kratos","dispatch refused — admin only","fail");return false}
-      const ap=$("amPrompt"),go=$("amGoBtn");
-      const hasMaker=(function(){try{return !!(typeof AuraAuth!=="undefined"&&AuraAuth.suAllowed&&AuraAuth.suAllowed())}catch(e){return false}})();
-      const hasKeys=(function(){
-        try{if(typeof backendUrl==="function"&&backendUrl())return true}catch(e){}
-        try{if(typeof geminiKey==="function"&&geminiKey())return true}catch(e){}
-        return false;
-      })();
-      const order={t:Date.now(),task:String(task).slice(0,200),by:auto?"auto":"owner",mode:(hasMaker&&hasKeys&&ap&&go)?"mission":"offline"};
-      S.orders.push(order);
-      if(S.orders.length>40)S.orders=S.orders.slice(-40);
-      save();
-      if(!hasMaker||!hasKeys||!ap||!go){
-        const why=(!ap||!go)?"mission console missing":(!hasMaker?"maker session off":"AI keys out");
-        order.plan=offlinePlan(task,why);save();
-        setSt("arthur","ok");
-        entry("kratos","order accepted → ARTHUR offline lane ("+why+")","dim");
-        entry("arthur","keyless plan staged — full mission runs when maker session + keys are up","ok");
-        const out=$("botReportOut");if(out){out.style.display="block";out.textContent=order.plan}
-        return true;
-      }
-      if(go.disabled){entry("arthur","a mission is already running — wait for it","dim");return false}
+    async function arthurWork(task){
+      task=String(task||"").trim();if(!task)return "no task given";
+      if(!isAdmin())return "admin only — ARTHUR stands down without the admin's command.";
       setSt("arthur","running");
-      entry("kratos","order logged → ARTHUR (ENGINEERING): "+String(task).slice(0,110),"dim");
-      entry("arthur","mission launched with MYTHOS protocol — plan → code → verify; ship waits for YOUR approval","ok");
-      ap.value="KRATOS DIRECTIVE — MYTHOS PROTOCOL\n"+BOT_DB.protocol+"\n\n"+BOT_DB.depts.arthur+"\nCURRENT DATE & TIME: "+new Date().toString()+"\n\nTASK: "+task;
-      try{AuraMetrics.event("event","bot-arthur-mission")}catch(e){}
-      go.click();
-      /* watch the mission log: it flips ARTHUR's status back when the run settles */
-      const t0=Date.now();
-      const iv=setInterval(function(){
-        const log=$("amLog");
-        if(go.disabled===false&&log&&Date.now()-t0>4000){
-          const txt=log.textContent||"";
-          if(/waiting on you|verified/i.test(txt)){setSt("arthur","ok");entry("arthur","✓ verified — staged for your approval (SHIP button in AGENT MISSION)","ok")}
-          else if(/mission failed|no edit list|malformed/.test(txt)){setSt("arthur","fail");entry("arthur","✗ mission failed — details in AGENT MISSION log","fail")}
-          else setSt("arthur","idle");
-          clearInterval(iv);
-        }else if(Date.now()-t0>360000){clearInterval(iv);setSt("arthur","idle")}
-      },2000);
-      return true;
+      entry("arthur","mission accepted: "+task.slice(0,140));
+      try{
+        if(typeof suCall!=="function"||typeof SU_SYS==="undefined")throw new Error("engineering lane not loaded");
+        entry("arthur","THINK — reading her real source…");
+        const wins=await suFetchWindows(task);
+        let windowsBlock="";
+        if(wins&&wins.windows){
+          const ws=wins.windows.filter(function(w){return w.code}).slice(0,4);
+          ws.forEach(function(w){if(w.code.length>4200)w.code=w.code.slice(0,4200)});
+          if(ws.length)windowsBlock="\n\nREAL EXCERPTS OF THE CURRENT FILE (line numbers included — anchor your find-strings EXACTLY in these):\n"+ws.map(function(w){return "--- lines "+w.startLine+"-"+w.endLine+(w.term?" (matched: "+w.term+")":"")+" ---\n"+w.code.split("\n").map(function(l,i){return (w.startLine+i)+": "+l}).join("\n")}).join("\n\n");
+          entry("arthur","source read — "+ws.length+" window(s) of the "+wins.fileLines+"-line file");
+        }else entry("arthur","no windows matched — designing from architecture knowledge");
+        entry("arthur","CODE — writing the complete implementation…");
+        let saw=0;
+        const out=await suCall([{role:"system",content:SU_SYS},{role:"user",content:"TASK: "+task+windowsBlock+"\n\nPreferred mode: SOURCE (edit the real aura.html)."}],16000,"high",function(delta,model){
+          if(model==="__reset__"){entry("arthur","↻ brain stalled — switching models, rewriting…");return}
+          if(model){entry("arthur","brain online: "+model);return}
+          saw++;if(saw%200===1)entry("arthur","writing… "+saw+" chunks so far");
+        });
+        const pm=out.match(/PLAN:\s*([\s\S]*?)(?:PATCH:|EDITS:|$)/i);
+        const plan=pm?pm[1].trim():"(no plan block)";
+        const em=out.match(/```json\s*([\s\S]*?)```/i);
+        let edits=null;
+        if(em){try{edits=JSON.parse(em[1].trim());if(!Array.isArray(edits)||!edits.length||!edits.every(function(e){return e&&typeof e.find==="string"&&e.find.length}))edits=null}catch(e){edits=null}}
+        const cm=out.match(/```js\s*([\s\S]*?)```/i);
+        const patch=(!edits&&cm)?cm[1].trim():"";
+        const nm=out.match(/NOTE:\s*(.+)/i);const note=nm?nm[1].trim():"";
+        if(!edits&&!patch)throw new Error("she returned no code — rephrase the mission");
+        if(edits){
+          entry("arthur","CODE — "+edits.length+" source edit(s) written; VERIFY — dry-run against the real file…");
+          let d=null;
+          try{d=await(await __ahRetry("POST",backendUrl()+"/v1/dev/commit",{edits:edits,message:"x",dryRun:true})).json()}catch(e){d=null}
+          if(d&&d.ok&&d.dryRun){
+            S.staged={task:task,edits:edits,at:Date.now()};save();
+            setSt("arthur","ok");
+            entry("arthur","✓ VERIFY clean — "+d.edits+" edit(s) located (first at line "+d.firstChangeAtLine+") — staged for ship");
+            const preview=edits.map(function(e,i){return "EDIT "+(i+1)+" — find ("+e.find.split("\n").length+" ln): "+e.find.slice(0,90).replace(/\n/g," ↵ ")}).join("\n");
+            return "◈ MISSION PLAN\n"+plan+(note?"\nNOTE: "+note:"")+
+              "\n\n✓ VERIFIED — "+edits.length+" edit(s) dry-run clean against the real file (first change at line "+d.firstChangeAtLine+"):\n"+preview+
+              "\n\n→ Say \"ship\" to publish these to GitHub (live in ~60s), or give me a revised task.";
+          }
+          S.staged=null;save();
+          setSt("arthur","fail");
+          entry("arthur","✗ VERIFY failed — find-string missed the real file");
+          return "◈ PLAN\n"+plan+"\n\n✗ DRY-RUN FAILED (honest): "+(d?(d.error||"find-string not found"):"verify lane unreachable — backend/GH_TOKEN down")+
+            ((d&&d.failedEdit)?("\nMissing find: \""+String(d.failedEdit).slice(0,140)+"\""):"")+
+            "\n→ Rephrase with exact wording from the file area you mean, and I'll re-anchor.";
+        }
+        setSt("arthur","ok");
+        S.staged=null;save();
+        return "◈ PLAN\n"+plan+(note?"\nNOTE: "+note:"")+"\n\nRUNTIME PATCH (appearance-only, not committable):\n```js\n"+patch.slice(0,2400)+"\n```\n→ The source-commit lane needs EDITS — rephrase as a source change (e.g. \"add X to aura.html top bar\").";
+      }catch(e){
+        setSt("arthur","fail");
+        entry("arthur","✗ mission failed: "+(e.message||e));
+        return "✗ MISSION FAILED (honest — nothing faked): "+(e.message||e)+"\n\n"+offlinePlan(task,"lane unavailable");
+      }
+    }
+    async function shipStaged(){
+      if(!isAdmin())return "admin only — nothing ships without the admin.";
+      if(!S.staged)return "nothing staged, Sir — give ⚔ ARTHUR a task first, verify it, then say 'ship'.";
+      if(!confirm("Publish ARTHUR's "+S.staged.edits.length+" verified edit(s) to the REAL aura.html on GitHub?\n\nTask: "+S.staged.task.slice(0,160)+"\n\nThe live site updates ~60 seconds after the commit."))return "ship cancelled — her verified edits stay staged (say 'ship' again to publish).";
+      setSt("arthur","running");
+      entry("arthur","SHIP — committing "+S.staged.edits.length+" verified edit(s) to GitHub…");
+      try{
+        const r=await __ahRetry("POST",backendUrl()+"/v1/dev/commit",{edits:S.staged.edits,message:"AURA squad: "+S.staged.task.slice(0,120)});
+        const j=await r.json().catch(function(){return{}});
+        if(!r.ok||!j.ok)throw new Error(j.error||("HTTP "+r.status));
+        const task=S.staged.task;S.staged=null;save();
+        setSt("arthur","ok");
+        entry("arthur","✓ committed "+j.edits+" edit(s) — "+(j.commit||"?"));
+        try{AuraMetrics.event("event","bot-arthur-ship")}catch(e){}
+        return "🚀 SHIPPED, Sir — "+j.edits+" edit(s) committed ("+(j.commit||"?")+") from: "+task.slice(0,100)+
+          "\nThe live site updates within ~60 seconds (GitHub Pages rebuild).\nTrack it: github.com/sourabh7300/aura/actions";
+      }catch(e){
+        setSt("arthur","fail");
+        entry("arthur","✗ ship failed: "+(e.message||e));
+        return "✗ SHIP FAILED (honest): "+(e.message||e)+(/401|403|maker|unauthorized/i.test(String(e.message||e))?"\n→ Sign in again with your maker account and say 'ship' once more.":"");
+      }
     }
     /* ---------- PHOENIX (KNOWLEDGE): real-world freshness stamps — keyless cache lanes ---------- */
     function worldSync(){
@@ -10424,9 +10497,13 @@ document.addEventListener("DOMContentLoaded",function(){
         }catch(e){}
         S.world={at:now.getTime(),stamp:now.toString(),brief:brief,fresh:fresh};save();
         setSt("phoenix","ok");
-        entry("phoenix","world sync — "+now.toLocaleString()+(brief?(fresh?" · live brief lane fresh":" · cached brief (keyless)"):" · offline stamp (keyless)"),"ok");
+        entry("phoenix","world sync — "+now.toLocaleString()+(brief?(fresh?" · live brief lane fresh":" · cached brief (keyless)"):" · offline stamp (keyless)"));
         return S.world;
-      }catch(e){entry("phoenix","world sync failed: "+(e.message||e),"fail");return null}
+      }catch(e){entry("phoenix","world sync failed: "+(e.message||e));return null}
+    }
+    function worldText(){
+      if(!S.world)return "never stamped — say \"today's brief\" and I'll stamp it live.";
+      return "🌍 WORLD STAMP: "+S.world.stamp+(S.world.fresh?" · live brief":" · cached/keyless")+"\n"+(S.world.brief||"(brief lane offline — date/time stamp is fresh)");
     }
     /* ---------- KRATOS (COMMAND): the head's report — depts, sweep, world, key mode ---------- */
     function report(){
@@ -10434,60 +10511,164 @@ document.addEventListener("DOMContentLoaded",function(){
       const L=[];
       L.push("👑 KRATOS COMMAND REPORT — "+new Date().toLocaleString());
       L.push("");
-      BOTS.forEach(b=>L.push(b.icon+" "+b.name+" ["+b.dept+"]: "+(b.st==="running"?"⏳ working…":b.st==="fail"?"✗ needs attention":b.st==="ok"?"✓ ready":"· idle")));
+      BOTS.forEach(function(b){L.push(b.icon+" "+b.name+" ["+b.dept+"]: "+(b.st==="running"?"⏳ working…":b.st==="fail"?"✗ needs attention":b.st==="ok"?"✓ ready":"· idle"))});
       L.push("");
       if(S.sweep){
         const age=Math.max(0,Math.round((Date.now()-S.sweep.at)/60000));
         L.push("🛡 ERLANG (RELIABILITY): "+(S.sweep.fail?"✗ ":"✓ ")+S.sweep.pass+"/"+(S.sweep.pass+S.sweep.fail)+" checks · "+(age<1?"just now":age+" min ago"));
-        if(S.sweep.failed&&S.sweep.failed.length)S.sweep.failed.slice(0,5).forEach(f=>L.push("   ✗ "+f));
-      }else L.push("🛡 ERLANG (RELIABILITY): never swept");
-      L.push("⚔ ARTHUR (ENGINEERING): "+S.orders.length+" order(s) on record"+(S.orders.length?" — last: "+S.orders[S.orders.length-1].task.slice(0,70):""));
+        if(S.sweep.failed&&S.sweep.failed.length)S.sweep.failed.slice(0,5).forEach(function(f){L.push("   ✗ "+f)});
+      }else L.push("🛡 ERLANG (RELIABILITY): never swept — say \"run a full sweep\"");
+      L.push("⚔ ARTHUR (ENGINEERING): "+S.orders.length+" order(s) on record"+(S.orders.length?" — last: "+S.orders[S.orders.length-1].task.slice(0,70):"")+(S.staged?" · STAGED for ship ✓":""));
       if(S.learned.length){const lw=S.learned[S.learned.length-1];L.push("🔥 PHOENIX (KNOWLEDGE): "+S.learned.length+" lesson(s) · last: "+lw.m.slice(0,80))}
       if(S.world){
         const wAge=Math.max(0,Math.round((Date.now()-S.world.at)/60000));
         L.push("🌍 WORLD SYNC: "+(wAge<1?"just now":wAge+" min ago")+" — "+String(S.world.stamp).slice(0,56)+(S.world.fresh?" · live brief":" · keyless cache"));
         if(S.world.brief)L.push("   "+S.world.brief.slice(0,150)+"…");
-      }else L.push("🌍 WORLD SYNC: never — PHOENIX stamps on first run");
-      L.push("🔑 KEY MODE: "+keyMode()+(S.auto?" · AUTO-LOOP ON":" · AUTO-LOOP OFF"));
+      }else L.push("🌍 WORLD SYNC: never — PHOENIX stamps on first brief");
+      L.push("🔑 KEY MODE: "+keyMode());
+      L.push("🛡 SHIP GATE: admin command only — nothing runs or ships without your word.");
       L.push("");
       L.push("RECENT ACTIVITY:");
-      const recent=S.log.slice(-6);
+      const recent=(S.chats&&S.chats.kratos||[]).filter(function(e){return e.who==="sys"}).slice(-6);
       if(!recent.length)L.push("  (quiet — no runs yet)");
-      recent.forEach(e=>L.push("  ["+new Date(e.t).toLocaleTimeString(undefined,{hour12:false})+"] "+e.who+": "+e.m.slice(0,90)));
+      recent.forEach(function(e){L.push("  ["+new Date(e.t).toLocaleTimeString(undefined,{hour12:false})+"] "+e.m.slice(0,90))});
       return L.join("\n");
     }
+    /* ---------- trained AI voice: persona system prompt with live squad context ---------- */
+    function sysFor(id){
+      const b=bot(id);
+      let ctx="CURRENT DATE & TIME: "+new Date().toString()+"\n"+
+        "KEY MODE: "+keyMode()+"\n"+
+        "LAST SWEEP: "+(S.sweep?(S.sweep.fail?(S.sweep.fail+" FAILED of "+(S.sweep.pass+S.sweep.fail)+": "+(S.sweep.failed||[]).join("; ")):(S.sweep.pass+"/"+(S.sweep.pass+S.sweep.fail)+" all green"))+" — "+ago(S.sweep.at):"never run")+"\n"+
+        "WORLD SYNC: "+(S.world?(S.world.stamp+" — "+String(S.world.brief||"no brief").slice(0,260)):"never")+"\n"+
+        (S.learned.length?"LESSONS LEARNED: "+S.learned.slice(-5).map(function(l){return l.m}).join(" | ")+"\n":"")+
+        "ORDERS ON RECORD: "+S.orders.length+(S.orders.length?" — last: "+S.orders[S.orders.length-1].task.slice(0,150):"")+"\n"+
+        "STAGED FOR SHIP: "+(S.staged?("yes — "+S.staged.edits.length+" verified edit(s) from \""+S.staged.task.slice(0,100)+"\". When the admin says ship, you publish them."):"none")+"\n";
+      return "You are "+b.icon+" "+b.name+" ("+b.dept+"), of the KRATOS SQUAD — the admin-only bot command center inside AURA, a holographic AI assistant built by Sourabh Singh (JECRC University, B.Tech CSE).\n\n"+
+        "SQUAD PLAYBOOK:\n"+BOT_DB.protocol+"\n\nYOUR DEPARTMENT:\n"+BOT_DB.depts[id]+"\n\n"+
+        "LIVE CONTEXT:\n"+ctx+"\n"+
+        "OPERATING RULES: (1) You act ONLY on the admin's direct command from this page — never claim you already did something you didn't, never run anything on your own. (2) NEVER fake tool output: if a lane failed or keys are missing, say exactly that and give the honest deterministic fallback from LIVE CONTEXT. (3) Trust LIVE CONTEXT (date/time/sweep/staged state) over training memory. (4) VOICE: sharp senior-engineer persona, address the admin as \"Sir\", mirror his language (Hinglish welcome — Hindi-English mix is fine if he uses it), 2-10 tight lines, numbered steps when planning, end every work answer with the concrete next command he can give (e.g. \"say 'ship' to publish\"). (5) Never mention being an LLM, a model or a prompt.";
+    }
+    function fallbackFor(id){
+      if(id==="kratos")return report();
+      if(id==="erlang")return S.sweep?("Last sweep ("+ago(S.sweep.at)+"): "+S.sweep.pass+"/"+(S.sweep.pass+S.sweep.fail)+" green"+(S.sweep.failed&&S.sweep.failed.length?("\nFailed: "+S.sweep.failed.join("\n")):"")):"No sweep yet — say \"run a full sweep\" (works with zero keys).";
+      if(id==="arthur")return "Give me engineering work, Sir — e.g. \"add a theme toggle to the top bar\".\nPlan → complete code → dry-run verify against the real file → you say \"ship\".\n"+keyMode();
+      return worldText();
+    }
+    async function ai(id,userMsg,ctx){
+      const sys=sysFor(id)+(ctx?"\n\nADDITIONAL LIVE CONTEXT:\n"+ctx:"");
+      try{
+        const out=await groqCall([{role:"system",content:sys},{role:"user",content:userMsg}],1100);
+        if(out&&out.trim())return out.trim();
+        throw new Error("empty");
+      }catch(e){
+        const base=ctx||fallbackFor(id);
+        return "⚠ AI brain unreachable ("+(e.message||e)+") — backend sleeping or keys out. Deterministic lane, nothing faked:\n\n"+base;
+      }
+    }
+    /* ---------- the chat router: admin message → bot works ---------- */
+    async function chat(text){
+      text=String(text||"").trim();if(!text)return;
+      const id=S.who;
+      if(!isAdmin()){push(id,"sys","admin only — the squad stands down until the signed-in admin commands it.");return}
+      push(id,"me",text);
+      setTyping(true,id);
+      const send=$("botChatSend");if(send)send.disabled=true;
+      try{
+        const t=text.toLowerCase().trim();
+        const sweepish=/\b(sweep|test suite|run tests?|self[- ]?test|checks?|scan|audit|verify all)\b/.test(t);
+        const fixish=/\b(fix|repair|patch|bug|solve|broken|failed)\b/.test(t);
+        const q=/\?$/.test(t)||/^(what|who|when|where|why|how|which|can|could|do|does|is|are|should|would|explain|tell)\b/.test(t);
+        const taskish=/\b(fix|add|build|create|write|change|update|remove|delete|make|refactor|improve|optimize|implement|install|rename|move|clean|debug|repair)\b/.test(t)||(!q&&text.length>14);
+        let reply=null;
+        if(id==="kratos"){
+          if(/\b(report|status|standings?|situation|roster|team status|how (are|is) (you|the squad))\b/.test(t)&&!fixish&&!sweepish){
+            reply=await ai(id,text,"KRATOS COMMAND REPORT:\n"+report());
+          }else if(/\b(brief|news|headlines?|today|what('s| is) the (date|time)|world)\b/.test(t)){
+            worldSync();
+            reply=await ai(id,text,"LIVE WORLD DATA:\n"+worldText());
+          }else if(sweepish&&!fixish){
+            push(id,"sys","🛡 dispatching ERLANG — source sweep…");
+            const r=await sweep(false);
+            reply=r?await ai(id,text,"ERLANG SWEEP RESULT: "+r.pass+"/"+(r.pass+r.fail)+" checks green"+(r.fail?(" — FAILED: "+(r.failed||[]).join("; ")):" — squad standing down.")+(r.fail?"\nNext command: \"fix the failed checks\" dispatches ⚔ ARTHUR.":"")):"sweep could not run — check ERLANG's chat";
+          }else if(taskish){
+            S.orders.push({t:Date.now(),task:text.slice(0,200),by:"admin"});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
+            entry("kratos","order accepted → dispatching ⚔ ARTHUR (ENGINEERING)");
+            push(id,"sys","⚔ ARTHUR is on it — plan → code → verify…");
+            const at=await arthurWork(text);
+            reply=await ai(id,text,"⚔ ARTHUR'S REPORT ON THE DISPATCHED ORDER:\n"+at+"\n\nAs KRATOS: confirm dispatch status in 2-5 lines and give the admin his next command (e.g. \"ship\" or a revision).");
+          }else reply=await ai(id,text);
+        }else if(id==="erlang"){
+          if(sweepish&&!fixish){
+            push(id,"sys","sweep running (deterministic, keyless)…");
+            const r=await sweep(false);
+            reply=r?await ai(id,text,"SWEEP RESULT: "+r.pass+"/"+(r.pass+r.fail)+" green"+(r.fail?(" — FAILED: "+(r.failed||[]).join("; ")):"")):"sweep could not run — see the system lines above";
+          }else if(fixish){
+            entry("erlang","failed-check review → handing to ⚔ ARTHUR (engineering is his dept)");
+            push(id,"sys","⚔ dispatching ARTHUR…");
+            const at=await arthurWork(text);
+            reply=await ai(id,text,"⚔ ARTHUR'S FIX RESULT:\n"+at+"\n\nAs ERLANG: state what was found/fixed in 2-5 lines, and how it gets re-verified.");
+          }else reply=await ai(id,text);
+        }else if(id==="arthur"){
+          if(S.staged&&/^(ship|deploy|publish|commit|push|go[ -]?live|ship it|do it|publish it)\b/.test(t)){
+            reply=await shipStaged();
+          }else if(taskish&&!q){
+            reply=await arthurWork(text);
+          }else reply=await ai(id,text);
+        }else{
+          if(/\b(brief|news|headlines|headline|what('?s| is) (today|the date|the time)|today's|world|stamp)\b/.test(t)){
+            worldSync();
+            reply=await ai(id,text,"LIVE WORLD DATA:\n"+worldText());
+          }else reply=await ai(id,text);
+        }
+        push(id,"bot",reply||"…");
+      }catch(e){
+        push(id,"bot","⚠ lane error (honest): "+(e.message||e)+"\n\n"+fallbackFor(id));
+      }finally{
+        setTyping(false);
+        const s=$("botChatSend");if(s)s.disabled=false;
+      }
+    }
+    /* ---------- Zeus handoff: main-chat admin commands route through the squad ---------- */
     function assign(task){
       task=String(task||"").trim();if(!task)return false;
-      entry("kratos","owner assigned new work: "+task.slice(0,110),"dim");
-      if(/\b(test|sweep|check|verify|scan|audit)\b/i.test(task)&&!/\bfix|repair|bug\b/i.test(task)){
-        return sweep(false).then(r=>{const out=$("botReportOut");if(out){out.style.display="block";out.textContent=report()}return r});
+      if(!isAdmin()){entry("kratos","order refused — admin only");return false}
+      entry("kratos","admin order (via ZEUS): "+task.slice(0,110));
+      if(/\b(test|sweep|check|verify|scan|audit)\b/i.test(task)&&!/\b(fix|repair|bug)\b/i.test(task)){
+        return sweep(false).then(function(r){
+          let msg;
+          if(!r)msg="sweep unavailable — see 🛡 ERLANG chat";
+          else{
+            msg="🛡 ERLANG sweep done: "+r.pass+"/"+(r.pass+r.fail)+" checks green";
+            if(r.fail)msg+=" — "+(r.failed||[]).join("; ")+"\nSay \"fix the failed checks\" in my chat to dispatch ARTHUR.";
+          }
+          push("kratos","bot",msg);
+          return r;
+        });
       }
-      return dispatch(task,false);
+      S.orders.push({t:Date.now(),task:task.slice(0,200),by:"zeus"});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
+      entry("kratos","dispatched to ⚔ ARTHUR (ENGINEERING)");
+      arthurWork(task).then(function(txt){push("kratos","bot","⚔ ARTHUR REPORT:\n"+txt)});
+      return true;
     }
-    /* auto loop: quiet sweep every 5 min when enabled + admin present */
-    setInterval(function(){
-      if(!S.auto||!isAdmin()||document.hidden)return;
-      if(bot("erlang").st==="running"||bot("arthur").st==="running")return;
-      sweep(true);
-    },300000);
-    /* PHOENIX: keep the world stamp fresh every 30 min while the admin is around (keyless) */
-    setInterval(function(){
-      if(!isAdmin()||document.hidden)return;
-      if(!S.world||(Date.now()-(S.world.at||0))>1800000)worldSync();
-    },1800000);
-    /* ---------- boot: wire the card (admin page may be hidden — elements still exist) ---------- */
+    function dispatch(task){return assign(task)}
+    /* ---------- boot: wire the command center (admin page may be hidden — elements still exist) ---------- */
     function boot(){
-      render();renderLog();
-      const a=$("botAssignBtn");if(a)a.onclick=function(){const t=$("botOrder").value.trim();if(!t){entry("kratos","give the squad their next work first","dim");return}$("botOrder").value="";assign(t);};
-      const s=$("botTestBtn");if(s)s.onclick=function(){sweep(false)};
-      const rp=$("botReportBtn");if(rp)rp.onclick=function(){const out=$("botReportOut");if(!out)return;const txt=report();if(out.style.display==="block"&&out.textContent===txt){out.style.display="none"}else{out.style.display="block";out.textContent=txt}};
-      const ab=$("botAutoBtn");if(ab)ab.onclick=function(){S.auto=!S.auto;save();render();entry("kratos","auto-fix loop "+(S.auto?"ON — failed sweeps dispatch ⚔ ARTHUR automatically":"OFF"),S.auto?"ok":"dim")};
-      entry("kratos","KRATOS SQUAD online — Mythos protocol loaded, admin-only","ok");
-      setTimeout(function(){if(isAdmin())worldSync()},4000);
+      renderRoster();renderChat();
+      const send=$("botChatSend"),inp=$("botChatIn");
+      if(send)send.onclick=function(){const v=inp?inp.value:"";if(inp)inp.value="";chat(v)};
+      if(inp)inp.onkeydown=function(e){if(e.key==="Enter"){const v=inp.value;inp.value="";chat(v)}};
+      try{
+        Array.prototype.forEach.call(document.querySelectorAll("#botChips .bot-chip"),function(c){
+          c.onclick=function(){chat(c.textContent)};
+        });
+      }catch(e){}
+      entry("kratos","KRATOS SQUAD online — Mythos protocol loaded, command-only, admin-only");
     }
     if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
-    return {sweep:sweep,assign:assign,dispatch:dispatch,report:report,render:render,worldSync:worldSync,db:function(){return {protocol:BOT_DB.protocol,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode()}}};
+    return {sweep:sweep,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},db:function(){return {protocol:BOT_DB.protocol,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode()}}};
   })();
+
   /* ================= ADMIN PAGE — server-verified maker/ceo only; edits live database config ================= */
   /* FIREBASE TOKENS EXPIRE AFTER 1 HOUR — every admin call now force-refreshes a
      fresh token first, so the console never dies with "sign in" while you ARE
@@ -10517,87 +10698,14 @@ document.addEventListener("DOMContentLoaded",function(){
   window.__ahRetry=__ahRetry;
   window.adminLoad=adminLoad;
   async function adminLoad(){
-    /* backendUrl() can be empty while config is still loading — wait for it instead
-       of returning silently and leaving PEOPLE stuck on "loading…" forever */
-    for(let i=0;i<20&&!backendUrl();i++){await new Promise(function(r){setTimeout(r,500)})}
-    if(!backendUrl()){const el=$("adUsersList");if(el)el.innerHTML='<small style="color:#f87171">backend not reachable — reload the page</small>';return}
-    try{const me=await(await __ah("GET",backendUrl()+"/v1/me")).json();const rl=$("adminRoleLine");if(rl&&me&&me.role)rl.textContent=me.role+" access · "+(me.email||me.uid.slice(0,10))}catch(e){}
-    try{loadKeyBank()}catch(e){}
+    /* admin page is bots-only now — refresh the squad command center and the role line */
+    try{if(window.BotTeam)window.BotTeam.render()}catch(e){}
     try{
-      const cr=await(await __ah("GET",backendUrl()+"/v1/config")).json();
-      const e=$("adCfgEngine"),b=$("adCfgBrand"),a=$("adCfgAnnounce");
-      if(e&&!e.value)e.value=cr.aiEngine||"";if(b&&!b.value)b.value=cr.brandLine||"";if(a&&!a.value)a.value=cr.announce||"";
+      const me=await(await __ah("GET",backendUrl()+"/v1/me")).json();
+      const rl=$("adminRoleLine");if(rl&&me&&me.role)rl.textContent=me.role+" access · "+(me.email||me.uid.slice(0,10));
     }catch(e){}
-    try{
-      const ur=await __ah("GET",backendUrl()+"/v1/admin/users");
-      if(!ur.ok){ $("adUsersList").innerHTML='<small style="color:#f87171">'+(await ur.json().catch(()=>({}))).error+"</small>"; return; }
-      const j=await ur.json();const users=j.users||[];
-      const st=$("adStatUsers"),sa=$("adStatAdmins");
-      if(st)st.innerHTML=users.length+"<small>SIGNED-IN PEOPLE</small>";
-      if(sa)sa.innerHTML=users.filter(x=>x.role==="maker"||x.role==="ceo").length+"<small>STAFF (MAKER/CEO)</small>";
-      $("adUsersList").innerHTML=users.map(function(u){
-        return '<div class="admin-user-row"><span>'+(u.role==="maker"?"\ud83d\udc51 ":u.role==="ceo"?"\ud83c\udfc6 ":"\ud83d\udc64 ")+(u.name||"(unnamed)")+'</span><small style="color:var(--dim)">'+(u.email||u.uid.slice(0,10))+'</small><select class="role-select" data-uid="'+u.uid+'">'+["user","ceo","maker"].map(r=>'<option '+(u.role===r?"selected":"")+'>'+r+'</option>').join("")+"</select></div>";
-      }).join("")||'<small style="color:var(--dim)">no signed-in people yet</small>';
-      $("adUsersList").querySelectorAll(".role-select").forEach(function(s){
-        s.onchange=async function(){
-          const r=await __ah("POST",backendUrl()+"/v1/admin/setrole",{uid:s.getAttribute("data-uid"),role:s.value});
-          pushSys(r.ok?("\u2705 role updated — verified on the server"):("\u26a0 "+(await r.json().catch(()=>({}))).error));
-        };
-      });
-    }catch(e){ $("adUsersList").innerHTML='<small style="color:var(--dim)">registry offline — backend warming up, retry in a minute</small>' }
   }
-  const adCfgSave=$("adCfgSave");
-  if(adCfgSave)adCfgSave.onclick=async function(){
-    adCfgSave.disabled=true;
-    try{
-      const r=await __ah("POST",backendUrl()+"/v1/admin/config",{aiEngine:$("adCfgEngine").value.trim(),brandLine:$("adCfgBrand").value.trim(),announce:$("adCfgAnnounce").value.trim()});
-      const j=await r.json().catch(()=>({}));
-      $("adCfgMsg").textContent=r.ok?"\u2705 saved to the live database — every visitor receives it":"\u26a0 "+(j.error||"save failed");
-  if(r.ok&&j.config){AuraConfig.cache=j.config;AuraConfig.apply()}
-      pushSys(r.ok?"\ud83d\udcc3 config published to every visitor":"config save failed");
-    }catch(e){ $("adCfgMsg").textContent="\u26a0 backend unreachable" }
-    adCfgSave.disabled=false;
-  };
-  const __au=JSON.parse(localStorage.getItem("aura_fb_live")||"null");
-  try{
-    fetch(backendUrl()+"/v1/usage").then(r=>r.json()).then(u=>{const el=$("adStatAnswers");if(el&&u&&typeof u.answers==="number")el.innerHTML=u.answers+"<small>ANSWERS SERVED</small>";const hint=$("adUsageHint");if(hint&&u&&typeof u.cacheSize==="number")hint.textContent=" · cache holding "+u.cacheSize+" answer(s)"+(u.dailyCap?" · visitor cap "+u.dailyCap+"/day":"")}).catch(()=>{});
-  }catch(e){}
 
-  /* ---- KEY BANK panel — live spend ledger (owner only, from /v1/admin/usage) ---- */
-  function kbEsc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
-  let __kbTimer=null;
-  async function loadKeyBank(){
-    const body=$("kbBody"),dayEl=$("kbDay");if(!body)return;
-    body.innerHTML='<small style="color:var(--dim)">reading the ledger…</small>';
-    try{
-      const j=await(await __ah("GET",backendUrl()+"/v1/admin/usage")).json();
-      if(j.error)throw new Error(j.error);
-      if(dayEl)dayEl.textContent=" · "+kbEsc(j.day||"");
-      const kb=j.keyBank||{};
-      const drained=Math.max(0,(kb.total||0)-(kb.liveNow||0));
-      const top=(j.biggestSpenders&&j.biggestSpenders[0])||{};
-      const alert=(kb.total>1&&drained*2>=kb.total)
-        ?'<div style="margin:0 0 8px;padding:7px 9px;border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.08);border-radius:8px;font:12px Rajdhani;color:#fbbf24">⚠ DRAIN ALERT — '+drained+' of '+kb.total+' key(s) cooling down. Top spender today: <b>'+kbEsc(top.who||"?")+'</b> ('+(top.aiCalls||0)+' AI calls)</div>':'';
-      const rows=(j.spendByKey||[]).map(k=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 9px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px"><span style="font:12px monospace;color:var(--cy2)">'+kbEsc(k.key)+'</span><span style="font:11px Rajdhani;color:var(--ice)">'+k.aiCalls+' calls · '+k.tokens+' tok</span></div>').join("");
-      const who=(j.biggestSpenders||[]).slice(0,5).map(w=>'<div style="display:flex;justify-content:space-between;padding:4px 9px;font:11.5px Rajdhani"><span style="color:var(--dim)">'+kbEsc(w.who)+'</span><span style="color:var(--ice)">'+w.aiCalls+' AI calls</span></div>').join("");
-      body.innerHTML=alert
-        +'<div style="font:600 10px Rajdhani;letter-spacing:1px;color:var(--dim);margin:2px 0 6px">KEY BANK — '+(kb.liveNow||0)+'/'+(kb.total||0)+' live now'+((j.lanes&&(j.lanes.code||j.lanes.admin))?' · LANES: '+(j.lanes.code?'CODE ✓':'CODE —')+' / '+(j.lanes.admin?'ADMIN ✓':'ADMIN —'):'')+'</div>'
-        +(rows||'<small style="color:var(--dim)">no keys reported</small>')
-        +'<div style="font:600 10px Rajdhani;letter-spacing:1px;color:var(--dim);margin:9px 0 3px">TOP SPENDERS TODAY</div>'
-        +(who||'<small style="color:var(--dim)">quiet day — zero AI spend</small>')
-        +'<small style="color:var(--dim);display:block;margin-top:7px">guest agent runs/day: '+(j.guestAgentRunsPerDay||0)+' · the ledger resets at midnight UTC</small>';
-    }catch(e){ body.innerHTML='<small style="color:#f87171">'+kbEsc(e.message||String(e))+'</small>'; }
-    clearTimeout(__kbTimer);
-    __kbTimer=setTimeout(function(){const p=$("kbBody");if(p&&p.offsetParent!==null)loadKeyBank()},60000);
-  }
-  const kbBtn=$("kbRefresh");if(kbBtn)kbBtn.onclick=loadKeyBank;
-
-  /* ============================================================
-     SELF-INTEGRATION — AURA modifies her own page under your approval
-     PLAN  : the AI drafts a change plan + integration patch (JS/CSS/HTML)
-     BUILD : the patch runs in a sandboxed copy of the REAL page → live preview
-     SHIP  : the patch is saved to the backend database → every visitor gets it
-     ============================================================ */
   const suPlan=$("suPlan"),suDiff=$("suDiff"),suDiffCode=$("suDiffCode"),suDiffMeta=$("suDiffMeta"),
         suPrev=$("suPrev"),suPrevFrame=$("suPrevFrame"),suStatus=$("suStatus"),suPromptEl=$("suPrompt");
   const suState={plan:"",patch:"",note:"",edits:null,mode:"source",gh:null};
@@ -10980,75 +11088,7 @@ document.addEventListener("DOMContentLoaded",function(){
       }catch(e){setStep(4,"wait");log("ship error: "+(e.message||String(e)),"#f87171");amShipBtn.disabled=false}
     };
   })();
-  /* GitHub connection bar + SOURCE/RUNTIME mode toggle */
-  (function(){
-    const dot=$("suGhDot"),txt=$("suGhText"),mb=$("suModeBtn");
-    /* ---- UPGRADE HISTORY + one-click REVERT (admin-only) ---- */
-    const histBox=$("suHist"),histList=$("suHistList"),histMeta=$("suHistMeta"),histBtn=$("suHistBtn");
-    function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
-    async function loadHist(){
-      if(!AuraAuth.suAllowed||!AuraAuth.suAllowed())return;
-      histBox.style.display="block";
-      histList.innerHTML='<small style="color:var(--dim)">loading her commits…</small>';
-      try{
-        const j=await(await __ah("GET",backendUrl()+"/v1/dev/history")).json();
-        if(j.error)throw new Error(j.error);
-        const cs=j.commits||[];
-        const her=cs.filter(function(c){return c.selfUpgrade});
-        histMeta.textContent=her.length+" self-upgrade(s) · "+cs.length+" commits shown";
-        if(!cs.length){histList.innerHTML='<small style="color:var(--dim)">no commits yet</small>';return}
-        histList.innerHTML=cs.map(function(c){
-          const d=c.when?new Date(c.when).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"}):"";
-          const tag=c.selfUpgrade?'<span style="color:#34d399;font-weight:700">🧬 HER UPGRADE</span>':'';
-          return '<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:rgba(120,101,233,.05)"><code style="font:11px monospace;color:var(--cy2)">'+esc(c.sha)+'</code><div style="flex:1;min-width:0"><div style="font:12px Rajdhani;color:var(--ice);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+tag+' '+esc(c.message)+'</div><small style="color:var(--dim)">'+esc(d)+' · '+esc(c.author||"unknown")+'</small></div><button class="suBtn" data-revert="'+esc(c.sha)+'" title="Undo this commit with GitHub revert" style="padding:4px 9px;font-size:9px;background:rgba(239,68,68,.18);border-color:rgba(239,68,68,.45)">↩ REVERT</button></div>';
-        }).join("");
-        [].slice.call(histList.querySelectorAll("[data-revert]")).forEach(function(b){
-          b.onclick=async function(){
-            const sha=b.getAttribute("data-revert");
-            if(!confirm("Revert commit "+sha+"?\n\nGitHub will create a NEW commit that undoes it — nothing is destroyed, and the live site updates ~60s after."))return;
-            b.disabled=true;b.textContent="undoing…";
-            try{
-              const r=await __ah("POST",backendUrl()+"/v1/dev/revert",{sha:sha});
-              const j2=await r.json().catch(()=>({}));
-              if(!r.ok||!j2.ok)throw new Error(j2.error||("HTTP "+r.status));
-              b.textContent="↩ reverted "+j2.revertCommit;
-              suStatus.textContent="↩ reverted "+sha+" (new commit "+j2.revertCommit+") — live in ~60 seconds.";
-              pushSys("↩ self-upgrade revert: "+sha+" → "+j2.revertCommit);
-              setTimeout(loadHist,3000);
-            }catch(e){b.disabled=false;b.textContent="↩ REVERT";suStatus.textContent="revert failed: "+(e.message||e)}
-          };
-        });
-      }catch(e){histList.innerHTML='<small style="color:#f87171">history unavailable: '+esc(e.message||e)+'</small>'}
-    }
-    if(histBtn)histBtn.onclick=loadHist;
-    setTimeout(function(){if(AuraAuth.suAllowed&&AuraAuth.suAllowed())loadHist()},1200);
-    async function ghCheck(){
-      if(AuraAuth.suAllowed&&!AuraAuth.suAllowed()){dot.style.background="#f59e0b";txt.textContent="admin only — sign in with your maker account to use self-integration";return}
-      let r;try{r=await __ah("GET",backendUrl()+"/v1/dev/status")}catch(e){dot.style.background="#f59e0b";txt.textContent="backend unreachable — is Render awake?";return}
-      if(r.status===401||r.status===403){dot.style.background="#f59e0b";txt.textContent="admin only — sign in with your maker account to use self-integration";return}
-      try{const s=await r.json();
-      if(!s.connected){dot.style.background="#f59e0b";txt.innerHTML="GitHub not connected — add <b>GH_TOKEN</b> on Render (Environment) to unlock SOURCE EDIT";return}
-      dot.style.background="#34d399";txt.textContent="repo "+s.repo+" · "+s.branch+" · last commit "+(s.lastCommit&&s.lastCommit.sha?s.lastCommit.sha:"?");
-      }catch(e){dot.style.background="#f59e0b";txt.textContent="GitHub status unreadable"}}
-    ghCheck();
-    if(mb)mb.onclick=function(){
-      suState.mode=suState.mode==="source"?"runtime":"source";
-      mb.textContent="SOURCE EDIT: "+(suState.mode==="source"?"ON":"OFF");
-      mb.style.background=suState.mode==="source"?"rgba(120,101,233,.35)":"";
-      suStatus.textContent=suState.mode==="source"?"SOURCE EDIT armed — she will edit the real aura.html in her GitHub repository (permanent, survives redeploys).":"RUNTIME mode — appearance patches only (live in seconds, nothing committed).";
-    };
-    const hb2=$("suHealthBtn");
-    if(hb2)hb2.onclick=async function(){
-      hb2.disabled=true;dot.style.background="#f59e0b";txt.textContent="SHIP health check — dry-running one probe edit against her real repo…";
-      try{
-        const r=await __ahRetry("POST",backendUrl()+"/v1/dev/commit",{edits:[{find:"const SU_SYS=",replace:"const SU_SYS="}],message:"health probe",dryRun:true});
-        const j=await r.json().catch(()=>({}));
-        if(r.ok&&j.ok&&j.dryRun){dot.style.background="#34d399";txt.textContent="SHIP HEALTHY ✓ — auth, owner lock, GitHub access and the applier all verified (probe at line "+j.firstChangeAtLine+")";}
-        else{dot.style.background="#ef4444";txt.textContent="SHIP UNHEALTHY ✗ — "+(j.error||("HTTP "+r.status));}
-      }catch(e){dot.style.background="#ef4444";txt.textContent="SHIP UNHEALTHY ✗ — "+(e.message||e);}
-      hb2.disabled=false;
-    };
-  })();
+  /* GitHub bar + self-integration console removed — admin page is bots-only now. */
   /* KEEP-WARM — a whisper to /health every 4 minutes so the Render brain never sleeps;
      kills the ~50s cold-start lag completely while any AURA tab is open */
   try{setInterval(function(){fetch(backendUrl()+"/health",{signal:AbortSignal.timeout(8000)}).catch(function(){})},240000)}catch(e){}
