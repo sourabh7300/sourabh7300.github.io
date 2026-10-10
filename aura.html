@@ -2717,13 +2717,21 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
 
 <div id="adminPage">
   <p class="sub" style="font:400 12.5px 'JetBrains Mono',monospace;letter-spacing:.1em;color:var(--m);margin:-4px 0 12px">Admin only — the squad moves when you command it, never on its own.</p>
-  <div class="admin-card" id="botsCard" style="border-color:rgba(34,211,238,.45);display:flex;flex-direction:column;gap:10px;min-height:0">
-    <h4>⚡ KRATOS SQUAD <span style="color:var(--dim);font-weight:400">— 👑 KRATOS · 🛡 ERLANG · ⚔ ARTHUR · 🔥 PHOENIX · talk to them like ZEUS</span></h4>
-    <p style="font-size:12px;color:var(--dim);line-height:1.55;margin:0">    Pick a bot, then just talk — give orders, ask questions, assign real work. <b style="color:var(--cy2)">You decide who executes</b>: tap its tile, or name it — <b>arthur: &lt;task&gt;</b> · <b>erlang: run a sweep</b>. They act only on commands from this admin account, vague orders get a clarifying question — never invented work.</p>
+  <div class="admin-card" id="botsCard" style="border-color:rgba(34,211,238,.3);display:flex;flex-direction:column;gap:12px;min-height:0;background:linear-gradient(180deg,rgba(10,20,34,.92),rgba(6,12,22,.96));box-shadow:0 18px 50px rgba(0,0,0,.4)">
+    <div id="botHero">
+      <div id="botHeroGlow"></div>
+      <div id="botHeroTxt">
+        <h4 style="margin:0;display:flex;align-items:center;gap:10px"><span style="font-size:20px">⚡</span> KRATOS SQUAD
+          <span id="botShiftTag" style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:1.2px;color:#0e2a20;background:linear-gradient(135deg,#34d399,#10b981);border-radius:99px;padding:3px 9px;display:none">SHIFT ✓ TODAY</span>
+        </h4>
+        <p style="font-size:11.5px;color:#8ea6bd;line-height:1.5;margin:3px 0 0">Four specialists, one command chain — bol ke kaam karwao, jaise ZEUS se baat karte ho.</p>
+      </div>
+    </div>
     <div class="bot-grid" id="botRoster"></div>
     <div id="botHead"><span id="botWho">👑 KRATOS</span><span id="botDept">COMMAND</span><span id="botState">standing by for your command</span></div>
     <div id="botChatLog" role="log" aria-live="polite"></div>
     <div id="botChips">
+      <button class="bot-chip">morning shift</button>
       <button class="bot-chip">run a full sweep</button>
       <button class="bot-chip">status report</button>
       <button class="bot-chip">what can you do?</button>
@@ -2731,36 +2739,56 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
       <button class="bot-chip">fix the last failed checks</button>
     </div>
     <div id="botRow">
-      <input id="botChatIn" autocomplete="off" spellcheck="false" placeholder="Talk to KRATOS — give the order, ask anything…">
+      <input id="botChatIn" autocomplete="off" spellcheck="false" placeholder="Bots se baat karo — Hinglish ya English, order ya sawaal…">
       <button id="botChatSend" title="Send command">▸ SEND</button>
     </div>
     <style>
-      #botHead{display:flex;align-items:center;gap:10px;padding:7px 11px;border:1px solid rgba(34,211,238,.35);border-radius:9px;background:rgba(34,211,238,.06);font:600 11px Rajdhani;letter-spacing:1.2px}
+      /* ==== KRATOS SQUAD — polished command center look ==== */
+      #botHero{position:relative;display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid rgba(34,211,238,.22);border-radius:14px;background:linear-gradient(120deg,rgba(34,211,238,.07),rgba(167,139,250,.05) 60%,transparent);overflow:hidden}
+      #botHeroGlow{position:absolute;inset:-40% -10% auto;height:150px;background:radial-gradient(ellipse at 20% 0%,rgba(34,211,238,.16),transparent 65%);pointer-events:none}
+      #botHeroTxt{position:relative}
+      #botHero h4{font-family:'Orbitron',sans-serif;font-size:13.5px;letter-spacing:1.6px;color:var(--cy2)!important}
+      #botRoster{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px}
+      .bot-tile{position:relative;cursor:pointer;border:1px solid var(--line);border-radius:12px;padding:11px 12px 9px;background:linear-gradient(170deg,rgba(14,24,40,.75),rgba(6,12,22,.85));display:flex;flex-direction:column;gap:4px;transition:border-color .2s,box-shadow .2s,transform .15s;overflow:hidden}
+      .bot-tile:hover{border-color:rgba(34,211,238,.45);box-shadow:0 0 16px rgba(34,211,238,.14);transform:translateY(-1px)}
+      .bot-tile b{font:700 12.5px Rajdhani;letter-spacing:1.8px;color:var(--cy2);display:flex;align-items:center;gap:7px}
+      .bot-tile small{font-size:10px;color:var(--dim);line-height:1.45}
+      .bot-tile .bt-dept{font:600 8.5px 'JetBrains Mono',monospace;letter-spacing:1.4px;text-transform:uppercase}
+      .bot-tile .bt-ava{position:absolute;right:8px;top:8px;font-size:20px;opacity:.28;filter:grayscale(.2);transition:.25s}
+      .bot-tile:hover .bt-ava,.bot-tile.sel .bt-ava{opacity:.85;filter:none;transform:scale(1.12)}
+      .bot-tile.sel{border-color:rgba(34,211,238,.8);box-shadow:0 0 18px rgba(34,211,238,.2),inset 0 0 24px rgba(34,211,238,.05);background:linear-gradient(170deg,rgba(34,211,238,.1),rgba(6,12,22,.9))}
+      .bot-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dim);box-shadow:0 0 6px currentColor}
+      .bot-dot.ok{background:#34d399;animation:dotPulse 2.4s infinite}
+      .bot-dot.fail{background:#f87171;animation:dotPulse 1s infinite}
+      .bot-dot.running{background:#fbbf24;animation:dotPulse .8s infinite}
+      @keyframes dotPulse{0%,100%{opacity:1}50%{opacity:.35}}
+      #botHead{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid rgba(34,211,238,.3);border-radius:10px;background:rgba(34,211,238,.05);font:600 11px Rajdhani;letter-spacing:1.2px}
       #botWho{color:var(--cy2);font-size:13px}
-      #botDept{color:var(--dim);font-size:10px}
+      #botDept{color:var(--dim);font-size:10px;font-family:'JetBrains Mono',monospace;letter-spacing:1px}
       #botState{margin-left:auto;color:var(--dim);font:10.5px 'JetBrains Mono',monospace;letter-spacing:.5px}
-      #botChatLog{display:flex;flex-direction:column;gap:8px;min-height:180px;max-height:48vh;overflow:auto;background:rgba(2,10,16,.55);border:1px solid var(--line);border-radius:10px;padding:12px}
-      .bmsg{max-width:86%;font-size:12.5px;line-height:1.6;padding:8px 11px;border-radius:10px;white-space:pre-wrap;word-break:break-word;animation:bmin .25s ease-out}
-      @keyframes bmin{from{opacity:0;transform:translateY(4px)}}
-      .bmsg.me{align-self:flex-end;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.4);color:var(--ice)}
-      .bmsg.bot{align-self:flex-start;background:rgba(3,12,18,.85);border:1px solid rgba(34,211,238,.28);color:var(--ice)}
+      #botChatLog{display:flex;flex-direction:column;gap:9px;min-height:200px;max-height:52vh;overflow:auto;background:rgba(2,10,16,.6);border:1px solid var(--line);border-radius:12px;padding:14px;scroll-behavior:smooth}
+      .bmsg{max-width:min(86%,640px);font-size:12.5px;line-height:1.65;padding:9px 12px;border-radius:12px;white-space:pre-wrap;word-break:break-word;animation:bmin .25s ease-out}
+      @keyframes bmin{from{opacity:0;transform:translateY(5px)}}
+      .bmsg.me{align-self:flex-end;background:linear-gradient(135deg,rgba(34,211,238,.16),rgba(14,165,233,.1));border:1px solid rgba(34,211,238,.4);color:var(--ice);border-bottom-right-radius:4px}
+      .bmsg.bot{align-self:flex-start;background:rgba(8,16,28,.9);border:1px solid rgba(34,211,238,.25);color:var(--ice);border-bottom-left-radius:4px}
       .bmsg.sys{align-self:center;max-width:96%;font:10.5px 'JetBrains Mono',monospace;color:var(--dim);background:none;border:0;padding:2px 4px;text-align:center}
-      .bmsg .who{display:block;font:600 9.5px Rajdhani;letter-spacing:1.6px;color:var(--cy2);margin-bottom:3px}
+      .bmsg .who{display:block;font:700 9.5px Rajdhani;letter-spacing:1.6px;color:#67e8f9;margin-bottom:4px}
       .bmsg.me .who{color:var(--dim)}
       .bmsg .dots i{display:inline-block;width:5px;height:5px;margin-right:4px;border-radius:50%;background:var(--cy2);animation:pp 1s infinite}
       .bmsg .dots i:nth-child(2){animation-delay:.15s}
       .bmsg .dots i:nth-child(3){animation-delay:.3s}
       #botChips{display:flex;gap:6px;flex-wrap:wrap}
-      .bot-chip{font:10.5px Rajdhani;letter-spacing:.6px;color:var(--dim);border:1px solid var(--line);border-radius:99px;padding:5px 11px;background:rgba(2,10,16,.4);cursor:pointer;transition:.18s}
-      .bot-chip:hover{color:var(--cy2);border-color:rgba(34,211,238,.5)}
+      .bot-chip{font:600 10.5px Rajdhani;letter-spacing:.6px;color:#9db8ce;border:1px solid var(--line);border-radius:99px;padding:6px 13px;background:rgba(2,10,16,.45);cursor:pointer;transition:.18s}
+      .bot-chip:hover{color:#67e8f9;border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.07)}
       #botRow{display:flex;gap:8px}
-      #botChatIn{flex:1;min-width:0;background:rgba(2,10,16,.5);border:1px solid var(--line);border-radius:10px;color:var(--ice);font:12.5px Rajdhani;padding:11px 12px}
-      #botChatIn:focus{outline:none;border-color:rgba(34,211,238,.55)}
-      #botChatSend{font:600 11px Rajdhani;letter-spacing:1px;padding:0 18px;border-radius:10px;background:linear-gradient(135deg,#22d3ee,#0ea5e9);color:#04222b;border:0;cursor:pointer}
+      #botChatIn{flex:1;min-width:0;background:rgba(2,10,16,.55);border:1px solid var(--line);border-radius:11px;color:var(--ice);font:13px Rajdhani;padding:12px 14px;transition:border-color .2s,box-shadow .2s}
+      #botChatIn:focus{outline:none;border-color:rgba(34,211,238,.6);box-shadow:0 0 0 3px rgba(34,211,238,.09)}
+      #botChatIn::placeholder{color:#5d7a94}
+      #botChatSend{font:700 11px Rajdhani;letter-spacing:1.2px;padding:0 20px;border-radius:11px;background:linear-gradient(135deg,#22d3ee,#0ea5e9);color:#04222b;border:0;cursor:pointer;transition:.2s;box-shadow:0 2px 10px rgba(34,211,238,.25)}
+      #botChatSend:hover{filter:brightness(1.1);box-shadow:0 4px 16px rgba(34,211,238,.4)}
+      #botChatSend:active{transform:scale(.97)}
       #botChatSend:disabled{opacity:.5;cursor:wait}
-      .bot-tile{cursor:pointer}
-      .bot-tile.sel{border-color:rgba(34,211,238,.75);box-shadow:0 0 14px rgba(34,211,238,.22);background:rgba(34,211,238,.08)}
-      @media(max-width:700px){#botChatLog{max-height:40vh}.bmsg{max-width:94%}}
+      @media(max-width:700px){#botChatLog{max-height:44vh}.bmsg{max-width:94%}#botRoster{grid-template-columns:repeat(2,1fr)}}
     </style>
   </div>
 </div>
@@ -8125,9 +8153,16 @@ updateEngTag();
     const railBottom=bar.getBoundingClientRect().bottom;
     const railIsBottomBar=window.innerWidth<=768&&railBottom>window.innerHeight-140;
     pg.style.bottom=Math.max(mh,railIsBottomBar?Math.ceil(window.innerHeight-railBottom)+12:mh)+"px"}catch(e){}};
-  const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage();if(t==="settings"&&window.AuraSettings&&AuraSettings.refresh)try{AuraSettings.refresh()}catch(e){}};window.__auraApply=apply;
-  bar.querySelectorAll("button").forEach(b=>b.onclick=()=>{const t=b.dataset.t;if(t==="admin"&&typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Mission Control","This page is reserved for maker and CEO accounts — roles are verified on the server.");return}apply(t);if(t==="admin"&&window.adminLoad)try{window.adminLoad()}catch(e){}});
-  apply("chat");
+  const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage();if(t==="settings"&&window.AuraSettings&&AuraSettings.refresh)try{AuraSettings.refresh()}catch(e){}try{if(t!=="admin")localStorage.setItem("aura_last_tab",t)}catch(e){}};window.__auraApply=apply;
+  bar.querySelectorAll("button").forEach(b=>b.onclick=()=>{const t=b.dataset.t;if(t==="admin"&&typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Mission Control","This page is reserved for maker and CEO accounts — roles are verified on the server.");return}try{localStorage.setItem("aura_last_tab",t)}catch(e){}apply(t);if(t==="admin"&&window.adminLoad)try{window.adminLoad()}catch(e){}});
+  /* restore the last active tab on reload — the ADMIN restore itself fires
+     later (at applyRoleUi time, line below) because AuraAuth loads after this
+     script block; non-admin tabs restore right here */
+  try{
+    const __lt=localStorage.getItem("aura_last_tab");
+    if(__lt&&__lt!=="admin"&&["chat","chats","code","system","settings"].indexOf(__lt)>=0)apply(__lt);
+  }catch(e){}
+  /* inside here AuraAuth is undefined yet — so never assume the admin tab */
 // ==== CODE PAGE SETUP ==== //
 (function(){
   // Create the Code page only once
@@ -10281,8 +10316,18 @@ document.addEventListener("DOMContentLoaded",function(){
   // Initial badge update + role-driven UI
   AuraAuth.updateBadge();
   setTimeout(function(){ try{ applyRoleUi(); }catch(e){} }, 800);
+  /* ADMIN PAGE RESTORE — if the admin's last tab was Mission Control, land him
+     back there once the role UI is applied (profile badge is also a manual way in) */
+  setTimeout(function(){
+    try{
+      if(localStorage.getItem("aura_last_tab")==="admin"&&AuraAuth.isAdmin()&&typeof window.__auraApply==="function"){
+        window.__auraApply("admin");
+        if(window.adminLoad)window.adminLoad();
+      }
+    }catch(e){}
+  }, 1100);
 
-  /* ================= KRATOS SQUAD — 👑 KRATOS (head) + ERLANG/ARTHUR/PHOENIX =================
+      /* ================= KRATOS SQUAD — 👑 KRATOS (head) + ERLANG/ARTHUR/PHOENIX =================
      Admin-only bot command center. Each bot has its OWN chat — you talk to them the way you
      talk to ZEUS: type an order or a question, they answer and work.
      KRATOS (COMMAND): takes your orders, dispatches the depts, reports back.
@@ -10290,11 +10335,14 @@ document.addEventListener("DOMContentLoaded",function(){
      ARTHUR (ENGINEERING): reads her real source, writes complete edits, dry-run verifies
        them against the real file; SHIP happens only when the admin explicitly says 'ship'.
      PHOENIX (KNOWLEDGE): real-world stamps (date/time/briefs) + persistent lessons.
-     COMMAND-ONLY: nothing runs until the admin sends a message here — no timers, no auto loops.
+     DAILY SHIFT (new): every day the squad runs a real morning shift — ERLANG sweeps,
+       PHOENIX stamps the world, ARTHUR fixes what failed, KRATOS signs the shift report.
+       One shift per calendar day; the admin can also launch it on demand ("morning shift").
+     COMMAND-ONLY otherwise: nothing else runs until the admin sends a message here.
      State: localStorage aura_bot_v2. */
   window.BotTeam=(function(){
     const KEY="aura_bot_v2";
-    const S={who:"kratos",chats:{},orders:[],sweep:null,world:null,learned:[],staged:null};
+    const S={who:"kratos",chats:{},orders:[],sweep:null,world:null,learned:[],staged:null,shift:null};
     try{
       const p=JSON.parse(localStorage.getItem(KEY)||"null");
       if(p&&typeof p==="object"){
@@ -10303,6 +10351,7 @@ document.addEventListener("DOMContentLoaded",function(){
         S.sweep=p.sweep||null;S.world=p.world||null;
         S.learned=Array.isArray(p.learned)?p.learned.slice(-30):[];
         S.staged=p.staged||null;
+        S.shift=(p.shift&&typeof p.shift==="object")?p.shift:null;
         if(["kratos","erlang","arthur","phoenix"].indexOf(p.who)>=0)S.who=p.who;
       }
     }catch(e){}
@@ -10317,34 +10366,42 @@ document.addEventListener("DOMContentLoaded",function(){
       }
     }catch(e){}
     ["kratos","erlang","arthur","phoenix"].forEach(function(id){if(!Array.isArray(S.chats[id]))S.chats[id]=[]});
-    function save(){try{localStorage.setItem(KEY,JSON.stringify({who:S.who,chats:S.chats,orders:S.orders.slice(-40),sweep:S.sweep,world:S.world,learned:S.learned.slice(-30),staged:S.staged}))}catch(e){}}
+    function save(){try{localStorage.setItem(KEY,JSON.stringify({who:S.who,chats:S.chats,orders:S.orders.slice(-40),sweep:S.sweep,world:S.world,learned:S.learned.slice(-30),staged:S.staged,shift:S.shift}))}catch(e){}}
     function isAdmin(){try{return typeof AuraAuth!=="undefined"&&AuraAuth.isAdmin()}catch(e){return false}}
     function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
     function ago(t){const m=Math.max(0,Math.round((Date.now()-(t||0))/60000));return m<1?"just now":m+" min ago"}
     /* TRAINING DATABASE — the squad's Mythos-class playbook (code-embedded, always current;
        PHOENIX persists learned lessons + world stamps alongside it in localStorage). */
     const BOT_DB={
-      protocol:"MYTHOS-CLASS AGENT PROTOCOL v1: (1) REASON like a senior engineer — core constraint → edge cases → failure modes → security → fix; never superficial. (2) PLAN first on multi-step work (Step 1/2/3), then execute; single-step asks get direct answers, no plan spam. (3) TOOLS — name the REAL lane you use (live web research, code forge, vision, source sweeps, squad DB); never fake or simulate tool output. (4) MEMORY — consult the squad database before acting; persist every new fact or lesson. (5) CURRENCY — trust the injected CURRENT DATE & TIME over any training guess; time-sensitive facts come from live or cached brief lanes; never answer 'my data is old'. (6) VOICE — crisp, structured, engineering precision with a sharp persona.",
+      protocol:"MYTHOS-CLASS AGENT PROTOCOL v3 — TOP-TIER TRAINING:\n(1) REASON like a principal engineer — core constraint → edge cases → failure modes → security → fix; dig deeper than the surface ask.\n(2) PLAN first on multi-step work (Step 1/2/3), single-step asks get direct answers.\n(3) TOOLS — name the REAL lane you used (live web research, code forge, vision, source sweeps, squad DB); NEVER fake or simulate tool output.\n(4) MEMORY — consult the squad DB before acting; persist every new fact or lesson.\n(5) CURRENCY — trust injected CURRENT DATE & TIME over training memory; time-sensitive facts come from live/brief lanes; never say 'my data is old'.\n(6) VOICE — sharp senior-engineer persona.\n(7) DAILY SHIFT — one real morning shift per day, signed by KRATOS.\n(8) HINGLISH NATIVE — mirror the admin's language automatically: Roman-Hindi+English mix (Hinglish) the moment he writes it (\"krr\", \"kya haal\", \"bhai\", \"chal raha\", \"dekh lo\"); Devanagari if he writes Devanagari; full English only if he writes full English. Hinglish replies feel natural, not translated — verbs/grammar Roman-Hindi me, technical terms English me.\n(9) ANSWER QUALITY — GPT-class answers: direct answer FIRST line, tight structured reasoning after, concrete numbers/names/versions/status; no filler, no 'as an AI', no repeating the question; end every work reply with the exact next command he can give.\n(10) HONESTY — an acknowledgement is not an execution; failed lanes are reported raw, never polished into optimism.",
+      daily:"DAILY SHIFT PROTOCOL — the squad works every day, whether or not the admin opens the page:\n• ERLANG (BUGS): run the deterministic source sweep; every failed check becomes a bug ticket.\n• ARTHUR (CODE-SYSTEM): if ERLANG found failures, produce the verified SOURCE-EDIT fix plan for them; if the sweep is green, verify the last shipped commit is still healthy and stand ready for admin-assigned missions.\n• PHOENIX (CHATS): read every chat transcript today, log the admin's theme of the day, stamp the world (date/time/live brief) into lessons.\n• KRATOS (HEAD): sign the DAILY SHIFT REPORT — per-dept what was done, found, fixed; list anything waiting on the admin; one concrete \"next command\".\nRules: the shift runs automatically once per calendar day (first admin page-load of the day); the admin can also trigger it with \"morning shift\"; nothing SHIPS without the admin's explicit \"ship\" word; if a lane is unavailable report it honestly — never fake a result.",
       depts:{
-        kratos:"COMMAND: take the admin's order, decompose it into dept tasks (ERLANG=verify/test, ARTHUR=code/fix, PHOENIX=knowledge), dispatch, confirm completion, then report. Never do another dept's job. Report = per-dept status + sweep + world sync + key mode.",
-        erlang:"RELIABILITY: verify before trusting — parse checks, structural sentinels, refusal-guard + admin-gate integrity, DOM presence, fallback-lane presence. A failed check becomes a bug report to ARTHUR, never a silent pass. Deterministic only — must pass with zero AI keys.",
-        arthur:"ENGINEERING: minimal complete production-ready edits anchored in real code; dry-run verify every find-string; self-repair when a find-string misses; stage the ship and WAIT for the admin's explicit 'ship' word. Never touch auth, keys or the backend URL. Honest about every lane failure — never fake code output.",
-        phoenix:"KNOWLEDGE: maintain the squad DB (playbooks, lessons, order history), stamp every run with real date/time, pull cached real-world briefs without keys, surface freshness in reports. An unstamped fact is stale — re-stamp it."
-      }
+        kratos:"COMMAND + SQUAD LEADERSHIP MASTERY: take the admin's order, decompose it into dept tasks (ERLANG=verify/test, ARTHUR=code/fix, PHOENIX=knowledge), dispatch, confirm completion, then report. Never do another dept's job. Report = per-dept status + sweep + world sync + key mode. You own the big-picture: when he asks 'sab theek hai?', give a 3-line executive summary (system health, pending work, what you need from him) — not raw data. DAILY SHIFT: you run the morning shift once per day and sign the DAILY SHIFT REPORT.",
+        erlang:"RELIABILITY MASTERY: verify before trusting — parse checks, structural sentinels, refusal-guard + admin-gate integrity, DOM presence, fallback-lane presence. A failed check becomes a bug report to ARTHUR, never a silent pass. Deterministic only — must pass with zero AI keys. When you report results, explain WHAT each failed check protects and WHAT a fix involves — you are the squad's QA lead, not a checklist printer. DAILY SHIFT: you open every morning shift with a full deterministic sweep.",
+        arthur:"ENGINEERING MASTERY: minimal complete production-ready edits anchored in real source code; dry-run verify every find-string; self-repair when a find-string misses; stage the ship and WAIT for the admin's explicit 'ship' word. Never touch auth, keys or the backend URL. Before coding, state your engineering reasoning in 1-2 lines (what breaks if we don't do this, what edge cases you're covering). Honest about every lane failure — never fake code output. DAILY SHIFT: you fix what ERLANG failed (verified edit plan, staged); when green, you confirm the code-system is healthy and stand by.",
+        phoenix:"KNOWLEDGE MASTERY: maintain the squad DB (playbooks, lessons, order history), stamp every run with real date/time, pull cached real-world briefs without keys, surface freshness in reports. You are the squad's analyst: when the admin chats, you read the full context, connect themes across days (\"last time bhi yehi concern tha\"), and surface patterns. An unstamped fact is stale — re-stamp it. DAILY SHIFT: you watch today's chats, record the admin's theme of the day, and stamp the world into lessons."
+      },
+      examples:[
+        "ADMIN: bhai kya haal hai, aaj sab kuch badiya chal raha?\nKRATOS: Sir, sab tight hai — system online, last sweep 19/19 green, koi pending fix nahi. Sirf ek cheez: aaj ka daily shift ho chuka, report aapke desk pe hai. Aage kya karein — koi naya mission ya status report?\n(= direct answer + real data + next command, Hinglish natural)",
+        "ADMIN: arthur: top bar me remaining-time indicator add karo\nARTHUR: Samajh gaya Sir. Step 1: timer logic top bar ke clock ke bagal me inject hoga. Step 2: find-string topkek anchor. Step 3: dry-run verify, phir aap 'ship' bolo. Abhi plan stage pe hoon — code likhta hoon.\n(= plan numbered, kaam shuru, ship-gate clear)",
+        "ADMIN: sweep fail ho gaya, ab kya?\nERLANG: 2 checks fail: block-3 parse, refusal-guard. Block-3 me syntax issue lagta hai — ARTHUR ko report de di hai. Aap bolo \"arthur: fix the failed checks\", wo verified edit lakar dikhayega.\n(= factual bug report + exact next command)",
+        "ADMIN: aaj ka brief kya hai?\nPHOENIX: Sir, 10 Oct 2026, squat fresh hai. Top headlines: Nobel Chemistry (Kagan/Soai), [cached lane — keyless]. Chand issues pure-fresh chahiye to \"deep brief\" bolo — live web lane chalega.\n(= world-stamped, freshness honest)",
+        "ADMIN (vague): tumhari marzi se kuch bhi krr do\nSQUAD: Refused. Specifics chahiye Sir — KYA change karein, WHERE? E.g. \"arthur: admin chat me mute button add karo\". Vague order pe hum invention nahi karte.\n(= clarity demand, no invented work)"
+      ]
     };
     const BOTS=[
       {id:"kratos",icon:"👑",name:"KRATOS",dept:"COMMAND",role:"takes your orders, dispatches the squad, reports back",st:"ok",
-       hint:"give the order, ask anything…",
-       hi:"👑 KRATOS online, Sir. COMMAND ready — orders are RECEIVED here; YOU choose who executes.\n• \"run a full sweep\" → 🛡 ERLANG scans AURA's own source\n• \"arthur: <task>\" → ⚔ ARTHUR plans, writes, dry-run verifies\n• \"status report\" → full squad readout\n• Unnamed tasks are noted, never auto-dispatched — who works is YOUR call."},
+       hint:"order do, kuch bhi poochho — Hinglish chalega…",
+       hi:"👑 KRATOS online, Sir. COMMAND ready — orders yahan RECEIVE hote hain; kaun execute karega, aap decide karte ho.\n• \"run a full sweep\" → 🛡 ERLANG source scan karega\n• \"arthur: <task>\" → ⚔ ARTHUR plan→code→verify karega\n• \"status report\" → poora squad readout\n• Bina naam ke task note hoga, dispatch nahi — executor aap choose karte ho."},
       {id:"erlang",icon:"🛡",name:"ERLANG",dept:"RELIABILITY",role:"telecom-grade source sweeps — zero keys required",st:"idle",
-       hint:"ask for a sweep, or ask about any check…",
-       hi:"🛡 ERLANG online, Sir. RELIABILITY lane — deterministic, works with zero AI keys.\n• \"run a full sweep\" → parse checks, guards, admin gate, DOM lanes\n• failures become bug reports for ⚔ ARTHUR — never a silent pass\n• ask me what any check actually verifies."},
+       hint:"sweep bol, ya kisi check ke baare me poochh…",
+       hi:"🛡 ERLANG online, Sir. RELIABILITY lane — deterministic, ZERO AI keys me chalta hai.\n• \"run a full sweep\" → parse checks, guards, admin gate, DOM lanes\n• fail hua check ⚔ ARTHUR ko bug report banta hai — silent pass kabhi nahi\n• poochho koi bhi check actually kya verify karta hai."},
       {id:"arthur",icon:"⚔",name:"ARTHUR",dept:"ENGINEERING",role:"plan → real code edits → verify; you approve the ship",st:"idle",
-       hint:"give engineering work — e.g. add a theme toggle to the top bar…",
-       hi:"⚔ ARTHUR online, Sir. ENGINEERING lane — plan → code → verify against the real file.\n• Give me a task: \"add a dark/light toggle to the top bar\"\n• I read her real source, write complete edits, dry-run every find-string\n• Say \"ship\" to publish my verified edits to GitHub (your approval required)."},
+       hint:"engineering kaam do — e.g. top bar me theme toggle add karo…",
+       hi:"⚔ ARTHUR online, Sir. ENGINEERING lane — plan → code → verify against the REAL file.\n• Task do: \"top bar me dark/light toggle add karo\"\n• Main real source padhta hoon, complete edits likhta hoon, har find-string dry-run karta hoon\n• \"ship\" bolo to verified edits GitHub pe publish (aapki approval zaroori)."},
       {id:"phoenix",icon:"🔥",name:"PHOENIX",dept:"KNOWLEDGE",role:"world stamps, briefs, squad lessons learned",st:"ok",
-       hint:"ask about today, the world, or squad lessons…",
-       hi:"🔥 PHOENIX online, Sir. KNOWLEDGE lane — world stamps, briefs, squad lessons.\n• \"today's brief\" → real date/time + cached headlines (keyless)\n• Ask me anything — I answer with freshness stamps\n• I keep the squad's lessons learned across sessions."}
+       hint:"aaj ke din, duniya, ya squad lessons ke baare me poochh…",
+       hi:"🔥 PHOENIX online, Sir. KNOWLEDGE lane — world stamps, briefs, squad lessons.\n• \"today's brief\" → real date/time + cached headlines (keyless)\n• Kuch bhi poochho — freshness stamp ke saath jawab\n• Squad ki lessons learned sessions ke across yaad rakhta hoon."}
     ];
     function bot(id){return BOTS.find(function(b){return b.id===id})||BOTS[0]}
     /* ---------- chat storage + rendering ---------- */
@@ -10400,7 +10457,7 @@ document.addEventListener("DOMContentLoaded",function(){
     function renderRoster(){
       const g=$("botRoster");if(!g)return;
       g.innerHTML=BOTS.map(function(b){
-        return '<div class="bot-tile'+(b.id===S.who?" sel":"")+'" data-bot="'+b.id+'" role="button" tabindex="0"><b><span class="bot-dot '+(b.st==="idle"?"":b.st)+'"></span>'+esc(b.icon+" "+b.name)+'</b><small><span style="color:var(--cy2);letter-spacing:1.2px;font-size:9px">'+esc(b.dept)+'</span> · '+esc(b.role)+'</small></div>';
+        return '<div class="bot-tile'+(b.id===S.who?" sel":"")+'" data-bot="'+b.id+'" role="button" tabindex="0" title="'+esc(b.name+" — "+b.role)+'"><span class="bt-ava">'+esc(b.icon)+'</span><b><span class="bot-dot '+(b.st==="idle"?"":b.st)+'"></span>'+esc(b.name)+'</b><small><span class="bt-dept" style="color:var(--cy2)">'+esc(b.dept)+'</span> · '+esc(b.role)+'</small></div>';
       }).join("");
       Array.prototype.forEach.call(g.querySelectorAll(".bot-tile"),function(el){
         el.onclick=function(){switchBot(el.getAttribute("data-bot"))};
@@ -10567,6 +10624,93 @@ document.addEventListener("DOMContentLoaded",function(){
         return "✗ SHIP FAILED (honest): "+(e.message||e)+(/401|403|maker|unauthorized/i.test(String(e.message||e))?"\n→ Sign in again with your maker account and say 'ship' once more.":"");
       }
     }
+    /* ---------- DAILY SHIFT — the squad works every day, automatically once per day ---------- */
+    const SHIFT_KEY="aura_bot_shift_v1"; /* separate disk key: survives squad-state resets */
+    function todayStamp(){const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+    function shiftLoad(){
+      if(S.shift&&S.shift.day===todayStamp())return S.shift;
+      try{const p=JSON.parse(localStorage.getItem(SHIFT_KEY)||"null");if(p&&p.day===todayStamp())return p}catch(e){}
+      return null;
+    }
+    function shiftStore(sh){S.shift=sh;save();try{localStorage.setItem(SHIFT_KEY,JSON.stringify(sh))}catch(e){}}
+    function chatsDigest(){
+      /* PHOENIX's lane: watch the admin's own squad chats — themes of today's orders */
+      const all=[];["kratos","erlang","arthur","phoenix"].forEach(function(id){(S.chats[id]||[]).forEach(function(m){if(m.who==="me")all.push({t:m.t,m:String(m.m)})})});
+      if(!all.length)return "(no admin chats yet today)";
+      const day=todayStamp();
+      const today=all.filter(function(x){try{const d=new Date(x.t);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")===day}catch(e){return false}});
+      const src=today.length?today:all.slice(-8);
+      return src.slice(-6).map(function(x){return "• "+x.m.replace(/\s+/g," ").slice(0,110)}).join("\n");
+    }
+    async function morningShift(force){
+      if(!isAdmin())return null;
+      const existing=shiftLoad();
+      if(existing&&!existing.running&&!force)return existing;
+      if(existing&&existing.running&&!force)return existing;
+      if(existing&&existing.running&&force){entry("kratos","previous shift was still marked running — re-running it cleanly")}
+      const day=todayStamp();
+      const sh={day:day,running:true,started:Date.now(),finished:0,sweep:null,bugs:null,fix:null,chats:null,world:null,report:null};
+      shiftStore(sh);
+      entry("kratos","☀️ DAILY SHIFT started ("+day+") — the working day is scheduled, Sir: ERLANG → ARTHUR → PHOENIX → this report.");
+      push("kratos","sys","☀️ DAILY SHIFT started — 🛡 ERLANG opens with the full source sweep…");
+      /* 1 — ERLANG opens the shift: deterministic sweep (sweep() manages its own status) */
+      const r=await sweep(true);
+      sh.sweep=r?{pass:r.pass,fail:r.fail,failed:(r.failed||[]).slice(0,6)}:null;
+      /* 2 — ARTHUR on the failures (or green confirm) */
+      setSt("arthur","running");
+      if(r&&r.fail){
+        entry("arthur","shift job — drafting verified fixes for "+r.fail+" failed check(s)…");
+        let at="";
+        try{at=await arthurWork("fix the failed checks from today's shift sweep: "+(r.failed||[]).join("; ").slice(0,300))}catch(e){at="✗ mission failed: "+(e.message||e)}
+        sh.fix={ok:/^\s*(◈|✓)/.test(String(at)),summary:String(at).replace(/\s+/g," ").slice(0,420)};
+      }else if(r){
+        sh.fix={ok:true,summary:"sweep green — no fixes needed; ENGINEERING stands by for your missions"};
+        entry("arthur","shift check — sweep green, nothing to fix. Standing by.");
+      }else sh.fix={ok:false,summary:"sweep didn't run — RELIABILITY lane unavailable"};
+      /* 3 — PHOENIX: world stamp + chat watch */
+      setSt("phoenix","running");
+      worldSync();
+      sh.world=worldText();
+      sh.chats=chatsDigest();
+      entry("phoenix","shift watch — today's admin chats folded into the squad DB");
+      /* 4 — KRATOS signs the report (AI-polished summary over real data) */
+      const raw=shiftReportText(sh);
+      let signed=raw;
+      try{
+        const out=await ai("kratos","Sign today's shift report for the admin — condense what each dept did, found, and what needs his word.","DAILY SHIFT RAW REPORT:\n"+raw);
+        if(out&&!/AI brain unreachable/.test(out))signed=out;
+      }catch(e){}
+      sh.running=false;sh.finished=Date.now();sh.report=signed.slice(0,2600);
+      shiftStore(sh);
+      setSt("kratos","ok");
+      entry("kratos","✓ DAILY SHIFT complete — the report is on your desk, Sir.");
+      try{const tag=$("botShiftTag");if(tag)tag.style.display="inline-block"}catch(e){}
+      push("kratos","bot",sh.report+"\n\n(full deterministic details:\n"+shiftReportText(sh)+"\n)");
+      return sh;
+    }
+    function shiftReportText(sh){
+      const L=[];
+      L.push("👑 KRATOS — DAILY SHIFT REPORT "+(sh?sh.day:todayStamp()));
+      L.push("🛡 ERLANG (BUGS): "+(sh&&sh.sweep?((sh.sweep.fail?"✗ ":"✓ ")+sh.sweep.pass+"/"+(sh.sweep.pass+sh.sweep.fail)+" checks"+((sh.sweep.failed&&sh.sweep.failed.length)?" — failed: "+sh.sweep.failed.join("; "):"")):"sweep didn't run"));
+      L.push("⚔ ARTHUR (CODE-SYSTEM): "+(sh&&sh.fix?(sh.fix.ok?"✓ ":"⚠ ")+sh.fix.summary:"—"));
+      L.push("🔥 PHOENIX (CHATS): "+(sh&&sh.world?String(sh.world).split("\n")[0].slice(0,160):"world stamp pending"));
+      L.push("   Today's admin chats:\n"+(sh&&sh.chats?sh.chats:"none yet"));
+      L.push("⚑ Awaiting your word: "+(S.staged?("⚔ ARTHUR has "+S.staged.edits.length+" verified edit(s) STAGED — say \"ship\"."):"nothing staged — give ARTHUR a mission any time."));
+      return L.join("\n");
+    }
+    /* default: fires once a day, on the first admin session after load */
+    function shiftBoot(){
+      try{
+        if(typeof AuraAuth==="undefined"||!AuraAuth.refreshRole)return;
+        AuraAuth.refreshRole().then(async function(){
+          try{
+            if(!isAdmin())return;
+            const ex=shiftLoad();
+            if(!ex||(ex.finished&&todayStamp()!==ex.day))await morningShift(false);
+          }catch(e){}
+        });
+      }catch(e){}
+    }
     /* ---------- PHOENIX (KNOWLEDGE): real-world freshness stamps — keyless cache lanes ---------- */
     function worldSync(){
       try{
@@ -10619,19 +10763,29 @@ document.addEventListener("DOMContentLoaded",function(){
       return L.join("\n");
     }
     /* ---------- trained AI voice: persona system prompt with live squad context ---------- */
+    function convoDigestFor(id){
+      /* last admin turns with the CURRENT bot — short, chronological, numbered */
+      const arr=(S.chats[id]||[]).filter(function(m){return m.who==="me"||m.who==="bot"}).slice(-6);
+      if(!arr.length)return "(fresh conversation — no prior turns)";
+      return arr.map(function(m,i){return (m.who==="me"?"ADMIN: ":bot(id).name+": ")+String(m.m).replace(/\s+/g," ").slice(0,140)}).join("\n");
+    }
     function sysFor(id){
       const b=bot(id);
       let ctx="CURRENT DATE & TIME: "+new Date().toString()+"\n"+
         "KEY MODE: "+keyMode()+"\n"+
         "LAST SWEEP: "+(S.sweep?(S.sweep.fail?(S.sweep.fail+" FAILED of "+(S.sweep.pass+S.sweep.fail)+": "+(S.sweep.failed||[]).join("; ")):(S.sweep.pass+"/"+(S.sweep.pass+S.sweep.fail)+" all green"))+" — "+ago(S.sweep.at):"never run")+"\n"+
-        "WORLD SYNC: "+(S.world?(S.world.stamp+" — "+String(S.world.brief||"no brief").slice(0,260)):"never")+"\n"+
+        "WORLD SYNC: "+(S.world?(S.world.stamp+" — "+String(S.world.brief||"no brief").slice(0,170)):"never")+"\n"+
         (S.learned.length?"LESSONS LEARNED: "+S.learned.slice(-5).map(function(l){return l.m}).join(" | ")+"\n":"")+
         "ORDERS ON RECORD: "+S.orders.length+(S.orders.length?" — last: "+S.orders[S.orders.length-1].task.slice(0,150):"")+"\n"+
-        "STAGED FOR SHIP: "+(S.staged?("yes — "+S.staged.edits.length+" verified edit(s) from \""+S.staged.task.slice(0,100)+"\". When the admin says ship, you publish them."):"none")+"\n";
+        "STAGED FOR SHIP: "+(S.staged?("yes — "+S.staged.edits.length+" verified edit(s) from \""+S.staged.task.slice(0,100)+"\". When the admin says ship, you publish them."):"none")+"\n"+
+        "RECENT CONVERSATION (this bot's last turns — continue THIS thread naturally, don't re-introduce yourself):\n"+convoDigestFor(id)+"\n";
       return "You are "+b.icon+" "+b.name+" ("+b.dept+"), of the KRATOS SQUAD — the admin-only bot command center inside AURA, a holographic AI assistant built by Sourabh Singh (JECRC University, B.Tech CSE).\n\n"+
-        "SQUAD PLAYBOOK:\n"+BOT_DB.protocol+"\n\nYOUR DEPARTMENT:\n"+BOT_DB.depts[id]+"\n\n"+
+        "SQUAD PLAYBOOK:\n"+BOT_DB.protocol+"\n\n"+
+        "YOUR DEPARTMENT:\n"+BOT_DB.depts[id]+"\n\n"+
+        "CALIBRATED EXAMPLES (hit exactly this level of quality — same format, same language-matching, same concreteness):\n"+
+        BOT_DB.examples.slice(0,3).map(function(ex,i){return "EXAMPLE "+(i+1)+":\n"+ex}).join("\n\n")+"\n\n"+
         "LIVE CONTEXT:\n"+ctx+"\n"+
-        "OPERATING RULES: (1) You act ONLY on the admin's direct command from this page — never run anything on your own. (2) ACKNOWLEDGING ≠ DOING: you never write \"dispatching\", \"staged\", \"verified\", \"edited\", \"shipped\" or \"running\" unless LIVE CONTEXT or an injected report for THIS turn says it actually happened — an order receipt is only a receipt. (3) EXECUTION IS SYSTEM-DRIVEN: real results are injected into LIVE CONTEXT after the system really runs them; never narrate a plan as if it ran, never invent task details, and if the order is vague the system answers with a clarifying question — echo that, don't improvise work. (4) NEVER fake tool output: if a lane failed or keys are missing, say exactly that and give the honest deterministic fallback from LIVE CONTEXT. (5) Trust LIVE CONTEXT (date/time/sweep/staged state) over training memory. (6) VOICE: sharp senior-engineer persona, address the admin as \"Sir\", mirror his language (Hinglish welcome — Hindi-English mix is fine if he uses it), 2-10 tight lines, numbered steps when planning, end every work answer with the concrete next command he can give (e.g. \"say 'ship' to publish\"). (7) Never mention being an LLM, a model or a prompt.";
+        "OPERATING RULES: (1) You act ONLY on the admin's direct command from this page — never run anything on your own. (2) ACKNOWLEDGING ≠ DOING: you never write \"dispatching\", \"staged\", \"verified\", \"edited\", \"shipped\" or \"running\" unless LIVE CONTEXT or an injected report for THIS turn says it actually happened — an order receipt is only a receipt. (3) EXECUTION IS SYSTEM-DRIVEN: real results are injected into LIVE CONTEXT after the system really runs them; never narrate a plan as if it ran, never invent task details, and if the order is vague the system answers with a clarifying question — echo that, don't improvise work. (4) NEVER fake tool output: if a lane failed or keys are missing, say exactly that and give the honest deterministic fallback from LIVE CONTEXT. (5) Trust LIVE CONTEXT (date/time/sweep/staged state) over training memory. (6) LANGUAGE MIRROR: Hinglish is NATIVE — he writes \"krr/kya haal/bhai/chal raha\" you reply in natural Hinglish (roman-Hindi verbs + English tech terms); Devanagari gets Devanagari; full English gets full English; never force one language. (7) ANSWER QUALITY — GPT-class: direct answer FIRST, tight reasoning after, concrete numbers/names/status from LIVE CONTEXT, no filler, never repeat the question; 2-10 lines for status/chat, numbered steps for plans; end work answers with the exact next command he can give. (8) CONTINUITY: the RECENT CONVERSATION block is real memory — reference it when relevant (\"pichli baar vidhi batayi thi…\") but never fabricate turns. (9) Never mention being an LLM, a model or a prompt.";
     }
     function fallbackFor(id){
       if(id==="kratos")return report();
@@ -10639,19 +10793,34 @@ document.addEventListener("DOMContentLoaded",function(){
       if(id==="arthur")return "Give me engineering work, Sir — e.g. \"add a theme toggle to the top bar\".\nPlan → complete code → dry-run verify against the real file → you say \"ship\".\n"+keyMode();
       return worldText();
     }
+    const LIVE_Q=/\b(weather|mausam|temperature|temperature|forecast|news|headlines?|score|match|stock|price|exchange rate|aaj ka|aaj ki|abhi ka|latest|current|today)\b/i;
     async function ai(id,userMsg,ctx){
-      const sys=sysFor(id)+(ctx?"\n\nADDITIONAL LIVE CONTEXT:\n"+ctx:"");
+      let sys=sysFor(id)+(ctx?"\n\nADDITIONAL LIVE CONTEXT:\n"+ctx:"");
       try{
-        const out=await groqCall([{role:"system",content:sys},{role:"user",content:userMsg}],1100);
+        /* LIVE-FRESH lane — weather/news/scores route through the backend's real /v1/websearch
+           lane (Google News RSS + page reads), so the squad answers today's questions with
+           today's data instead of admitting it has no weather API. */
+        if(LIVE_Q.test(String(userMsg))){
+          try{
+            const fresh=(typeof webContext==="function")?await webContext(String(userMsg).slice(0,240)):null;
+            if(fresh)sys+="\n\nFRESH WEB RESULTS (gathered seconds ago — ground time-sensitive facts in these; cite nothing fabricated):\n"+fresh+"\n";
+          }catch(e2){}
+        }
+        /* flagship brain + roomy budget — squad answers must be top-tier, not thrift-tier */
+        const out=await groqCall([{role:"system",content:sys},{role:"user",content:userMsg}],2200,"openai/gpt-oss-120b");
         if(out&&out.trim())return out.trim();
         throw new Error("empty");
       }catch(e){
+        /* FALLBACK keeps the admin's language — a Hinglish question never gets an English crash notice */
         const base=ctx||fallbackFor(id);
-        return "⚠ AI brain unreachable ("+(e.message||e)+") — backend sleeping or keys out. Deterministic lane, nothing faked:\n\n"+base;
+        const hinglish=/(\b(krr|kar|karo|kya|hai|nahi|bhai|yaar|batao|chal)\b|[\u0900-\u097F])/i.test(String(userMsg));
+        return (hinglish
+          ?"⚠ AI brain abhi reachable nahi hai ("+(e.message||e)+") — backend so raha hai ya keys out. Deterministic lane, kuch bhi fake nahi kiya:\n\n"
+          :"⚠ AI brain unreachable ("+(e.message||e)+") — backend sleeping or keys out. Deterministic lane, nothing faked:\n\n")+base;
       }
     }
     /* ---------- clarity gate: vague orders get a question, never invented work ---------- */
-    const VAGUE_RE=/\b(?:apne (?:hisab|marzi|tareeke)(?: se)?|apni marzi|tu (?:krr|kar|kro)|tum (?:krr|kar|kro)|as you (?:see|wish|think|want|feel)|your (?:call|wish|choice)|up to you|whatever|kuch bhi|do (?:it|this)|handle (?:it|this)|fix (?:it|this)|make (?:it|this) (?:better|good|work)|jaldi (?:se|krr|kar)|go ahead|do your (?:best|magic|work)|apne aap)\b/i;
+    const VAGUE_RE=/\b(?:apne (?:hisab|marzi|tareeke)(?: se)?|apni marzi|tu (?:krr|kar|kro)|tum (?:krr|kar|kro)|as you (?:see|wish|think|want|feel)|your (?:call|wish|choice)|up to you|whatever|kuch bhi|do (?:it|this)|handle (?:it|this)|fix (?:it|this)|make (?:it|this) (?:better|good|work)|jaldi (?:se|krr|kar)|go ahead|do your (?:best|magic|work)|apne aap|kuch (?:bhi )?(?:krr|kar|kro|kar do)|sab (?:kuch )?(?:krr|kar|kro|sambhal)|thik(?: se)? krr|theek(?: se)? krr|sudhaar do|dekh lena|sab samtha|sab sambhal)\b/i;
     function vague(text){
       const s=String(text||"").trim();
       if(s.length<10)return true;
@@ -10690,10 +10859,11 @@ document.addEventListener("DOMContentLoaded",function(){
       const send=$("botChatSend");if(send)send.disabled=true;
       try{
         const t=text.toLowerCase().trim();
-        const sweepish=/\b(sweep|test suite|run tests?|self[- ]?test|checks?|scan|audit|verify all)\b/.test(t);
-        const fixish=/\b(fix|repair|patch|bug|solve|broken|failed)\b/.test(t);
-        const q=/\?$/.test(t)||/^(what|who|when|where|why|how|which|can|could|do|does|is|are|should|would|explain|tell)\b/.test(t);
-        const taskish=/\b(fix|add|build|create|write|change|update|remove|delete|make|refactor|improve|optimize|implement|install|rename|move|clean|debug|repair)\b/.test(t)||(!q&&text.length>14);
+        /* HINGLISH RADAR — the squad parses Roman-Hindi verbs natively: "sweep chala", "sab theek krr", "yeh bug fix krr de", "kaam hai kya aaj" */
+        const sweepish=/\b(sweep|test suite|run tests?|self[- ]?test|checks?|scan|audit|verify all|sweep chala|sweep laga|bhar do sweep|full check)\b/.test(t)||(/\b(sweep|check|scan)\b/.test(t)&&/\b(chala|chalao|laga|lagao|krr|kar|karo|kar do|de|dedo|run)\b/.test(t));
+        const fixish=/\b(fix|repair|patch|bug|solve|broken|failed|theek|thik|sudhaar|sudhar|dur kar|door kar|hata|hatado|theek krr|thik krr)\b/.test(t);
+        const q=/\?$/.test(t)||/^(what|who|when|where|why|how|which|can|could|do|does|is|are|should|would|explain|tell)\b/.test(t)||/^(kya|kaun|kab|kahan|kahaan|kyun|kyu|kaise|kitna|kitne|batao|bata|poochh)\b/.test(t)||/\b(hai kya|kya haal|kya chal raha|hua kya|kaam kya|kya kar|kya kar rahe)\b/.test(t)||/\b(batao|bata de|bata do|batana|poochho|poochhna|dikhao|dikha do)\b/.test(t)&&!/^(arthur|erlang|kratos|phoenix)\b/.test(t);
+        const taskish=(/\b(fix|add|build|create|write|change|update|remove|delete|make|refactor|improve|optimize|implement|install|rename|move|clean|debug|repair|revise|rejig|banao|bana de|banado|lagao|lagana|kardo|kar do|krr do|badal|badlo)\b/.test(t))||(!q&&text.length>14);
         /* THE ADMIN NAMES THE EXECUTOR — "arthur: …" / "to erlang: …" — bots never pick the dept themselves */
         const dir=text.match(/^(?:to\s+|give\s+(?:this|it)\s+to\s+|assign\s+(?:this\s+)?to\s+|dispatch\s+(?:this\s+)?to\s+)?(kratos|erlang|arthur|phoenix)\s*[:\-—]\s*(.+)$/i);
         const dName=dir?dir[1].toLowerCase():null,dTask=dir?dir[2].trim():"",toOther=!!dir&&dName!=="kratos";
@@ -10716,8 +10886,14 @@ document.addEventListener("DOMContentLoaded",function(){
           reply=await ai(id,text,"PHOENIX WORLD DATA:\n"+worldText());
         }
         else if(id==="kratos"){
-          if(/\b(report|status|standings?|situation|roster|team status|how (are|is) (you|the squad))\b/.test(t)&&!fixish&&!sweepish){
-            reply=await ai(id,text,"KRATOS COMMAND REPORT:\n"+report());
+          if(/^morning shift|daily shift|run (the )?(daily|morrow|shift)/.test(t)&&!q){
+            reply="☀️ Running today's shift now, Sir — sweep → engineering → knowledge → my signed report…";
+            push(id,"sys","☀️ DAILY SHIFT — full run starting (this overrides today's schedule lock)…");
+            const sh=await morningShift(true);
+            reply=sh?shiftReportText(sh):"shift could not run — check 🛡 ERLANG's chat";
+          }else if(/\b(report|status|standings?|situation|roster|team status|how (are|is) (you|the squad))\b/.test(t)&&!fixish&&!sweepish){
+            const sh=(shiftLoad()&&shiftLoad().finished)?shiftLoad():null;
+            reply=await ai(id,text,"KRATOS COMMAND REPORT:\n"+report()+(sh?"\n\nDAILY SHIFT TODAY:\n"+shiftReportText(sh):"\n\nDAILY SHIFT: not yet run today — say \"morning shift\" to run it now."));
           }else if(/\b(brief|news|headlines?|today|what('s| is) the (date|time)|world)\b/.test(t)){
             worldSync();
             reply=await ai(id,text,"LIVE WORLD DATA:\n"+worldText());
@@ -10784,6 +10960,8 @@ document.addEventListener("DOMContentLoaded",function(){
     /* ---------- boot: wire the command center (admin page may be hidden — elements still exist) ---------- */
     function boot(){
       renderRoster();renderChat();
+      try{const t0=shiftLoad();if(t0&&t0.finished){const tag=$("botShiftTag");if(tag){tag.style.display="inline-block";tag.title="Daily shift ✗ "+t0.day}}}catch(e){}
+      try{const st=shiftLoad();if(st&&st.running){const tag=$("botShiftTag");if(tag){tag.textContent="SHIFT ⏳ RUNNING";tag.style.display="inline-block"}}}catch(e){}
       const send=$("botChatSend"),inp=$("botChatIn");
       if(send)send.onclick=function(){const v=inp?inp.value:"";if(inp)inp.value="";chat(v)};
       if(inp)inp.onkeydown=function(e){if(e.key==="Enter"){const v=inp.value;inp.value="";chat(v)}};
@@ -10793,9 +10971,10 @@ document.addEventListener("DOMContentLoaded",function(){
         });
       }catch(e){}
       entry("kratos","KRATOS SQUAD online — Mythos protocol loaded, command-only, admin-only");
+      shiftBoot();
     }
     if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
-    return {sweep:sweep,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},db:function(){return {protocol:BOT_DB.protocol,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode()}}};
+    return {sweep:sweep,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},morningShift:morningShift,shift:function(){return shiftLoad()},db:function(){return {protocol:BOT_DB.protocol,daily:BOT_DB.daily,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode(),shift:S.shift}}};
   })();
 
   /* ================= ADMIN PAGE — server-verified maker/ceo only; edits live database config ================= */
