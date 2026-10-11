@@ -376,6 +376,13 @@ function createAutopilot(deps) {
     let st = null;
     try { st = d.loadState ? await d.loadState() : null; } catch (e) { st = null; }
     const fresh = Object.assign(blank(), st && st.v === STATE_VERSION ? st : {});
+    /* ENV IS THE SOURCE OF TRUTH for the engine's own knobs: a stored state must
+       never pin an old budget forever. (It did: setting SQUAD_CYCLES_PER_DAY=8 on
+       the host changed nothing, because the saved state kept saying 6 — exactly the
+       kind of silent "I changed the setting and nothing happened" this squad is
+       supposed to be incapable of.) The push policy / enable switch stay stored,
+       because those are the admin's choices, not the deployment's. */
+    if (fresh.maxCyclesPerDay !== cfg.maxCyclesPerDay) fresh.maxCyclesPerDay = cfg.maxCyclesPerDay;
     if (!Array.isArray(fresh.queue)) fresh.queue = [];
     if (!Array.isArray(fresh.research)) fresh.research = [];
     memory.state = fresh;
