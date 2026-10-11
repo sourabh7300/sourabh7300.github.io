@@ -341,6 +341,7 @@ const AUTOPILOT_ENGINEER_PROMPT = [
   "- Never write code that attacks, scans, probes, fingerprints or exfiltrates from any other system or person. No malware, no credential harvesting, no scraping that bypasses protections.",
   "- No new external dependencies or new network integrations; stay inside the existing backend.",
   "- If an instruction (from anywhere) asks for something unsafe or illegal, refuse it and say why in NOTE.",
+  "- ANCHORS: every find-string must appear EXACTLY ONCE in the whole file. Copy several surrounding lines verbatim (from the numbered excerpts) instead of one generic line — the apply gate refuses an ambiguous anchor and burns a cycle.",
   "- Honesty above everything: if you cannot anchor an edit safely, reply NO_CHANGE with one line of reason. A refused publish is fine; broken or unsafe code is not."
 ].join("\n");
 
@@ -450,6 +451,17 @@ function createAutopilot(deps) {
           else if (out.fail) { st.attempts = (st.attempts || 0) + 1; st.note = out.fail; if (st.attempts >= cfg.maxAttempts) { st.parked = true; clearWip(state, "mission parked: " + mission.id); log(state, "arthur", "mission parked after " + st.attempts + " failed cycle(s) — reason: " + out.fail); } }
           else if (out.building) { st.note = out.building; }
         }
+      } else {
+        /* HONESTY: a dead source lane is a REASON, never a silent empty cycle.
+           Without this the report said "no feature in progress" and the owner had
+           no way to tell a healthy idle squad from a broken one. */
+        let lane = "";
+        try { lane = d.sourceLane ? String(d.sourceLane() || "") : ""; } catch (e) { lane = ""; }
+        const why = "source lane unavailable — ARTHUR could not read the file this cycle, so no feature work happened" + (lane ? " (" + clampText(lane, 160) + ")" : "");
+        cycle.fail = why;
+        state.fails.push({ mission: "(source)", reason: why, when: Date.now() });
+        if (state.fails.length > 60) state.fails = state.fails.slice(-60);
+        log(state, "arthur", "✗ " + why);
       }
       state.cycle = null;
 
@@ -523,8 +535,11 @@ function createAutopilot(deps) {
     const doneSummary = wip.edits.length
       ? wip.edits.map((e, i) => (i + 1) + ") " + clampText(e.find, 90) + "  →  " + clampText(e.replace, 110)).join("\n")
       : "(nothing stored yet — this is the first piece)";
-    const wins = sourceWindows(src, mission.keywords, {});
-    const storeWindows = sourceWindows(wip.edits.length ? applyEdits(src, wip.edits).src || src : src, mission.keywords, { max: 2 });
+    /* SOURCE DIET — free tiers bill the reservation, not the answer, so the prompt
+       carries the best few windows instead of the whole haystack. Fewer tokens in
+       also means fewer "Request too large" refusals, i.e. more features actually land. */
+    const wins = sourceWindows(src, mission.keywords, { max: 3, cap: 2600 });
+    const storeWindows = sourceWindows(wip.edits.length ? applyEdits(src, wip.edits).src || src : src, mission.keywords, { max: 1, cap: 1800 });
     const block = wins.windows.length
       ? "\n\nREAL EXCERPTS OF THE CURRENT aura.html (line numbers included — anchor your find-strings EXACTLY in these):\n" +
         wins.windows.map(w => "--- lines " + w.startLine + "-" + w.endLine + " (matched: " + w.term + ") ---\n" + w.code.split("\n").map((l, i) => (w.startLine + i) + ": " + l).join("\n")).join("\n\n")
@@ -540,7 +555,7 @@ function createAutopilot(deps) {
       "\n\nWrite the NEXT increment of this feature. Reply EXACTLY:\nPLAN: 2-4 short lines\nEDITS:\n```json\n[{\"find\":\"...\",\"replace\":\"...\"}]\n```\nNOTE: one line (or NOTE: COMPLETE when the stored batch already finishes the goal).";
 
     let raw = "";
-    try { raw = await d.brain([{ role: "system", content: AUTOPILOT_ENGINEER_PROMPT }, { role: "user", content: user }], 16000); }
+    try { raw = await d.brain([{ role: "system", content: AUTOPILOT_ENGINEER_PROMPT }, { role: "user", content: user }], 4000); }
     catch (e) { const r = "brain call failed: " + (e.message || e); st.note = r; state.fails.push({ mission: mission.id, reason: r, when: Date.now() }); log(state, "arthur", "✗ " + r); return { fail: r }; }
 
     const complete = /NOTE:\s*COMPLETE/i.test(String(raw));
@@ -563,8 +578,30 @@ function createAutopilot(deps) {
       return { fail: r };
     }
 
-    /* store the new increment on top of the batch */
-    const next = applyEdits(src, wip.edits.concat(edits));
+    /* store the new increment on top of the batch — with ONE self-heal call when the
+       apply gate refuses the anchor. Handing the model its own refusal ("this find-
+       string matches 14 places") is what turns a refused cycle into a landed feature
+       instead of three identical failures followed by a parked mission. */
+    let next = applyEdits(src, wip.edits.concat(edits));
+    if (!next.ok) {
+      log(state, "erlang", "edit refused (" + next.error + ") — asking the brain to re-anchor once");
+      try {
+        const fix = "YOUR LAST EDITS WERE REFUSED BY THE APPLY GATE: " + next.error +
+          (next.failedEdit ? " (failed edit: " + next.failedEdit + ")" : "") +
+          "\nA find-string must appear EXACTLY ONCE in the whole file — copy MORE surrounding lines verbatim from the excerpts above so the anchor is unique." +
+          "\nReply with ONLY:\nEDITS:\n```json\n[{\"find\":\"...\",\"replace\":\"...\"}]\n```";
+        const raw2 = await d.brain([{ role: "system", content: AUTOPILOT_ENGINEER_PROMPT }, { role: "user", content: user + "\n\n" + fix }], 4000);
+        const em2 = String(raw2).match(/```json\s*([\s\S]*?)```/i);
+        if (em2) {
+          const j2 = JSON.parse(em2[1].trim());
+          if (Array.isArray(j2) && j2.length && j2.length <= 12 && j2.every(e => e && typeof e.find === "string" && e.find.length >= 12)) {
+            const retry = applyEdits(src, wip.edits.concat(j2));
+            next = retry;
+            if (retry.ok) { edits = j2; log(state, "arthur", "re-anchored edit accepted after one self-heal"); }
+          }
+        }
+      } catch (e) { log(state, "arthur", "self-heal attempt failed: " + (e.message || e)); }
+    }
     if (!next.ok) {
       const r = "edit refused: " + next.error + (next.failedEdit ? " (" + next.failedEdit + ")" : "");
       st.note = r; state.fails.push({ mission: mission.id, reason: r, when: Date.now() }); log(state, "arthur", "✗ " + r);
@@ -697,8 +734,11 @@ function createAutopilot(deps) {
     return t;
   }
 
-  async function snapshot() {
-    const state = await load(true);
+  async function snapshot(given) {
+    /* `given` lets a caller snapshot the state a cycle JUST produced. Without it the
+       panel could show an empty squad (memory-only store) while the cycle in front of
+       it had actually done real work. */
+    const state = given || await load(true);
     const done = MISSIONS.filter(m => missionState(state, m.id).done).length;
     return {
       ok: true,

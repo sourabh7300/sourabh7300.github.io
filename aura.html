@@ -10833,7 +10833,12 @@ document.addEventListener("DOMContentLoaded",function(){
       const rp=$("autoReport");
       if(rp)rp.textContent=(st.report&&st.report.text)?st.report.text:"(koi report abhi nahi — pehla cycle hone pe KRATOS yahan likhega)";
       const h=$("autoHint");
-      if(h)h.textContent=st.paused?("Roadmap complete / paused: "+st.paused+" — squad khud bolti hai, aap naya mission dein."):((st.publish==="hold"?"HOLD mode: verified features queue me rukte hain — \"publish it\" bolo tab push hote hain. ":"BATCH mode: har finished feature khud push hota hai (chote changes pe kabhi nahi). ")+"Autonomy SERVICE pe: timer + GitHub cron. Ye panel sirf window + control hai.");
+      if(h){
+        const clk=st.clock||{};
+        const clkLine=clk.running?("⏱ clock CHALU — har "+clk.everyMinutes+" min khud cycle"+(clk.ticks?(" · "+clk.ticks+" tick"):"")+(clk.lastTick?(" · last "+new Date(clk.lastTick).toLocaleTimeString()):"")):"⏱ clock BAND — backend ka timer start nahi hua (redeploy karo, ya SQUAD_TICK_MINUTES 5+ set karo)";
+        const srcLine=st.sourceLane?("📄 source lane: "+st.sourceLane+" — issi file pe kaam hota hai"):"";
+        h.textContent=(st.paused?("Roadmap complete / paused: "+st.paused+" — squad khud bolti hai, aap naya mission dein."):((st.publish==="hold"?"HOLD mode: verified features queue me rukte hain — \"publish it\" bolo tab push hote hain. ":"BATCH mode: har finished feature khud push hota hai (chote changes pe kabhi nahi). ")))+clkLine+(srcLine?("\n"+srcLine):"");
+      }
     }
     async function autopilotRefresh(quiet){
       if(!isAdmin())return null;
