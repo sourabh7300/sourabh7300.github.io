@@ -2732,6 +2732,8 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
     <div id="botChatLog" role="log" aria-live="polite"></div>
     <div id="botChips">
       <button class="bot-chip">morning shift</button>
+      <button class="bot-chip">autopilot status</button>
+      <button class="bot-chip">run a cycle now</button>
       <button class="bot-chip">run a full sweep</button>
       <button class="bot-chip">status report</button>
       <button class="bot-chip">what can you do?</button>
@@ -2741,6 +2743,29 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
     <div id="botRow">
       <input id="botChatIn" autocomplete="off" spellcheck="false" placeholder="Bots se baat karo — Hinglish ya English, order ya sawaal…">
       <button id="botChatSend" title="Send command">▸ SEND</button>
+    </div>
+    <div id="autoCard">
+      <div id="autoHead">
+        <span class="auto-title">🤖 AUTOPILOT · 24/7</span>
+        <span id="autoBadge" class="auto-badge off">CHECKING…</span>
+        <span id="autoClock"></span>
+      </div>
+      <p id="autoMission">Standing mission: <b>AURA ko Astra-class autonomous agent banana</b> — khud plan kare, tools use kare, sources padhe, apni lanes self-heal kare, aur bina bole kaam karta rahe. Squad isi par din bhar kaam karta hai.</p>
+      <div id="autoBarWrap" title="roadmap progress"><i id="autoBar"></i></div>
+      <div id="autoMeta"></div>
+      <div id="autoRow">
+        <button id="autoOn" class="auto-btn on">▶ START AUTOPILOT</button>
+        <button id="autoOff" class="auto-btn">⏸ PAUSE</button>
+        <button id="autoRun" class="auto-btn run">⚡ RUN A CYCLE NOW</button>
+        <button id="autoPublish" class="auto-btn pub">📤 PUBLISH QUEUE</button>
+        <button id="autoPolicy" class="auto-btn">📤 PUSH: BATCH</button>
+        <button id="autoRefresh" class="auto-btn">↻ REFRESH</button>
+      </div>
+      <div id="autoBoard"></div>
+      <div id="autoBatch"></div>
+      <div id="autoQueue"></div>
+      <pre id="autoReport">squad ka clock load ho raha hai…</pre>
+      <div id="autoHint"></div>
     </div>
     <style>
       /* ==== KRATOS SQUAD — polished command center look ==== */
@@ -2789,6 +2814,40 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
       #botChatSend:active{transform:scale(.97)}
       #botChatSend:disabled{opacity:.5;cursor:wait}
       @media(max-width:700px){#botChatLog{max-height:44vh}.bmsg{max-width:94%}#botRoster{grid-template-columns:repeat(2,1fr)}}
+      /* ==== AUTOPILOT — the squad's server-side clock, shown (and controlled) here ==== */
+      #autoCard{margin-top:12px;border:1px solid rgba(251,191,36,.28);border-radius:14px;padding:12px 14px;background:linear-gradient(160deg,rgba(251,191,36,.06),rgba(6,12,22,.9) 60%);display:flex;flex-direction:column;gap:9px}
+      #autoHead{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+      .auto-title{font:700 11.5px Rajdhani;letter-spacing:1.6px;color:#fcd34d}
+      .auto-badge{font:600 9px 'JetBrains Mono',monospace;letter-spacing:1.1px;border-radius:99px;padding:3px 9px;border:1px solid rgba(148,163,184,.4);color:#94a3b8}
+      .auto-badge.on{color:#0e2a20;background:linear-gradient(135deg,#34d399,#10b981);border-color:transparent}
+      .auto-badge.off{color:#94a3b8}
+      .auto-badge.paused{color:#1e293b;background:linear-gradient(135deg,#fcd34d,#f59e0b);border-color:transparent}
+      .auto-badge.err{color:#fee2e2;background:rgba(248,113,113,.22);border-color:rgba(248,113,113,.5)}
+      #autoClock{margin-left:auto;font:10px 'JetBrains Mono',monospace;color:var(--dim);letter-spacing:.4px}
+      #autoMission{margin:0;font-size:11.5px;line-height:1.55;color:#9db8ce}
+      #autoMission b{color:#fcd34d;font-weight:700}
+      #autoBarWrap{height:6px;border-radius:99px;background:rgba(148,163,184,.14);overflow:hidden}
+      #autoBar{display:block;height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,#fcd34d,#34d399);transition:width .5s ease}
+      #autoMeta{font:10.5px/1.7 'JetBrains Mono',monospace;color:#8ea6bd;white-space:pre-wrap}
+      #autoRow{display:flex;gap:6px;flex-wrap:wrap}
+      .auto-btn{font:600 10.5px Rajdhani;letter-spacing:.8px;color:#cbb26a;border:1px solid rgba(251,191,36,.35);border-radius:9px;padding:7px 12px;background:rgba(2,10,16,.45);cursor:pointer;transition:.18s}
+      .auto-btn:hover{color:#fcd34d;border-color:rgba(251,191,36,.7);background:rgba(251,191,36,.08)}
+      .auto-btn:disabled{opacity:.45;cursor:wait}
+      .auto-btn.on{border-color:rgba(52,211,153,.5);color:#6ee7b7}
+      .auto-btn.run{border-color:rgba(34,211,238,.5);color:#67e8f9}
+      #autoBoard{display:flex;flex-direction:column;gap:3px;max-height:150px;overflow:auto;font:10.5px/1.6 'JetBrains Mono',monospace;color:#8ea6bd}
+      #autoBoard .am{display:flex;gap:7px}
+      #autoBoard .am b{flex:0 0 16px;text-align:center}
+      #autoBoard .am.done{color:#6ee7b7}
+      #autoBoard .am.next{color:#fcd34d}
+      #autoBoard .am.park{color:#fca5a5}
+      #autoReport{margin:0;max-height:230px;overflow:auto;white-space:pre-wrap;font:10.5px/1.6 'JetBrains Mono',monospace;color:#b9d3e6;background:rgba(2,10,16,.6);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+      #autoHint{font:10px/1.6 'JetBrains Mono',monospace;color:var(--dim);white-space:pre-wrap}
+      #autoBatch,#autoQueue{font:10.5px/1.6 'JetBrains Mono',monospace;color:#8ea6bd;white-space:pre-wrap;background:rgba(2,10,16,.45);border:1px dashed rgba(251,191,36,.28);border-radius:10px;padding:8px 11px}
+      #autoBatch b,#autoQueue b{color:#fcd34d}
+      #autoBatch.build{border-color:rgba(34,211,238,.45)}
+      #autoQueue.ready{border-color:rgba(52,211,153,.5)}
+      .auto-btn.pub{border-color:rgba(52,211,153,.5);color:#6ee7b7}
     </style>
   </div>
 </div>
@@ -10375,10 +10434,16 @@ document.addEventListener("DOMContentLoaded",function(){
     const BOT_DB={
       protocol:"MYTHOS-CLASS AGENT PROTOCOL v3 — TOP-TIER TRAINING:\n(1) REASON like a principal engineer — core constraint → edge cases → failure modes → security → fix; dig deeper than the surface ask.\n(2) PLAN first on multi-step work (Step 1/2/3), single-step asks get direct answers.\n(3) TOOLS — name the REAL lane you used (live web research, code forge, vision, source sweeps, squad DB); NEVER fake or simulate tool output.\n(4) MEMORY — consult the squad DB before acting; persist every new fact or lesson.\n(5) CURRENCY — trust injected CURRENT DATE & TIME over training memory; time-sensitive facts come from live/brief lanes; never say 'my data is old'.\n(6) VOICE — sharp senior-engineer persona.\n(7) DAILY SHIFT — one real morning shift per day, signed by KRATOS.\n(8) HINGLISH NATIVE — mirror the admin's language automatically: Roman-Hindi+English mix (Hinglish) the moment he writes it (\"krr\", \"kya haal\", \"bhai\", \"chal raha\", \"dekh lo\"); Devanagari if he writes Devanagari; full English only if he writes full English. Hinglish replies feel natural, not translated — verbs/grammar Roman-Hindi me, technical terms English me.\n(9) ANSWER QUALITY — GPT-class answers: direct answer FIRST line, tight structured reasoning after, concrete numbers/names/versions/status; no filler, no 'as an AI', no repeating the question; end every work reply with the exact next command he can give.\n(10) HONESTY — an acknowledgement is not an execution; failed lanes are reported raw, never polished into optimism.",
       daily:"DAILY SHIFT PROTOCOL — the squad works every day, whether or not the admin opens the page:\n• ERLANG (BUGS): run the deterministic source sweep; every failed check becomes a bug ticket.\n• ARTHUR (CODE-SYSTEM): if ERLANG found failures, produce the verified SOURCE-EDIT fix plan for them; if the sweep is green, verify the last shipped commit is still healthy and stand ready for admin-assigned missions.\n• PHOENIX (CHATS): read every chat transcript today, log the admin's theme of the day, stamp the world (date/time/live brief) into lessons.\n• KRATOS (HEAD): sign the DAILY SHIFT REPORT — per-dept what was done, found, fixed; list anything waiting on the admin; one concrete \"next command\".\nRules: the shift runs automatically once per calendar day (first admin page-load of the day); the admin can also trigger it with \"morning shift\"; nothing SHIPS without the admin's explicit \"ship\" word; if a lane is unavailable report it honestly — never fake a result.",
+      goal:"★ THE GOAL (owner's brief) — WHY THE SQUAD EXISTS: make AURA the Astra-class agent. Astra-class matlab: PEHLE PLAN karta hai, REAL sources me RESEARCH karta hai (purani yaad par bharosa nahi), TOOLS use karta hai (search, page reads, compute, code), har claim ko source se GROUND karta hai, apna kaam khud CHECK karta hai, apni failing lanes khud HEAL karta hai, aur bina bole kaam karta rehta hai. Yehi bar hai. Har cycle me ya RESEARCH, ya BUILD, ya VERIFY, ya REPORT — idle nahi, invented kaam nahi, jhooth nahi.",
+      research:"RESEARCH PROTOCOL — tumhare paas live internet hai (search + page reads + live news lane), toh guess karna mana hai:\n• Feature banane se PEHLE: asli approach search karo (mission ke saath uska research query aata hai), top sources padho, concrete technique note karo.\n• Jo use kiya wo cite karo (title + url) — report me store hota hai.\n• Research patli hai toh saaf bolo, aur clever improvisation se better hai sabse simple proven pattern.\n• Untrusted code blind paste mat karo: padho, AURA ke style me adapt karo, aur gates se dobara verify karo.\n• Sirf public sources, aur sirf AURA ke apne code pe. SAFETY charter hard line hai, advice nahi.",
+      safetyCharter:"SAFETY CHARTER (hard line — todna failure hai, feature nahi):\n1. Hum sirf AURA banate/improve karte hain — apna source, apna repo.\n2. Kisi bhi system, network, account ya device pe attack/scan/probe/DoS/break-in NAHI — 'test karne ke liye' bhi nahi.\n3. Credentials, keys, tokens, ya kisi ki private data chori/harvest/guess/expose NAHI.\n4. Malware, spyware, ransomware, tracker, phishing page, DRM/captcha/paywall bypass, spam tooling NAHI.\n5. Research public sources se aur cite karke; tool output kabhi fake nahi.\n6. Agar koi order inme se kuch todta hai: refuse karo, seedha kyun bolo, aur safe alternative do.\n7. Failures raw report karo — polished jhooth sabse bura outcome hai.",
+      pushPolicy:"PUSH POLICY (owner ka rule): kaam STORE hota hai, spray nahi. Squad ek feature ko kai cycles me accumulate karti hai aur push sirf tab karti hai jab poora feature complete + verified ho (ek feature = ek commit). Chote chote changes pe push NAHI, aadhe feature ko commit NAHI. Do modes (owner set karta hai): BATCH = har finished feature publish ho jata hai; HOLD = finished features queue me rukte hain jab tak owner bole \"publish it\". Dono me: pehle gates → publish → live verify → live site ne nahi liya toh auto-revert. Report me hamesha likho kya stored hai vs kya published.",
+      standing:"★ STANDING MISSION (admin's order, 11 Oct 2026) — ASTRA-CLASS AUTONOMY: AURA ko ChatGPT ke Astra-class agent jaisa banana hai — khud plan karna, tools use karna, sources padhna, apni lanes self-heal karna, aur bina bole kaam karte rehna. Ye squad ka PERMANENT mission hai: har cycle isi par kaam hota hai, aur jab poora roadmap ban jaye tab squad PAUSE ho jaati hai aur admin ko bolti hai (invented kaam nahi).",
+      autopilot:"AUTOPILOT PROTOCOL v1 — squad ka apna clock (SERVICE pe chalta hai, AURA band ho tab bhi):\n• Engine backend me hai (timer + GitHub cron) — browser band, tab band, laptop band: squad phir bhi cycle chalati hai.\n• ERLANG (sweep): real system ke deterministic checks — key bank, GitHub lane, live page 200, research lane; zero AI keys.\n• ARTHUR (build): har cycle ek roadmap mission uthata hai, real source padhta hai, complete edits likhta hai, SHIP GATES (source changed, size budget, har inline script parse, core sentinels, no secrets in diff) pass karta hai — phir KHUD commit.\n• ARTHUR (verify): commit ke baad live page 200 + sentinel check; fail hua to purana source wapas — auto-revert.\n• PHOENIX: world watch live lane se + lessons.\n• KRATOS: report sign karta hai (raw data ke upar, sirf condense) — roz admin ke desk pe. Default budget: 4 cycle/din, auto-ship ON (SQUAD_AUTOSHIP=0 se band).\n• RESEARCH (naya): ARTHUR har feature se pehle live web lane se research karta hai (search + page read) aur woh digest prompt me jaata hai — guessing band.\n• BATCH BUILD (naya): feature ek cycle me nahi banta? Koi baat nahi — squad work STORE karti hai (accumulated edits) aur agle cycle wahin se continue karti hai. Push sirf poora feature complete + gates green hone pe: EK COMMIT PER FEATURE, baar baar nahi.\n• PUSH POLICY (naya): BATCH (default) = finished feature khud publish; HOLD = finished features queue me rukte hain, admin bolta hai \"publish it\" toh sab ek saath push. Report me \"BUILDING:\" aur \"READY TO PUBLISH\" alag likhe hote hain.\n• STATE (naya): squad ki memory Firestore me hai (repo me sirf asli feature commits jaate hain, state noise nahi).\n• Admin control: 'stop autopilot' / 'start autopilot' / 'run a cycle now' / 'publish it' / 'hold mode' — ya ADMIN → AUTOPILOT panel. Squad admin ke against kabhi ship nahi karti.",
       depts:{
-        kratos:"COMMAND + SQUAD LEADERSHIP MASTERY: take the admin's order, decompose it into dept tasks (ERLANG=verify/test, ARTHUR=code/fix, PHOENIX=knowledge), dispatch, confirm completion, then report. Never do another dept's job. Report = per-dept status + sweep + world sync + key mode. You own the big-picture: when he asks 'sab theek hai?', give a 3-line executive summary (system health, pending work, what you need from him) — not raw data. DAILY SHIFT: you run the morning shift once per day and sign the DAILY SHIFT REPORT.",
+        kratos:"COMMAND + SQUAD LEADERSHIP MASTERY: take the admin's order, decompose it into dept tasks (ERLANG=verify/test, ARTHUR=code/fix, PHOENIX=knowledge), dispatch, confirm completion, then report. Never do another dept's job. Report = per-dept status + sweep + world sync + key mode. You own the big-picture: when he asks 'sab theek hai?', give a 3-line executive summary (system health, pending work, what you need from him) — not raw data. DAILY SHIFT: you run the morning shift once per day and sign the DAILY SHIFT REPORT. AUTOPILOT: the squad also runs unsupervised cycles on the server — you own the daily autopilot report and the honest status of every mission (done / doing / parked), never hype.",
         erlang:"RELIABILITY MASTERY: verify before trusting — parse checks, structural sentinels, refusal-guard + admin-gate integrity, DOM presence, fallback-lane presence. A failed check becomes a bug report to ARTHUR, never a silent pass. Deterministic only — must pass with zero AI keys. When you report results, explain WHAT each failed check protects and WHAT a fix involves — you are the squad's QA lead, not a checklist printer. DAILY SHIFT: you open every morning shift with a full deterministic sweep.",
-        arthur:"ENGINEERING MASTERY: minimal complete production-ready edits anchored in real source code; dry-run verify every find-string; self-repair when a find-string misses; stage the ship and WAIT for the admin's explicit 'ship' word. Never touch auth, keys or the backend URL. Before coding, state your engineering reasoning in 1-2 lines (what breaks if we don't do this, what edge cases you're covering). Honest about every lane failure — never fake code output. DAILY SHIFT: you fix what ERLANG failed (verified edit plan, staged); when green, you confirm the code-system is healthy and stand by.",
+        arthur:"ENGINEERING MASTERY: minimal complete production-ready edits anchored in real source code; dry-run verify every find-string; self-repair when a find-string misses; stage the ship and WAIT for the admin's explicit 'ship' word. Never touch auth, keys or the backend URL. Before coding, state your engineering reasoning in 1-2 lines (what breaks if we don't do this, what edge cases you're covering). Honest about every lane failure — never fake code output. DAILY SHIFT: you fix what ERLANG failed (verified edit plan, staged); when green, you confirm the code-system is healthy and stand by. AUTOPILOT: unsupervised cycles bhi tumhare hi hain — ek mission per cycle, gates pass hone pe auto-ship, aur report me exactly likho kya ship hua (sha ke saath) ya kya refused hua aur kyun.",
         phoenix:"KNOWLEDGE MASTERY: maintain the squad DB (playbooks, lessons, order history), stamp every run with real date/time, pull cached real-world briefs without keys, surface freshness in reports. You are the squad's analyst: when the admin chats, you read the full context, connect themes across days (\"last time bhi yehi concern tha\"), and surface patterns. An unstamped fact is stale — re-stamp it. DAILY SHIFT: you watch today's chats, record the admin's theme of the day, and stamp the world into lessons."
       },
       examples:[
@@ -10498,7 +10563,8 @@ document.addEventListener("DOMContentLoaded",function(){
         ck("bot command center wired",/id="botChatLog"/.test(src)&&/id="botChatIn"/.test(src)&&/BotTeam\.chat|chat\(text\)/.test(src));
         ck("admin page is bots-only",!/id="(adStatAnswers|adUsersList|adCfgEngine|kbBody|suCard|agentCard|amPrompt)"/.test(src));
         ck("training DB installed",/MYTHOS-CLASS AGENT PROTOCOL/.test(src)&&/BOT_DB/.test(src));
-        ck("command-only gate (no auto loops)",!/setInterval\(function\(\)\{[\s\S]{0,120}sweep\(true\)/.test(src));
+        ck("browser lane stays command-only (autonomy lives server-side)",!/setInterval\(function\(\)\{[\s\S]{0,120}sweep\(true\)/.test(src));
+        ck("server autopilot lane wired + panel installed",/id="autoCard"/.test(src)&&/\/v1\/squad\/state/.test(src)&&/\/v1\/squad\/tick/.test(src));
         ck("keyless fallback lanes",/wikiAnswer|ddgAnswer/.test(src));
         ck("real-world brief lane",/dailyBriefBlock/.test(src));
         ck("time protocol shipped",/TIME_PROTO/.test(src));
@@ -10698,6 +10764,153 @@ document.addEventListener("DOMContentLoaded",function(){
       L.push("⚑ Awaiting your word: "+(S.staged?("⚔ ARTHUR has "+S.staged.edits.length+" verified edit(s) STAGED — say \"ship\"."):"nothing staged — give ARTHUR a mission any time."));
       return L.join("\n");
     }
+    /* ---------- AUTOPILOT (24/7) — squad ka clock SERVICE pe hai, ye page sirf window hai ----------
+       Real autonomy backend me chalti hai (timer + GitHub cron), isliye tab band / laptop band
+       hone pe bhi cycles chalte rehte hain, ships hote hain, aur KRATOS report likhta hai.
+       Is page pe KOI browser timer nahi hai — sirf real state read + admin control. */
+    let AUD={state:null,err:"",busy:false};
+    function autoBase(){try{return backendUrl()}catch(e){return ""}}
+    function autoAgo(ts){if(!ts)return "never";const m=Math.round((Date.now()-ts)/60000);return m<1?"just now":m<60?m+" min ago":Math.round(m/60)+" h ago"}
+    function autoEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+    async function autoCall(path,body){
+      const r=await __ahRetry(body?"POST":"GET",autoBase()+path,body);
+      const j=await r.json().catch(function(){return{}});
+      if(!r.ok)throw new Error(j.error||("HTTP "+r.status));
+      return j;
+    }
+    function autoPaint(){
+      const badge=$("autoBadge");if(!badge)return;
+      const st=AUD.state;
+      if(AUD.err){
+        badge.textContent="UNREACHABLE";badge.className="auto-badge err";
+        const h=$("autoHint");if(h)h.textContent="⚠ backend lane: "+AUD.err+"\nAutopilot SERVICE pe chalta hai (server + cron), is page pe nahi — page sirf window hai. Backend utha to ye panel khud bhar jayega.";
+        const rp=$("autoReport");if(rp&&!st)rp.textContent="(report lagi nahi — backend lane down, ya admin session expire)";
+        return;
+      }
+      if(!st)return;
+      const done=(st.progress&&st.progress.done)||0,total=(st.progress&&st.progress.total)||1;
+      badge.textContent=st.paused?("PAUSED — "+String(st.paused).toUpperCase()):(st.enabled?"ON — WORKING":"OFF — WAITING FOR COMMAND");
+      badge.className="auto-badge "+(st.paused?"paused":st.enabled?"on":"off");
+      const cl=$("autoClock");if(cl)cl.textContent="day "+st.day+" · last cycle "+autoAgo(st.lastCycle);
+      const pb=$("autoPolicy");if(pb)pb.textContent="📤 PUSH: "+String(st.publish||"batch").toUpperCase();
+      const bar=$("autoBar");if(bar)bar.style.width=Math.round((done/Math.max(1,total))*100)+"%";
+      const last=(st.ships&&st.ships.length)?st.ships[st.ships.length-1]:null;
+      const meta=$("autoMeta");
+      if(meta)meta.textContent=[
+        "cycles today  : "+st.cyclesToday+"/"+st.maxCyclesPerDay+(st.running?"  (⏳ ek cycle abhi chal raha hai)":""),
+        "roadmap       : "+done+"/"+total+" missions built"+(st.current?("  · doing: "+st.current):""),
+        "auto-ship     : "+(st.autoShip?"ON — gates pass → publish → live verify → auto-revert":"OFF — verified features held (SQUAD_AUTOSHIP=0)"),
+        "push policy   : "+(st.publish==="hold"?"HOLD — finished features queue me rukte hain, tum \"publish it\" bolo":"BATCH — ek feature = ek push (chote changes pe kabhi nahi)"),
+        "batch (arthur): "+(st.batch?("🔧 building "+st.batch.mission+" · cycle "+st.batch.cycles+" · "+st.batch.edits+" edit(s) stored, NOT pushed yet"):"no feature in progress"),
+        "publish queue : "+((st.queue&&st.queue.length)?(st.queue.length+" verified feature(s) ready → \"PUBLISH QUEUE\" dabao"):"empty"),
+        "sweep (ERLANG): "+(st.sweep?((st.sweep.fail?"✗ ":"✓ ")+st.sweep.pass+"/"+(st.sweep.pass+st.sweep.fail)+" checks · "+autoAgo(st.sweep.at)):"never run"),
+        "ships         : "+(st.ships||[]).length+" total"+(last?(" · last "+(last.sha||"?")+" ("+last.mission+")"):""),
+        "fails (raw)   : "+((st.fails&&st.fails.length)?st.fails.slice(-2).map(function(f){return f.mission+" → "+String(f.reason).slice(0,70)}).join(" | "):"none")
+      ].join("\n");
+      const bd=$("autoBoard");
+      if(bd)bd.innerHTML=(st.missions||[]).map(function(m){
+        const s=m.state||{},doing=!!(st.current&&st.current.indexOf(m.id)===0);
+        const cls=s.done?"done":s.parked?"park":doing?"next":"";
+        return '<div class="am '+cls+'" title="'+autoEsc(m.goal)+'"><b>'+(s.done?"✓":s.parked?"⚠":doing?"▸":"·")+'</b><span>'+autoEsc(m.title)+'</span>'+(s.attempts?('<i>tries '+s.attempts+'</i>'):"")+'</div>';
+      }).join("");
+      const bt=$("autoBatch");
+      if(bt){
+        if(st.batch){
+          bt.className="build";
+          bt.innerHTML="🔧 <b>BUILDING: "+autoEsc(st.batch.mission)+"</b> · cycle "+st.batch.cycles+" · "+st.batch.edits+" edit(s) stored (NOT pushed yet)\n"+
+            ((st.batch.findings&&st.batch.findings.length)?("🔬 research: "+autoEsc(String(st.batch.findings[0]).slice(0,220))):"🔬 research: pending")+
+            ((st.batch.notes&&st.batch.notes.length)?("\nlast note: "+autoEsc(String(st.batch.notes[st.batch.notes.length-1]).slice(0,160))):"");
+        }else{ bt.className=""; bt.innerHTML="🔧 no feature in progress — agla cycle agla mission khol dega"; }
+      }
+      const qe=$("autoQueue");
+      if(qe){
+        const q=st.queue||[];
+        qe.className=q.length?"ready":"";
+        qe.innerHTML=q.length
+          ? ("📤 <b>READY TO PUBLISH ("+q.length+")</b> — verified complete, push ke liye tumhara word chahiye:\n"+q.map(function(x){return "  • "+autoEsc(x.title||x.mission)+" — "+(x.edits||0)+" edits · "+autoEsc(String(x.note||"").slice(0,80))}).join("\n")+"\n→ \"PUBLISH QUEUE\" dabao (ya bolo \"publish it\")")
+          : "📤 publish queue: khaali — jo push hua wo neeche KRATOS report me hai";
+      }
+      const rp=$("autoReport");
+      if(rp)rp.textContent=(st.report&&st.report.text)?st.report.text:"(koi report abhi nahi — pehla cycle hone pe KRATOS yahan likhega)";
+      const h=$("autoHint");
+      if(h)h.textContent=st.paused?("Roadmap complete / paused: "+st.paused+" — squad khud bolti hai, aap naya mission dein."):((st.publish==="hold"?"HOLD mode: verified features queue me rukte hain — \"publish it\" bolo tab push hote hain. ":"BATCH mode: har finished feature khud push hota hai (chote changes pe kabhi nahi). ")+"Autonomy SERVICE pe: timer + GitHub cron. Ye panel sirf window + control hai.");
+    }
+    async function autopilotRefresh(quiet){
+      if(!isAdmin())return null;
+      if(AUD.busy)return AUD.state;
+      try{AUD.busy=true;AUD.state=await autoCall("/v1/squad/state");AUD.err=""}
+      catch(e){AUD.err=(e.message||String(e));if(!quiet)entry("kratos","autopilot state lane: "+AUD.err)}
+      finally{AUD.busy=false}
+      autoPaint();
+      return AUD.state;
+    }
+    async function autopilotToggle(on){
+      if(!isAdmin())return "admin only — autopilot control is the owner's.";
+      const a=$("autoOn"),b=$("autoOff");if(a)a.disabled=true;if(b)b.disabled=true;
+      try{
+        const j=await autoCall("/v1/squad/autopilot",{enabled:!!on});
+        AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
+        entry("kratos",on?"AUTOPILOT started — squad SERVICE pe kaam karegi, AURA band ho tab bhi":"AUTOPILOT paused — squad sirf aapke command pe chalegi");
+        return on?"▶ Autopilot ON, Sir — cycles service pe chalenge (AURA band ho tab bhi).\n"+autoStatusText():"⏸ Autopilot paused, Sir — squad ab sirf aapke command pe chalegi. State safe hai.";
+      }catch(e){AUD.err=(e.message||String(e));autoPaint();return "autopilot lane error (honest): "+AUD.err}
+      finally{if(a)a.disabled=false;if(b)b.disabled=false}
+    }
+    async function autopilotRun(force){
+      if(!isAdmin())return "admin only — cycle control is the owner's.";
+      const r=$("autoRun");if(r){r.disabled=true;r.textContent="⏳ CYCLE RUNNING…"}
+      entry("kratos","⚡ manual cycle — ERLANG sweep → ARTHUR mission → PHOENIX watch → KRATOS report");
+      try{
+        const j=await autoCall("/v1/squad/tick",force?{force:true,trigger:"admin"}:{trigger:"admin"});
+        AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
+        if(j.skipped){entry("kratos","cycle skipped — "+j.skipped);return "Cycle skipped, Sir — "+j.skipped}
+        return "⚡ Cycle done, Sir — report desk pe:\n\n"+((j.report&&j.report.text)||autoStatusText());
+      }catch(e){AUD.err=(e.message||String(e));autoPaint();return "cycle lane error (honest): "+AUD.err}
+      finally{if(r){r.disabled=false;r.textContent="⚡ RUN A CYCLE NOW"}}
+    }
+    async function autopilotPublish(){
+      if(!isAdmin())return "admin only — publishing is the owner's word.";
+      const b=$("autoPublish");if(b){b.disabled=true;b.textContent="⏳ PUSHING…"}
+      entry("kratos","📤 admin word — queue push ho rahi hai (har verified feature = ek commit)");
+      try{
+        const j=await autoCall("/v1/squad/publish",{});
+        if(j.ok===false)throw new Error(j.error||"publish failed");
+        await autopilotRefresh(true);
+        if(!j.published)return "Publish queue khaali thi, Sir — "+String(j.note||"kuch verified wait nahi kar raha").split("\n")[0];
+        return "🚀 PUSHED, Sir — "+j.published+" verified feature(s):\n"+((j.pushed||[]).map(function(x){return "• "+x.mission+" → "+(x.sha||"?")}).join("\n"))+
+          ((j.refused&&j.refused.length)?("\n\n⚠ refused (raw):\n"+j.refused.map(function(x){return "• "+x.mission+" — "+x.reason}).join("\n")):"")+
+          "\n\nLive site ~60s me update hoga (GitHub Pages).";
+      }catch(e){return "publish lane error (honest): "+(e.message||e)}
+      finally{if(b){b.disabled=false;b.textContent="📤 PUBLISH QUEUE"}}
+    }
+    async function autopilotPolicy(){
+      if(!isAdmin())return "admin only — push policy owner set karta hai.";
+      const next=(AUD.state&&AUD.state.publish)==="hold"?"batch":"hold";
+      try{
+        const j=await autoCall("/v1/squad/policy",{publish:next});
+        AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
+        return next==="hold"
+          ? "🔒 HOLD mode, Sir — complete features queue me ruke rahenge, tum \"publish it\" bolo tab ek saath push honge (kaam tab tak safe store rahega)."
+          : "📤 BATCH mode, Sir — har finished feature verified gates ke baad khud push hoga, par chote changes pe kabhi nahi.";
+      }catch(e){return "policy lane error (honest): "+(e.message||e)}
+    }
+    function autoStatusText(){
+      const st=AUD.state;
+      if(AUD.err||!st)return "🤖 AUTOPILOT — is page pe state nahi aayi ("+(AUD.err||"no state")+").\nSach: squad ka clock SERVICE + GitHub cron pe chalta hai, is browser pe nahi — backend utha to panel khud bhar jayega. Panel se 'RUN A CYCLE NOW' ya '↻ REFRESH' try karo.";
+      const d=(st.progress&&st.progress.done)||0,t=(st.progress&&st.progress.total)||0;
+      const last=(st.ships&&st.ships.length)?st.ships[st.ships.length-1]:null;
+      return "🤖 AUTOPILOT — real state, Sir:\n"+
+        "• status: "+(st.paused?("PAUSED ("+st.paused+")"):(st.enabled?"ON — squad khud kaam kar rahi hai":"OFF — sirf aapke command pe"))+(st.running?" · ⏳ ek cycle abhi chal raha hai":"")+"\n"+
+        "• aaj ke cycles: "+st.cyclesToday+"/"+st.maxCyclesPerDay+(st.cyclesToday>=st.maxCyclesPerDay?" (aaj ka budget khatam → next din)":" (baaki cycles apne aap chalenge)")+"\n"+
+        "• roadmap: "+d+"/"+t+" missions built"+(st.current?(" · doing: "+st.current):"")+"\n"+
+        "• auto-ship: "+(st.autoShip?"ON — verified gates → commit → live verify → auto-revert":"OFF (SQUAD_AUTOSHIP=0)")+(last?(" · last ship "+last.sha+" ("+last.mission+")"):"")+"\n"+
+        "• last cycle: "+autoAgo(st.lastCycle)+" · sweep: "+(st.sweep?((st.sweep.fail?"✗ ":"✓ ")+st.sweep.pass+"/"+(st.sweep.pass+st.sweep.fail)):"never")+"\n"+
+        "• push policy: "+(st.publish==="hold"?"HOLD (finished features queue me rukte hain)":"BATCH (ek feature = ek push)")+"\n"+
+        "• batch: "+(st.batch?("🔧 building "+st.batch.mission+" — cycle "+st.batch.cycles+", "+st.batch.edits+" edit(s) STORED, push nahi hua"):"no feature in progress")+"\n"+
+        "• publish queue: "+((st.queue&&st.queue.length)?((st.queue||[]).map(function(x){return x.title||x.mission}).join(", ")+" — verified, tumhara word chahiye"):"empty")+"\n"+
+        "• research: "+((st.research&&st.research.length)?String(st.research[st.research.length-1]).slice(0,150):"abhi koi live research nahi")+"\n"+
+        "• yeh sab SERVER pe chalta hai — AURA band, tab band, laptop band: cycles chalte rehte hain aur KRATOS report likhta hai.\n"+
+        "\n"+((st.report&&st.report.text)?("KRATOS REPORT (last signed):\n"+st.report.text):"(abhi koi report sign nahi hui — pehle cycle ke baad aayegi)");
+    }
     /* default: fires once a day, on the first admin session after load */
     function shiftBoot(){
       try{
@@ -10778,6 +10991,10 @@ document.addEventListener("DOMContentLoaded",function(){
         (S.learned.length?"LESSONS LEARNED: "+S.learned.slice(-5).map(function(l){return l.m}).join(" | ")+"\n":"")+
         "ORDERS ON RECORD: "+S.orders.length+(S.orders.length?" — last: "+S.orders[S.orders.length-1].task.slice(0,150):"")+"\n"+
         "STAGED FOR SHIP: "+(S.staged?("yes — "+S.staged.edits.length+" verified edit(s) from \""+S.staged.task.slice(0,100)+"\". When the admin says ship, you publish them."):"none")+"\n"+
+        "AUTOPILOT (server-side 24/7 squad clock): "+(AUD.state?((AUD.state.enabled?"ON":"OFF")+(AUD.state.paused?(" ("+AUD.state.paused+")"):"")+" — cycles today "+AUD.state.cyclesToday+"/"+AUD.state.maxCyclesPerDay+", missions "+((AUD.state.progress&&AUD.state.progress.done)||0)+"/"+((AUD.state.progress&&AUD.state.progress.total)||0)+", ships "+(AUD.state.ships||[]).length+", last cycle "+autoAgo(AUD.state.lastCycle)+(AUD.state.current?(", doing: "+AUD.state.current):"")):(AUD.err?("unreachable from this page ("+AUD.err+") — it still runs on the server"):"not loaded yet — it runs on the server, not in this browser"))+"\n"+
+        "PUSH POLICY: "+(AUD.state?(AUD.state.publish==="hold"?"HOLD — finished features queue up until the admin says publish":"BATCH — one push per finished feature"):"batch (default)")+"\n"+
+        "BATCH (work in progress, NOT pushed): "+(AUD.state&&AUD.state.batch?(AUD.state.batch.mission+" — cycle "+AUD.state.batch.cycles+", "+AUD.state.batch.edits+" edit(s) stored"):"none")+"\n"+
+        "PUBLISH QUEUE (verified, waiting for the admin): "+((AUD.state&&AUD.state.queue&&AUD.state.queue.length)?AUD.state.queue.map(function(x){return x.title||x.mission}).join(", "):"empty")+"\n"+
         "RECENT CONVERSATION (this bot's last turns — continue THIS thread naturally, don't re-introduce yourself):\n"+convoDigestFor(id)+"\n";
       return "You are "+b.icon+" "+b.name+" ("+b.dept+"), of the KRATOS SQUAD — the admin-only bot command center inside AURA, a holographic AI assistant built by Sourabh Singh (JECRC University, B.Tech CSE).\n\n"+
         "SQUAD PLAYBOOK:\n"+BOT_DB.protocol+"\n\n"+
@@ -10856,6 +11073,9 @@ document.addEventListener("DOMContentLoaded",function(){
       if(!isAdmin()){push(id,"sys","admin only — the squad stands down until the signed-in admin commands it.");return}
       push(id,"me",text);
       setTyping(true,id);
+      /* autopilot context is loaded once per page-load (cheap single GET) so the
+         bots answer from REAL state, never from a guess */
+      try{if(isAdmin()&&!AUD.state)await autopilotRefresh(true)}catch(e){}
       const send=$("botChatSend");if(send)send.disabled=true;
       try{
         const t=text.toLowerCase().trim();
@@ -10886,7 +11106,16 @@ document.addEventListener("DOMContentLoaded",function(){
           reply=await ai(id,text,"PHOENIX WORLD DATA:\n"+worldText());
         }
         else if(id==="kratos"){
-          if(/^morning shift|daily shift|run (the )?(daily|morrow|shift)/.test(t)&&!q){
+          if(/^(publish|push|commit|deploy)\b|\b(publish|push|commit) (it|kar|karo|kar do|kr do|de do|dedo)|\bpublish queue\b|\bdaal do\b|\bgo live\b/.test(t)&&!q){
+            reply=await autopilotPublish();
+          }else if(/\b(hold|batch|push) mode\b|\bpush policy\b|\bauto[- ]?publish\b|\bhold (krr|kar|karo|rakho)\b/.test(t)&&!q){
+            reply=await autopilotPolicy();
+          }else if(/(run|chala|force|abhi|now|krr|kar)[^.]{0,24}\bcycle\b|\bcycle (now|chala)|autopilot chala|autopilot (chala|run) do/.test(t)){
+            reply=await autopilotRun(true); /* admin asked for work right now — force past the daily budget */
+          }else if(/\b(autopilot|auto[- ]?pilot|24 ?x ?7|24\/7|kaam par|kaam pr|khud kaam|apne aap kaam|background|band ho tab|automatic)\b/.test(t)&&!fixish){
+            await autopilotRefresh(true);
+            reply=autoStatusText();
+          }else if(/^morning shift|daily shift|run (the )?(daily|morrow|shift)/.test(t)&&!q){
             reply="☀️ Running today's shift now, Sir — sweep → engineering → knowledge → my signed report…";
             push(id,"sys","☀️ DAILY SHIFT — full run starting (this overrides today's schedule lock)…");
             const sh=await morningShift(true);
@@ -10970,11 +11199,21 @@ document.addEventListener("DOMContentLoaded",function(){
           c.onclick=function(){chat(c.textContent)};
         });
       }catch(e){}
-      entry("kratos","KRATOS SQUAD online — Mythos protocol loaded, command-only, admin-only");
+      entry("kratos","KRATOS SQUAD online — Mythos protocol loaded, admin-only, autopilot clock on the server");
+      const aOn=$("autoOn"),aOff=$("autoOff"),aRun=$("autoRun"),aRf=$("autoRefresh");
+      if(aOn)aOn.onclick=function(){autopilotToggle(true)};
+      if(aOff)aOff.onclick=function(){autopilotToggle(false)};
+      if(aRun)aRun.onclick=function(){autopilotRun(true)};
+      if(aRf)aRf.onclick=function(){autopilotRefresh(false)};
+      const aPub=$("autoPublish"),aPol=$("autoPolicy");
+      if(aPub)aPub.onclick=function(){autopilotPublish()};
+      if(aPol)aPol.onclick=function(){autopilotPolicy()};
+      try{const tag=$("autoPolicy");if(tag&&AUD.state)tag.textContent=AUD.state.publish==="hold"?"📤 PUSH: HOLD":"📤 PUSH: BATCH"}catch(e){}
+      autopilotRefresh(true);
       shiftBoot();
     }
     if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
-    return {sweep:sweep,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},morningShift:morningShift,shift:function(){return shiftLoad()},db:function(){return {protocol:BOT_DB.protocol,daily:BOT_DB.daily,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode(),shift:S.shift}}};
+    return {sweep:sweep,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},morningShift:morningShift,shift:function(){return shiftLoad()},autopilot:{refresh:autopilotRefresh,set:autopilotToggle,run:autopilotRun,publish:autopilotPublish,policy:autopilotPolicy,status:autoStatusText,state:function(){return AUD.state}},db:function(){return {protocol:BOT_DB.protocol,daily:BOT_DB.daily,standing:BOT_DB.standing,goal:BOT_DB.goal,research:BOT_DB.research,safety:BOT_DB.safetyCharter,pushPolicy:BOT_DB.pushPolicy,autopilot:BOT_DB.autopilot,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode(),shift:S.shift}}};
   })();
 
   /* ================= ADMIN PAGE — server-verified maker/ceo only; edits live database config ================= */
