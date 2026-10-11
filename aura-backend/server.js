@@ -385,7 +385,7 @@ app.use((req, res, next) => {
    (service-account credentials — never in this repo), MAKER_UIDS (comma list).
    Until configured, every accounts endpoint degrades gracefully and the site
    keeps working exactly as before. */
-let fbAdmin = null, fbAuth = null, fbDb = null, fbTried = false;
+let fbAdmin = null, fbAuth = null, fbDb = null, fbDbErr = "", fbTried = false;
 const FB_PROJECT = process.env.FB_PROJECT || "";
 const FB_EMAIL = process.env.FB_EMAIL || "";
 const FB_PRIVATE_KEY = (process.env.FB_PRIVATE_KEY || "").replace(/\\n/g, "\n");
@@ -397,7 +397,7 @@ function fbInit() {
     fbAdmin = require("firebase-admin");
     fbAdmin.initializeApp({ credential: fbAdmin.credential.cert({ projectId: FB_PROJECT, clientEmail: FB_EMAIL, privateKey: FB_PRIVATE_KEY }) });
     fbAuth = fbAdmin.auth();
-    try { fbDb = fbAdmin.firestore(); } catch (e) { fbDb = null; }
+    try { fbDb = fbAdmin.firestore(); fbDbErr = ""; } catch (e) { fbDb = null; fbDbErr = String(e.message || e).slice(0, 180); }
     console.log("accounts backend: online");
   } catch (e) { console.log("accounts backend: package missing —", e.message); fbAdmin = null; }
   return fbAdmin;
@@ -1093,6 +1093,11 @@ const storeVerdict = (lane, note) => { storeLast[lane] = note || ""; storeLast.a
    in the page's own firebaseConfig, so this leaks nothing new). */
 const storeWhere = () => ({ project: FB_PROJECT || "(FB_PROJECT not set)", doc: "aura_squad/autopilot" });
 async function squadLoadState() {
+  /* EAGER INIT — this was a real bug: fbInit() is lazy (only /health or a signed-in
+     request triggers it), while the autopilot's boot cycle saves state ~20s after
+     start. Without this call fbDb was still null at that moment, so the squad's
+     memory silently fell back to a repo commit that nobody asked for. */
+  fbInit();
   if (fbDb) {
     try {
       const d = await fbDb.collection("aura_squad").doc("autopilot").get();
@@ -1105,13 +1110,14 @@ async function squadLoadState() {
   return file;
 }
 async function squadSaveState(state) {
+  fbInit();
   if (fbDb) {
     try {
       await fbDb.collection("aura_squad").doc("autopilot").set({ state: state, updated: Date.now() }, { merge: true });
       storeVerdict("save", "firestore");
       return;
     } catch (e) { storeVerdict("note", "firestore write: " + String(e.message || e).slice(0, 140)); }
-  } else storeVerdict("note", FB_PROJECT ? "firestore not initialised" : "FB_PROJECT / FB_EMAIL / FB_PRIVATE_KEY not set");
+  } else storeVerdict("note", FB_PROJECT ? ("firestore not initialised" + (fbDbErr ? " — " + fbDbErr : "")) : "FB_PROJECT / FB_EMAIL / FB_PRIVATE_KEY not set");
   if (GH_TOKEN) {
     try {
       await ghPutFile(JSON.stringify(state, null, 1), "AURA autopilot: state " + (state.day || "") + " (" + (state.cyclesToday || 0) + " cycle(s))", SQUAD_STATE_FILE);
