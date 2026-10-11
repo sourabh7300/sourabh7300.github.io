@@ -8,6 +8,8 @@
    ============================================================ */
 require("dotenv").config();
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const app = express();
 /* Behind Render's load balancer every socket looks like the same internal IP.
    Trusting the ONE proxy hop gives us the REAL visitor IP (rightmost entry —
@@ -31,7 +33,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v2";
+const BUILD = process.env.AURA_BUILD || "squad-v3";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -935,31 +937,102 @@ async function ghPutFile(content, message, file) {
   return { sha: (j.commit && j.commit.sha) || "", file: path };
 }
 /* the squad's unsupervised brain — the maker's reserved admin lane first, then
-   the flagship bank, then the reserve. Never the public key lane. */
+   every key in the bank, then the reserve. Never the public key lane.
+
+   TOKEN DIET — this is what made the automations produce nothing. On a free tier a
+   request that RESERVES more tokens than the per-minute budget is refused with
+   "Request too large … tokens per minute", which is a 429. The old code read every
+   429 as "key drained", cooled the whole bank and quit with a silent shrug, so cycle
+   after cycle did no work and said nothing. Now: a thin budget, a shrink-and-retry
+   ladder, a cooldown only when the KEY is really at fault, and the real upstream
+   reason kept in `brainLast` for /health (never the key itself). */
+const brainLast = { at: 0, ok: null, via: "", model: "", status: 0, note: "" };
+const SQUAD_MODELS = (process.env.SQUAD_MODELS || "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map(s => s.trim()).filter(Boolean);
 async function squadBrain(messages, maxTok) {
-  const tok = Math.min(maxTok || 8000, 16000);
-  try { const adm = await laneCall("admin", ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, tok, 0.25, null); if (adm) return adm; } catch (e) {}
-  for (const model of MODELS) {
-    const key = pickLaneKey(ADMIN_KEY, true);
-    if (!key) break;
+  const want = Math.max(600, Math.min(maxTok || 3000, 8000));
+  const ladder = [...new Set([want, Math.ceil(want / 2), Math.ceil(want / 4)])].filter(n => n >= 400);
+  const notes = [];
+  const mark = (ok, via, model, status, note) => Object.assign(brainLast, { at: Date.now(), ok: !!ok, via: via || "", model: model || "", status: status || 0, note: String(note || "").replace(/(gsk_|sk-)[A-Za-z0-9_-]{6,}/g, "[redacted]").slice(0, 220) });
+
+  /* 1 — the maker's reserved Mistral admin lane */
+  try {
+    const adm = await laneCall("admin", ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, want, 0.25, null);
+    if (adm) { mark(true, "mistral-admin", "", 200, ""); return adm; }
+  } catch (e) {}
+
+  /* 2 — the key bank, best model first, shrinking the reservation on a TPM refusal */
+  const models = [...new Set(SQUAD_MODELS.concat(MODELS))];
+  for (const model of models) {
+    const key = pickLaneKey(ADMIN_KEY || KEY_POOL[0], true);
+    if (!key) { notes.push("every key is cooling"); break; }
+    for (const cap of ladder) {
+      try {
+        const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+          body: JSON.stringify({ model: model, messages: messages, max_tokens: cap, temperature: 0.25, reasoning_effort: cap >= 3000 ? "medium" : "low" }),
+          signal: AbortSignal.timeout(180_000)
+        });
+        if (r.status === 429) {
+          const d = await r.json().catch(() => ({}));
+          const msg = (d.error && d.error.message) || "rate limited";
+          notes.push(model + ": " + String(msg).slice(0, 90));
+          /* "Request too large / tokens per minute" is about the SIZE of this call,
+             not the key — shrink the reservation and retry the same model */
+          if (/too large|tokens per minute|\bTPM\b|context.length/i.test(msg)) continue;
+          keyCool.set(key, Date.now() + 20_000);
+          break;
+        }
+        if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); notes.push(model + ": key rejected (" + r.status + ")"); break; }
+        if (!r.ok) { notes.push(model + ": HTTP " + r.status); break; }
+        const d = await r.json();
+        const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+        if (t && t.trim()) {
+          recordUse(null, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model);
+          mark(true, "groq", model, 200, "cap " + cap);
+          return t.trim();
+        }
+        notes.push(model + ": empty completion at cap " + cap);
+      } catch (e) { notes.push(model + ": " + String(e.message || e).slice(0, 60)); break; }
+    }
+  }
+
+  /* 3 — the reserve brain, then an honest failure that names the real reason */
+  const rt = await reserveCall(messages, Math.min(want, 2000), 0.25, null);
+  if (rt) { mark(true, "mistral-reserve", RESERVE_MODEL, 200, ""); return rt; }
+  const note = notes.slice(0, 3).join(" · ") || "no AI key configured on the backend";
+  mark(false, "", "", 0, note);
+  throw new Error("every brain lane is busy — " + note);
+}
+/* SOURCE LANE — ARTHUR reads the REAL file he is allowed to touch, in this order:
+   1) the GitHub source of truth, 2) the live page users are actually served,
+   3) the file on disk (dev, and the hosting layout where aura.html sits one level
+   above the service). A dead source lane must never look like "nothing to do" —
+   the reason is reported to the owner instead of an empty cycle. */
+let lastSourceLane = "not tried yet";
+async function squadReadSource() {
+  if (GH_TOKEN) {
     try {
-      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-        body: JSON.stringify({ model, messages, max_tokens: model.startsWith("openai/gpt-oss") ? Math.max(tok, 12000) : tok, temperature: 0.25, reasoning_effort: "high" }),
-        signal: AbortSignal.timeout(180_000)
-      });
-      if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); continue; }
-      if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); continue; }
-      if (!r.ok) continue;
-      const d = await r.json();
-      const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-      if (t && t.trim()) { recordUse(null, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
+      const src = await ghFetchRaw();
+      if (src && src.length > 1000) { lastSourceLane = "github " + GH_REPO + "/" + GH_FILE; return src; }
+      lastSourceLane = "github: empty payload";
+    } catch (e) { lastSourceLane = "github: " + (e.message || e); }
+  } else lastSourceLane = "github: GH_TOKEN missing";
+  try {
+    const r = await fetch(LIVE_PAGE_URL + "?cb=" + Date.now(), { cache: "no-store", headers: { "User-Agent": "aura-autopilot" }, signal: AbortSignal.timeout(25000) });
+    if (r.ok) {
+      const t = await r.text();
+      if (t && t.length > 1000) { lastSourceLane = "live page"; return t; }
+      lastSourceLane += " · live page: short payload";
+    } else lastSourceLane += " · live page: HTTP " + r.status;
+  } catch (e) { lastSourceLane += " · live page: " + (e.message || e); }
+  for (const p of [path.join(__dirname, "..", "aura.html"), path.join(__dirname, "aura.html")]) {
+    try {
+      const t = fs.readFileSync(p, "utf8");
+      if (t && t.length > 1000) { lastSourceLane = "file " + p; return t; }
     } catch (e) {}
   }
-  const rt = await reserveCall(messages, Math.min(tok, 8000), 0.25, null);
-  if (rt) return rt;
-  throw new Error("every brain lane is cooling or drained — AI mission skipped this cycle");
+  throw new Error("source lane unavailable — " + lastSourceLane);
 }
 /* ERLANG's probe: the real state of her own system, gathered with zero AI calls */
 async function squadProbe() {
@@ -1044,21 +1117,26 @@ const autopilot = autopilotLib.createAutopilot({
   loadState: squadLoadState,
   saveState: squadSaveState,
   probe: () => squadProbeWith(!!fbDb || !!GH_TOKEN),
-  readSource: ghFetchRaw,
+  readSource: squadReadSource,
+  sourceLane: () => lastSourceLane,
   brain: squadBrain,
   research: squadResearch,
   commit: (content, message) => ghPutFile(content, message, GH_FILE),
   verifyLive: squadVerifyLive,
   worldWatch: squadWorldWatch,
   signReport: squadSignReport,
-  onReport: (rec) => console.log("[squad autopilot] report " + rec.day + ": " + String(rec.text).split("\n")[0])
+  onReport: (rec) => { squadClock.ticks++; squadClock.lastTick = Date.now(); console.log("[squad autopilot] report " + rec.day + ": " + String(rec.text).split("\n")[0]); }
 });
+/* THE CLOCK, MADE VISIBLE — the squad's timer used to be invisible, so a dead
+   timer looked exactly like "the squad does nothing". /health now says it out loud. */
+const squadClock = { everyMinutes: autopilotLib.DEFAULTS.tickMinutes, running: false, ticks: 0, lastTick: 0, bootedAt: Date.now() };
 /* safe snapshot for /health — memory only, never an IO call */
 function squadHealth() {
   const st = autopilot.state();
-  if (!st) return { armed: !!GH_TOKEN, enabled: process.env.SQUAD_AUTOPILOT !== "0", loaded: false };
+  const clock = Object.assign({}, squadClock);
+  if (!st) return { armed: !!GH_TOKEN, enabled: process.env.SQUAD_AUTOPILOT !== "0", loaded: false, clock: clock, sourceLane: lastSourceLane };
   const done = autopilotLib.MISSIONS.filter(m => autopilotLib.missionState(st, m.id).done).length;
-  return { armed: !!GH_TOKEN, enabled: !!st.enabled, day: st.day, cyclesToday: st.cyclesToday || 0, missionsDone: done, missionsTotal: autopilotLib.MISSIONS.length, ships: (st.ships || []).length, paused: st.paused || "", lastCycle: st.lastCycle || 0 };
+  return { armed: !!GH_TOKEN, enabled: !!st.enabled, day: st.day, cyclesToday: st.cyclesToday || 0, missionsDone: done, missionsTotal: autopilotLib.MISSIONS.length, ships: (st.ships || []).length, paused: st.paused || "", lastCycle: st.lastCycle || 0, clock: clock, sourceLane: lastSourceLane };
 }
 /* AUTOPILOT ACCESS — the signed-in owner (panel) or the cron key (GitHub Actions) */
 async function squadAuth(req, res) {
@@ -1074,7 +1152,7 @@ async function squadAuth(req, res) {
 }
 app.get("/v1/squad/state", async (req, res) => {
   if (!(await squadAuth(req, res))) return;
-  try { res.json(await autopilot.snapshot()); }
+  try { res.json(Object.assign(await autopilot.snapshot(), { clock: Object.assign({}, squadClock), sourceLane: lastSourceLane })); }
   catch (e) { res.status(502).json({ error: e.message || String(e) }); }
 });
 app.get("/v1/squad/report", async (req, res) => {
@@ -1089,8 +1167,11 @@ app.post("/v1/squad/tick", async (req, res) => {
   const b = req.body || {};
   try {
     const out = await autopilot.tick({ trigger: b.trigger || "manual", force: !!b.force, dryRun: !!b.dryRun, noAI: !!b.noAI, publishNow: !!b.publishNow });
-    if (out.skipped) return res.json({ ok: true, skipped: out.skipped, state: await autopilot.snapshot() });
-    res.json({ ok: true, cycle: out.cycle, report: out.report, state: await autopilot.snapshot() });
+    /* always answer with the state THIS cycle produced (plus the clock + source lane),
+       never a freshly re-loaded one — that is what made a working cycle look idle */
+    const snap = await autopilot.snapshot(out.state);
+    if (out.skipped) return res.json({ ok: true, skipped: out.skipped, state: Object.assign(snap, { clock: Object.assign({}, squadClock), sourceLane: lastSourceLane }) });
+    res.json({ ok: true, cycle: out.cycle, report: out.report, state: Object.assign(snap, { clock: Object.assign({}, squadClock), sourceLane: lastSourceLane }) });
   } catch (e) { res.status(502).json({ ok: false, error: e.message || String(e) }); }
 });
 app.post("/v1/squad/autopilot", async (req, res) => {
@@ -1252,13 +1333,31 @@ app.use((req, res, next) => {
   next();
 });
 
+/* RESEARCH LANE PROBE — proves the squad can reach real sources from the server
+   itself (cached 5 min, so a keep-alive ping stays cheap and honest). */
+const researchProbeCache = { at: 0, ok: null, sources: 0, sample: "" };
+async function researchProbe() {
+  if (Date.now() - researchProbeCache.at < 300_000) return researchProbeCache;
+  try {
+    const hits = await toolSearch("autonomous AI agent coding");
+    researchProbeCache.at = Date.now();
+    researchProbeCache.ok = !!(hits && hits.length);
+    researchProbeCache.sources = (hits || []).length;
+    researchProbeCache.sample = (hits && hits[0] && hits[0].title) || "";
+  } catch (e) {
+    researchProbeCache.at = Date.now(); researchProbeCache.ok = false; researchProbeCache.sources = 0;
+    researchProbeCache.sample = e.message || String(e);
+  }
+  return researchProbeCache;
+}
+
 /* health + root */
 app.get("/", (req, res) => res.json({ ok: true, service: "aura-secure-backend", time: new Date().toISOString() }));
 app.get("/health", async (req, res) => {
   const now = Date.now();
   fbInit(); /* eager init so the diagnostic tells the truth immediately */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck(), squad: squadHealth() });
+  res.json({ ok: true, build: BUILD, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck(), research: await researchProbe(), brain: brainLast, squad: squadHealth() });
 });
 
 /* THE PROXY — key stays server-side forever */
@@ -1797,6 +1896,7 @@ app.listen(PORT, () => {
      engine decides whether a tick actually works, so this timer is cheap. */
   if (process.env.SQUAD_AUTOPILOT !== "0") {
     const t = autopilot.boot();
+    squadClock.running = !!t;
     console.log("[squad autopilot] armed — tick every " + (autopilotLib.DEFAULTS.tickMinutes) + " min, " + autopilotLib.DEFAULTS.maxCyclesPerDay + " cycle(s)/day, auto-ship " + (autopilotLib.DEFAULTS.autoShip ? "ON" : "OFF") + (t ? "" : " (timer not started — cadence too short)"));
     /* a fresh deploy starts work immediately instead of waiting a full tick —
        the engine's own daily budget decides whether anything real happens */
