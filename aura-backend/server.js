@@ -1084,18 +1084,38 @@ async function squadSignReport(state) {
 /* DURABLE STATE — the squad's memory. Firestore first (no git noise at all: the
    repo only ever gets REAL feature publishes), GitHub file as the fallback so a
    deployment without Firestore still keeps its in-flight work across restarts. */
+/* WHERE THE MEMORY ACTUALLY LANDED — guessed at from outside before, so the owner
+   could never tell whether his Firestore task worked. Memory only, zero IO. */
+const storeLast = { save: "none", load: "none", at: 0, note: "" };
+const storeVerdict = (lane, note) => { storeLast[lane] = note || ""; storeLast.at = Date.now(); };
 async function squadLoadState() {
   if (fbDb) {
-    try { const d = await fbDb.collection("aura_squad").doc("autopilot").get(); if (d.exists) { const v = d.data() || {}; if (v.state && v.state.v) return v.state; } } catch (e) {}
+    try {
+      const d = await fbDb.collection("aura_squad").doc("autopilot").get();
+      if (d.exists) { const v = d.data() || {}; if (v.state && v.state.v) { storeVerdict("load", "firestore"); return v.state; } storeVerdict("load", "firestore (empty doc)"); }
+      else storeVerdict("load", "firestore (no doc yet)");
+    } catch (e) { storeVerdict("note", "firestore read: " + String(e.message || e).slice(0, 140)); }
   }
-  return ghGetJson(SQUAD_STATE_FILE);
+  const file = await ghGetJson(SQUAD_STATE_FILE);
+  storeVerdict("load", file ? "repo file (fallback)" : (fbDb ? "fresh" : "fresh (no store configured)"));
+  return file;
 }
 async function squadSaveState(state) {
   if (fbDb) {
-    try { await fbDb.collection("aura_squad").doc("autopilot").set({ state: state, updated: Date.now() }, { merge: true }); return; }
-    catch (e) { /* fall through to the repo file */ }
+    try {
+      await fbDb.collection("aura_squad").doc("autopilot").set({ state: state, updated: Date.now() }, { merge: true });
+      storeVerdict("save", "firestore");
+      return;
+    } catch (e) { storeVerdict("note", "firestore write: " + String(e.message || e).slice(0, 140)); }
+  } else storeVerdict("note", FB_PROJECT ? "firestore not initialised" : "FB_PROJECT / FB_EMAIL / FB_PRIVATE_KEY not set");
+  if (GH_TOKEN) {
+    try {
+      await ghPutFile(JSON.stringify(state, null, 1), "AURA autopilot: state " + (state.day || "") + " (" + (state.cyclesToday || 0) + " cycle(s))", SQUAD_STATE_FILE);
+      storeVerdict("save", "repo file (fallback)");
+      return;
+    } catch (e) { storeVerdict("note", "repo write: " + String(e.message || e).slice(0, 140)); }
   }
-  if (GH_TOKEN) await ghPutFile(JSON.stringify(state, null, 1), "AURA autopilot: state " + (state.day || "") + " (" + (state.cyclesToday || 0) + " cycle(s))", SQUAD_STATE_FILE);
+  storeVerdict("save", "memory-only");
 }
 /* RESEARCH — the squad's own librarian: live search + read, no keys, real sources */
 async function squadResearch(mission) {
@@ -1134,9 +1154,9 @@ const squadClock = { everyMinutes: autopilotLib.DEFAULTS.tickMinutes, running: f
 function squadHealth() {
   const st = autopilot.state();
   const clock = Object.assign({}, squadClock);
-  if (!st) return { armed: !!GH_TOKEN, enabled: process.env.SQUAD_AUTOPILOT !== "0", loaded: false, clock: clock, sourceLane: lastSourceLane };
+  if (!st) return { armed: !!GH_TOKEN, enabled: process.env.SQUAD_AUTOPILOT !== "0", loaded: false, clock: clock, sourceLane: lastSourceLane, store: Object.assign({}, storeLast) };
   const done = autopilotLib.MISSIONS.filter(m => autopilotLib.missionState(st, m.id).done).length;
-  return { armed: !!GH_TOKEN, enabled: !!st.enabled, day: st.day, cyclesToday: st.cyclesToday || 0, missionsDone: done, missionsTotal: autopilotLib.MISSIONS.length, ships: (st.ships || []).length, paused: st.paused || "", lastCycle: st.lastCycle || 0, clock: clock, sourceLane: lastSourceLane };
+  return { armed: !!GH_TOKEN, enabled: !!st.enabled, day: st.day, cyclesToday: st.cyclesToday || 0, missionsDone: done, missionsTotal: autopilotLib.MISSIONS.length, ships: (st.ships || []).length, paused: st.paused || "", lastCycle: st.lastCycle || 0, clock: clock, sourceLane: lastSourceLane, store: Object.assign({}, storeLast) };
 }
 /* AUTOPILOT ACCESS — the signed-in owner (panel) or the cron key (GitHub Actions) */
 async function squadAuth(req, res) {
