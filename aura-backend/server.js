@@ -29,8 +29,15 @@ const KEY_POOL = [...new Set([
   GROQ_API_KEY,
   ...envv("AI_KEY_BACKUP", "GROQ_API_KEYS").split(",").map(s => s.trim())
 ].filter(Boolean))];
+/* BUILD MARKER — one request tells you which build the host is really serving.
+   If /health does not show this string, the deploy did NOT land (stale build). */
+const BUILD = process.env.AURA_BUILD || "squad-v2";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
+/* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
+   (and keeps shipping) while nobody has AURA open. Set SQUAD_TICK_SECRET in the
+   hosting dashboard + the same value as a GitHub Actions secret. */
+const SQUAD_TICK_SECRET = envv("SQUAD_TICK_SECRET", "SQUAD_SECRET");
 const GEMINI_API_KEY = envv("AI_KEY_VISION", "GEMINI_API_KEY");            // gives AURA EYES (vision)
 const VISION_MODEL = process.env.VISION_MODEL || atob("Z2VtaW5pLTMuNi1mbGFzaA==");
 
@@ -329,7 +336,7 @@ const OWNER_SECRET = process.env.SECRET || "";
 app.use((req, res, next) => {
   const origin = req.headers.origin || "";
   const okOrigin = ALLOW_ORIGINS.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-  if (req.path === "/health" || req.path === "/" || req.path === "/v1/ping") {
+  if (req.path === "/health" || req.path === "/" || req.path === "/v1/ping" || req.path === "/v1/squad/beat") {
     /* public paths still need CORS headers or browsers block the boot ping */
     if (okOrigin) { res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Vary", "Origin"); }
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -338,7 +345,9 @@ app.use((req, res, next) => {
     return next();
   }
   const okSecret = OWNER_SECRET && req.headers["x-aura-key"] === OWNER_SECRET;
-  if (!okOrigin && !okSecret && process.env.OPEN_GATE !== "1") {
+  /* the autopilot cron has no Origin header — its own key is a legitimate caller */
+  const okSquad = SQUAD_TICK_SECRET && req.headers["x-squad-key"] === SQUAD_TICK_SECRET;
+  if (!okOrigin && !okSecret && !okSquad && process.env.OPEN_GATE !== "1") {
     return res.status(403).json({ error: "forbidden", message: "This AURA backend serves its own sites only." });
   }
   if (okOrigin) {
@@ -889,6 +898,231 @@ app.post("/v1/dev/revert", async (req, res) => {
   } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
 });
 
+/* ================= KRATOS AUTOPILOT — the squad works 24/7, AURA closed or not =================
+   Runs INSIDE this backend (timer + GitHub Actions cron). ERLANG sweeps the real
+   system deterministically, ARTHUR builds one roadmap mission per cycle from her
+   real source (verified edit gates + auto-ship + live verify + auto-revert),
+   PHOENIX stamps the world, KRATOS signs a daily report the admin can read any time.
+   The engine itself lives in ./autonomy.js and takes every IO through injection, so
+   the whole thing is unit-testable without network. */
+const autopilotLib = require("./autonomy.js");
+const SQUAD_STATE_FILE = process.env.SQUAD_STATE_FILE || "squad/autopilot-state.json";
+const LIVE_PAGE_URL = process.env.LIVE_PAGE_URL || "https://sourabh7300.github.io/aura/aura.html";
+
+async function ghGetJson(file) {
+  if (!GH_TOKEN) return null;
+  try {
+    const r = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${file}?ref=${GH_BRANCH}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-autopilot", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(30000) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!j || !j.content) return null;
+    return JSON.parse(Buffer.from(j.content, "base64").toString("utf8"));
+  } catch (e) { return null; }
+}
+async function ghPutFile(content, message, file) {
+  if (!GH_TOKEN) throw new Error("GitHub lane not connected (GH_TOKEN missing)");
+  const path = file || GH_FILE;
+  let sha = null;
+  try {
+    const meta = await (await fetch(`${GH_API}/repos/${GH_REPO}/contents/${path}?ref=${GH_BRANCH}`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-autopilot", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(30000) })).json();
+    if (meta && meta.sha) sha = meta.sha;
+  } catch (e) {}
+  const body = { message: String(message || "AURA").slice(0, 200), content: Buffer.from(String(content), "utf8").toString("base64"), branch: GH_BRANCH };
+  if (sha) body.sha = sha;
+  const put = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${path}`, { method: "PUT", headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-autopilot", "Accept": "application/vnd.github+json", "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) });
+  const j = await put.json().catch(() => ({}));
+  if (!put.ok) throw new Error("GitHub commit failed: " + ((j && j.message) || ("HTTP " + put.status)));
+  return { sha: (j.commit && j.commit.sha) || "", file: path };
+}
+/* the squad's unsupervised brain — the maker's reserved admin lane first, then
+   the flagship bank, then the reserve. Never the public key lane. */
+async function squadBrain(messages, maxTok) {
+  const tok = Math.min(maxTok || 8000, 16000);
+  try { const adm = await laneCall("admin", ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, tok, 0.25, null); if (adm) return adm; } catch (e) {}
+  for (const model of MODELS) {
+    const key = pickLaneKey(ADMIN_KEY, true);
+    if (!key) break;
+    try {
+      const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+        body: JSON.stringify({ model, messages, max_tokens: model.startsWith("openai/gpt-oss") ? Math.max(tok, 12000) : tok, temperature: 0.25, reasoning_effort: "high" }),
+        signal: AbortSignal.timeout(180_000)
+      });
+      if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); continue; }
+      if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); continue; }
+      if (!r.ok) continue;
+      const d = await r.json();
+      const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+      if (t && t.trim()) { recordUse(null, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
+    } catch (e) {}
+  }
+  const rt = await reserveCall(messages, Math.min(tok, 8000), 0.25, null);
+  if (rt) return rt;
+  throw new Error("every brain lane is cooling or drained — AI mission skipped this cycle");
+}
+/* ERLANG's probe: the real state of her own system, gathered with zero AI calls */
+async function squadProbe() {
+  let liveCode = null, liveBytes = 0;
+  try {
+    const r = await fetch(LIVE_PAGE_URL + "?cb=" + Date.now(), { cache: "no-store", headers: { "User-Agent": "aura-autopilot" }, signal: AbortSignal.timeout(20000) });
+    liveCode = r.status;
+    liveBytes = (await r.text()).length;
+  } catch (e) {}
+  let searchOk = true;
+  try { const h = await toolSearch("AI agents"); searchOk = !!(h && h.length); } catch (e) { searchOk = false; }
+  return { alive: true, keysTotal: KEY_POOL.length, adminLane: !!ADMIN_KEY, github: !!GH_TOKEN, githubState: await ghCheck(), liveCode: liveCode, liveBytes: liveBytes, searchOk: searchOk, squadLoaded: true };
+}
+/* PHOENIX's watch — the live web lane, no keys needed */
+async function squadWorldWatch() {
+  const hits = await toolSearch("autonomous AI agents coding");
+  if (!hits || !hits.length) return "";
+  return "world watch " + new Date().toISOString().slice(0, 10) + " — " + hits.slice(0, 4).map(h => h.title).join(" · ");
+}
+/* post-ship verification: the live page must serve the NEW build. If it never
+   does, the engine puts the exact previous source back. */
+async function squadVerifyLive(expectBytes, sentinel) {
+  let last = "";
+  for (let i = 0; i < 6; i++) {
+    await new Promise(r => setTimeout(r, i === 0 ? 8000 : 12000));
+    try {
+      const r = await fetch(LIVE_PAGE_URL + "?cb=" + Date.now(), { cache: "no-store", headers: { "User-Agent": "aura-autopilot" }, signal: AbortSignal.timeout(20000) });
+      if (r.status !== 200) { last = "HTTP " + r.status; continue; }
+      const t = await r.text();
+      if (expectBytes && t.length < expectBytes * 0.9) { last = "served " + t.length + " bytes vs expected ~" + expectBytes + " (Pages build still stale)"; continue; }
+      if (sentinel && t.indexOf(sentinel) < 0) { last = "new build served but sentinel " + sentinel + " missing"; continue; }
+      return { ok: true, bytes: t.length };
+    } catch (e) { last = e.message || String(e); }
+  }
+  return { ok: false, reason: last || "live page never served the new build in time" };
+}
+/* KRATOS signs over REAL state only — the AI condenses, it never invents */
+async function squadSignReport(state) {
+  try {
+    const raw = autopilotLib.renderReport(state);
+    const out = await squadBrain([
+      { role: "system", content: "You are KRATOS (COMMAND) of the admin-only KRATOS SQUAD inside AURA. Sign the autopilot report for the owner: 3-6 tight lines, Hinglish-natural if the data is Hinglish-friendly, direct answer first, real numbers only from the report, end with the one next command he can give. Never invent an event that is not in the report." },
+      { role: "user", content: "AUTOPILOT RAW REPORT:\n" + raw }
+    ], 1200);
+    if (out && out.trim()) return out.trim() + "\n\n(full deterministic details:\n" + raw + "\n)";
+  } catch (e) {}
+  return null;
+}
+/* DURABLE STATE — the squad's memory. Firestore first (no git noise at all: the
+   repo only ever gets REAL feature publishes), GitHub file as the fallback so a
+   deployment without Firestore still keeps its in-flight work across restarts. */
+async function squadLoadState() {
+  if (fbDb) {
+    try { const d = await fbDb.collection("aura_squad").doc("autopilot").get(); if (d.exists) { const v = d.data() || {}; if (v.state && v.state.v) return v.state; } } catch (e) {}
+  }
+  return ghGetJson(SQUAD_STATE_FILE);
+}
+async function squadSaveState(state) {
+  if (fbDb) {
+    try { await fbDb.collection("aura_squad").doc("autopilot").set({ state: state, updated: Date.now() }, { merge: true }); return; }
+    catch (e) { /* fall through to the repo file */ }
+  }
+  if (GH_TOKEN) await ghPutFile(JSON.stringify(state, null, 1), "AURA autopilot: state " + (state.day || "") + " (" + (state.cyclesToday || 0) + " cycle(s))", SQUAD_STATE_FILE);
+}
+/* RESEARCH — the squad's own librarian: live search + read, no keys, real sources */
+async function squadResearch(mission) {
+  const q = (mission && (mission.research || mission.title)) || "";
+  if (!q) return "";
+  const hits = await toolSearch(q);
+  if (!hits || !hits.length) return "";
+  const top = hits.slice(0, 3);
+  let page = "";
+  try { page = (await toolFetch(top[0].url)) || ""; } catch (e) {}
+  return top.map((h, i) => "[" + (i + 1) + "] " + h.title + " — " + h.url).join(" | ") + (page ? "\nKEY FACTS: " + page.slice(0, 700) : "");
+}
+async function squadProbeWith(storeDurable) {
+  const p = await squadProbe();
+  p.storeDurable = !!storeDurable;
+  return p;
+}
+const autopilot = autopilotLib.createAutopilot({
+  loadState: squadLoadState,
+  saveState: squadSaveState,
+  probe: () => squadProbeWith(!!fbDb || !!GH_TOKEN),
+  readSource: ghFetchRaw,
+  brain: squadBrain,
+  research: squadResearch,
+  commit: (content, message) => ghPutFile(content, message, GH_FILE),
+  verifyLive: squadVerifyLive,
+  worldWatch: squadWorldWatch,
+  signReport: squadSignReport,
+  onReport: (rec) => console.log("[squad autopilot] report " + rec.day + ": " + String(rec.text).split("\n")[0])
+});
+/* safe snapshot for /health — memory only, never an IO call */
+function squadHealth() {
+  const st = autopilot.state();
+  if (!st) return { armed: !!GH_TOKEN, enabled: process.env.SQUAD_AUTOPILOT !== "0", loaded: false };
+  const done = autopilotLib.MISSIONS.filter(m => autopilotLib.missionState(st, m.id).done).length;
+  return { armed: !!GH_TOKEN, enabled: !!st.enabled, day: st.day, cyclesToday: st.cyclesToday || 0, missionsDone: done, missionsTotal: autopilotLib.MISSIONS.length, ships: (st.ships || []).length, paused: st.paused || "", lastCycle: st.lastCycle || 0 };
+}
+/* AUTOPILOT ACCESS — the signed-in owner (panel) or the cron key (GitHub Actions) */
+async function squadAuth(req, res) {
+  const key = String(req.headers["x-squad-key"] || "");
+  if (SQUAD_TICK_SECRET && key && key === SQUAD_TICK_SECRET) return { via: "cron-key" };
+  const u = await verifyUser(req);
+  const owners = (process.env.MAKER_UIDS || "").split(",").map(s => s.trim()).filter(Boolean);
+  if (u && (u.role === "maker" || u.role === "ceo") && (!owners.length || owners.indexOf(u.uid) >= 0)) return { via: "admin", uid: u.uid };
+  /* local/dev mode: OPEN_GATE already opened this backend for the owner's own tools */
+  if (!fbInit() && !owners.length && process.env.OPEN_GATE === "1") return { via: "dev" };
+  res.status(401).json({ error: "admin session (or x-squad-key) required for the autopilot lane" });
+  return null;
+}
+app.get("/v1/squad/state", async (req, res) => {
+  if (!(await squadAuth(req, res))) return;
+  try { res.json(await autopilot.snapshot()); }
+  catch (e) { res.status(502).json({ error: e.message || String(e) }); }
+});
+app.get("/v1/squad/report", async (req, res) => {
+  if (!(await squadAuth(req, res))) return;
+  try {
+    const snap = await autopilot.snapshot();
+    res.json({ ok: true, report: snap.report, reports: snap.reports, paused: snap.paused, enabled: snap.enabled });
+  } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
+});
+app.post("/v1/squad/tick", async (req, res) => {
+  if (!(await squadAuth(req, res))) return;
+  const b = req.body || {};
+  try {
+    const out = await autopilot.tick({ trigger: b.trigger || "manual", force: !!b.force, dryRun: !!b.dryRun, noAI: !!b.noAI, publishNow: !!b.publishNow });
+    if (out.skipped) return res.json({ ok: true, skipped: out.skipped, state: await autopilot.snapshot() });
+    res.json({ ok: true, cycle: out.cycle, report: out.report, state: await autopilot.snapshot() });
+  } catch (e) { res.status(502).json({ ok: false, error: e.message || String(e) }); }
+});
+app.post("/v1/squad/autopilot", async (req, res) => {
+  if (!(await squadAuth(req, res))) return;
+  const b = req.body || {};
+  try {
+    const out = await autopilot.setEnabled(!!b.enabled);
+    res.json(Object.assign({ ok: true }, out, { state: await autopilot.snapshot() }));
+  } catch (e) { res.status(502).json({ ok: false, error: e.message || String(e) }); }
+});
+/* PUSH POLICY — batch (one push per finished feature) or hold (wait for the admin) */
+app.post("/v1/squad/policy", async (req, res) => {
+  if (!(await squadAuth(req, res))) return;
+  try {
+    const out = await autopilot.setPublish((req.body || {}).publish);
+    res.json(Object.assign({ ok: true }, out, { state: await autopilot.snapshot() }));
+  } catch (e) { res.status(502).json({ ok: false, error: e.message || String(e) }); }
+});
+/* THE ADMIN'S WORD — push every verified feature the squad has queued up */
+app.post("/v1/squad/publish", async (req, res) => {
+  if (!(await squadAuth(req, res))) return;
+  try { res.json(await autopilot.publishQueued()); }
+  catch (e) { res.status(502).json({ ok: false, error: e.message || String(e) }); }
+});
+/* PUBLIC HEARTBEAT for the browser extension — counters only: no code, no shas,
+   no report text, no admin data. This is what keeps the badge honest on the go. */
+app.get("/v1/squad/beat", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  try { res.json(await autopilot.beat()); }
+  catch (e) { res.status(502).json({ ok: false, error: e.message || String(e) }); }
+});
+
 /* keep-warm whisper — public by design (a heartbeat needs no secrets, reveals none) */
 app.get("/v1/ping", (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -1024,7 +1258,7 @@ app.get("/health", async (req, res) => {
   const now = Date.now();
   fbInit(); /* eager init so the diagnostic tells the truth immediately */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck() });
+  res.json({ ok: true, build: BUILD, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck(), squad: squadHealth() });
 });
 
 /* THE PROXY — key stays server-side forever */
@@ -1557,4 +1791,15 @@ app.post("/v1/tts", async (req, res) => {
   return ttsFallback(input, voice, res);
 });
 
-app.listen(PORT, () => console.log("AURA secure backend live on :" + PORT));
+app.listen(PORT, () => {
+  console.log("AURA secure backend live on :" + PORT);
+  /* KRATOS AUTOPILOT — the squad's own clock. The daily cycle budget inside the
+     engine decides whether a tick actually works, so this timer is cheap. */
+  if (process.env.SQUAD_AUTOPILOT !== "0") {
+    const t = autopilot.boot();
+    console.log("[squad autopilot] armed — tick every " + (autopilotLib.DEFAULTS.tickMinutes) + " min, " + autopilotLib.DEFAULTS.maxCyclesPerDay + " cycle(s)/day, auto-ship " + (autopilotLib.DEFAULTS.autoShip ? "ON" : "OFF") + (t ? "" : " (timer not started — cadence too short)"));
+    /* a fresh deploy starts work immediately instead of waiting a full tick —
+       the engine's own daily budget decides whether anything real happens */
+    setTimeout(() => { autopilot.tick({ trigger: "boot" }).catch(e => console.log("[squad autopilot] boot cycle failed: " + (e.message || e))); }, 20000);
+  } else console.log("[squad autopilot] disabled (SQUAD_AUTOPILOT=0)");
+});
