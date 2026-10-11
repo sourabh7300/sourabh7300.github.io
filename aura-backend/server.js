@@ -1088,6 +1088,10 @@ async function squadSignReport(state) {
    could never tell whether his Firestore task worked. Memory only, zero IO. */
 const storeLast = { save: "none", load: "none", at: 0, note: "" };
 const storeVerdict = (lane, note) => { storeLast[lane] = note || ""; storeLast.at = Date.now(); };
+/* the exact place the memory lives, named out loud: "which Firebase project do I open
+   in the console?" must never be a guessing game (the project id is already public
+   in the page's own firebaseConfig, so this leaks nothing new). */
+const storeWhere = () => ({ project: FB_PROJECT || "(FB_PROJECT not set)", doc: "aura_squad/autopilot" });
 async function squadLoadState() {
   if (fbDb) {
     try {
@@ -1154,9 +1158,9 @@ const squadClock = { everyMinutes: autopilotLib.DEFAULTS.tickMinutes, running: f
 function squadHealth() {
   const st = autopilot.state();
   const clock = Object.assign({}, squadClock);
-  if (!st) return { armed: !!GH_TOKEN, enabled: process.env.SQUAD_AUTOPILOT !== "0", loaded: false, clock: clock, sourceLane: lastSourceLane, store: Object.assign({}, storeLast) };
+  if (!st) return { armed: !!GH_TOKEN, enabled: process.env.SQUAD_AUTOPILOT !== "0", loaded: false, clock: clock, sourceLane: lastSourceLane, store: Object.assign({}, storeLast, storeWhere()) };
   const done = autopilotLib.MISSIONS.filter(m => autopilotLib.missionState(st, m.id).done).length;
-  return { armed: !!GH_TOKEN, enabled: !!st.enabled, day: st.day, cyclesToday: st.cyclesToday || 0, missionsDone: done, missionsTotal: autopilotLib.MISSIONS.length, ships: (st.ships || []).length, paused: st.paused || "", lastCycle: st.lastCycle || 0, clock: clock, sourceLane: lastSourceLane, store: Object.assign({}, storeLast) };
+  return { armed: !!GH_TOKEN, enabled: !!st.enabled, day: st.day, cyclesToday: st.cyclesToday || 0, missionsDone: done, missionsTotal: autopilotLib.MISSIONS.length, ships: (st.ships || []).length, paused: st.paused || "", lastCycle: st.lastCycle || 0, clock: clock, sourceLane: lastSourceLane, store: Object.assign({}, storeLast, storeWhere()) };
 }
 /* AUTOPILOT ACCESS — the signed-in owner (panel) or the cron key (GitHub Actions) */
 async function squadAuth(req, res) {
