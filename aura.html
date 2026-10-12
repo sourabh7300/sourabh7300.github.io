@@ -2230,6 +2230,7 @@ body[data-tab="system"] #syslogLines,#memSide{font:400 13px/1.8 'JetBrains Mono'
 body[data-tab="chats"] #sessPanel{top:100px!important;bottom:26px!important}
 
 /* ---- phone: rail becomes a bottom bar (v5) ---- */
+  #adminPage{z-index:56;left:8px!important;right:8px!important}
 @media(max-width:768px){
   #conv{top:60px!important;bottom:78px!important;padding:20px 14px!important}
   #stageEmpty .se-orb{width:110px;height:110px}
@@ -2242,6 +2243,13 @@ body[data-tab="chats"] #sessPanel{top:100px!important;bottom:26px!important}
     top:auto!important;margin:0!important;overflow:auto!important}
   body[data-tab="system"] #memPanel{bottom:262px!important;max-height:150px!important}
   body[data-tab="system"] #syslog{bottom:82px!important;max-height:168px!important}
+  /* ADMIN page on a phone: the rail is a BOTTOM-BAR here (v5) — #adminPage used to sit
+     behind it (bottom:24px < rail top), so the squad content looked "gone". Lift it
+     above the bar like #sessPanel does, and let it use every pixel of the height. */
+  #adminPage{top:74px!important;bottom:84px!important;left:8px!important;right:8px!important;padding:12px 10px!important}
+  #botChatLog{max-height:none;flex:1;min-height:140px}
+  #autoCard{padding:10px}
+  #autoReport{max-height:180px}
 }
 
 /* ---- v5 master layer: corrections after live check ---- */
@@ -6628,6 +6636,27 @@ window.AuraTasks=(function(){
   return {all:add?all:null,add:add,route:route,render:render,done:done,drop:drop,clearDone:clearDone};
 })();
 /* due-task reminders — she speaks up when timed work comes due */
+/* AURA_FAIL_EXPLAINER */
+let AuraFailures = [];
+function addFailure(failure) {
+  AuraFailures.push(failure);
+  if (AuraFailures.length > 5) AuraFailures.shift();
+}
+function renderFailures() {
+  if (AuraFailures.length === 0) return "No recent failures to explain.";
+  let html = "<div class='failures-panel'>";
+  AuraFailures.forEach((failure, index) => {
+    html += `<div class='failure-item'>
+      <h3>Failure #${index + 1}</h3>
+      <p><strong>Error:</strong> ${failure.error}</p>
+      <p><strong>Explanation:</strong> ${failure.explanation}</p>
+      <p><strong>Next Action:</strong> ${failure.nextAction}</p>
+    </div>`;
+  });
+  html += "</div>";
+  return html;
+}
+
 setInterval(function(){
   try{
     const L=JSON.parse(localStorage.getItem("aura_tasks_v1")||"[]");let ch=false;const now=Date.now();
@@ -12141,8 +12170,8 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 <div id="ap2" class="stack" hidden>
 <h3 style="font-size:24px">Choose an account</h3>
 <div class="chooser">
-<button class="acct" id="apMaker"><span class="av">S</span><span><b>Sourabh Singh</b><small>Maker account</small></span></button>
-<button class="acct" id="apOther"><span class="av" style="background:#2a3550;color:#cfe">+</span><span><b>Use another Google account</b><small>Regular account</small></span></button>
+<button class="acct" id="apMaker"><span class="av">S</span><span><b>My account</b><small>The account AURA remembers</small></span></button>
+<button class="acct" id="apOther"><span class="av" style="background:#2a3550;color:#cfe">+</span><span><b>Use another Google account</b><small>Signed out on this device</small></span></button>
 </div>
 <button class="lnk" id="apBack">Back</button>
 </div>
@@ -12176,8 +12205,8 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
 <div id="authStepG" style="display:none">
 <h3 style="font-size:20px;margin:0 0 6px">Choose an account</h3>
 <div class="auth-status-box" style="margin:0 0 10px">The account AURA remembers — chats, memory and voice follow you on every device.</div>
-<button class="auth-acct" id="accMaker"><span class="auth-av" style="background:linear-gradient(135deg,#e9b949,#8a6b1f);color:#141414">S</span><span><b>Sourabh Singh</b><small>Maker account</small></span></button>
-<button class="auth-acct" id="accOther"><span class="auth-av" style="background:#2a3550;color:#cfe">+</span><span><b>Use another Google account</b><small>Regular account</small></span></button>
+<button class="auth-acct" id="accMaker"><span class="auth-av" style="background:linear-gradient(135deg,#e9b949,#8a6b1f);color:#141414">S</span><span><b>My account</b><small>The account AURA remembers — same Google sign-in every time</small></span></button>
+<button class="auth-acct" id="accOther"><span class="auth-av" style="background:#2a3550;color:#cfe">+</span><span><b>Use another Google account</b><small>Signed out on this device</small></span></button>
 <button class="auth-btn" id="accBack" style="background:transparent;border:1px solid var(--line2);color:var(--ice);margin-top:6px">← Back</button>
 </div>
 <div id="authStep2" style="display:none">
