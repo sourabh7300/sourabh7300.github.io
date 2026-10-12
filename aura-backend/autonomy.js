@@ -120,6 +120,8 @@ const DEFAULTS = {
   maxWipCycles: parseInt(process.env.SQUAD_MAX_WIP_CYCLES || "4", 10),
   /* failed cycles a mission gets before it is parked (no quota burn) */
   maxAttempts: parseInt(process.env.SQUAD_MISSION_ATTEMPTS || "3", 10),
+  /* a batch that refuses to complete is parked for the DAY, not for life
+     (see the daily second-chance reset in tick) */
   /* max size drift a single publish may introduce */
   maxGrowth: parseFloat(process.env.SQUAD_MAX_GROWTH || "0.08"),
   /* the squad refuses to touch auth/keys/secrets — enforced on the diff */
@@ -407,7 +409,21 @@ function createAutopilot(deps) {
     /* always start from the persisted state — a restart must not lose in-flight work */
     const state = await load(true);
     const day = todayStamp();
-    if (state.day !== day) { state.day = day; state.cyclesToday = 0; }
+    if (state.day !== day) {
+      state.day = day; state.cyclesToday = 0;
+      /* DAILY SECOND CHANCE — a parked mission is parked for TODAY only.
+         The owner's standing order: the squad keeps working its own task list,
+         fail ho jaye to aaj band karo, kal phir try karo. Without this reset a
+         parked mission was parked FOREVER (three bad cycles killed it for life)
+         and the roadmap quietly shrank day by day. Attempts reset on a new day;
+         DONE missions never regress. */
+      let woken = 0;
+      for (const id of Object.keys(state.missions || {})) {
+        const m = state.missions[id];
+        if (m.parked && !m.done) { m.parked = false; m.attempts = 0; woken++; }
+      }
+      log(state, "kratos", woken ? ("new day — " + woken + " parked mission(s) get a fresh attempt budget (daily second chance)") : "new day — cycles reset");
+    }
     try {
       if (!state.enabled && !o.force) return { ok: true, skipped: "autopilot is off" };
       if (!o.force && state.paused) return { ok: true, skipped: "paused: " + state.paused };
@@ -530,11 +546,10 @@ function createAutopilot(deps) {
       const candidate = wip.edits.length ? stored.src : src;
       if (wip.edits.length && mission.done.test(candidate)) {
         log(state, "arthur", "stored batch already completes " + mission.id + " — verifying and " + (state.publish === "hold" ? "queueing" : "publishing") + "…");
-        return await finalize(state, mission, src, candidate, wip, o);
+        return await finalize(state, mission, src, candidate, wip, o, 0);
       }
     } else {
-      /* the live source moved under the stored edits — rebase honestly */
-      log(state, "arthur", "stored batch no longer applies cleanly (" + stored.error + ") — rebasing from the live source");
+      /* the live source moved under the stored edits — rebase honestly */      log(state, "arthur", "stored batch no longer applies cleanly (" + stored.error + ") — rebasing from the live source");
       wip.edits = []; wip.notes.push("rebase: " + clampText(stored.error, 80));
     }
 
@@ -634,11 +649,46 @@ function createAutopilot(deps) {
   }
 
   /* verify the completed feature and either publish it (one commit) or queue it */
-  async function finalize(state, mission, baseSrc, candidate, wip, o) {
+  async function finalize(state, mission, baseSrc, candidate, wip, o, healLeft) {
+    healLeft = (healLeft == null) ? 1 : healLeft; /* one self-heal unless a heal chain passes a smaller budget */
     const st = state.missions[mission.id];
     const gate = validateSource(baseSrc, candidate, cfg);
     log(state, "erlang", "publish gates: " + gate.pass + "/" + (gate.pass + gate.fail) + (gate.fail ? " — failed: " + gate.failed.join("; ") : " green"));
     if (!gate.ok) {
+      /* SELF-HEAL THE REUSED BATCH — the failure the owner despises: a stored batch
+         that once went stale (one edit now straddles a block boundary) got its whole
+         work THROWN AWAY by a gate refusal, then re-built the same way, refused the
+         same way — cite buffer burned and mission parked. The batch is not garbage;
+         it is one fix away. So the FIRST gate refusal asks the brain for repair edits
+         (bounded small, syntax gates only) and re-verifies. Only a still-broken batch
+         is cleared. */
+      const repairable = healLeft > 0 && wip.edits && wip.edits.length
+        && !gate.failed.some(f => /removed|changed|drift|secrets/i.test(f));
+      if (repairable) {
+        const rs = gate.failed.map(f => "- " + f).join("\n");
+        try {
+          const raw2 = await d.brain([
+            { role: "system", content: AUTOPILOT_ENGINEER_PROMPT },
+            { role: "user", content: "A stored feature batch will not publish. Publish-gate failures:\n" + rs +
+              "\nTHE BATCH'S EDITS ARE ALREADY ACCUMULATED — the failures above are almost always caused by ONE stored edit whose lines now sit differently (often a block opener/closer) in the CURRENT file.\n" +
+              "\nReply with the MINIMAL repair edits as:\nEDITS:\n```json\n[{\"find\":\"...\",\"replace\":\"...\"}]\n```\nRules: every find is copied VERBATIM from the current file so it matches EXACTLY ONCE; repair edits KEEP or RELOCATE code, they never delete the feature; ADD nothing new (no new feature code in a repair)." }], 2600);
+          const em3 = String(raw2).match(/```json\s*([\s\S]*?)```/i);
+          if (em3) {
+            const j3 = JSON.parse(em3[1].trim());
+            if (Array.isArray(j3) && j3.length && j3.length <= 6) {
+              const cand2 = applyEdits(candidate, j3);
+              if (cand2.ok) {
+                const gate2 = validateSource(baseSrc, cand2.src, cfg);
+                log(state, "erlang", "retry after self-heal: " + gate2.pass + "/" + (gate2.pass + gate2.fail) + (gate2.fail ? " — " + gate2.failed.join("; ") : " green"));
+                if (gate2.ok) {
+                  wip.edits = wip.edits.concat(j3);
+                  return await finalize(state, mission, baseSrc, cand2.src, wip, o, healLeft - 1);
+                }
+              } else log(state, "erlang", "self-heal refused by the apply gate: " + (cand2.error || "?"));
+            }
+          }
+        } catch (e) { log(state, "erlang", "publish self-heal failed: " + (e.message || e)); }
+      }
       const r = "publish gates refused: " + gate.failed.join("; ");
       st.note = r; state.fails.push({ mission: mission.id, reason: r, when: Date.now() }); clearWip(state, "gates refused " + mission.id);
       if (state.fails.length > 60) state.fails = state.fails.slice(-60);
