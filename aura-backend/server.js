@@ -1144,6 +1144,12 @@ async function squadProbeWith(storeDurable) {
   return p;
 }
 const autopilot = autopilotLib.createAutopilot({
+  config: {
+    /* HOLD is the owner's standing policy (12 Oct 2026): the squad keeps working and
+       KEEPING finished features in the publish queue — nothing auto-commits. He taps
+       PUSH once when he wants everything live. Environment can override if ever needed. */
+    publish: process.env.SQUAD_PUBLISH || "hold"
+  },
   loadState: squadLoadState,
   saveState: squadSaveState,
   probe: () => squadProbeWith(!!fbDb || !!GH_TOKEN),

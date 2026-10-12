@@ -6125,7 +6125,8 @@ window.AuraMind=(function(){
 const CONVO=[];const CONVO_MAX=24; /* cortex v2 — longer working memory than a typical chat tab */
 function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX);try{hist.add(role,content)}catch(e){}try{if(role==="assistant"&&window.AuraMind&&AuraMind.noteAnswer)AuraMind.noteAnswer(content)}catch(e){}}
 function convoCtx(){
-  let s=CONVO.length?"\n\nRECENT CONVERSATION (BACKGROUND ONLY — it may be about a PREVIOUS topic. Do NOT answer or continue it. Use it ONLY to resolve pronouns (he/she/it/that/they) and obvious short follow-ups like 'why?', 'tell me more' that belong to the CURRENT question. If the current question names a new person, place or thing, answer ONLY that new thing and ignore the old topic entirely. Never repeat this context verbatim):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
+  /* CHATGPT-STYLE THREAD — the owner's standing complaint (12 Oct 2026): "yeh har baar refresh ho jata hai, ek topic do toh usi pe continuous baat kare". The old prompt TOLD the model to treat the history as a PREVIOUS topic and never continue it — so every message answered like a fresh window. Now the transcript is framed as THE ONGOING conversation: the model reads the last turns as what we were JUST talking about, continues that thread by default, and only switches topics when the user clearly starts one. Language follows the thread too: if the user has been writing Hinglish, stay Hinglish even when the newest line is short or mixed. */
+  let s=CONVO.length?"\n\nONGOING CONVERSATION (this is the SAME chat you are in right now — read it first, it sets the current topic and the language we both have been using. CONTINUE THIS THREAD: keep answering about the same subject, build on what was already said, refer back to it naturally with 'hum baat kar rahe the…' style continuity. Start a NEW topic only when the user clearly brings one. Match the LANGUAGE of the recent turns: if the user writes Hinglish (Roman-script Hindi + English mix), keep replying in Hinglish — never switch back to full English mid-thread. Never repeat these turns verbatim and never re-answer an older question):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
   try{if(window.AuraMem&&window.__auraQ){const mc=AuraMem.contextFor(window.__auraQ);if(mc)s+=mc}}catch(e){}
   try{if(window.AuraDocs&&window.__auraQ){const dc=AuraDocs.contextFor(window.__auraQ);if(dc)s+=dc}}catch(e){}
   try{const pb=window.AuraMind&&AuraMind.profileBlock();if(pb)s+=pb}catch(e){}
@@ -6414,7 +6415,12 @@ function detectLang(q){
 function isHinglish(q){
   if(HI_HINT_RE.test(q))return true;
   const ql=q.toLowerCase();
-  return /\b(hindi mein|hindi me|in hindi|hinglish|kya hai|kaun hai|kaun the|kya tha|kaise|kyun|kyu|kahan|kab|batao|bataiye|mujhe batao|mujhe|kya|kaun|kaisa|kaisi|konsa|konsi|kisne|kitna|kitni|haan|nahi|achha|bata|mausam|karo|kardo|kar do|badlo|bata de|chahiye|mujhe chahiye|hoti hai|hoti|karte|hota hai|hai kya|matlab|samjhao|samjha)\b/.test(ql);
+  /* OWNER'S BUG REPORT (12 Oct 2026): 'krr', 'karnaa', 'krungaa', 'chal raha' style
+     Roman-Hindi verb forms were invisible to this matcher, so a Hinglish thread got
+     English replies. Added the common conjugations + chatty Hindi fillers. */
+  return /\b(hindi mein|hindi me|in hindi|hinglish|kya hai|kaun hai|kaun the|kya tha|kaise|kyun|kyu|kahan|kab|batao|bataiye|mujhe batao|mujhe|kya|kaun|kaisa|kaisi|konsa|konsi|kisne|kitna|kitni|haan|nahi|achha|bata|mausam|karo|kardo|kar do|badlo|bata de|chahiye|mujhe chahiye|hoti hai|hoti|karte|hota hai|hai kya|matlab|samjhao|samjha)\b/.test(ql)
+    || /\b(karna|karnaa|karunga|krunga|karungaa|krungaa|karenge|krenge|karta|karti|kerte|kr|rha|raha|rahi|rehna|rehte|lena|dena|ldunga|krna|krke|krke|karke|dekh|dekho|dekho|sun|suno|bata|batana|kal|abhi|thoda|bahut|zara|jald|jaldi|sahi|galat|baat|cheez|kaam|hoga|hogi|hona|pasand|palan|plan kr)\b/.test(ql)
+    || /\w*(krr|krng|krra|krte|krm|karenga|krungi|krne)\b/.test(ql);
 }
 /* AUTO-FIXER: catch common typos in commands so small mistakes still work */
 function autoFix(text){
