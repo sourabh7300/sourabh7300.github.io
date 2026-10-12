@@ -3096,7 +3096,7 @@ const STATES={
   alert:    {label:"UPLINK ERROR — OFFLINE MODE", rot:.004, pulse:.4, ring:1},
 };
 let mode="idle",modeT=0;
-function setMode(m){mode=m;modeT=0;$("stateText").textContent=STATES[m].label;try{const hw=document.getElementById("hudWord");if(hw){const P=window.PERSONAS;const nm=(P&&P[(function(){try{return localStorage.getItem("aura_persona")}catch(e){return null}})()]||{name:"AURA"}).name.toUpperCase();const map={idle:" "+nm+" ONLINE",listening:"LISTENING…",thinking:"PROCESSING…",speaking:"RESPONDING…"};hw.textContent=map[m]||map.idle;hw.style.opacity=m==="idle"?"":"1";}}catch(e){}}
+function setMode(m){mode=m;modeT=0;$("stateText").textContent=STATES[m].label;try{const hw=document.getElementById("hudWord");if(hw){const P=window.PERSONAS;const nm=(P&&P[(function(){try{return localStorage.getItem("aura_persona")}catch(e){return null}})()]||{name:"AURA"}).name.toUpperCase();const map={idle:" "+nm+" ONLINE",listening:"LISTENING…",thinking:"PROCESSING…",speaking:"RESPONDING…"};hw.textContent=map[m]||map.idle;hw.style.opacity=m==="idle"?"":"1";}}catch(e){};if(m!="alert")flushOfflineQueue();}/* AURA_OFFLINE_OUTBOX */
 
 /* ---------------- 3D particle core ---------------- */
 const cv=$("fx"),cx=cv.getContext("2d");
@@ -3460,6 +3460,13 @@ slog("aura kernel v4.0 · cortex v2 loaded");slog("particle core: 560 nodes",tru
 })();
 
 /* ---------------- conversation ---------------- */
+const offlineQueue = [];
+function flushOfflineQueue() {
+  while (offlineQueue.length > 0) {
+    const msg = offlineQueue.shift();
+    sendMessage(msg);
+  }
+}
 const log=$("log");
 function addMsg(who,text,cls){
   const d=document.createElement("div");d.className="msg "+cls;
