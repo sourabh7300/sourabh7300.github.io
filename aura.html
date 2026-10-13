@@ -8259,7 +8259,13 @@ updateEngTag();
     const railBottom=bar.getBoundingClientRect().bottom;
     const railIsBottomBar=window.innerWidth<=768&&railBottom>window.innerHeight-140;
     pg.style.bottom=Math.max(mh,railIsBottomBar?Math.ceil(window.innerHeight-railBottom)+12:mh)+"px"}catch(e){}};
-  const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage();if(t==="settings"&&window.AuraSettings&&AuraSettings.refresh)try{AuraSettings.refresh()}catch(e){}try{if(t!=="admin")localStorage.setItem("aura_last_tab",t)}catch(e){}};window.__auraApply=apply;
+  const apply=t=>{document.body.dataset.tab=t;bar.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));if(t==="chats")renderSessions();if(t==="code")fitCodePage();if(t==="settings"&&window.AuraSettings&&AuraSettings.refresh)try{AuraSettings.refresh()}catch(e){}
+    /* OWNER COLLISION FIX (13 Oct 2026): the first-visit auth gate (body.auth →
+       #authPage, z-60) kept its blurred overlay over the admin page (z-30), so every
+       panel clicked through to the gate — literally "nothing clickable". Entering the
+       ADMIN tab is an explicit act, so the gate closes itself there. */
+    if(t==="admin"&&document.body.classList.contains("auth")){document.body.classList.remove("auth");try{localStorage.setItem("aura_auth_seen","1")}catch(e){}}
+    try{if(t!=="admin")localStorage.setItem("aura_last_tab",t)}catch(e){}};window.__auraApply=apply;
   bar.querySelectorAll("button").forEach(b=>b.onclick=()=>{const t=b.dataset.t;if(t==="admin"&&typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){AuraAuth.showRestricted("Mission Control","This page is reserved for maker and CEO accounts — roles are verified on the server.");return}try{localStorage.setItem("aura_last_tab",t)}catch(e){}apply(t);if(t==="admin"&&window.adminLoad)try{window.adminLoad()}catch(e){}});
   /* restore the last active tab on reload — the ADMIN restore itself fires
      later (at applyRoleUi time, line below) because AuraAuth loads after this
