@@ -2,7 +2,7 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Sourabh Singh — Web Developer Portfolio · JECRC University</title>
-<meta name="description" content="B.Tech CSE (AI, DevOps & Cloud Automation). I build real web apps from scratch: a holographic AI, food delivery, a photo studio and more. Every line by hand.">
+<meta name="description" content="B.Tech CSE (AI, DevOps & Cloud Automation). I build real web apps from scratch: the AURA holographic AI and the Lucid photo studio — plus a lab of experiments. Every line by hand.">
 <meta name="theme-color" content="#06070c">
 <meta property="og:title" content="Sourabh Singh — Portfolio"><meta property="og:description" content="Real web apps, built from scratch. Every line by hand."><meta property="og:image" content="https://avatars.githubusercontent.com/u/282454498?v=4"><meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -103,9 +103,9 @@ footer{padding:30px 6vw 40px;display:flex;justify-content:space-between;gap:12px
 <main>
 <section id="hero"><div class="kick">Web developer · B.Tech CSE · JECRC University</div>
 <h1 id="nm" aria-label="Sourabh"><span>S</span><span>O</span><span>U</span><span>R</span><span>A</span><span>B</span><span>H</span></h1>
-<div id="hr"><p><b>I build real web apps from scratch.</b> A holographic AI, a food-delivery platform, a luxury brand showcase and a pro photo studio. Every line written by hand: HTML, CSS and JavaScript.</p>
+<div id="hr"><p><b>I build real web apps from scratch.</b> My flagship AURA — a holographic AI — and Lucid, a pro photo studio. Every line written by hand: HTML, CSS and JavaScript.</p>
 <div><div class="row"><a class="pill" href="#work">View my work ↓</a><a class="pill gh" href="https://github.com/sourabh7300" target="_blank" rel="noopener">GitHub ↗</a></div></div></div>
-<div class="st"><div><b>4</b>Apps shipped</div><div><b>4</b>Lab experiments</div><div><b>0</b>Frameworks</div><div><b>1</b>File each</div></div></section>
+<div class="st"><div><b>2</b>Apps shipped</div><div><b>4</b>Lab experiments</div><div><b>0</b>Frameworks</div><div><b>1</b>File each</div></div></section>
 <div class="mqs" aria-hidden="true"><div>HTML · CSS · JAVASCRIPT · AI · DEVOPS · CLOUD · HTML · CSS · JAVASCRIPT · AI · DEVOPS · CLOUD · </div></div>
 <section id="ph"><div class="kick">The philosophy</div><h2>I build it by hand</h2><p id="qt">I believe great software comes from understanding every layer. No frameworks, no templates, no shortcuts. One file, written by hand, so I know exactly how the browser works and why every pixel moves.</p></section>
 <section id="work"><div class="kick rv">Selected projects</div><h2 class="rv">Live apps, not screenshots</h2><div id="pj"></div></section>
@@ -125,14 +125,12 @@ footer{padding:30px 6vw 40px;display:flex;justify-content:space-between;gap:12px
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],cl=x=>Math.max(0,Math.min(1,x)),sm=x=>{x=cl(x);return x*x*(3-2*x)},lp=(a,b,t)=>a+(b-a)*t,rnd=(a,b)=>a+Math.random()*(b-a),RM=matchMedia('(prefers-reduced-motion:reduce)').matches;
-const PJ=[['FOODORA — Food Delivery','E-commerce · Geolocation','An end-to-end ordering platform: browse outlets, fill a cart, use your real GPS location and watch a delivery rider move along a map route. 48 dishes with recipes in English, Hindi and Spanish.',['Leaflet.js','Geolocation API','State'],'foodora.html','foodora.html'],
-['Mercedes-Benz Showcase','Landing page · Brand design','A luxury automotive experience with cinematic hero sections, scroll-driven animation and a premium dark design language, fully responsive.',['Animation','Responsive','Brand UI'],'mercedes.html','mercedes.html'],
-['AURA — Holographic AI','AI interface · Sci-fi HUD','A hand-built holographic assistant: a 3D particle core that reacts to its state, voice in and out, real AI answers, live telemetry and a boot sequence. No engines.',['Web Speech API','3D projection','Puter.js'],'aura.html',null],
+const PJ=[['AURA — Holographic AI','AI interface · Sci-fi HUD','A hand-built holographic assistant: a 3D particle core that reacts to its state, voice in and out, real AI answers, live telemetry and a boot sequence. No engines.',['Web Speech API','3D projection','Puter.js'],'aura.html',null],
 ['Lucid — Photo Studio','Image engineering · Pro tools','A desktop-class photo editor in one file: layer compositing, batch processing, tone curves, live histogram, presets and a built-in camera bridge.',['Canvas 2D','Layers','Batch'],'lucid.html','lucid.html']];
 $('#pj').innerHTML=PJ.map((p,i)=>`<div class="pc rv"><a class="pv" href="${p[4]}" aria-label="Open ${p[0]} live">${p[5]?`<iframe data-src="${p[5]}" title="${p[0]} preview" loading="lazy" tabindex="-1" sandbox="allow-scripts allow-same-origin"></iframe>`:'<img src="og-card.png" alt="" style="width:100%;height:100%;object-fit:cover" loading="lazy">'}</a><div><div class="pn">0${i+1}</div><div class="ty">${p[1]}</div><h3>${p[0]}</h3><p>${p[2]}</p><div class="tg">${p[3].map(t=>'<span>'+t+'</span>').join('')}</div><a class="pill" href="${p[4]}">Open live ↗</a></div></div>`).join('');
 const LB=[['EX-01','Quantum Circuit Simulator','State vectors, gate placement and probabilistic measurement you can touch.','quantum.html'],['EX-02','Autonomous SRE','A multi-agent incident responder: detect, triage, remediate, verify.','sre.html'],['EX-03','Groundwork','Learn AI from zero with eight interactive lessons.','groundwork.html'],['EX-04','CloudPilot','An infrastructure-as-code console that plans and ships itself.','cloudpilot.html']];
 $('#lab').innerHTML=LB.map(l=>`<a class="lc rv" href="${l[3]}"><em>${l[0]}</em><h4>${l[1]}</h4><p>${l[2]}</p><u>OPEN ↗</u></a>`).join('');
-const JR=[['01','Learning the fundamentals','Plain HTML and CSS first, then JavaScript to make pages respond. No shortcuts.','foundation'],['02','First real app','Complete assistant interfaces: sidebar, chat area, states and theming with CSS variables.','assistant interfaces'],['03','Real AI: AURA','Connected interfaces to real AI models: async/await, streaming and graceful API failures.','the breakthrough'],['04','FOODORA','48 dishes, 12 restaurants, a live map, GPS, cart and checkout, all synchronized in one page.','biggest challenge'],['05','This portfolio','Every app embedded live, animated with IntersectionObserver, Canvas and WebGL.','putting it together']];
+const JR=[['01','Learning the fundamentals','Plain HTML and CSS first, then JavaScript to make pages respond. No shortcuts.','foundation'],['02','First real app','Complete assistant interfaces: sidebar, chat area, states and theming with CSS variables.','assistant interfaces'],['03','Real AI: AURA','Connected interfaces to real AI models: async/await, streaming and graceful API failures.','the breakthrough'],['04','AURA gets heavier','The assistant grew real Brains: a secure backend, an autonomous squad and a full workspace — still one file.','scale up'],['05','This portfolio','Every app embedded live, animated with IntersectionObserver, Canvas and WebGL.','putting it together']];
 $('#jr').innerHTML=JR.map(j=>`<div class="jt rv"><b>${j[0]}</b><h4>${j[1]}</h4><p>${j[2]}</p><i>${j[3]}</i></div>`).join('');
 const SK=[['HTML5 — semantic structure',95],['CSS3 — grid, animation, variables',92],['JavaScript — DOM, state, events',88],['API integration — AI, maps, geolocation',82],['Responsive and accessible design',90]];
 $('#bars').innerHTML=SK.map(s=>`<div class="bar"><div>${s[0]}<span>${s[1]}%</span></div><i style="--v:${s[1]/100}"></i></div>`).join('');
@@ -176,7 +174,7 @@ U.w.value.set(w[0],w[1],w[2],w[3]);U.time.value=ms/1000;U.intro.value=1-Math.pow
 P.position.x=(innerWidth<768?0:lp(PX[i],PX[j],t));P.position.y=innerWidth<768?1.6:lp(PY[i],PY[j],t);P.scale.setScalar(lp(PS[i],PS[j],t)*(innerWidth<768?.65:1));P.rotation.y=ms/1000*.12+mx*.5;P.rotation.x=my*.3+w[1]*.5;R.render(S,C)})(0);
 
 /* case-study overlay */
-const LEARN=['The hard part was keeping cart, filters, map and checkout in sync inside one page.','Scroll-driven animation and a premium dark design language, tuned to feel cinematic on any screen.','Async/await, streaming answers and handling API failures gracefully, with an offline brain as backup.','Pixel pipelines: curves, convolution, layers and batch export, all running in the browser.'];
+const LEARN=['Async/await, streaming answers and handling API failures gracefully, with an offline brain as backup.','Pixel pipelines: curves, convolution, layers and batch export, all running in the browser.'];
 const ALL=PJ.map((p,i)=>({t:p[0],ty:p[1],d:p[2]+' '+LEARN[i],u:p[4],f:p[5]})).concat(LB.map(l=>({t:l[1],ty:'Lab · '+l[0],d:l[2],u:l[3],f:l[3]})));
 const cs=$('#cs');let ci=0,cfr=null;
 function fitCS(){const f=$('#csf'),mw=Math.min(innerWidth*.9,1280),mh=innerHeight*.6,w=Math.min(mw,mh*1.6);f.style.width=w+'px';f.style.height=w/1.6+'px';if(cfr)cfr.style.transform='scale('+w/1280+')'}
@@ -201,9 +199,7 @@ $$('#thm button').forEach(b=>b.onclick=()=>theme(b.dataset.th));
 const KB=[[['hi','hello','hey','namaste'],"Hi! I'm AURA, Sourabh's portfolio guide. Ask about his projects, skills, journey or how to reach him."],
 [['who','yourself','introduce','sourabh','kaun','about him','about you'],"Sourabh Singh is a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation. He builds complete web apps from scratch in plain HTML, CSS and JavaScript."],
 [['skill','tech','stack','languages','know'],"HTML5 95%, CSS3 92%, JavaScript 88%, API integration 82% and responsive, accessible design 90%. Every bar maps to something real in the apps on this page.",'#sk2'],
-[['project','apps','built','work'],"Four main apps: FOODORA (food delivery), the Mercedes-Benz showcase, AURA (holographic AI) and Lucid (photo studio), plus a lab of four experiments. Name one and I'll open it.",'#work'],
-[['foodora','food','delivery','rider'],"FOODORA is an end-to-end food ordering platform with live maps, real GPS, a cart and checkout, and 48 dishes with recipes in three languages.",0],
-[['mercedes','car','automotive','benz'],"The Mercedes-Benz showcase is a cinematic luxury landing page with scroll-driven animation and a premium dark design language.",1],
+[['project','apps','built','work'],"Two flagship apps live here: AURA (holographic AI) and Lucid (pro photo studio), plus a lab of four experiments. Name one and I'll open it.",'#work'],
 [['aura','hologram','assistant'],"AURA is a hand-built holographic AI: a 3D particle core that reacts to its state, voice in and out, real AI answers and live telemetry. It's the project I'm built on.",2],
 [['lucid','photo','editor','studio'],"Lucid is a desktop-class photo editor in one file: layers, batch processing, tone curves, a live histogram and presets.",3],
 [['quantum','circuit','qubit'],"The Quantum Circuit Simulator lets you place gates and watch superposition, entanglement and probabilistic measurement.",4],
@@ -214,7 +210,7 @@ const KB=[[['hi','hello','hey','namaste'],"Hi! I'm AURA, Sourabh's portfolio gui
 [['why','why hire','strength','special','different'],"Every project here is a complete, working app in a single file, built by hand. That shows he understands layout, state, APIs and async code, and that he ships."],
 [['how','made','portfolio','site'],"This portfolio is plain HTML, CSS and JavaScript with WebGL particles, IntersectionObserver reveals, a command palette and me, an offline guide. No frameworks."],
 [['college','university','jecrc','study','education','btech'],"Sourabh studies B.Tech CSE at JECRC University, specializing in AI, DevOps and Cloud Automation."],
-[['journey','story','path'],"His path: fundamentals, a first real app, real AI with AURA, the FOODORA state challenge, and this portfolio.",'#jr2'],
+[['journey','story','path'],"His path: fundamentals, a first real app, real AI with AURA, growing AURA into a full agent platform, and this portfolio.",'#jr2'],
 [['resume','cv'],"There is no resume file on this site yet. The live projects and GitHub are the best proof of his work."],
 [['theme','color','colour'],"Open the menu and pick a colour dot to recolour the whole portfolio."]];
 const ap=$('#ap'),am=$('#am');let voice=false,busy=false;
