@@ -953,18 +953,27 @@ const SQUAD_MODELS = (process.env.SQUAD_MODELS || "openai/gpt-oss-120b,openai/gp
   const notes = [];
   const mark = (ok, via, model, status, note) => Object.assign(brainLast, { at: Date.now(), ok: !!ok, via: via || "", model: model || "", status: status || 0, note: String(note || "").replace(/(gsk_|sk-)[A-Za-z0-9_-]{6,}/g, "[redacted]").slice(0, 220) });
 
-  /* 1 — the maker's reserved Mistral admin lane (kept as the instant warm lane) */
-  try {
-    const adm = await laneCall("admin", ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, want, 0.25, null);
-    if (adm) { mark(true, "mistral-admin", "", 200, ""); return adm; }
-  } catch (e) {}
+  /* 1 — NIM-FIRST ROOT CAUSE (proven 13 Oct 2026): /health showed via "mistral-admin"
+     on every cycle — the instant-warm Mistral lane sat at #1 and answered everything,
+     so the owner's NVIDIA key NEVER fired even though the standing order said
+     Nemotron FIRST. New order: with a NIM key present the Nemotron ladder (1b) runs
+     first; Mistral admin demotes to backup and only answers if the entire NIM
+     family failed. Without a NIM key the old instantaneous order still stands. */
+  const NIM_KEY_FIRST = process.env.NVIDIA_NIM_KEY || "";
+  const tryMistralAdmin = async function () {
+    try {
+      const adm = await laneCall("admin", ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, want, 0.25, null);
+      if (adm) { mark(true, "mistral-admin", "", 200, ""); return adm; }
+    } catch (e) {}
+    return null;
+  };
+  if (!NIM_KEY_FIRST) { const adm = await tryMistralAdmin(); if (adm) return adm; }
 
   /* 1b — OWNER'S STANDING ORDER (12 Oct 2026): the bots work on NVIDIA NEMOTRON
      FIRST — the maker bought that key for them, it is their primary brain. Groq
      is the bots' BACKUP (it stays first for user chat, where its speed wins).
      Ladder: Ultra 550B → Super 120B → Lightning 30B, so a busy Ultra falls across
      the whole NIM family before a single Groq key is even touched. */
-  const NIM_KEY_FIRST = process.env.NVIDIA_NIM_KEY || "";
   if (NIM_KEY_FIRST) {
     for (const model of ["nvidia/nemotron-3-ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b"]) {
       for (const cap of ladder) {
@@ -992,6 +1001,8 @@ const SQUAD_MODELS = (process.env.SQUAD_MODELS || "openai/gpt-oss-120b,openai/gp
         } catch (e) { notes.push("nim " + model + ": " + String(e.message || e).slice(0, 60)); break; }
       }
     }
+    /* the whole NIM family failed → Mistral admin is the first backup (was #1 before) */
+    const adm = await tryMistralAdmin(); if (adm) return adm;
   }
 
   /* 2 — the Groq key bank — now the BOTS' BACKUP (user chat keeps it first) */
