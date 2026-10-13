@@ -11285,6 +11285,8 @@ document.addEventListener("DOMContentLoaded",function(){
          🚀 PUSH     = verified publish-queue sab ek saath live karo. */
       const flowTag=$("botFlowTag"),awB=$("btnAutoWork"),puB=$("btnPushAll");
       const flow=(s)=>{try{if(flowTag)flowTag.textContent="WORKFLOW: "+s}catch(e){}};
+      /* auth fail → open the sign-in modal right there, not a dead end (owner's 1000th complaint, 13 Oct 2026) */
+      const openAuth=function(){try{AuraAuth.openModal()}catch(e4){try{push(S.who||"kratos","sys","sign-in modal unavailable — ⚙ SETTINGS se sign-in karo")}catch(e5){}}};
       if(awB)awB.onclick=async function(){
         if(awB.disabled)return;
         awB.disabled=true;puB&&(puB.disabled=true);
@@ -11295,13 +11297,24 @@ document.addEventListener("DOMContentLoaded",function(){
         try{
           flow("⏳ state check…");
           await autopilotRefresh(true);
-          if(!isAdmin()){flow("✗ admin session chahiye → ⚙ SETTINGS → Sign in");try{push(S.who||"kratos","sys","owner: ⚙ SETTINGS → 🔑 Sign in / switch user karo, phir AUTO WORK dobara dabao — autopilot admin-only lane hai.")}catch(e4){}return}
-          if(AUD.err){flow("✗ " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot","cycle lane error (honest): "+AUD.err+((/admin session/i.test(AUD.err+""))?("\nℹ admin session expire hui — ⚙ SETTINGS → 🔑 Sign in / switch user se fresh sign-in karo, phir dobara AUTO WORK dabao."):""))}catch(e4){}return}
+          if(!isAdmin()){flow("✗ admin session chahiye → sign-in khol raha hoon…");openAuth();return}
+          if(AUD.err){
+            const _auth=/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH/i.test(AUD.err+"");
+            flow("✗ " + (AUD.err+"").slice(0,110));
+            try{push(S.who||"kratos","bot","cycle lane error (honest): "+AUD.err+(_auth?("\nℹ sign-in modal khol raha hoon — fresh login ke baadAUTO WORK dobara dabao."):""))}catch(e4){}
+            if(_auth)openAuth();
+            return
+          }
           if(AUD.state&&!(AUD.state.enabled)){flow("⏳ autopilot start ho raha…");await autopilotToggle(true)}
           if(AUD.err){flow("✗ autopilot lane: " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot","autopilot lane error (honest): "+AUD.err)}catch(e4){}return}
           flow("⏳ cycle chal raha hai (Nemotron pe)…");awB.textContent="⚡ WORKING…";
           const r=await autopilotRun(true);
-          if(AUD.err){flow("✗ " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot",r||("cycle lane error (honest): "+AUD.err))}catch(e2){}}
+          if(AUD.err){
+            const _a2=/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH/i.test(AUD.err+"");
+            flow("✗ " + (AUD.err+"").slice(0,110));
+            try{push(S.who||"kratos","bot",r||("cycle lane error (honest): "+AUD.err))}catch(e2){}
+            if(_a2)openAuth();
+          }
           else{flow("✓ cycle done "+new Date().toLocaleTimeString());try{push(S.who||"kratos","bot",r||"")}catch(e2){}}
         }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,90))}
         finally{awB.textContent="⚡ AUTO WORK";awB.disabled=false;puB&&(puB.disabled=false)}
@@ -11311,7 +11324,10 @@ document.addEventListener("DOMContentLoaded",function(){
         puB.disabled=true;awB&&(awB.disabled=true);
         try{flow("🚀 push ho raha hai…");puB.textContent="🚀 PUSHING…";
           const r=await autopilotPublish();
-          if(/^publish lane error|^admin only/.test(String(r))){flow("✗ " + String(r).replace(/^publish lane error \\(honest\\): /,"").slice(0,90))}
+          if(/^publish lane error|^admin only/.test(String(r))){
+            const _m=String(r);flow("✗ " + _m.replace(/^publish lane error \(honest\): /,"").slice(0,110));
+            if(/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH/i.test(_m))openAuth();
+          }
           else{flow("✓ pushed "+new Date().toLocaleTimeString())}
           try{push(S.who||"kratos","bot",r||"")}catch(e2){}
         }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,90))}

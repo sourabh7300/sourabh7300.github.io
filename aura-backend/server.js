@@ -1220,7 +1220,14 @@ async function squadAuth(req, res) {
   if (u && (u.role === "maker" || u.role === "ceo") && (!owners.length || owners.indexOf(u.uid) >= 0)) return { via: "admin", uid: u.uid };
   /* local/dev mode: OPEN_GATE already opened this backend for the owner's own tools */
   if (!fbInit() && !owners.length && process.env.OPEN_GATE === "1") return { via: "dev" };
-  res.status(401).json({ error: "admin session (or x-squad-key) required for the autopilot lane" });
+  /* WHY the refusal — the owner spent days staring at a bare 401 (13 Oct 2026): name
+     the real cause so the next step is obvious. Signed-in guest ≠ wrong identity. */
+  const why = !u
+    ? "NO_SESSION — admin sign-in expired or missing: open AURA → ⚙ SETTINGS → Sign in / switch user, then retry"
+    : (owners.length && owners.indexOf(u.uid) < 0)
+      ? "NOT_OWNER — signed in as " + (u.role || "member") + "; this account is not in MAKER_UIDS"
+      : "ROLE_MISMATCH — signed in as " + (u.role || "unknown") + "; the autopilot lane needs maker/ceo";
+  res.status(401).json({ error: "admin session (or x-squad-key) required for the autopilot lane: " + why });
   return null;
 }
 app.get("/v1/squad/state", async (req, res) => {
