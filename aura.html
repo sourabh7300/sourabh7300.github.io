@@ -11288,23 +11288,33 @@ document.addEventListener("DOMContentLoaded",function(){
       if(awB)awB.onclick=async function(){
         if(awB.disabled)return;
         awB.disabled=true;puB&&(puB.disabled=true);
+        /* HONEST WORKFLOW (owner bug-report 13 Oct 2026): the autopilot lanes return
+           their errors as STRINGS (they never throw), so the old catch-only tag painted
+           "✓ cycle done" over a FAILING cycle. Success is only claimed when the lane's
+           own error slot (AUD.err) is empty after the run. */
         try{
+          flow("⏳ state check…");
           await autopilotRefresh(true);
-          if(!(AUD.state&&AUD.state.enabled)){flow("⏳ autopilot start ho raha…");await autopilotToggle(true)}
+          if(!isAdmin()){flow("✗ admin session chahiye → ⚙ SETTINGS → Sign in");try{push(S.who||"kratos","sys","owner: ⚙ SETTINGS → 🔑 Sign in / switch user karo, phir AUTO WORK dobara dabao — autopilot admin-only lane hai.")}catch(e4){}return}
+          if(AUD.err){flow("✗ " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot","cycle lane error (honest): "+AUD.err+((/admin session/i.test(AUD.err+""))?("\nℹ admin session expire hui — ⚙ SETTINGS → 🔑 Sign in / switch user se fresh sign-in karo, phir dobara AUTO WORK dabao."):""))}catch(e4){}return}
+          if(AUD.state&&!(AUD.state.enabled)){flow("⏳ autopilot start ho raha…");await autopilotToggle(true)}
+          if(AUD.err){flow("✗ autopilot lane: " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot","autopilot lane error (honest): "+AUD.err)}catch(e4){}return}
           flow("⏳ cycle chal raha hai (Nemotron pe)…");awB.textContent="⚡ WORKING…";
           const r=await autopilotRun(true);
-          flow("✓ cycle done "+new Date().toLocaleTimeString());
-          try{push(S.who||"kratos","bot",r||"")}catch(e2){}
-        }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,60))}
+          if(AUD.err){flow("✗ " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot",r||("cycle lane error (honest): "+AUD.err))}catch(e2){}}
+          else{flow("✓ cycle done "+new Date().toLocaleTimeString());try{push(S.who||"kratos","bot",r||"")}catch(e2){}}
+        }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,90))}
         finally{awB.textContent="⚡ AUTO WORK";awB.disabled=false;puB&&(puB.disabled=false)}
       };
       if(puB)puB.onclick=async function(){
         if(puB.disabled)return;
         puB.disabled=true;awB&&(awB.disabled=true);
         try{flow("🚀 push ho raha hai…");puB.textContent="🚀 PUSHING…";
-          const r=await autopilotPublish();flow("✓ pushed "+new Date().toLocaleTimeString());
+          const r=await autopilotPublish();
+          if(/^publish lane error|^admin only/.test(String(r))){flow("✗ " + String(r).replace(/^publish lane error \\(honest\\): /,"").slice(0,90))}
+          else{flow("✓ pushed "+new Date().toLocaleTimeString())}
           try{push(S.who||"kratos","bot",r||"")}catch(e2){}
-        }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,60))}
+        }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,90))}
         finally{puB.textContent="🚀 PUSH";puB.disabled=false;awB&&(awB.disabled=false)}
       };
       try{const tag=$("autoPolicy");if(tag&&AUD.state)tag.textContent=AUD.state.publish==="hold"?"📤 PUSH: HOLD":"📤 PUSH: BATCH"}catch(e){}
