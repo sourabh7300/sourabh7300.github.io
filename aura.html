@@ -11069,7 +11069,7 @@ document.addEventListener("DOMContentLoaded",function(){
       const tok=await __freshTok()||"";
       const r=await fetch(backendUrl()+"/v1/squad/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},(tok?{"Authorization":"Bearer "+tok}:{})),body:JSON.stringify({messages:messages,max_tokens:maxTok}),signal:AbortSignal.timeout(300000)});
       const d=await r.json().catch(()=>({}));
-      if(!r.ok){const e=new Error((d.error||"HTTP "+r.status)+((d.note)?" — lanes: "+d.note:"");throw e}
+      if(!r.ok){const e=new Error((d.error||"HTTP "+r.status)+((d.note)?" — lanes: "+d.note:""));throw e}
       return (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"";
     }
     async function ai(id,userMsg,ctx){
