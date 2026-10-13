@@ -105,6 +105,77 @@ const MISSIONS = [
     done: /AURA_BOOT_BUDGET/
   }
 ];
+/* ROADMAP PHASE 2 (owner's order 13 Oct 2026): the first 8-mission roadmap was
+   exhausted in a day (12 cycles, 2/8 built, rest parked) and then the squad sat
+   "paused — roadmap complete" asking what to do. The squad must KEEP WORKING, so
+   the roadmap grows instead of ending: eight more real features, appended at
+   load, so pickMission always has the next thing to build. */
+MISSIONS.push.apply(MISSIONS, [
+  {
+    id: "voice-shortcuts",
+    title: "Voice shortcuts",
+    goal: "Short spoken aliases map to the most-used commands, so one sentence runs a whole routine.",
+    research: "voice command aliasing alias table speech recognition assistant",
+    keywords: ["SpeechRecognition", "voice", "command"],
+    done: /AURA_VOICE_ALIASES/
+  },
+  {
+    id: "chat-search",
+    title: "Chat search",
+    goal: "Search across past sessions by keyword with instant result navigation.",
+    research: "in-browser full text search localStorage chat history UX",
+    keywords: ["aura_history_v1", "session", "search"],
+    done: /AURA_CHAT_SEARCH/
+  },
+  {
+    id: "export-center",
+    title: "Export center",
+    goal: "One place exports chats, tasks and memory as Markdown/JSON/CSV downloads.",
+    research: "client-side file export markdown csv blob download UX",
+    keywords: ["dlBlob", "export", "download"],
+    done: /AURA_EXPORT_CENTER/
+  },
+  {
+    id: "task-insights",
+    title: "Task insights",
+    goal: "A weekly roll-up of tasks completed, streaks and where time went.",
+    research: "personal productivity roll-up weekly stats design",
+    keywords: ["AuraTasks", "task", "stats"],
+    done: /AURA_TASK_INSIGHTS/
+  },
+  {
+    id: "error-classifier",
+    title: "Error classifier",
+    goal: "Lane failures get a stable category and one-line fix hint, logged consistently.",
+    research: "error taxonomy classification user-facing failure messages",
+    keywords: ["lane", "error", "fail"],
+    done: /AURA_ERROR_CLASSIFY/
+  },
+  {
+    id: "memory-pin",
+    title: "Memory pin",
+    goal: "Pin any long-term memory fact so it survives decay and shows as priority context.",
+    research: "pinning important items persistent memory UX pattern",
+    keywords: ["AuraMem", "memory", "fact"],
+    done: /AURA_MEM_PIN/
+  },
+  {
+    id: "theme-sync",
+    title: "Theme sync",
+    goal: "The chosen theme syncs across devices for signed-in users.",
+    research: "user preference sync cloud storage web app",
+    keywords: ["theme", "localStorage", "sync"],
+    done: /AURA_THEME_SYNC/
+  },
+  {
+    id: "quick-actions",
+    title: "Quick actions bar",
+    goal: "A always-visible quick-bar with the three most-used admin actions one tap deep.",
+    research: "toolbar information architecture frequent actions UX",
+    keywords: ["toolbar", "chips", "quick"],
+    done: /AURA_QUICK_ACTIONS/
+  }
+]);
 
 const DEFAULTS = {
   /* how many mission cycles a day the squad is allowed */
@@ -458,9 +529,22 @@ function createAutopilot(deps) {
             mission = next ? next.mission : null;
           } else mission = picked ? picked.mission : null;
         }
-        if (!mission) {
-          const pending = MISSIONS.filter(m => { const st = missionState(state, m.id); return !st.done && !st.parked && st.attempts < cfg.maxAttempts; });
-          if (!pending.length) { state.paused = "roadmap complete"; log(state, "arthur", "roadmap complete — every mission published or parked; squad paused until the admin assigns new work"); }
+        if (!mission) {          const pending = MISSIONS.filter(m => { const st = missionState(state, m.id); return !st.done && !st.parked && st.attempts < cfg.maxAttempts; });
+          if (!pending.length) {
+            /* OWNER'S ORDER (13 Oct 2026): "kaam karte rehne chahiye" — the squad never
+               sits paused. Parked missions get a same-day second chance and mark done
+               too; so a fully-done roadmap is now treated as "everything published",
+               NOT as a stop. The paused flag is cleared so the next cycles keep
+               building the remaining published-but-follow-up missions. */
+            state.paused = "";
+            const parkedNow = MISSIONS.filter(m => missionState(state, m.id).parked);
+            log(state, "arthur", parkedNow.length
+              ? ("all current missions resolved (" + parkedNow.map(m => m.id).join(", ") + " parked today) — squad stays armed for the admin's next assign")
+              : "entire roadmap published — squad stays armed, awaiting admin's next assign");
+            /* no paused flag here: the squad keeps cycling (sweep → watch → report) every
+               tick even with every mission published — "kaam karte rehne chahiye" means
+               the clock never stops, only feature-building waits for a mission. */
+          }
           else log(state, "arthur", "no mission could be picked this cycle (source unavailable?)");
         } else {
           state.cycle = mission.id + " — " + mission.title;
