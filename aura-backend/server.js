@@ -947,20 +947,54 @@ async function ghPutFile(content, message, file) {
    ladder, a cooldown only when the KEY is really at fault, and the real upstream
    reason kept in `brainLast` for /health (never the key itself). */
 const brainLast = { at: 0, ok: null, via: "", model: "", status: 0, note: "" };
-const SQUAD_MODELS = (process.env.SQUAD_MODELS || "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map(s => s.trim()).filter(Boolean);
-async function squadBrain(messages, maxTok) {
+const SQUAD_MODELS = (process.env.SQUAD_MODELS || "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map(s => s.trim()).filter(Boolean);async function squadBrain(messages, maxTok) {
   const want = Math.max(600, Math.min(maxTok || 3000, 8000));
   const ladder = [...new Set([want, Math.ceil(want / 2), Math.ceil(want / 4)])].filter(n => n >= 400);
   const notes = [];
   const mark = (ok, via, model, status, note) => Object.assign(brainLast, { at: Date.now(), ok: !!ok, via: via || "", model: model || "", status: status || 0, note: String(note || "").replace(/(gsk_|sk-)[A-Za-z0-9_-]{6,}/g, "[redacted]").slice(0, 220) });
 
-  /* 1 — the maker's reserved Mistral admin lane */
+  /* 1 — the maker's reserved Mistral admin lane (kept as the instant warm lane) */
   try {
     const adm = await laneCall("admin", ADMIN_KEY, MISTRAL_ADMIN_MODELS, messages, want, 0.25, null);
     if (adm) { mark(true, "mistral-admin", "", 200, ""); return adm; }
   } catch (e) {}
 
-  /* 2 — the key bank, best model first, shrinking the reservation on a TPM refusal */
+  /* 1b — OWNER'S STANDING ORDER (12 Oct 2026): the bots work on NVIDIA NEMOTRON
+     FIRST — the maker bought that key for them, it is their primary brain. Groq
+     is the bots' BACKUP (it stays first for user chat, where its speed wins).
+     Ladder: Ultra 550B → Super 120B → Lightning 30B, so a busy Ultra falls across
+     the whole NIM family before a single Groq key is even touched. */
+  const NIM_KEY_FIRST = process.env.NVIDIA_NIM_KEY || "";
+  if (NIM_KEY_FIRST) {
+    for (const model of ["nvidia/nemotron-3-ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b"]) {
+      for (const cap of ladder) {
+        try {
+          const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + NIM_KEY_FIRST, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: model, messages: messages, max_tokens: cap, temperature: 0.25 }),
+            signal: AbortSignal.timeout(240_000)
+          });
+          if (r.status === 429) {
+            const d = await r.json().catch(() => ({}));
+            const msg = (d.error && d.error.message) || "rate limited";
+            notes.push("nim " + model + ": " + String(msg).slice(0, 80));
+            if (/too large|tokens per minute|\bTPM\b|context.length/i.test(msg)) continue;
+            break; /* key-level limit — next NIM model */
+          }
+          if (r.status === 401 || r.status === 403) { notes.push("nim " + model + ": key rejected"); break; }
+          if (r.status === 404 || r.status === 400) { notes.push("nim " + model + ": model unavailable"); break; }
+          if (!r.ok) { notes.push("nim " + model + ": HTTP " + r.status); break; }
+          const d = await r.json();
+          const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+          if (t && t.trim()) { mark(true, "nvidia-nim-first", model, 200, "cap " + cap); return t.trim(); }
+          notes.push("nim " + model + ": empty completion at cap " + cap);
+        } catch (e) { notes.push("nim " + model + ": " + String(e.message || e).slice(0, 60)); break; }
+      }
+    }
+  }
+
+  /* 2 — the Groq key bank — now the BOTS' BACKUP (user chat keeps it first) */
   const models = [...new Set(SQUAD_MODELS.concat(MODELS))];
   for (const model of models) {
     const key = pickLaneKey(ADMIN_KEY || KEY_POOL[0], true);
@@ -997,6 +1031,9 @@ async function squadBrain(messages, maxTok) {
     }
   }
 
+  /* 2b/2c — the old NIM lanes were merged into the 1b OWNER'S STANDING ORDER
+     ladder above: bots now run Nemotron FIRST (Ultra → Super → Lightning), so
+     these duplicates old blocks — removed. Groq is the bots' single backup. */
   /* 3 — the reserve brain, then an honest failure that names the real reason */
   const rt = await reserveCall(messages, Math.min(want, 2000), 0.25, null);
   if (rt) { mark(true, "mistral-reserve", RESERVE_MODEL, 200, ""); return rt; }
@@ -1191,6 +1228,20 @@ app.get("/v1/squad/state", async (req, res) => {
   try { res.json(Object.assign(await autopilot.snapshot(), { clock: Object.assign({}, squadClock), sourceLane: lastSourceLane })); }
   catch (e) { res.status(502).json({ error: e.message || String(e) }); }
 });
+/* BOTS' BRAIN SOURCE (owner's order, 13 Oct 2026) */
+app.post("/v1/squad/brain", async (req, res) => {
+  if (!(await squadAuth(req, res))) return;
+  const b = req.body || {};
+  const messages = Array.isArray(b.messages) ? b.messages.filter(m => m && typeof m.content === "string") : null;
+  if (!messages || !messages.length) return res.status(400).json({ error: "messages required" });
+  try {
+    const out = await squadBrain(messages, Math.min(parseInt(b.max_tokens, 10) || 3000, 8000));
+    res.json({ choices: [{ message: { content: out } }], via: brainLast.via, model: brainLast.model });
+  } catch (e) {
+    res.status(503).json({ ok: false, error: e.message || String(e), note: (brainLast && brainLast.note) || "" });
+  }
+});
+
 app.get("/v1/squad/report", async (req, res) => {
   if (!(await squadAuth(req, res))) return;
   try {
@@ -1467,7 +1518,28 @@ app.post("/v1/chat/completions", async (req, res) => {
     } catch (e) { /* network hiccup → try next model */ }
   }
   if (sawLimit) {
-    /* the key bank is drained — try the reserve brain before giving up */
+    /* the key bank is drained — the maker's NIM Nemotron covers the CODE lane first
+       (SWE-Bench: Nemotron-3-Super 60.47 vs gpt-oss-120b 41.9 — the strongest coding
+       fallback in the bank), then the Mistral reserve. */
+    const NIM_KEY = process.env.NVIDIA_NIM_KEY || "";
+    if (NIM_KEY) {
+      for (const model of ["nvidia/nemotron-3-ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b"]) {
+        try {
+          const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + NIM_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ model, messages, max_tokens: Math.min(body.max_tokens || 1400, 4000), temperature: body.temperature != null ? body.temperature : 0.6 }),
+            signal: AbortSignal.timeout(120_000)
+          });
+          if (r.status === 429) continue;
+          if (!r.ok) continue;
+          const d = await r.json();
+          const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
+          if (t && t.trim()) return res.json({ choices: [{ message: { content: t.trim() } }], model: model + " (nvidia-nim)" });
+        } catch (e) { /* next NIM model */ }
+      }
+    }
+    /* then the reserve brain before giving up */
     const mt = await reserveCall(messages, Math.min(body.max_tokens || 1400, 4000), body.temperature, req);
     if (mt) return res.json({ choices: [{ message: { content: mt } }], model: RESERVE_MODEL + " (reserve)" });
     /* nothing left — AURA turns this into a friendly notice */
@@ -1600,7 +1672,15 @@ function toolCalc(expr) {
    whenever a question is time-sensitive, so answers stay current-day, never frozen
    at the model's training cutoff. */
 app.post("/v1/websearch", async (req, res) => {
-  const q = String((req.body || {}).question || "").trim().slice(0, 300);
+  let q = String((req.body || {}).question || "").trim().slice(0, 300);
+  /* OWNER FIX 13 Oct 2026: Hinglish chat phrasing ("nvidia ke bare me batao", "mujhe aura ke
+     bare me jankari chahiye") used to be fed to the news/wikipedia lanes verbatim — the filler
+     words drowned the real topic and the lanes came back empty, so the brain fell back on its
+     frozen training cutoff. Strip the conversational wrapper, keep the searchable core. */
+  q = q.replace(/(?:mujhe|humein|hum|please|plz|sir|bhai|yaar)\s+/gi, " ")
+       .replace(/\b(?:ke|ki)\s+baare?\s*me(?:in)?|\bke\s+bare\s*me(?:in)?\b/gi, " ")
+       .replace(/\b(?:batao|bataiye|bata|batana|batao na|jankari|jaankari|chahiye|do|dijiye|kya hai|kya hai aaj|kaun|kaun hai|kaise|kyu|kyun|hai)\b/gi, " ")
+       .replace(/\s+/g, " ").trim();
   if (!q || q.length < 4 || /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon))[!. ]*$/i.test(q)) {
     return res.json({ results: [] }); /* greetings don't deserve a web crawl */
   }
