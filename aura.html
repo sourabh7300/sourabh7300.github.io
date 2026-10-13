@@ -2739,14 +2739,14 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
     <div id="botHead"><span id="botWho">👑 KRATOS</span><span id="botDept">COMMAND</span><span id="botState">standing by for your command</span></div>
     <div id="botChatLog" role="log" aria-live="polite"></div>
     <div id="botChips">
-      <button class="bot-chip">morning shift</button>
-      <button class="bot-chip">autopilot status</button>
-      <button class="bot-chip">run a cycle now</button>
-      <button class="bot-chip">run a full sweep</button>
-      <button class="bot-chip">status report</button>
-      <button class="bot-chip">what can you do?</button>
-      <button class="bot-chip">today's brief</button>
-      <button class="bot-chip">fix the last failed checks</button>
+      <!-- OWNER'S SIMPLICITY ORDER (13 Oct 2026): two buttons, not a hundred.
+           ⚡ AUTO WORK = autopilot on + a forced cycle, in one tap.
+           🚀 PUSH = publish the verified queue, in one tap.
+           Everything else is voice: type it or tap a bot tile — the squad parses
+           Hinglish natively, so the old chip texts still work when typed. -->
+      <button class="bot-chip" id="btnAutoWork" style="border-color:rgba(52,211,153,.5);color:#6ee7b7">⚡ AUTO WORK</button>
+      <button class="bot-chip" id="btnPushAll" style="border-color:rgba(52,211,153,.5);color:#6ee7b7">🚀 PUSH</button>
+      <span id="botFlowTag" style="font:600 9.5px 'JetBrains Mono',monospace;letter-spacing:1px;color:#8ea6bd;align-self:center;padding-left:6px">WORKFLOW: idle</span>
     </div>
     <div id="botRow">
       <input id="botChatIn" autocomplete="off" spellcheck="false" placeholder="Bots se baat karo — Hinglish ya English, order ya sawaal…">
@@ -5039,7 +5039,7 @@ async function geminiCall(q,deep){
   if(aiProvider()==="openrouter"){
     return await openrouterCall([{role:"system",content:sys+replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900);
   }
-  const _now=new Date();const dateLine="CURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});const fresh=wantsFresh(q);const web=fresh?await webContext(q):null;const webBlock=web?"LIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; live results WIN over your memory of past events):\n"+web:"";
+  const _now=new Date();const dateLine="CURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});const web=await webContext(q);const webBlock=web?"LIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; live results WIN over your memory of past events):\n"+web:"";
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{
     method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(12000),
     body:JSON.stringify({contents:[{role:"user",parts:[{text:sys+"\n\n"+webBlock+(webBlock?"\n\n":"")+dateLine+"\n\n"+q+convoCtx()}]}]})});
@@ -6540,7 +6540,12 @@ async function thinkAnswer(q,deep,hi){
   slog(skipEv?"cortex skipped wiki scrape — "+lane+" lane thinks from the model + tools":(evs.length?"evidence from "+evs.length+' source'+(evs.length>1?"s":"")+" — reasoning…":"no evidence yet — reasoning from my own knowledge…"),true);
   let promptCore=buildThinkPrompt(q,term,evs,deep,hi)+((memBlock&&typeof buildThinkPrompt==="function")?"\n\nLONG-TERM MEMORY (things the user told you or you learned in past sessions — use if relevant):\n"+memBlock:"");
   let freshBlock="";
-  try{if(wantsFresh(q)){const wb=await webContext(q);if(wb)freshBlock="\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates or records, the live results WIN. Never invent dates, scores, prices or winners):\n"+wb+"\n"}}catch(e){}
+  /* OWNER FIX 13 Oct 2026 (stale-knowledge bug): the old if(wantsFresh(q)) keyword gate let
+     current-topic questions like "nvidia ke bare me batao" slip past the live-web lane, so the
+     brain answered from its frozen training cutoff ("Claude 4 is latest"). EVERY knowledge
+     answer now pulls live web context first — webContext fails open (null on error), so an
+     offline backend costs nothing. wantsFresh() stays for the plain-chat rescue lane. */
+  try{const wb=await webContext(q);if(wb)freshBlock="\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates or records, the live results WIN. Never invent dates, scores, prices or winners):\n"+wb+"\n"}catch(e){}
   const prompt=promptCore+freshBlock+dailyBriefBlock();
   if(aiProvider()==="groq"){
     try{
@@ -6745,7 +6750,7 @@ async function aiReply(q){
     /* rescue rung: geminiCall short-circuits to groqCall (backend first) — a single
        transient backend/model blip used to dead-end here and dump raw Wikipedia as the
        final answer. Retry the backend ONCE before giving up on the brain. */
-    if(geminiKey()||backendUrl()){try{let t;try{t=await geminiCall(q,deep)}catch(e1){if(!e1.outOfTokens&&aiProvider()==="groq"&&!keyPool().length&&backendUrl()){await new Promise(r=>setTimeout(r,1200));t=await backendCall([{role:"system",content:replyStyle()},{role:"user",content:q+convoCtx()+(wantsFresh(q)?(await webContext(q)||""):"")}],deep?2600:900)}else throw e1}t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
+    if(geminiKey()||backendUrl()){try{let t;try{t=await geminiCall(q,deep)}catch(e1){if(!e1.outOfTokens&&aiProvider()==="groq"&&!keyPool().length&&backendUrl()){await new Promise(r=>setTimeout(r,1200));t=await backendCall([{role:"system",content:replyStyle()},{role:"user",content:q+convoCtx()+((await webContext(q))||"")}],deep?2600:900)}else throw e1}t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
     const d2=await ddgAnswer(q);if(d2)return d2;
@@ -11058,6 +11063,15 @@ document.addEventListener("DOMContentLoaded",function(){
       return worldText();
     }
     const LIVE_Q=/\b(weather|mausam|temperature|temperature|forecast|news|headlines?|score|match|stock|price|exchange rate|aaj ka|aaj ki|abhi ka|latest|current|today)\b/i;
+    /* squad ladder caller — honest 503 surfaces WHICH lane timed out / rate-limited */
+    async function squadBrainCall(messages,maxTok){
+      if(!backendUrl())throw new Error("no-backend");
+      const tok=await __freshTok()||"";
+      const r=await fetch(backendUrl()+"/v1/squad/brain",{method:"POST",headers:Object.assign({"Content-Type":"application/json"},(tok?{"Authorization":"Bearer "+tok}:{})),body:JSON.stringify({messages:messages,max_tokens:maxTok}),signal:AbortSignal.timeout(300000)});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok){const e=new Error((d.error||"HTTP "+r.status)+((d.note)?" — lanes: "+d.note:"");throw e}
+      return (d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content)||"";
+    }
     async function ai(id,userMsg,ctx){
       let sys=sysFor(id)+(ctx?"\n\nADDITIONAL LIVE CONTEXT:\n"+ctx:"");
       try{
@@ -11070,8 +11084,19 @@ document.addEventListener("DOMContentLoaded",function(){
             if(fresh)sys+="\n\nFRESH WEB RESULTS (gathered seconds ago — ground time-sensitive facts in these; cite nothing fabricated):\n"+fresh+"\n";
           }catch(e2){}
         }
-        /* flagship brain + roomy budget — squad answers must be top-tier, not thrift-tier */
-        const out=await groqCall([{role:"system",content:sys},{role:"user",content:userMsg}],2200,"openai/gpt-oss-120b");
+        /* BOTS' BRAIN — server's Nemotron-FIRST ladder (owner's order, 13 Oct 2026):
+           /v1/squad/brain = Mistral admin → NVIDIA Ultra 550B → Super 120B → Lightning
+           30B → Groq backup → Mistral reserve. The browser-side gpt-oss-120b call never
+           touched the key bought for them; this lane does. */
+        let out="";
+        try{
+          out=await squadBrainCall([{role:"system",content:sys},{role:"user",content:userMsg}],3000);
+        }catch(eL){
+          if(!String(eL.message||eL).includes("no-backend")){
+            try{slog("squad ladder miss ("+(eL.message||eL)+") — browser Groq backup engages",true)}catch(e3){}
+            out=await groqCall([{role:"system",content:sys},{role:"user",content:userMsg}],2200,"openai/gpt-oss-120b");
+          }else{throw eL}
+        }
         if(out&&out.trim())return out.trim();
         throw new Error("empty");
       }catch(e){
@@ -11079,8 +11104,8 @@ document.addEventListener("DOMContentLoaded",function(){
         const base=ctx||fallbackFor(id);
         const hinglish=/(\b(krr|kar|karo|kya|hai|nahi|bhai|yaar|batao|chal)\b|[\u0900-\u097F])/i.test(String(userMsg));
         return (hinglish
-          ?"⚠ AI brain abhi reachable nahi hai ("+(e.message||e)+") — backend so raha hai ya keys out. Deterministic lane, kuch bhi fake nahi kiya:\n\n"
-          :"⚠ AI brain unreachable ("+(e.message||e)+") — backend sleeping or keys out. Deterministic lane, nothing faked:\n\n")+base;
+          ?"⚠ AI brain abhi reachable nahi hai ("+(e.message||e)+") — sab lanes timeout/rate-limit hui. 1 min me dobara bolo, ya 'run a cycle now'.\n\n"
+          :"⚠ AI brain unreachable ("+(e.message||e)+") — ladder lanes timed out or rate-limited. Try again in a minute, or 'run a cycle now'.\n\n")+base;
       }
     }
     /* ---------- clarity gate: vague orders get a question, never invented work ---------- */
@@ -11255,6 +11280,33 @@ document.addEventListener("DOMContentLoaded",function(){
       const aPub=$("autoPublish"),aPol=$("autoPolicy");
       if(aPub)aPub.onclick=function(){autopilotPublish()};
       if(aPol)aPol.onclick=function(){autopilotPolicy()};
+      /* OWNER'S SIMPLICITY ORDER — TWO buttons do the whole job (13 Oct 2026):
+         ⚡ AUTO WORK = autopilot ON (agar band hai) + ek real cycle turant; honest status tag.
+         🚀 PUSH     = verified publish-queue sab ek saath live karo. */
+      const flowTag=$("botFlowTag"),awB=$("btnAutoWork"),puB=$("btnPushAll");
+      const flow=(s)=>{try{if(flowTag)flowTag.textContent="WORKFLOW: "+s}catch(e){}};
+      if(awB)awB.onclick=async function(){
+        if(awB.disabled)return;
+        awB.disabled=true;puB&&(puB.disabled=true);
+        try{
+          await autopilotRefresh(true);
+          if(!(AUD.state&&AUD.state.enabled)){flow("⏳ autopilot start ho raha…");await autopilotToggle(true)}
+          flow("⏳ cycle chal raha hai (Nemotron pe)…");awB.textContent="⚡ WORKING…";
+          const r=await autopilotRun(true);
+          flow("✓ cycle done "+new Date().toLocaleTimeString());
+          try{push(S.who||"kratos","bot",r||"")}catch(e2){}
+        }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,60))}
+        finally{awB.textContent="⚡ AUTO WORK";awB.disabled=false;puB&&(puB.disabled=false)}
+      };
+      if(puB)puB.onclick=async function(){
+        if(puB.disabled)return;
+        puB.disabled=true;awB&&(awB.disabled=true);
+        try{flow("🚀 push ho raha hai…");puB.textContent="🚀 PUSHING…";
+          const r=await autopilotPublish();flow("✓ pushed "+new Date().toLocaleTimeString());
+          try{push(S.who||"kratos","bot",r||"")}catch(e2){}
+        }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,60))}
+        finally{puB.textContent="🚀 PUSH";puB.disabled=false;awB&&(awB.disabled=false)}
+      };
       try{const tag=$("autoPolicy");if(tag&&AUD.state)tag.textContent=AUD.state.publish==="hold"?"📤 PUSH: HOLD":"📤 PUSH: BATCH"}catch(e){}
       autopilotRefresh(true);
       shiftBoot();
