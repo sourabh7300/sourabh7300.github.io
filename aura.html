@@ -2737,7 +2737,17 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
     </div>
     <div class="bot-grid" id="botRoster"></div>
     <div id="botHead"><span id="botWho">👑 KRATOS</span><span id="botDept">COMMAND</span><span id="botState">standing by for your command</span></div>
+    <div id="botTools" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <button class="bot-chip" id="botPinBtn" title="Pinned messages (★)">📌 PINS</button>
+      <button class="bot-chip" id="botSearchBtn" title="Search this bot's chat (Ctrl+K here)">🔍 SEARCH</button>
+      <button class="bot-chip" id="botExportBtn" title="Download this chat as Markdown">⬇ EXPORT</button>
+      <button class="bot-chip" id="botClearBtn" title="Clear this bot's chat log" style="border-color:rgba(248,113,113,.35);color:#fca5a5">✕ CLEAR</button>
+    </div>
+    <div id="botPins"></div>
+    <div id="botSearch"><input id="botSearchIn" autocomplete="off" placeholder="Search… (Enter next hit · Shift+Enter prev)"><span class="hitcount" id="botSearchCt"></span></div>
     <div id="botChatLog" role="log" aria-live="polite"></div>
+    <div id="botSlash"></div>
+    <div id="botSug"></div>
     <div id="botChips">
       <!-- OWNER'S SIMPLICITY ORDER (13 Oct 2026): two buttons, not a hundred.
            ⚡ AUTO WORK = autopilot on + a forced cycle, in one tap.
@@ -2810,6 +2820,45 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
       .bmsg .dots i{display:inline-block;width:5px;height:5px;margin-right:4px;border-radius:50%;background:var(--cy2);animation:pp 1s infinite}
       .bmsg .dots i:nth-child(2){animation-delay:.15s}
       .bmsg .dots i:nth-child(3){animation-delay:.3s}
+      /* ==== CHAT SUPERPOWERS msg toolbar (hover-reveal, NNg pattern) ==== */
+      .bmsg{position:relative}
+      .bmsg .mtools{display:none;gap:4px;position:absolute;top:-14px;right:8px;background:rgba(2,10,16,.95);border:1px solid var(--line);border-radius:99px;padding:2px 6px;z-index:2}
+      .bmsg.me .mtools{right:auto;left:8px}
+      .bmsg:hover .mtools,.bmsg:focus-within .mtools,.bmsg.pinned .mtools{display:flex}
+      .mtools button{border:0;background:none;color:#9db8ce;font:11px sans-serif;cursor:pointer;padding:3px 5px;border-radius:6px;transition:.15s;line-height:1}
+      .mtools button:hover{color:#67e8f9;background:rgba(34,211,238,.1)}
+      .mtools .copied{color:#34d399}
+      .bmsg.pinned{border-color:rgba(251,191,36,.5);box-shadow:0 0 0 1px rgba(251,191,36,.18)}
+      .bmsg .pinmark{position:absolute;top:-16px;left:10px;font:700 9px Rajdhani;letter-spacing:1.2px;color:#fcd34d}
+      .bmsg.me .pinmark{left:auto;right:10px}
+      /* sticky pinned strip above the log */
+      #botPins{display:none;gap:6px;flex-wrap:wrap;max-height:30vh;overflow:auto}
+      #botPins.show{display:flex}
+      .pin-card{position:relative;font:11px Rajdhani;color:#cfe3f2;background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.3);border-radius:9px;padding:6px 26px 6px 9px;max-width:100%;cursor:pointer;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4}
+      .pin-card:hover{background:rgba(251,191,36,.12)}
+      .pin-card b{color:#fcd34d}
+      .pin-card .unpin{position:absolute;right:3px;top:2px;border:0;background:none;color:#9db8ce;cursor:pointer;font-size:11px;padding:2px 4px;border-radius:5px}
+      .pin-card .unpin:hover{color:#f87171;background:rgba(248,113,113,.12)}
+      /* slash-command palette */
+      #botSlash{display:none;flex-direction:column;gap:2px;border:1px solid rgba(34,211,238,.35);border-radius:10px;background:rgba(2,10,16,.97);padding:6px;max-height:180px;overflow:auto}
+      #botSlash.show{display:flex}
+      .slash-it{display:flex;gap:8px;align-items:baseline;border:0;background:none;color:var(--ice);font:12px Rajdhani;text-align:left;padding:5px 8px;border-radius:7px;cursor:pointer}
+      .slash-it b{color:#67e8f9;font:700 11.5px 'JetBrains Mono',monospace;min-width:96px}
+      .slash-it small{color:var(--dim);font-size:10px}
+      .slash-it.sel,.slash-it:hover{background:rgba(34,211,238,.1)}
+      .slash-it .argv{color:#fbbf24;font-family:'JetBrains Mono',monospace;font-size:10.5px}
+      /* suggestion chips (saga of empty chat, non-disruptive — NNg pattern) */
+      #botSug{display:none;gap:6px;flex-wrap:wrap}
+      #botSug.show{display:flex}
+      #botSug .bot-chip{opacity:.92}
+      /* search toolbar */
+      #botSearch{display:none;gap:6px;margin:-2px 0 0}
+      #botSearch.show{display:flex}
+      #botSearch input{flex:1;min-width:0;background:rgba(2,10,16,.55);border:1px solid rgba(34,211,238,.35);border-radius:9px;color:var(--ice);font:12px Rajdhani;padding:7px 11px}
+      #botSearch input:focus{outline:none;border-color:rgba(34,211,238,.6)}
+      #botSearch .hitcount{align-self:center;font:600 9.5px 'JetBrains Mono',monospace;color:var(--dim);letter-spacing:.6px;padding:0 4px}
+      #botChatLog mark{background:rgba(251,191,36,.25);color:#fde68a;border-radius:2px}
+      #botChatLog{scroll-behavior:auto}
       #botChips{display:flex;gap:6px;flex-wrap:wrap}
       .bot-chip{font:600 10.5px Rajdhani;letter-spacing:.6px;color:#9db8ce;border:1px solid var(--line);border-radius:99px;padding:6px 13px;background:rgba(2,10,16,.45);cursor:pointer;transition:.18s}
       .bot-chip:hover{color:#67e8f9;border-color:rgba(34,211,238,.55);background:rgba(34,211,238,.07)}
@@ -10464,9 +10513,12 @@ document.addEventListener("DOMContentLoaded",function(){
         S.learned=Array.isArray(p.learned)?p.learned.slice(-30):[];
         S.staged=p.staged||null;
         S.shift=(p.shift&&typeof p.shift==="object")?p.shift:null;
+        S.pins=(p.pins&&typeof p.pins==="object")?p.pins:{}; /* CHAT SUPERPowers v1 */
+        S.follow=(p.follow&&typeof p.follow==="object")?p.follow:{}; /* ⭐/👍/👇 reactions per message key */
         if(["kratos","erlang","arthur","phoenix"].indexOf(p.who)>=0)S.who=p.who;
       }
     }catch(e){}
+    if(!S.pins||typeof S.pins!=="object")S.pins={};
     /* migrate v1 squad state (auto-loop world) so nothing is lost */
     try{
       const v1=JSON.parse(localStorage.getItem("aura_bots_v1")||"null");
@@ -10478,7 +10530,7 @@ document.addEventListener("DOMContentLoaded",function(){
       }
     }catch(e){}
     ["kratos","erlang","arthur","phoenix"].forEach(function(id){if(!Array.isArray(S.chats[id]))S.chats[id]=[]});
-    function save(){try{localStorage.setItem(KEY,JSON.stringify({who:S.who,chats:S.chats,orders:S.orders.slice(-40),sweep:S.sweep,world:S.world,learned:S.learned.slice(-30),staged:S.staged,shift:S.shift}))}catch(e){}}
+    function save(){try{localStorage.setItem(KEY,JSON.stringify({who:S.who,chats:S.chats,orders:S.orders.slice(-40),sweep:S.sweep,world:S.world,learned:S.learned.slice(-30),staged:S.staged,shift:S.shift,pins:S.pins||{},follow:S.follow||{}}))}catch(e){}}
     function isAdmin(){try{return typeof AuraAuth!=="undefined"&&AuraAuth.isAdmin()}catch(e){return false}}
     function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
     function ago(t){const m=Math.max(0,Math.round((Date.now()-(t||0))/60000));return m<1?"just now":m+" min ago"}
@@ -10530,6 +10582,143 @@ document.addEventListener("DOMContentLoaded",function(){
       save();
       if(id===S.who)renderChat();
     }
+    /* ---------- CHAT SUPERPOWERS: pins · reactions · search · export · slash · suggestions ----------
+       Owner simplicity order stands (13 Oct 2026): ⚡ AUTO WORK + 🚀 PUSH untouched — this
+       adds a hover toolbar + two small chips, AI-chat patterns from the 2025-26 brief:
+       copy/pin/react per message (ChatGPT/Claude), / palette (assistant-ui), search
+       + export (ChatGPT/Gemini), empty-state chips. All local, no new deps. */
+    function msgKey(id,m){var i=(S.chats[id]||[]).indexOf(m);return id+":"+m.t+":"+i}
+    function pinsOf(id){return (S.pins[id]||[]).slice()}
+    function togglePin(id,m){
+      const k=msgKey(id,m);const p=S.pins[id]||(S.pins[id]=[]);
+      const at=p.indexOf(k);if(at>=0)p.splice(at,1);else p.push(k);
+      save();renderChat();
+    }
+    function pinnedMsgs(id){
+      const arr=S.chats[id]||[];
+      return pinsOf(id).map(function(k){const mt=k.match(/^(.+):(\d+):(-?\d+|\d+)$/);if(!mt)return null;
+        const by=arr.filter(function(x){return String(x.t)===mt[2]&&x.m});
+        const found=by.length?by[by.length-1]:null;return found?{key:k,m:found,idx:arr.indexOf(found)}:null;
+      }).filter(Boolean).sort(function(a,b){return a.idx-b.idx});
+    }
+    function react(id,m,emoji){
+      const k=msgKey(id,m);const f=S.follow[id]||(S.follow[id]={});
+      const cur=f[k]||[];const at=cur.indexOf(emoji);
+      if(at>=0)cur.splice(at,1);else cur.push(emoji);
+      if(cur.length)f[k]=cur;else delete f[k];
+      save();renderChat();
+    }
+    function escapeForMd(s){return String(s==null?"":s).replace(/\\/g,"\\\\").replace(/`/g,"\\`")}
+    function chatExportMd(){
+      const id=S.who,b=bot(id);
+      const lines=["# "+b.icon+" "+b.name+" — chat export ("+new Date().toISOString()+")",""].concat((S.chats[id]||[]).map(function(m){
+        const tag=m.who==="me"?"ADMIN":m.who==="sys"?"SYS":b.name;
+        return "**["+tag+"]("+new Date(m.t||0).toLocaleString()+")**\n\n\`\`\`\n"+escapeForMd(m.m)+"\n\`\`\`\n";
+      }));
+      return lines.join("\n");
+    }
+    function downloadChat(){
+      try{const blob=new Blob([chatExportMd()],{type:"text/markdown"});
+        const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="aura-"+S.who+"-chat-"+new Date().toISOString().slice(0,10)+".md";
+        document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},400);
+        entry(S.who,"chat exported to Markdown");
+      }catch(e){push(S.who,"sys","export failed: "+(e.message||e))}
+    }
+    /* SLASH COMMANDS — repeat-action palette, keyboard navigable */
+    const SLASH=[
+      {c:"/status",a:"",d:"squad report: missions, cycles, lanes, ships",run:function(){chat("status report")}},
+      {c:"/sweep",a:"",d:"deterministic source sweep (zero keys)",run:function(){chat("run a full sweep")}},
+      {c:"/cycle",a:"",d:"force an autopilot cycle now",run:function(){chat("run a cycle now")}},
+      {c:"/publish",a:"[hold|batch]",d:"push the verified queue / switch policy",run:function(s){chat(s&&/hold|batch/i.test(s)?s+" mode":"publish it")}},
+      {c:"/morning",a:"",d:"run today's daily shift now",run:function(){chat("morning shift")}},
+      {c:"/autopilot",a:"[on|off]",d:"the squad's 24/7 clock",run:function(s){chat(s&&/off/i.test(s)?"stop autopilot":"autopilot on")}},
+      {c:"/clear",a:"",d:"clear this bot's chat log",run:function(){clearChat()}},
+      {c:"/export",a:"",d:"download this chat as Markdown",run:function(){downloadChat()}},
+      {c:"/pins",a:"",d:"show pinned messages",run:function(){renderPins(true)}}
+    ];
+    let slashIdx=0,slashList=[];
+    function renderSlash(q){
+      const pal=$("botSlash");if(!pal)return;
+      const raw=String(q||"").trim();
+      if(!/^\//.test(raw)){pal.classList.remove("show");pal.innerHTML="";slashList=[];return}
+      slashList=SLASH.filter(function(s){return s.c.startsWith(raw.split(/\s+/)[0])});
+      if(!slashList.length){pal.classList.remove("show");pal.innerHTML="";return}
+      slashIdx=0;
+      pal.innerHTML=slashList.map(function(s,i){
+        return '<button class="slash-it'+(i===0?' sel':'')+'" data-i="'+i+'"><b>'+s.c+'</b><span class="argv">'+s.a+'</span><small>'+s.d+'</small></button>';
+      }).join("");
+      pal.classList.add("show");
+      Array.prototype.forEach.call(pal.querySelectorAll(".slash-it"),function(el){
+        el.onclick=function(){pickSlash(parseInt(el.getAttribute("data-i"),10))};
+      });
+    }
+    function pickSlash(i){
+      const pal=$("botSlash");
+      const s=slashList[i];if(!s||!pal)return;
+      pal.classList.remove("show");pal.innerHTML="";slashList=[];
+      const inp=$("botChatIn");
+      const rest=inp?(inp.value.replace(/^\/\S*\s*/,"")||s.a.replace(/[^a-z|]/gi,"")).trim():s.a.trim();
+      if(inp)inp.value="";
+      const arg=rest&&rest!==s.a?rest:"";
+      s.run(arg||s.a.replace(/[^a-z|]/gi,""));
+    }
+    /* SUGGESTIONS — contextual empty-state chips (real buttons, NNg) */
+    const SUGGEST={
+      kratos:["status report","morning shift","run a cycle now","autpilot on status"],
+      erlang:["run a full sweep","last sweep kya fail hua?","sweep me kya check hota hai?"],
+      arthur:["roadmap ka next mission batao","ek chota visual tweak suggest karo","arthur: ship countdown admin panel me add karo"],
+      phoenix:["today's brief","world stamp kde dikhao","squad ne aaj kya seekha?"]
+    };
+    function renderSuggestions(){
+      const holder=$("botSug");if(!holder)return;
+      const arr=S.chats[S.who]||[];
+      const talked=arr.some(function(m){return m.who!=="sys"});
+      if(talked){holder.classList.remove("show");holder.innerHTML="";return}
+      const list=(SUGGEST[S.who]||[]).slice(0,3);
+      holder.innerHTML=list.map(function(s){return '<button class="bot-chip">'+esc(s)+'</button>'}).join("");
+      holder.classList.add("show");
+      Array.prototype.forEach.call(holder.querySelectorAll(".bot-chip"),function(c){c.onclick=function(){chat(c.textContent)}});
+    }
+    /* SEARCH — local, instant, hit-navigation */
+    let searchHits=[],searchSel=0,q="";
+    function renderSearch(){
+      const bar=$("botSearch");if(!bar)return;
+      const inp=$("botSearchIn");if(!inp)return;
+      const any=searchHits.length>0;
+      $("botSearchCt").textContent=any?((searchSel+1)+"/"+searchHits.length+" hits"):(q?"no hits":"off");
+      bar.classList.add("show");
+    }
+    function hitSearchKeys(){
+      searchHits=[];searchSel=0;
+      if(!q)return;
+      const arr=S.chats[S.who]||[],needle=q.toLowerCase();
+      arr.forEach(function(m,i){if(m.m.toLowerCase().indexOf(needle)>=0)searchHits.push(i)});
+    }
+    function jumpToHit(i){
+      const log=$("botChatLog");if(!log)return;
+      const idx=searchHits[i];if(idx==null)return;
+      const kids=log.querySelectorAll(".bmsg");
+      const el=kids[idx];if(!el)return;
+      if(el.getAttribute("data-sys")==="hi")el=el.previousElementSibling||el;
+      el.scrollIntoView({block:"center"});
+        Array.prototype.forEach.call(log.querySelectorAll(".bmsg.flash"),function(x){x.classList.remove("flash")});
+      el.classList.add("flash");
+    }
+    function highlight(m){
+      if(!q)return esc(m.m);
+      const s=m.m,res=[];let start=0,low=s.toLowerCase(),needle=q.toLowerCase();
+      for(let at=low.indexOf(needle);at>=0;at=low.indexOf(needle,at+q.length)){
+        res.push(esc(s.slice(start,at))+'<mark>'+esc(s.slice(at,at+q.length))+'</mark>');start=at+q.length;
+      }
+      res.push(esc(s.slice(start)));return res.join("");
+    }
+    /* CLEAR — with confirm, never silent */
+    function clearChat(){
+      if(!confirm("Clear "+bot(S.who).name+"'s chat? Orders + sweeps history ke saath bhi ja raha hai."))return;
+      S.chats[S.who]=[];save();renderChat();
+      entry(S.who,"chat cleared — history clean, pins remain if any.");
+      renderPins();
+    }
     function entry(who,msg,cls){push(who,"sys",(bot(who).name+": ")+msg)}
     let typingFor=null;
     function setTyping(on,id){typingFor=on?(id||S.who):null;paintTyping()}
@@ -10546,11 +10735,36 @@ document.addEventListener("DOMContentLoaded",function(){
     function bubbleEl(m){
       const d=document.createElement("div");
       d.className="bmsg "+(m.who==="me"?"me":m.who==="sys"?"sys":"bot");
-      if(m.who==="sys"){d.textContent=m.m;return d}
+      if(m.who==="sys"){d.textContent=m.m;d.setAttribute("data-sys","1");return d}
       const w=document.createElement("span");w.className="who";
       w.textContent=m.who==="me"?"ADMIN ▸":(function(){const b=bot(S.who);return b.icon+" "+b.name})();
       d.appendChild(w);
-      d.appendChild(document.createTextNode(m.m));
+      if(q){const body=document.createElement("span");body.innerHTML=highlight(m);d.appendChild(body)}
+      else d.appendChild(document.createTextNode(m.m));
+      /* reactions row (⭐/👍/👇 — Claude/Gemini pattern, local-only) */
+      const k=msgKey(S.who,m);const fb=(S.follow[S.who]||{})[k]||[];
+      if(fb.length){
+        const r=document.createElement("span");r.className="mreact";r.style.cssText="display:block;margin-top:4px;font-size:11px";
+        r.textContent=fb.join(" ");d.appendChild(r);
+      }
+      /* hover toolbar: copy · pin · react — the 2025-26 AI-chat pattern */
+      const t=document.createElement("span");t.className="mtools";
+      const mk=function(label,title,fn,titlecls){
+        const b2=document.createElement("button");b2.type="button";b2.textContent=label;b2.title=title;
+        b2.onclick=function(ev){ev.stopPropagation();fn(b2)};
+        return b2;
+      };
+      t.appendChild(mk("⧉","copy",function(btn){
+        try{navigator.clipboard.writeText(m.m).then(function(){btn.textContent="✓";btn.classList.add("copied");setTimeout(function(){btn.textContent="⧉";btn.classList.remove("copied")},900)}).catch(function(){})}catch(e){}
+      }));
+      const pk=msgKey(S.who,m);
+      const isPinned=(S.pins[S.who]||[]).indexOf(pk)>=0;
+      if(isPinned)d.classList.add("pinned");
+      t.appendChild(mk(isPinned?"★":"☆","pin / unpin",function(){togglePin(S.who,m)}));
+      t.appendChild(mk("👍","helpful",function(){react(S.who,m,"👍")}));
+      t.appendChild(mk("👇","needs work",function(){react(S.who,m,"👇")}));
+      d.appendChild(t);
+      if(isPinned){const pm=document.createElement("span");pm.className="pinmark";pm.textContent="★ PIN";d.appendChild(pm)}
       return d;
     }
     function renderChat(){
@@ -10562,10 +10776,33 @@ document.addEventListener("DOMContentLoaded",function(){
       log.innerHTML="";
       const arr=S.chats[S.who]||[];
       const talked=arr.some(function(m){return m.who!=="sys"});
-      arr.forEach(function(m){log.appendChild(bubbleEl(m))});
+      arr.forEach(function(m,i){const el=bubbleEl(m);el.setAttribute("data-idx",String(i));log.appendChild(el)});
       if(!talked)log.appendChild(bubbleEl({who:"bot",m:b.hi}));
       paintTyping();
+      /* hit-navigate AFTER paint, so search jumps land on real elements */
+      if(q)renderSearch();
+      renderPins();
+      renderSuggestions();
       log.scrollTop=log.scrollHeight;
+    }
+    /* pinned strip above the log — jump + unpin */
+    function renderPins(show){
+      const holder=$("botPins");if(!holder)return;
+      const list=pinnedMsgs(S.who);
+      if(!list.length){holder.classList.remove("show");holder.innerHTML="";return}
+      if(show===true||holder.classList.contains("show"))holder.classList.add("show");
+      holder.innerHTML=list.map(function(p){
+        return '<button class="pin-card" data-idx="'+p.idx+'" title="jump to message"><b>★</b> '+esc(p.m.m.slice(0,90))+'</button>';
+      }).join("");
+      holder.classList.add("show");
+      Array.prototype.forEach.call(holder.querySelectorAll(".pin-card"),function(el){
+        el.onclick=function(){
+          const idx=parseInt(el.getAttribute("data-idx"),10);
+          const log=$("botChatLog");if(!log)return;
+          const target=log.querySelector('.bmsg[data-idx="'+idx+'"]');
+          if(target){target.scrollIntoView({block:"center"});Array.prototype.forEach.call(log.querySelectorAll(".bmsg.flash"),function(x){x.classList.remove("flash")});target.classList.add("flash")}
+        };
+      });
     }
     function setSt(id,st){
       const b=bot(id);b.st=st;renderRoster();
@@ -11148,6 +11385,14 @@ document.addEventListener("DOMContentLoaded",function(){
     async function chat(text){
       text=String(text||"").trim();if(!text)return;
       const id=S.who;
+      /* slash commands beat everything (typed or palette-picked) */
+      const sl=text.match(/^\/(\w+)\s*([\s\S]*)$/);
+      if(sl){
+        const c="/"+sl[1].toLowerCase();
+        const found=SLASH.find(function(s){return s.c===c});
+        if(found){found.run(String(sl[2]||""));return}
+        push(id,"sys","unknown command "+c+" — try /status, /sweep, /cycle, /publish, /morning, /autopilot, /export, /pins, /clear");return;
+      }
       if(!isAdmin()){push(id,"sys","admin only — the squad stands down until the signed-in admin commands it.");return}
       push(id,"me",text);
       setTyping(true,id);
@@ -11270,8 +11515,52 @@ document.addEventListener("DOMContentLoaded",function(){
       try{const t0=shiftLoad();if(t0&&t0.finished){const tag=$("botShiftTag");if(tag){tag.style.display="inline-block";tag.title="Daily shift ✗ "+t0.day}}}catch(e){}
       try{const st=shiftLoad();if(st&&st.running){const tag=$("botShiftTag");if(tag){tag.textContent="SHIFT ⏳ RUNNING";tag.style.display="inline-block"}}}catch(e){}
       const send=$("botChatSend"),inp=$("botChatIn");
-      if(send)send.onclick=function(){const v=inp?inp.value:"";if(inp)inp.value="";chat(v)};
-      if(inp)inp.onkeydown=function(e){if(e.key==="Enter"){const v=inp.value;inp.value="";chat(v)}};
+      const submit=function(){const v=inp?inp.value:"";if(inp)inp.value="";renderSlash("");chat(v)};
+      if(send)send.onclick=submit;
+      if(inp)inp.onkeydown=function(e){
+        const pal=$("botSlash");
+        const palOpen=pal&&pal.classList.contains("show")&&slashList.length;
+        if(palOpen&&(e.key==="ArrowDown"||e.key==="ArrowUp")){
+          e.preventDefault();
+          slashIdx=(slashIdx+(e.key==="ArrowDown"?1:-1)+slashList.length)%slashList.length;
+          Array.prototype.forEach.call(pal.querySelectorAll(".slash-it"),function(el,i){el.classList.toggle("sel",i===slashIdx)});
+          return;
+        }
+        if(palOpen&&e.key==="Tab"){e.preventDefault();pickSlash(slashIdx);return}
+        if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(palOpen){pickSlash(slashIdx)}else{submit()}}
+        else if(e.key==="Escape"&&palOpen){pal.classList.remove("show");pal.innerHTML="";slashList=[]}
+        else if(inp&&e.key!=="Enter"){setTimeout(function(){renderSlash(inp.value)},0)}
+      };
+      /* tool-chip wiring: pins/search/export/clear + Ctrl+K focus */
+      const pb=$("botPinBtn");if(pb)pb.onclick=function(){const h=$("botPins");if(!h)return;h.classList.toggle("show");renderPins(h.classList.contains("show"))};
+      const sb=$("botSearchBtn");if(sb)sb.onclick=function(){toggleSearch()};
+      const eb=$("botExportBtn");if(eb)eb.onclick=function(){downloadChat()};
+      const cb=$("botClearBtn");if(cb)cb.onclick=function(){clearChat()};
+      try{
+        document.addEventListener("keydown",function(ev){
+          if((ev.ctrlKey||ev.metaKey)&&ev.key.toLowerCase()==="k"&&!ev.defaultPrevented){
+            const vis=typeof window.__auraApply==="function";
+            try{const ap=document.getElementById("adminPage");if(ap&&getComputedStyle(ap).display==="none")return}catch(e2){}
+            ev.preventDefault();toggleSearch();
+          }
+        });
+      }catch(e3){}
+    }
+    function toggleSearch(){
+      const bar=$("botSearch");if(!bar)return;
+      const opening=!bar.classList.contains("show");
+      bar.classList.toggle("show",opening);
+      const inp=$("botSearchIn");
+      if(opening&&inp){inp.focus()}else if(!opening){q="";searchHits=[];renderChat();return}
+      if(!inp)return;
+      inp.oninput=function(){q=(inp.value||"").trim();hitSearchKeys();renderChat();};
+      inp.onkeydown=function(ev){
+        if(ev.key==="Enter"){ev.preventDefault();if(searchHits.length){searchSel=(searchSel+(ev.shiftKey?-1:1)+searchHits.length)%searchHits.length;renderSearch();jumpToHit(searchSel)}}
+        else if(ev.key==="Escape"){ev.preventDefault();q="";searchHits=[];renderChat();bar.classList.remove("show")}
+      };
+    }
+    /* chips жизни wiring — tool-chips wiring ke baad bhi chat chips (AUTO WORK/PUSH) ka raheActive. NOTE: bare try{} old boot code ka — yahan proper function banaya. */
+    function __squadWireChips(){
       try{
         Array.prototype.forEach.call(document.querySelectorAll("#botChips .bot-chip"),function(c){
           c.onclick=function(){chat(c.textContent)};
@@ -11344,7 +11633,7 @@ document.addEventListener("DOMContentLoaded",function(){
       shiftBoot();
     }
     if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
-    return {sweep:sweep,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},morningShift:morningShift,shift:function(){return shiftLoad()},autopilot:{refresh:autopilotRefresh,set:autopilotToggle,run:autopilotRun,publish:autopilotPublish,policy:autopilotPolicy,status:autoStatusText,state:function(){return AUD.state}},db:function(){return {protocol:BOT_DB.protocol,daily:BOT_DB.daily,standing:BOT_DB.standing,goal:BOT_DB.goal,research:BOT_DB.research,safety:BOT_DB.safetyCharter,pushPolicy:BOT_DB.pushPolicy,autopilot:BOT_DB.autopilot,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode(),shift:S.shift}}};
+    return {sweep:sweep,wireChips:__squadWireChips,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},morningShift:morningShift,shift:function(){return shiftLoad()},autopilot:{refresh:autopilotRefresh,set:autopilotToggle,run:autopilotRun,publish:autopilotPublish,policy:autopilotPolicy,status:autoStatusText,state:function(){return AUD.state}},db:function(){return {protocol:BOT_DB.protocol,daily:BOT_DB.daily,standing:BOT_DB.standing,goal:BOT_DB.goal,research:BOT_DB.research,safety:BOT_DB.safetyCharter,pushPolicy:BOT_DB.pushPolicy,autopilot:BOT_DB.autopilot,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode(),shift:S.shift}}};
   })();
 
   /* ================= ADMIN PAGE — server-verified maker/ceo only; edits live database config ================= */
