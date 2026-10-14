@@ -10634,7 +10634,8 @@ document.addEventListener("DOMContentLoaded",function(){
       {c:"/autopilot",a:"[on|off]",d:"the squad's 24/7 clock",run:function(s){chat(s&&/off/i.test(s)?"stop autopilot":"autopilot on")}},
       {c:"/clear",a:"",d:"clear this bot's chat log",run:function(){clearChat()}},
       {c:"/export",a:"",d:"download this chat as Markdown",run:function(){downloadChat()}},
-      {c:"/pins",a:"",d:"show pinned messages",run:function(){renderPins(true)}}
+      {c:"/pins",a:"",d:"show pinned messages",run:function(){renderPins(true)}},
+      {c:"/agents",a:"",d:"squad + server agents roster (who does what)",run:function(){agentRoster()}}
     ];
     let slashIdx=0,slashList=[];
     function renderSlash(q){
@@ -10718,6 +10719,30 @@ document.addEventListener("DOMContentLoaded",function(){
       S.chats[S.who]=[];save();renderChat();
       entry(S.who,"chat cleared — history clean, pins remain if any.");
       renderPins();
+    }
+    /* AGENTS ROSTER — the 4 chat bots + the server-side agents that work 24/7 */
+    function agentRoster(){
+      const st=AUD&&AUD.state?AUD.state:null;
+      const lines=[
+        "🤖 AGENTS — kaun kya karta hai (chat + server):",
+        "",
+        "CHAT BOTS (admin-only, yahin):",
+        "• 👑 KRATOS — orders, dispatch, reports (typing ye hi ho raha hai abhi)",
+        "• 🛡 ERLANG — deterministic sweep, zero AI keys",
+        "• ⚔ ARTHUR — real source edits, dry-run verify, ship sirf aapke word pe",
+        "• 🔥 PHOENIX — world stamps, briefs, squad lessons",
+        "",
+        "SERVER AGENTS (chalta rehta hai — laptop band ho tab bhi):",
+        "• 🕰 AUTOPILOT CLOCK — sweep → build → watch → report, har 15 min tick",
+        "• 🌱 ROADMAP AGENT — roadmap patli hoti hi naye missions propose karta hai (self-improvement loop)",
+        "• 📦 PUBLISH DRAIN — cron lane verified queue khud push karti hai",
+        "• ⏱ CRON BACKUP (GitHub Actions) — 3 ghante me ek baar tick + publish",
+        "",
+        st
+          ? ("Roadmap: "+((st.progress&&st.progress.done)||0)+"/"+((st.progress&&st.progress.total)||0)+" missions · agent-generated: "+(st.generated||0)+" · cycles today "+(st.cyclesToday||0)+"/"+(st.maxCyclesPerDay||"?")+(st.paused?(" · PAUSED: "+st.paused):""))
+          : "(autopilot state abhi load nahi hua — ⚙ se refresh karo, /status bolo)"
+      ];
+      push(S.who,"bot",lines.join("\n"));
     }
     function entry(who,msg,cls){push(who,"sys",(bot(who).name+": ")+msg)}
     let typingFor=null;
@@ -11088,7 +11113,8 @@ document.addEventListener("DOMContentLoaded",function(){
       const meta=$("autoMeta");
       if(meta)meta.textContent=[
         "cycles today  : "+st.cyclesToday+"/"+st.maxCyclesPerDay+(st.running?"  (⏳ ek cycle abhi chal raha hai)":""),
-        "roadmap       : "+done+"/"+total+" missions built"+(st.current?("  · doing: "+st.current):""),
+        "roadmap       : "+done+"/"+total+" missions built"+(st.current?("  · doing: "+st.current):"")+((st.generated||0)?("  · +"+st.generated+" agent-gen") : ""),
+        ((st.generated||0)?("self-roadmap  : 🌱 roadmap agent ne "+st.generated+" naya mission(s) propose kiye (queue thin hone par)"):null),
         "auto-ship     : "+(st.autoShip?"ON — gates pass → publish → live verify → auto-revert":"OFF — verified features held (SQUAD_AUTOSHIP=0)"),
         "push policy   : "+(st.publish==="hold"?"HOLD — finished features queue me rukte hain, tum \"publish it\" bolo":"BATCH — ek feature = ek push (chote changes pe kabhi nahi)"),
         "batch (arthur): "+(st.batch?("🔧 building "+st.batch.mission+" · cycle "+st.batch.cycles+" · "+st.batch.edits+" edit(s) stored, NOT pushed yet"):"no feature in progress"),
@@ -11096,7 +11122,7 @@ document.addEventListener("DOMContentLoaded",function(){
         "sweep (ERLANG): "+(st.sweep?((st.sweep.fail?"✗ ":"✓ ")+st.sweep.pass+"/"+(st.sweep.pass+st.sweep.fail)+" checks · "+autoAgo(st.sweep.at)):"never run"),
         "ships         : "+(st.ships||[]).length+" total"+(last?(" · last "+(last.sha||"?")+" ("+last.mission+")"):""),
         "fails (raw)   : "+((st.fails&&st.fails.length)?st.fails.slice(-2).map(function(f){return f.mission+" → "+String(f.reason).slice(0,70)}).join(" | "):"none")
-      ].join("\n");
+      ].filter(function(x){return x!=null&&x!==""}).join("\n");
       const bd=$("autoBoard");
       if(bd)bd.innerHTML=(st.missions||[]).map(function(m){
         const s=m.state||{},doing=!!(st.current&&st.current.indexOf(m.id)===0);

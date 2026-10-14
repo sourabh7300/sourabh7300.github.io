@@ -331,8 +331,67 @@ function missionState(state, id) {
   const m = (state.missions && state.missions[id]) || {};
   return { attempts: m.attempts || 0, cycles: m.cycles || 0, done: !!m.done, parked: !!m.parked, note: m.note || "", sha: m.sha || null, when: m.when || 0 };
 }
+/* ROADMAP AGENT (owner's order, 14 Oct 2026): "AI agents banao… jo barabar kaam
+   karte rahe aur AURA ko next level banate rahe." The static roadmap can end;
+   this lane does not. Every time the roadmap runs thin, an agent reviews the
+   real failures/research/reports and PROPOSES new verifiable missions that get
+   persisted beside the static ones. Proposals are data (JSON in state), never
+   regex-in-state: the sentinel RegExp is re-derived from the id on every read. */
+const GEN_SENTINEL = id => "AURA_GEN_" + String(id).toUpperCase().replace(/-/g, "_");
+function toMission(g) {
+  return { id: g.id, title: g.title, goal: g.goal, research: g.research || "",
+    keywords: Array.isArray(g.keywords) ? g.keywords : [], done: new RegExp(GEN_SENTINEL(g.id)) };
+}
+/* strict validator — the brain proposes, this gate decides. Bad ids, collisions,
+   oversize text or junk never reach the roadmap (an agent's suggestion is a
+   PROPOSAL, not authority). */
+function parseGenerated(raw, state) {
+  const out = { missions: [], dropped: [] };
+  let arr = raw;
+  if (typeof raw === "string") {
+    const s = raw.replace(/```json/gi, "```").replace(/```/g, "").trim();
+    try { arr = JSON.parse(s); }
+    catch (e) {
+      /* prose around the array — scan for a BALANCED bracket pair (a lazy regex
+         stops at the first inner `]` of a nested keywords array) */
+      const start = s.indexOf("[");
+      if (start >= 0) {
+        let depth = 0, end = -1;
+        for (let i = start; i < s.length; i++) {
+          const c = s[i];
+          if (c === "[") depth++;
+          else if (c === "]" && --depth === 0) { end = i; break; }
+        }
+        if (end > start) { try { arr = JSON.parse(s.slice(start, end + 1)); } catch (e2) { arr = null; } }
+      }
+      if (!Array.isArray(arr)) { out.dropped.push("unparseable agent output"); return out; }
+    }
+  }
+  if (!Array.isArray(arr)) { out.dropped.push("agent output is not an array"); return out; }
+  const known = new Set(MISSIONS.map(m => m.id).concat((state && state.generated || []).map(g => g.id)));
+  for (const g of arr.slice(0, 6)) {
+    if (!g || typeof g !== "object") { out.dropped.push("non-object entry"); continue; }
+    const id = String(g.id || "");
+    if (!/^[a-z][a-z0-9-]{2,39}$/.test(id)) { out.dropped.push("bad id: " + id.slice(0, 40)); continue; }
+    if (known.has(id)) { out.dropped.push("duplicate id: " + id); continue; }
+    const title = String(g.title || "").trim(), goal = String(g.goal || "").trim();
+    if (title.length < 4 || title.length > 160 || goal.length < 10 || goal.length > 400) { out.dropped.push("bad text for " + id); continue; }
+    const keywords = (Array.isArray(g.keywords) ? g.keywords : []).map(k => String(k)).filter(k => k.length >= 2 && k.length <= 40).slice(0, 6);
+    if (keywords.length < 2) { out.dropped.push("keywords too thin for " + id); continue; }
+    known.add(id);
+    out.missions.push({ id: id, title: title, goal: goal, keywords: keywords, byAgent: true, at: Date.now() });
+  }
+  if (arr.length > 12) out.dropped.push("agent proposed more than 12 — capped");
+  return out;
+}
+/* the effective roadmap: static missions first, agent-generated ones behind them */
+function allMissions(state) {
+  const gen = (state && Array.isArray(state.generated)) ? state.generated : [];
+  return gen.length ? MISSIONS.concat(gen.map(toMission)) : MISSIONS;
+}
+function findMission(state, id) { return allMissions(state).find(m => m.id === id) || null; }
 function pickMission(state, source) {
-  for (const m of MISSIONS) {
+  for (const m of allMissions(state)) {
     const st = missionState(state, m.id);
     if (st.done || st.parked) continue;
     if (st.attempts >= DEFAULTS.maxAttempts) continue;
@@ -366,17 +425,19 @@ function serverSweep(probe) {
 function renderReport(state) {
   const s = state || {};
   const L = [];
-  const done = MISSIONS.filter(m => missionState(s, m.id).done).length;
-  const parked = MISSIONS.filter(m => missionState(s, m.id).parked);
+  const done = allMissions(s).filter(m => missionState(s, m.id).done).length;
+  const parked = allMissions(s).filter(m => missionState(s, m.id).parked);
   const wip = s.wip;
   L.push("👑 KRATOS — DAILY AUTOPILOT REPORT " + (s.day || todayStamp()));
   L.push("🛡 ERLANG (BUGS): " + (s.sweep
     ? ((s.sweep.fail ? "✗ " : "✓ ") + s.sweep.pass + "/" + (s.sweep.pass + s.sweep.fail) + " checks" + ((s.sweep.failed && s.sweep.failed.length) ? " — failed: " + s.sweep.failed.join("; ") : ""))
     : "sweep hasn't run yet"));
   const ships = s.ships || [];
-  L.push("⚔ ARTHUR (CODE-SYSTEM): missions " + done + "/" + MISSIONS.length + " published · " + ships.length + " publish(es)" +
+  L.push("⚔ ARTHUR (CODE-SYSTEM): missions " + done + "/" + allMissions(s).length + " published · " + ships.length + " publish(es)" +
     (wip ? " · BUILDING: " + wip.mission + " (cycle " + (wip.cycles || 0) + ", " + ((wip.edits || []).length) + " edit(s) stored, not pushed yet)" : " · no feature in progress") +
     (parked.length ? " · parked: " + parked.map(m => m.id).join(", ") : ""));
+  const gen = (s.generated || []);
+  if (gen.length) L.push("🌱 SELF-ROADMAP: " + gen.length + " agent-generated mission(s) queued behind the static roadmap — " + gen.map(g => g.id).join(", "));
   const q = s.queue || [];
   if (q.length) L.push("📦 READY TO PUBLISH (verified, waiting for your word): " + q.map(x => x.mission + " [" + (x.edits || []).length + " edits]").join(", "));
   L.push("🔬 RESEARCH: " + (wip && (wip.findings || []).length ? clampText(wip.findings[0], 180) : (s.research && s.research.length ? clampText(s.research[s.research.length - 1], 180) : "no live research gathered yet")));
@@ -437,7 +498,7 @@ function createAutopilot(deps) {
   const memory = { state: null, running: false };
   const blank = () => ({
     v: STATE_VERSION, enabled: true, day: todayStamp(), cyclesToday: 0, lastCycle: 0, lastShiftDay: "",
-    missions: {}, ships: [], fails: [], queue: [], wip: null, sweep: null, world: null, research: [], reports: [], paused: "", log: [],
+    missions: {}, ships: [], fails: [], queue: [], wip: null, sweep: null, world: null, research: [], reports: [], paused: "", log: [], generated: [],
     maxCyclesPerDay: cfg.maxCyclesPerDay, publish: cfg.publish, autoShip: !!cfg.autoShip, updated: Date.now()
   });
   function log(state, who, msg) {
@@ -458,6 +519,8 @@ function createAutopilot(deps) {
     if (fresh.maxCyclesPerDay !== cfg.maxCyclesPerDay) fresh.maxCyclesPerDay = cfg.maxCyclesPerDay;
     if (!Array.isArray(fresh.queue)) fresh.queue = [];
     if (!Array.isArray(fresh.research)) fresh.research = [];
+    if (!Array.isArray(fresh.generated)) fresh.generated = [];
+    fresh.generated = fresh.generated.filter(g => g && typeof g.id === "string" && /^[a-z][a-z0-9-]{2,39}$/.test(g.id));
     memory.state = fresh;
     return fresh;
   }
@@ -470,6 +533,45 @@ function createAutopilot(deps) {
   function clearWip(state, why) {
     if (state.wip && why) log(state, "arthur", "batch cleared — " + why);
     state.wip = null;
+  }
+
+  /* ROADMAP AGENT — the meta-improvement loop (owner's order 14 Oct 2026:
+     "AI agents banao jo barabar kaam karte rahe aur AURA ko next level banaye").
+     This agent does NOT build; it REVIEWS the engine's own reality (failures,
+     research, what got published) and proposes the next real missions. It only
+     fires when the roadmap runs thin (< 3 pending) so a healthy static roadmap
+     costs zero extra AI calls, and every proposal passes parseGenerated's gate
+     before touching state. "[]" from the brain means "the roadmap is enough". */
+  async function improveLane(state, o) {
+    if (o.noAI || !d.brain) return null;
+    const pending = allMissions(state).filter(m => { const st = missionState(state, m.id); return !st.done && !st.parked && st.attempts < cfg.maxAttempts; });
+    if (pending.length >= 3 || (state.generated || []).length >= 10) return null;
+    const brief = [
+      "ROADMAP AGENT — you review AURA's own engineering reality and propose the NEXT real missions (0-3).",
+      "AURA is a single self-contained aura.html; missions must be concrete user-facing features/fixes, each verifiable by a sentinel comment ARTHUR will place in code.",
+      "Reply with ONLY a JSON array (or [] when the roadmap already covers everything — never invent busywork):",
+      '[{"id":"kebab-case-3-40","title":"4-160 chars","goal":"10-400 chars, one concrete sentence","keywords":["2-6 real identifiers from aura.html source, 2-40 chars each] }]',
+      "Rules: no duplicates of done/known ids, no external dependencies, never auth/secrets/keys/backend-URL, safety charter applies.",
+      "DONE KNOWLEDGE — static missions done: " + MISSIONS.filter(m => missionState(state, m.id).done).map(m => m.id).join(", ") + ".",
+      "Agent missions already queued: " + ((state.generated || []).map(g => g.id).join(", ") || "(none)").slice(0, 400) + ".",
+      "Pending right now: " + pending.map(m => m.id).join(", ") + ".",
+      "Recent failures: " + ((state.fails || []).slice(-4).map(f => f.mission + " → " + String(f.reason).slice(0, 90)).join(" | ") || "none") + ".",
+      "Last research: " + ((state.research || []).slice(-2).join(" | ") || "none").slice(0, 300) + "."
+    ].join("\n");
+    try {
+      const out = await d.brain([{ role: "user", content: brief }], 700);
+      const parsed = parseGenerated(out, state);
+      if (!parsed.missions.length) {
+        log(state, "kratos", "roadmap agent: no new missions proposed (" + (parsed.dropped[0] || "roadmap is sufficient") + ")");
+        return null;
+      }
+      state.generated = (state.generated || []).concat(parsed.missions);
+      log(state, "kratos", "🌱 roadmap agent proposed " + parsed.missions.length + " new mission(s): " + parsed.missions.map(m => m.id).join(", ") + (parsed.dropped.length ? " (dropped: " + parsed.dropped.slice(0, 2).join("; ") + ")" : ""));
+      return parsed.missions;
+    } catch (e) {
+      log(state, "kratos", "roadmap agent lane failed: " + (e.message || e));
+      return null;
+    }
   }
 
   /* one cycle: ERLANG → ARTHUR (build/advance a feature) → PHOENIX → KRATOS */
@@ -518,7 +620,7 @@ function createAutopilot(deps) {
       if (src) {
         /* an in-flight feature always continues first (work is never thrown away) */
         let mission = null;
-        if (state.wip) mission = MISSIONS.find(m => m.id === state.wip.mission) || null;
+        if (state.wip) mission = findMission(state, state.wip.mission) || null;
         if (!mission) {
           const picked = pickMission(state, src);
           if (picked && picked.already) {
@@ -529,7 +631,7 @@ function createAutopilot(deps) {
             mission = next ? next.mission : null;
           } else mission = picked ? picked.mission : null;
         }
-        if (!mission) {          const pending = MISSIONS.filter(m => { const st = missionState(state, m.id); return !st.done && !st.parked && st.attempts < cfg.maxAttempts; });
+        if (!mission) {          const pending = allMissions(state).filter(m => { const st = missionState(state, m.id); return !st.done && !st.parked && st.attempts < cfg.maxAttempts; });
           if (!pending.length) {
             /* OWNER'S ORDER (13 Oct 2026): "kaam karte rehne chahiye" — the squad never
                sits paused. Parked missions get a same-day second chance and mark done
@@ -537,7 +639,7 @@ function createAutopilot(deps) {
                NOT as a stop. The paused flag is cleared so the next cycles keep
                building the remaining published-but-follow-up missions. */
             state.paused = "";
-            const parkedNow = MISSIONS.filter(m => missionState(state, m.id).parked);
+            const parkedNow = allMissions(state).filter(m => missionState(state, m.id).parked);
             log(state, "arthur", parkedNow.length
               ? ("all current missions resolved (" + parkedNow.map(m => m.id).join(", ") + " parked today) — squad stays armed for the admin's next assign")
               : "entire roadmap published — squad stays armed, awaiting admin's next assign");
@@ -576,6 +678,11 @@ function createAutopilot(deps) {
       try {
         if (d.worldWatch) { const w = await d.worldWatch(); if (w) { state.world = { at: Date.now(), stamp: nowIso(), brief: clampText(w, 400) }; cycle.world = state.world.brief; log(state, "phoenix", "world watch — " + clampText(w, 140)); } }
       } catch (e) { log(state, "phoenix", "world watch lane failed: " + (e.message || e)); }
+
+      /* 3.5 — ROADMAP AGENT: meta-improvement — propose the next missions when the
+         roadmap runs thin, so the squad's work never runs out by design */
+      try { const gen = await improveLane(state, o); if (gen && gen.length) cycle.generated = gen.map(g => g.id); }
+      catch (e) { log(state, "kratos", "roadmap agent error: " + (e.message || e)); }
 
       /* 4 — KRATOS: sign the report over the REAL data */
       state.cyclesToday = (state.cyclesToday || 0) + 1;
@@ -840,7 +947,7 @@ function createAutopilot(deps) {
     try { src = await d.readSource(); } catch (e) { return { ok: false, error: "source read failed: " + (e.message || e) }; }
     const pushed = [], refused = [];
     for (const item of state.queue.slice()) {
-      const mission = MISSIONS.find(m => m.id === item.mission);
+      const mission = findMission(state, item.mission);
       if (!mission) { refused.push({ mission: item.mission, reason: "unknown mission" }); continue; }
       const cand = applyEdits(src, item.edits);
       if (!cand.ok) { refused.push({ mission: item.mission, reason: "edits no longer apply: " + cand.error }); continue; }
@@ -880,7 +987,7 @@ function createAutopilot(deps) {
        panel could show an empty squad (memory-only store) while the cycle in front of
        it had actually done real work. */
     const state = given || await load(true);
-    const done = MISSIONS.filter(m => missionState(state, m.id).done).length;
+    const done = allMissions(state).filter(m => missionState(state, m.id).done).length;
     return {
       ok: true,
       enabled: !!state.enabled,
@@ -892,6 +999,7 @@ function createAutopilot(deps) {
       running: memory.running,
       autoShip: !!cfg.autoShip,
       publish: state.publish || cfg.publish,
+      generated: (state.generated || []).length,
       current: state.cycle || "",
       batch: state.wip ? { mission: state.wip.mission, cycles: state.wip.cycles || 0, edits: (state.wip.edits || []).length, notes: (state.wip.notes || []).slice(-4), findings: (state.wip.findings || []).slice(0, 1), started: state.wip.started || 0 } : null,
       queue: (state.queue || []).map(x => ({ mission: x.mission, title: x.title, goal: x.goal, edits: (x.edits || []).length, note: x.note || "", at: x.at })),
@@ -900,8 +1008,8 @@ function createAutopilot(deps) {
       research: (state.research || []).slice(-3),
       ships: (state.ships || []).slice(-8),
       fails: (state.fails || []).slice(-5),
-      missions: MISSIONS.map(m => ({ id: m.id, title: m.title, goal: m.goal, research: m.research || "", state: missionState(state, m.id) })),
-      progress: { done: done, total: MISSIONS.length },
+      missions: allMissions(state).map(m => ({ id: m.id, title: m.title, goal: m.goal, research: m.research || "", state: missionState(state, m.id) })),
+      progress: { done: done, total: allMissions(state).length },
       report: state.reports.length ? state.reports[state.reports.length - 1] : null,
       reports: (state.reports || []).slice(-7),
       log: (state.log || []).slice(-14)
@@ -912,11 +1020,11 @@ function createAutopilot(deps) {
   async function beat() {
     const st = memory.state;
     if (!st) return { ok: true, loaded: false, enabled: !!cfg.autoShip };
-    const done = MISSIONS.filter(m => missionState(st, m.id).done).length;
+    const done = allMissions(st).filter(m => missionState(st, m.id).done).length;
     return {
       ok: true, loaded: true, enabled: !!st.enabled, paused: st.paused || "",
       cyclesToday: st.cyclesToday || 0, maxCyclesPerDay: st.maxCyclesPerDay || cfg.maxCyclesPerDay,
-      missionsDone: done, missionsTotal: MISSIONS.length, publishes: (st.ships || []).length,
+      missionsDone: done, missionsTotal: allMissions(st).length, generated: (st.generated || []).length, publishes: (st.ships || []).length,
       queued: (st.queue || []).length, building: st.wip ? st.wip.mission : "",
       lastCycle: st.lastCycle || 0, day: st.day
     };
@@ -950,5 +1058,6 @@ module.exports = {
   AUTOPILOT_ENGINEER_PROMPT, SAFETY_BRIEF,
   todayStamp, nowIso, clampText, sourceWindows, applyEdits, addedLines, scriptBlocks,
   validateSource, missionState, pickMission, serverSweep, renderReport,
+  toMission, parseGenerated, allMissions, findMission, GEN_SENTINEL,
   createAutopilot
 };
