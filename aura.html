@@ -3597,6 +3597,18 @@ function renderMD(t){
   return s;
 }
 /* ---------------- vision (qwen3.8-27b accepts images) ---------------- */
+/* AURA_LANE_HEAL — retry helper with exponential backoff + honest lane state */
+async function withRetry(fn, lane, max=3, base=800){
+  setSt(lane, "retrying");
+  for(let attempt=1;;attempt++){
+    try{return await fn()}
+    catch(e){
+      if(attempt>=max){setSt(lane, "failed"); throw e}
+      setSt(lane, `retry ${attempt}/${max-1}`);
+      await new Promise(r=>setTimeout(r, base*Math.pow(2,attempt-1)));
+    }
+  }
+}
 async function visionDescribe(dataURL,q){
   /* shrink big photos before sending — smaller payload = faster, works on every network */
   /* small JPEGs go up as-is — recompressing a clean canvas frame through imgConvert
@@ -3604,7 +3616,7 @@ async function visionDescribe(dataURL,q){
   try{const isJpeg=/^data:image\/jpeg;base64,/.test(dataURL);if(!isJpeg&&dataURLBytes(dataURL)>420000)dataURL=await imgConvert(dataURL,"image/jpeg",.82)}catch(e){}
   const messages=[{role:"user",content:[{type:"text",text:(q||"Describe this image in detail: what is shown, any text visible, colors, mood, and anything notable. Plain text.")+" Answer in the persona of "+PERSONAS[persona()].name+"."},{type:"image_url",image_url:{url:dataURL}}]}];
   /* route through the full brain chain: owner backend → local key bank → fallbacks */
-  return await groqCall(messages,900,"meta-llama/llama-4-scout-17b-16e-instruct");
+  return await withRetry(()=>groqCall(messages,900,"meta-llama/llama-4-scout-17b-16e-instruct"), "vision");
 }
 /* ---------------- news briefing ---------------- */
 async function newsBrief(){
@@ -5068,13 +5080,43 @@ async function groqCall(messages,maxTok,modelOverride,lane){
   try{const t=await openrouterCall(messages,maxTok);slog("all keys down — answered via OpenRouter backup brain",true);return t}catch(e){}
   throw new Error("groq unreachable");
 }
+
+/* AURA_CITATION_GUARD — citation parser & renderer */
+function parseCitations(text){
+  const srcRe=/^\s*\[(\d+)\]\s+(.+?)\s*[—-]\s*(\S+)\s*$/gm;
+  const sources=[];
+  let m;
+  while((m=srcRe.exec(text))!==null){
+    sources.push({num:parseInt(m[1],10),title:m[2].trim(),url:m[3].trim()});
+  }
+  const body=text.replace(/^\s*\[\d+\].*$/gm,'').replace(/\n{3,}/g,'\n\n').trim();
+  const inlineRe=/\[(\d+)\]/g;
+  const cited=new Set();
+  let im;
+  while((im=inlineRe.exec(body))!==null) cited.add(parseInt(im[1],10));
+  const unsupported=body.includes('[UNSUPPORTED]');
+  return {body,sources,cited:Array.from(cited).sort((a,b)=>a-b),unsupported};
+}
+function renderCitations(parsed){
+  if(!parsed.sources.length&&!parsed.unsupported) return '';
+  let html='<div class="srcbox"><div class="srcbox-t">SOURCES</div><div class="srcgrid">';
+  parsed.sources.forEach(s=>{
+    html+='<a class="src-card" href="'+s.url+'" target="_blank" rel="noopener"><span class="srcn">['+s.num+']</span><span>'+s.title+'</span></a>';
+  });
+  if(parsed.unsupported){
+    html+='<span class="src-card" style="border-color:var(--red);background:rgba(248,113,113,.1);color:#fecaca"><span class="srcn" style="background:rgba(248,113,113,.3)">!</span><span>Unsupported claim(s) flagged</span></span>';
+  }
+  html+='</div></div>';
+  return html;
+}
+
 async function geminiCall(q,deep){
   const name=memGet().name;
   const P=PERSONAS[persona()];
   const style=" Persona: AURA — warm, curious, sharp holographic assistant designed and built by Sourabh Singh.";
   const lane=(function(){try{return window.AuraCortex?AuraCortex.classify(q):"chat"}catch(e){return"chat"}})();
   const spec=(function(){try{return window.AuraCortex?AuraCortex.specialist(lane,false):""}catch(e){return""}})();
-  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+spec+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer ANY subject confidently from it; NEVER say 'out of my data', 'not in my training data' or 'I don't have that information', never apologize for missing knowledge, never mention training cutoffs; if a very recent fact may have changed, add at most one short line offering to check live. Never add links, urls or source lists unless the user explicitly asks for a link."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"");
+  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+spec+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer ANY subject confidently from it; NEVER say 'out of my data', 'not in my training data' or 'I don't have that information', never apologize for missing knowledge, never mention training cutoffs; if a very recent fact may have changed, add at most one short line offering to check live.\n\nCITATION RULE (mandatory): Every factual claim MUST carry a numbered citation [1], [2], [3] inline at the end of the sentence that makes the claim. If you used LIVE WEB RESULTS, cite them by their bracketed index. If a claim has no source, write [UNSUPPORTED] instead of the claim — do not present unsupported claims as fact. Collect all cited sources at the end under a 'SOURCES:' heading with one line per source: [1] Title — URL. Never add links, urls or source lists unless the user explicitly asks for a link or you are listing SOURCES."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"");
   if(aiProvider()==="groq"){
     const _now=new Date();
     const dateLine="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — anchor 'today/now/latest' to THIS moment)";
