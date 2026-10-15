@@ -968,14 +968,23 @@ function createAutopilot(deps) {
     let src = null;
     try { src = await d.readSource(); } catch (e) { return { ok: false, error: "source read failed: " + (e.message || e) }; }
     const pushed = [], refused = [];
+    /* QUEUE HYGIENE (owner's order, 15 Oct 2026 — bots ke kaam ko seriousness):
+       an entry that can NEVER land is not "waiting" — it is a ghost that
+       pollutes the READY-TO-PUBLISH list forever (today: citation-integrity
+       + two lane-self-heal copies sat refused on every drain, kept forever).
+       Dead entries are dropped honestly below; retryable failures get a
+       3-refusal budget before the same honest drop. */
+    const dropDead = it => { state.queue = state.queue.filter(x => x.at !== it.at); log(state, "kratos", "publish queue: dropped dead entry " + it.mission + " — it can never land against the current source"); };
+    const dropTired = it => { state.queue = state.queue.filter(x => x.at !== it.at); log(state, "kratos", "publish queue: dropped entry " + it.mission + " — 3 refusals spent (fail budget)"); };
+    const retryRefuse = (it, reason) => { refused.push({ mission: it.mission, reason: reason }); it.fails = (it.fails || 0) + 1; if (it.fails >= 3) dropTired(it); };
     for (const item of state.queue.slice()) {
       const mission = findMission(state, item.mission);
-      if (!mission) { refused.push({ mission: item.mission, reason: "unknown mission" }); continue; }
+      if (!mission) { refused.push({ mission: item.mission, reason: "unknown mission (dropped)" }); dropDead(item); continue; }
       const cand = applyEdits(src, item.edits);
-      if (!cand.ok) { refused.push({ mission: item.mission, reason: "edits no longer apply: " + cand.error }); continue; }
+      if (!cand.ok) { refused.push({ mission: item.mission, reason: "edits no longer apply — dropped: " + cand.error }); dropDead(item); continue; }
       const gate = validateSource(src, cand.src, cfg);
-      if (!gate.ok) { refused.push({ mission: item.mission, reason: gate.failed.join("; ") }); continue; }
-      if (!mission.done.test(cand.src)) { refused.push({ mission: item.mission, reason: "sentinel " + mission.done.source + " missing" }); continue; }
+      if (!gate.ok) { retryRefuse(item, gate.failed.join("; ")); continue; }
+      if (!mission.done.test(cand.src)) { retryRefuse(item, "sentinel " + mission.done.source + " missing"); continue; }
       try {
         const c = await d.commit(cand.src, "AURA autopilot: " + mission.id + " — " + mission.title + "\n\n" + mission.goal + "\n" + (item.note || "") + "\npublished on the admin's word");
         pushed.push({ mission: mission.id, sha: (c && c.sha || "").slice(0, 7) });
@@ -984,7 +993,7 @@ function createAutopilot(deps) {
         mst.done = true; mst.sha = (c && c.sha || "").slice(0, 7); mst.when = Date.now(); mst.note = "published on the admin's word";
         state.queue = state.queue.filter(x => x.at !== item.at);
         src = cand.src; /* stack the next feature on top of this one */
-      } catch (e) { refused.push({ mission: item.mission, reason: e.message || String(e) }); }
+      } catch (e) { retryRefuse(item, e.message || String(e)); }
     }
     log(state, "kratos", "admin publish → pushed " + pushed.length + ", refused " + refused.length);
     const report = renderReport(state);
