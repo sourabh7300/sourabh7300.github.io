@@ -506,6 +506,60 @@
 \n  .render-status{font-size:10px;color:#91a4c5;margin-top:6px}.render-status.gpu{color:#65e4d8}.save-fallback{display:none}\n
 \n  /* ---------- Lucid Pro Toolkit ---------- */
   .toolkit-card{border:1px solid #344668;border-radius:10px;background:linear-gradient(145deg,#172542,#101a30);padding:12px;margin-top:8px}.toolkit-card h4{margin:0 0 5px;color:#f3f6ff;font:600 14px 'Space Grotesk',sans-serif}.toolkit-muted{color:#91a4c5;font-size:10.5px;line-height:1.45}.layer-list{display:grid;gap:5px;margin:8px 0}.layer-item{display:flex;align-items:center;gap:7px;padding:8px;border:1px solid #344668;border-radius:7px;background:#121e35;color:#dbe6fb;font-size:11px;cursor:pointer}.layer-item.active{border-color:#7c5cff;background:rgba(124,92,255,.18)}.layer-vis{width:18px;height:18px;border:1px solid #52688e;border-radius:4px;background:transparent;color:#7cf0de;font-size:12px}.layer-name{flex:1}.toolkit-row{display:flex;gap:6px;align-items:center;margin-top:8px}.toolkit-row>*{flex:1}.scope-wrap{background:#0b1324;border:1px solid #344668;border-radius:8px;padding:5px;margin-top:8px}.scope-wrap canvas{width:100%;height:110px;display:block}.mask-chip{padding:8px;border:1px solid #344668;border-radius:7px;background:#121e35;color:#b8c8e3;cursor:pointer;text-align:center;font-size:11px}.mask-chip.active{border-color:#35d9d0;color:#7cf0de;background:rgba(53,217,208,.12)}.text-preview{font-size:22px;color:#fff;text-align:center;padding:18px;border-radius:8px;background:linear-gradient(135deg,#2a225b,#10434a);margin-top:8px;word-break:break-word}.pro-input{width:100%;box-sizing:border-box;background:#0d1628;color:#f2f6ff;border:1px solid #3b4d72;border-radius:6px;padding:8px}.toolkit-note{color:#7f92b3;font-size:10px;margin-top:7px}\n
+  /* ---------- Lucid Voice Studio + consolidated panel groups ---------- */
+  .subtab-bar{display:none;gap:6px;flex-wrap:wrap;padding:0 0 12px;border-bottom:1px solid var(--border-soft);margin-bottom:14px;}
+  .subtab-bar.show{display:flex;}
+  .subtab{padding:6px 11px;border:1px solid var(--border);border-radius:16px;background:var(--bg-raised);color:var(--text-2);font-size:11.5px;font-weight:500;cursor:pointer;}
+  .subtab:hover{color:var(--text-1);border-color:#3a3c45;}
+  .subtab.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+  .icon-btn-voice{color:var(--cyan)!important;}
+  .icon-btn-voice.active{color:var(--cyan)!important;box-shadow:inset 0 0 0 1px rgba(53,217,208,.4)!important;}
+  .voice-mic-btn{
+    width:118px;height:118px;border-radius:50%;border:2px solid var(--cyan);
+    background:radial-gradient(circle at 35% 30%, rgba(53,217,208,.22), rgba(124,92,255,.16));
+    color:var(--text-1);cursor:pointer;display:flex;align-items:center;justify-content:center;
+    margin:6px auto 12px;transition:box-shadow .2s ease, background .2s ease;position:relative;
+  }
+  .voice-mic-btn svg{width:44px;height:44px;}
+  .voice-mic-btn:hover{box-shadow:0 0 0 6px rgba(53,217,208,.12);}
+  .voice-mic-btn.listening{background:radial-gradient(circle at 40% 35%, rgba(53,217,208,.4), rgba(124,92,255,.25));box-shadow:0 0 0 4px rgba(53,217,208,.35), 0 0 34px rgba(53,217,208,.35);animation:voicePulse 1.7s ease-in-out infinite;}
+  @keyframes voicePulse{0%{box-shadow:0 0 0 3px rgba(53,217,208,.3),0 0 18px rgba(53,217,208,.25);}50%{box-shadow:0 0 0 10px rgba(53,217,208,.14),0 0 44px rgba(53,217,208,.4);}100%{box-shadow:0 0 0 3px rgba(53,217,208,.3),0 0 18px rgba(53,217,208,.25);}}
+  .voice-status{text-align:center;font-size:12px;color:var(--text-2);min-height:18px;font-weight:500;}
+  .voice-status.ok{color:#7cf0de}
+  .voice-transcript{
+    width:100%;min-height:64px;box-sizing:border-box;background:var(--bg-raised);border:1px solid var(--border);
+    border-radius:8px;padding:10px;color:var(--text-1);font-size:12.5px;font-style:italic;resize:vertical;
+  }
+  .voice-log{margin-top:10px;max-height:190px;overflow-y:auto;display:grid;gap:5px;}
+  .voice-log-item{border:1px solid var(--border);border-left:3px solid var(--cyan);background:var(--bg-raised);border-radius:6px;padding:7px 9px;font-size:11.5px;color:var(--text-1);}
+  .voice-log-item.bad{border-left-color:var(--danger);color:var(--text-2);}
+  .voice-log-item small{display:block;color:var(--text-3);font-size:10px;margin-top:2px;font-family:'JetBrains Mono',monospace;}
+  .voice-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  .voice-chip{padding:5px 9px;border-radius:14px;border:1px solid var(--border);background:var(--bg-raised);color:var(--text-2);font-size:10.5px;cursor:pointer;}
+  .voice-chip:hover{color:var(--text-1);border-color:var(--cyan);}
+  .voice-caption{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:30;display:none;
+    background:rgba(12,18,35,.9);border:1px solid var(--cyan);color:#7cf0de;border-radius:20px;
+    padding:8px 16px;font-size:12.5px;max-width:78%;text-align:center;backdrop-filter:blur(8px);
+    pointer-events:none;
+  }
+  .voice-caption.show{display:block;}
+  .voice-fab{
+    position:absolute;right:18px;top:18px;z-index:25;width:46px;height:46px;border-radius:50%;
+    border:2px solid var(--cyan);background:rgba(12,18,35,.88);color:#7cf0de;cursor:pointer;
+    display:none;align-items:center;justify-content:center;box-shadow:0 8px 26px rgba(0,0,0,.4);
+  }
+  .voice-fab.show{display:flex;}
+  .voice-fab.listening{animation:voicePulse 1.7s ease-in-out infinite;background:rgba(53,217,208,.2);}
+  .voice-fab svg{width:22px;height:22px;}
+  .voice-video-ctl{margin-top:14px;border-top:1px solid var(--border);padding-top:12px;display:grid;gap:8px;}
+  .voice-video-ctl .row{display:flex;gap:6px;align-items:center;}
+  .voice-video-ctl .row>*{flex:1;}
+  .voice-video-ctl .row .num{flex:0 0 64px;}
+  .voice-note{font-size:11px;color:var(--text-2);line-height:1.5;}
+  .voice-badge{display:inline-block;font:10px 'JetBrains Mono',monospace;color:#7cf0de;background:rgba(53,217,208,.12);border:1px solid rgba(53,217,208,.35);padding:2px 6px;border-radius:4px;margin:2px 3px 0 0;}
+  @media (max-width:820px){.voice-caption{font-size:11px;max-width:90%;}.voice-fab{right:12px;top:12px;}}
+
 </style>
 </head>
 <body>
@@ -554,6 +608,7 @@
         <div class="dropdown-menu">
           <div class="dropdown-item" data-format="png">PNG <span class="hint">lossless</span></div>
           <div class="dropdown-item" data-format="jpeg">JPEG <span class="hint">smaller</span></div>
+          <div class="dropdown-item" data-format="webm" id="exportVideoItem" style="display:none">Video (WebM) <span class="hint">graded</span></div>
           <div class="export-options"><label for="exportQuality">JPEG quality <input id="exportQuality" type="number" min="40" max="100" step="5" value="92" aria-label="JPEG quality percentage"></label></div>
         </div>
       </div>
@@ -565,56 +620,36 @@
 
     <!-- Icon rail -->
     <div class="icon-rail" id="iconRail">
-      <button class="icon-btn active" data-panel="adjust" title="Light">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><circle cx="4" cy="12" r="2"/><circle cx="12" cy="10" r="2"/><circle cx="20" cy="14" r="2"/></svg>
-        <span class="tip">Light</span><span class="sr-only">Light adjustments</span>
+      <button class="icon-btn icon-btn-voice active" data-group="voice" title="Voice Studio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" fill-opacity="0.12"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/><path d="M8 22h8"/></svg>
+        <span class="tip">Voice Studio</span><span class="sr-only">Voice editing studio</span>
       </button>
-      <button class="icon-btn" data-panel="color" title="Color" aria-label="Color">
+      <button class="icon-btn" data-group="light" title="Light">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><circle cx="4" cy="12" r="2"/><circle cx="12" cy="10" r="2"/><circle cx="20" cy="14" r="2"/></svg>
+        <span class="tip">Light</span><span class="sr-only">Light, curves and split tone</span>
+      </button>
+      <button class="icon-btn" data-group="color" title="Color" aria-label="Color and scopes">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2a9 9 0 1 0 0 18c1 0 1.5-.5 1.5-1.3 0-.4-.2-.7-.4-1a1.6 1.6 0 0 1-.3-1c0-.7.6-1.2 1.3-1.2h1.4A4.5 4.5 0 0 0 20 11c0-4.5-3.6-9-8-9Z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="10.5" cy="7" r="1"/><circle cx="15" cy="8" r="1"/></svg>
         <span class="tip">Color</span>
       </button>
-      <button class="icon-btn" data-panel="detail" title="Effects" aria-label="Effects">
+      <button class="icon-btn" data-group="effects" title="Effects" aria-label="Effects and pro lab">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
         <span class="tip">Effects</span>
       </button>
-      <button class="icon-btn" data-panel="curves" title="Curves" aria-label="Curves">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20c4-1 5-14 9-15.5S20 8 20 8"/></svg>
-        <span class="tip">Curves</span>
-      </button>
-      <button class="icon-btn" data-panel="tone" title="Split Tone" aria-label="Split Tone">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="12" r="6" fill="currentColor" fill-opacity="0.15"/><circle cx="16" cy="12" r="6"/></svg>
-        <span class="tip">Split Tone</span>
-      </button>
-      <button class="icon-btn" data-panel="local" title="Graduated Filter" aria-label="Graduated Filter">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18" stroke-opacity="0.4"/><path d="M3 6h18" stroke-opacity="0.7"/></svg>
-        <span class="tip">Graduated</span>
-      </button>
-      <button class="icon-btn" data-panel="crop" title="Crop &amp; rotate" aria-label="Crop &amp; rotate">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
-        <span class="tip">Crop &amp; rotate</span>
-      </button>
-      <button class="icon-btn" data-panel="presets" title="Looks" aria-label="Looks">
+      <button class="icon-btn" data-group="looks" title="Looks" aria-label="Looks and studio looks">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
         <span class="tip">Looks</span>
       </button>
-      <button class="icon-btn" data-panel="layers" title="Layers" aria-label="Layers"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/></svg><span class="tip">Layers</span></button>
-      <button class="icon-btn" data-panel="masks" title="Masks" aria-label="Masks"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><circle cx="12" cy="12" r="4"/><path d="M4 9h4M16 9h4"/></svg><span class="tip">Masks</span></button>
-      <button class="icon-btn" data-panel="exportcenter" title="Export Center" aria-label="Export Center"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg><span class="tip">Export</span></button>
-      <button class="icon-btn" data-panel="colorlab" title="Scopes" aria-label="Color scopes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16"/><path d="m6 16 4-5 3 2 5-7"/></svg><span class="tip">Scopes</span></button>
-      <button class="icon-btn" data-panel="design" title="Design" aria-label="Text and watermark tools"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5h14M12 5v14M8 19h8"/><path d="M7 5 4 19M17 5l3 14"/></svg><span class="tip">Design</span></button>
-      <button class="icon-btn" data-panel="project" title="Project" aria-label="Project save and load"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h12l4 4v12H4z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></svg><span class="tip">Project</span></button>
-      <button class="icon-btn" data-panel="studio" title="Studio" aria-label="Studio filters, themes, templates and video frames">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="m7 15 3-3 2 2 3-4 2 3"/><circle cx="8" cy="9" r="1"/></svg>
-        <span class="tip">Studio</span>
+      <button class="icon-btn" data-group="frame" title="Frame" aria-label="Crop, rotate, graduated filter and masks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/></svg>
+        <span class="tip">Frame</span>
       </button>
-      <button class="icon-btn" data-panel="pro" title="Pro Lab" aria-label="Advanced pixel engines">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16v16H4z"/><path d="M8 8h8v8H8z"/><path d="M8 2v4M16 2v4M8 18v4M16 18v4M2 8h4M18 8h4M2 16h4M18 16h4"/></svg><span class="tip">Pro Lab</span>
-      </button>
-      <button class="icon-btn" data-panel="ai" title="AI Panel" aria-label="Local AI-style assistant">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 14 8l5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/><path d="M19 16v5M16.5 18.5h5"/></svg><span class="tip">AI Panel</span>
-      </button>
-      <button class="icon-btn" data-panel="sense" title="SENSE Camera" aria-label="SENSE camera capture">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h3l2-2h6l2 2h3v12H4z"/><circle cx="12" cy="13" r="4"/><circle cx="12" cy="13" r="1"/></svg><span class="tip">SENSE</span>
+      <button class="icon-btn" data-group="layers" title="Layers &amp; text" aria-label="Layers and design text">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 16 9 5 9-5"/></svg><span class="tip">Layers &amp; Text</span></button>
+      <button class="icon-btn" data-group="output" title="Output" aria-label="Export center and projects">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg><span class="tip">Output</span></button>
+      <button class="icon-btn" data-group="tools" title="Assistant &amp; camera" aria-label="AI assistant and SENSE camera">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 14 8l5 2-5 2-2 5-2-5-5-2 5-2 2-5Z"/><path d="M19 16v5M16.5 18.5h5"/></svg><span class="tip">Tools</span>
       </button>
     </div>
 
@@ -781,6 +816,47 @@
       <div class="panel-section" data-section="ai"><h3 class="panel-title">AI Panel</h3><p class="panel-sub">Fast local analysis and style actions. No photo is sent to a server.</p><div class="ai-card"><h4>Lucid Intelligence</h4><div class="ai-status" id="aiStatus">Ready to inspect the image.</div><div class="engine-badge">LOCAL VISION ENGINE</div><div class="studio-tool"><div class="pro-title">AI enhancement stack</div><p class="studio-note">Runs locally with histogram analysis, adaptive tone, clarity, denoise, and color balance. No API key or photo upload.</p><button class="btn btn-primary" id="aiEnhanceBtn" style="width:100%;justify-content:center">Run AI Enhance</button></div><div class="studio-grid" id="aiActions"></div></div></div>
       <!-- SENSE CAMERA -->
       <div class="panel-section" data-section="sense"><h3 class="panel-title">SENSE → Lucid</h3><p class="panel-sub">Capture a camera frame locally, then send it directly into the Lucid editor.</p><video id="senseVideo" class="sense-video" autoplay muted playsinline></video><canvas id="senseCapture" style="display:none"></canvas><div class="sense-actions"><button class="btn btn-primary" id="senseStart">Start camera</button><button class="btn" id="senseStop" disabled>Stop</button></div><button class="btn" id="senseSnap" style="width:100%;justify-content:center;margin-top:8px" disabled>Capture to Lucid</button><p class="studio-note" id="senseStatus">Camera permission is requested only when you press Start camera.</p></div>
+
+      <!-- VOICE STUDIO -->
+      <div class="panel-section" data-section="voices">
+        <h3 class="panel-title">Voice Studio 🎙</h3>
+        <p class="panel-sub">Bol kar edit karo — Hinglish ya English. Har cheez browser me hi hoti hai — <b>koi API key nahi lagti</b>, koi upload nahi hota.</p>
+        <span class="voice-badge">mic = browser speech</span><span class="voice-badge">offline grade</span><span class="voice-badge">photos + videos</span>
+        <button class="voice-mic-btn" id="voiceMic" title="Mic on/off (shortcut: hold V)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" fill-opacity="0.12"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/><path d="M8 22h8"/></svg>
+        </button>
+        <div class="voice-status" id="voiceStatus">Tap the mic, hold V, ya niche chip tap karke try bina mic.</div>
+        <textarea id="voiceTranscript" class="voice-transcript" placeholder="…ya yahan type kar do (same engine chalii hogi)" spellcheck="false"></textarea>
+        <div class="voice-chip-row">
+          <select id="voiceLang" class="pro-input" style="max-width:150px" aria-label="Voice language">
+            <option value="hi-IN">Bolchal Hindi (hi-IN)</option>
+            <option value="en-IN">English (en-IN)</option>
+          </select>
+          <button class="voice-chip" id="voiceRunTyped">Run typed voice</button>
+        </div>
+        <div class="voice-chip-row" id="voiceSampleRow"></div>
+        <div class="voice-note" style="margin-top:10px">Confirm sound:</div>
+        <div class="toolkit-row"><button class="voice-chip" id="voiceConfirmToggle">🔊 Confirmation: ON</button></div>
+        <div class="voice-log" id="voiceLog" aria-live="polite"></div>
+        <div class="voice-video-ctl" id="voiceVideoCtl" style="display:none">
+          <h4>Video editing (local)</h4>
+          <div class="row">
+            <button class="voice-chip" id="vidPlayBtn">▶ Play / ⏸ Pause</button>
+            <button class="voice-chip" id="vidMuteBtn">🔊 Sound on/off</button>
+          </div>
+          <div class="row"><label class="toolkit-muted">Speed <input id="vidSpeed" class="pro-input num" type="number" min="0.25" max="4" step="0.25" value="1"></label>
+          <span class="toolkit-muted" id="vidTime">0:00 / 0:00</span></div>
+          <div class="row">
+            <button class="voice-chip" id="vidTrimIn">⚑ Trim start here</button>
+            <button class="voice-chip" id="vidTrimOut">⚑ Trim end here</button>
+          </div>
+          <div class="row"><span class="toolkit-muted" id="vidTrimInfo">Trim: full clip</span></div>
+          <div class="row"><button class="voice-chip" id="vidVoiceoverToggle">🎙 Narration: OFF</button>
+            <button class="voice-chip" id="vidExportBtn" style="border-color:#7c5cff;color:#cdbaff">⬇ Export video (WebM)</button></div>
+          <p class="toolkit-note" id="vidStatus">Video grade live preview + recorded export dono browser me hi hote hain. Export me clip unchanged chala kar record hota hai, isliye (out−in) jitna time leta hai.</p>
+        </div>
+        <p class="toolkit-note" id="voiceEngineNote">Engine: browser speech recognition (hi-IN/en-IN) + Lucid ka local command grammar. Advanced model keys ki zarurat nahi — sab kuch tumhare browser me chalta hai.</p>
+      </div>
       <!-- PRESETS -->
       <div class="panel-section" data-section="presets">
         <h3 class="panel-title">Looks</h3>
@@ -792,7 +868,7 @@
   </div>
 </div>
 
-<input type="file" id="fileInput" accept="image/*">
+<input type="file" id="fileInput" accept="image/*,video/*">
 <input type="file" id="videoInputHidden" accept="video/*" style="display:none">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -1288,16 +1364,42 @@
     presetGrid.appendChild(card);
   });
 
-  /* ============================= PANEL SWITCHING ============================= */
+  /* ============================= PANEL SWITCHING (consolidated groups) ============================= */
+  const RAIL_GROUPS = {
+    voice:['voices'], light:['adjust','curves','tone'], color:['color','colorlab'],
+    effects:['detail','pro'], looks:['presets','studio'], frame:['crop','local','masks'],
+    layers:['layers','design'], output:['exportcenter','project'], tools:['ai','sense']
+  };
+  const SUBTAB_LABELS = { adjust:'Light', curves:'Curves', tone:'Split Tone', color:'Color', colorlab:'Scopes', detail:'Finish', pro:'Pro Lab', presets:'Looks', studio:'Studio Grabs', crop:'Crop & rotate', local:'Graduated', masks:'Masks', layers:'Layers', design:'Text', exportcenter:'Export Center', project:'Projects', ai:'Assistant', sense:'Camera', voices:'Voice Studio' };
+  let subtabBar=null;
+  function showEditorSection(sec){
+    document.querySelectorAll('.panel-section').forEach(s => s.classList.toggle('visible', s.dataset.section === sec));
+    if(subtabBar){ subtabBar.querySelectorAll('.subtab').forEach(t => t.classList.toggle('active', t.dataset.target === sec)); }
+    if(sec !== 'crop' && cropMode) exitCropMode(false);
+    if(sec === 'voices' && window.lucidVoiceHint) window.lucidVoiceHint();
+  }
   document.querySelectorAll('.icon-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.icon-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const target = btn.dataset.panel;
-      document.querySelectorAll('.panel-section').forEach(s => {
-        s.classList.toggle('visible', s.dataset.section === target);
+      const group = btn.dataset.group || btn.dataset.panel;
+      const sections = RAIL_GROUPS[group] || [group];
+      document.querySelectorAll('.panel-section').forEach(s => s.classList.remove('visible'));
+      /* build/refresh the sub-tab bar above the first section */
+      if(!subtabBar){
+        subtabBar = document.createElement('div'); subtabBar.className = 'subtab-bar';
+        const first = document.querySelector('.panel-section');
+        if(first && first.parentNode) first.parentNode.insertBefore(subtabBar, first);
+      }
+      subtabBar.innerHTML = '';
+      sections.forEach((sec,i) => {
+        const t = document.createElement('button'); t.className = 'subtab' + (i===0?' active':'');
+        t.dataset.target = sec; t.textContent = SUBTAB_LABELS[sec] || sec.charAt(0).toUpperCase()+sec.slice(1);
+        t.addEventListener('click', () => showEditorSection(sec));
+        subtabBar.appendChild(t);
       });
-      if(target !== 'crop' && cropMode) exitCropMode(false);
+      subtabBar.classList.toggle('show', sections.length > 1);
+      showEditorSection(sections[0]);
     });
   });
 
@@ -1341,7 +1443,7 @@
   dropZone.addEventListener('click', openFileDialog);
   fileInput.addEventListener('change', e => {
     const f = e.target.files && e.target.files[0];
-    if(f) loadImageFile(f);
+    if(f) { if(f.type.startsWith('video/')) openMediaFile(f); else loadImageFile(f); }
     // Reset so choosing the exact same photo again still fires 'change'
     e.target.value = '';
   });
@@ -1355,14 +1457,16 @@
   dropZone.addEventListener('drop', e => {
     e.preventDefault(); e.stopPropagation();
     const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if(f && f.type.startsWith('image/')) loadImageFile(f);
+    if(f && f.type.startsWith('video/')) openMediaFile(f);
+    else if(f && f.type.startsWith('image/')) loadImageFile(f);
     else if(f) showToast('That file isn\u2019t an image — try a JPG, PNG, WEBP or GIF.');
   });
   canvasArea.addEventListener('dragover', e => e.preventDefault());
   canvasArea.addEventListener('drop', e => {
     e.preventDefault();
     const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
-    if(f && f.type.startsWith('image/')) loadImageFile(f);
+    if(f && f.type.startsWith('video/')) openMediaFile(f);
+    else if(f && f.type.startsWith('image/')) loadImageFile(f);
     else if(f) showToast('That file isn\u2019t an image — try a JPG, PNG, WEBP or GIF.');
   });
 
@@ -1803,6 +1907,7 @@
     requestAnimationFrame(() => { renderScheduled = false; renderPreview(); });
   }
   function renderPreview(){
+    if(typeof lucidMedia !== 'undefined' && lucidMedia.mode && lucidMedia.el){ renderMediaFrame(previewCanvas.getContext('2d'), previewCanvas); return; }
     if(!state.loaded) return;
     if(compareActive){ renderCompare(); return; }
     const { canvas: result } = processToCanvas(state.previewSource);
@@ -2118,7 +2223,8 @@
   exportDropdown.querySelectorAll('.dropdown-item').forEach(item => {
     item.addEventListener('click', () => {
       exportDropdown.classList.remove('open');
-      exportImage(item.dataset.format);
+      if(item.dataset.format === 'webm') exportMedia();
+      else exportImage(item.dataset.format);
     });
   });
   function exportImage(format){
@@ -2503,10 +2609,495 @@
     }
     if(d.type==='lucidBatchApply'&&typeof d.preset==='string'){try{const p2=presets.find(p=>p.name.toLowerCase()===d.preset.toLowerCase());if(p2){state.adjust=Object.assign(clone(defaults.adjust),p2.adjust);state.detail=Object.assign(clone(defaults.detail),p2.detail);state.fx=Object.assign(clone(defaults.fx),p2.fx);state.curves=clone(defaults.curves);state.tone=clone(defaults.tone);state.local=clone(defaults.local);syncControls();scheduleRender();pushHistory();crossfadePreview();}}catch(e){}}
     if(d.type==='lucidBatch')try{batchInput.click()}catch(e){}
-  });
-  /* Expose the bridge for same-origin callers (portfolio page / tests) */
-  try{window.lucidBatch=function(){try{batchInput.click()}catch(e){}};window.lucidBatchInfo=function(){return{ready:!!(batchInput&&batchRunBtn)}}}catch(e){}
+  });  /* =================== VOICE STUDIO + MEDIA ENGINE (owner's order, 15 Oct 2026) ===================
+     "Lucid me voice editing — photos aur videos dono bol kar edit". Poora engine browser-local:
+     STT = browser SpeechRecognition (hi-IN/en-IN, zero keys), commands = Lucid ka apna
+     Hinglish grammar, video grade = canvas pipeline, video export = MediaRecorder (WebM).
+     Photograph mode ka pura editing engine untouched rehta hai — ye uske UPAR band hai. */
 
+  /* ---- media state (video mode) ---- */
+  const lucidMedia = { mode:false, el:null, url:'', label:'', trimIn:0, trimOut:0, speed:1,
+    muted:false, exporting:false, voActive:false, voStream:null, ac:null, srcNode:null, destNode:null, micNode:null, raf:0 };
+  window.lucidMedia = lucidMedia; window.openMediaFile = openMediaFile;
+  function fmtT(s){ if(!isFinite(s)) s=0; s=Math.max(0,Math.floor(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+  function openMediaFile(file){
+    if(!file || !String(file.type||'').startsWith('video/')){ showToast('That file is not a video.'); return; }
+    closeMediaResource();
+    const v = document.createElement('video');
+    v.playsInline = true; v.preload = 'auto'; v.crossOrigin = 'anonymous';
+    lucidMedia.url = URL.createObjectURL(file);
+    lucidMedia.el = v; lucidMedia.label = file.name || 'video';
+    v.src = lucidMedia.url;
+    v.addEventListener('loadedmetadata', () => {
+      lucidMedia.trimIn = 0; lucidMedia.trimOut = v.duration || 0; lucidMedia.speed = 1; lucidMedia.muted = false;
+      const hold = state.loaded; state.loaded = false; /* media mode uses its own preview path */
+      showEditor(); state.loaded = hold;
+      dropZone.style.display = 'none';
+      previewCanvas.style.display = 'block';
+      dimsBadge.style.display = 'block';
+      histWrap.style.display = 'none'; compareBtn.style.display = 'none';
+      fileNameEl.textContent = lucidMedia.label;
+      renderMediaFrame(previewCanvas.getContext('2d'), previewCanvas);
+      const vh = document.getElementById('voiceVideoCtl'); if(vh) vh.style.display = 'grid';
+      const ev = document.getElementById('exportVideoItem'); if(ev) ev.style.display = 'flex';
+      const f = document.querySelector('.icon-btn[data-group="voice"]'); if(f) f.click();
+      document.querySelectorAll('.subtab').forEach(t => t.classList.toggle('active', t.dataset.target === 'voices'));
+      vUpdateTrim(); vUpdateTime();
+      showToast('Video khul gaya — Voice Studio me edit karo. Bol kar ya chips se.');
+    }, { once:true });
+    v.addEventListener('play', () => startMediaRaf());
+    v.addEventListener('pause', () => { stopMediaRaf(); scheduleRender(); });
+    v.addEventListener('error', () => { showToast('Ye video browser me load nahi hui (codec unsupported?).'); closeMediaResource(); });
+  }
+  function closeMediaResource(){
+    if(lucidMedia.el) try{ lucidMedia.el.pause(); }catch(e){}
+    if(lucidMedia.voStream) lucidMedia.voStream.getTracks().forEach(t => t.stop());
+    if(lucidMedia.ac){ try{ lucidMedia.ac.close(); }catch(e){} }
+    lucidMedia.voActive = false; lucidMedia.voStream = null; lucidMedia.ac = null; lucidMedia.srcNode = null;
+    if(lucidMedia.url) try{ URL.revokeObjectURL(lucidMedia.url); }catch(e){}
+    if(lucidMedia.raf) cancelAnimationFrame(lucidMedia.raf); lucidMedia.raf = 0;
+    lucidMedia.el = null; lucidMedia.mode = false;
+    const vh = document.getElementById('voiceVideoCtl'); if(vh) vh.style.display = 'none';
+    const ev = document.getElementById('exportVideoItem'); if(ev) ev.style.display = 'none';
+  }
+  function drawMediaGrade(ctx, W, H){
+    const v = lucidMedia.el; if(!v || !v.videoWidth) return;
+    ctx.filter = buildFilterString();
+    ctx.drawImage(v, 0, 0, W, H);
+    ctx.filter = 'none';
+    /* TV-grade cheap ops only — pixel-loops (sharpen/temp/LUT) video frames pe live skip;
+       photo mode me poora pipeline banata hai. Vignette + grain + text are GPU-cheap. */
+    if(state.detail.vignette > 0) applyVignette(ctx, W, H);
+    if(state.detail.grain > 0) applyGrain(ctx, W, H);
+    if(state.design && state.design.text) applyDesignOverlay(ctx, W, H);
+  }
+  function renderMediaFrame(ctx, canvas){
+    const v = lucidMedia.el; if(!v || !v.videoWidth || !canvas) return;
+    const scale = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight));
+    const W = Math.max(2, Math.round(v.videoWidth*scale)), H = Math.max(2, Math.round(v.videoHeight*scale));
+    if(canvas.width !== W) canvas.width = W; if(canvas.height !== H) canvas.height = H;
+    drawMediaGrade(ctx, W, H);
+    dimsBadge.textContent = isFinite(v.duration)? (fmtT(v.currentTime)+' / '+fmtT(v.duration)+' · '+W+'×'+H) : (''+W+'×'+H);
+    const vt = document.getElementById('vidTime'); if(vt) vt.textContent = fmtT(v.currentTime)+' / '+fmtT(v.duration||0);
+  }
+  function mediaTick(){
+    if(!lucidMedia.mode || !lucidMedia.el) return;
+    scheduleRender();
+    lucidMedia.raf = requestAnimationFrame(mediaTick);
+  }
+  function startMediaRaf(){ if(!lucidMedia.raf) lucidMedia.raf = requestAnimationFrame(mediaTick); }
+  function stopMediaRaf(){ if(lucidMedia.raf){ cancelAnimationFrame(lucidMedia.raf); lucidMedia.raf = 0; } }
+  function mediaPlay(){ const v=lucidMedia.el; if(!v) return false; if(v.paused){ v.play().catch(()=>{}); return true; } v.pause(); return true; }
+  function vUpdateTrim(){ const v=lucidMedia.el; if(!v) return; const el=document.getElementById('vidTrimInfo'); if(el) el.textContent = (lucidMedia.trimIn>0.01||lucidMedia.trimOut<(v.duration||0)-0.01)? ('Trim: '+fmtT(lucidMedia.trimIn)+' → '+fmtT(lucidMedia.trimOut)) : 'Trim: full clip'; }
+  function vUpdateTime(){ const v=lucidMedia.el; const vt=document.getElementById('vidTime'); if(v&&vt) vt.textContent=fmtT(v.currentTime)+' / '+fmtT(v.duration||0); }
+  function mediaAudioGraph(){
+    const v = lucidMedia.el; if(!v) return null;
+    if(!lucidMedia.ac){
+      try{
+        lucidMedia.ac = new (window.AudioContext||window.webkitAudioContext)();
+        lucidMedia.srcNode = lucidMedia.ac.createMediaElementSource(v);
+        lucidMedia.destNode = lucidMedia.ac.createMediaStreamDestination();
+        lucidMedia.srcNode.connect(lucidMedia.destNode);
+      }catch(e){ return null; }
+    }
+    return lucidMedia.ac.state === 'running' || lucidMedia.ac.resume ? lucidMedia.ac : null;
+  }
+  async function exportMedia(){
+    const v = lucidMedia.el; if(!v || lucidMedia.exporting) return;
+    const dur = isFinite(v.duration)? v.duration : 0;
+    const inS = Math.max(0, Math.min(lucidMedia.trimIn, dur - 0.1));
+    const outS = Math.max(inS + 0.2, Math.min(lucidMedia.trimOut, dur || 1e9));
+    const speed = Math.max(0.25, Math.min(4, lucidMedia.speed || 1));
+    const span = (outS - inS) / speed;
+    if(span > 180 && !window.confirm('Export ' + Math.round(span/60) + ' minute ka hoga (is lambe clip bina jhatke chalta hai) — chalu rahega?')) return;
+    lucidMedia.exporting = true;
+    const vStatus = document.getElementById('vidStatus');
+    const setSt = t => { if(vStatus) vStatus.textContent = t; };
+    setSt('Export taiyaari ho rahi hai…');
+    try{
+      const W0 = v.videoWidth || 1280, H0 = v.videoHeight || 720;
+      const cap = Math.min(1, 1920 / Math.max(W0, H0));
+      const W = Math.round(W0*cap/2)*2, H = Math.round(H0*cap/2)*2;
+      const canv = document.createElement('canvas'); canv.width = W; canv.height = H;
+      const xctx = canv.getContext('2d');
+      const stream = canv.captureStream(24);
+      const ac = mediaAudioGraph();
+      if(ac){ try{ await ac.resume(); }catch(e){} }
+      if(lucidMedia.voActive && navigator.mediaDevices.getUserMedia){
+        try{
+          lucidMedia.voStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          if(ac && lucidMedia.destNode){ lucidMedia.micNode = ac.createMediaStreamSource(lucidMedia.voStream); lucidMedia.micNode.connect(lucidMedia.destNode); }
+          else { lucidMedia.voStream.getAudioTracks().forEach(t => stream.addTrack(t)); }
+        }catch(e){ voiceLogPush('🎙 mic permission nahi mili — bina narration export.', true); }
+      }
+      if(ac && lucidMedia.destNode) lucidMedia.destNode.stream.getAudioTracks().forEach(t => { if(!stream.getAudioTracks().includes(t)) stream.addTrack(t); });
+      const mimeTypes = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+      const mime = mimeTypes.find(m => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+      if(!window.MediaRecorder){ throw new Error('is browser me MediaRecorder nahi hai — Chrome/Edge try karo'); }
+      const rec = new MediaRecorder(stream, Object.assign({ videoBitsPerSecond: 8000000 }, mime?{mimeType:mime}:{}));
+      const parts = [];
+      rec.ondataavailable = e => { if(e.data && e.data.size) parts.push(e.data); };
+      const done = new Promise(res => { rec.onstop = res; });
+      const tag = lucidMedia.voActive? ' (narration saath me record ho rahi)' : '';
+      setSt('Recording… 0 s' + tag); rec.start(700);
+      v.pause(); v.currentTime = inS; v.muted = false; v.playbackRate = speed;
+      const wasSay = v.muted; v.muted = false;
+      await new Promise(r => setTimeout(r, 140));
+      await v.play().catch(()=>{});
+      startMediaRaf();
+      let el2 = 0; const t0 = performance.now();
+      const tick = setInterval(() => { el2 = (performance.now() - t0)/1000; setSt('Recording… ' + Math.round(el2) + ' / ' + Math.round(span) + ' s' + tag); }, 500);
+      const drawLoop = () => { drawMediaGrade(xctx, W, H); if(lucidMedia.exporting) requestAnimationFrame(drawLoop); };
+      requestAnimationFrame(drawLoop);
+      const stopAt = () => { if(lucidMedia.exporting){ lucidMedia.exporting = false; try{ rec.stop(); }catch(e){} } };
+      v.addEventListener('timeupdate', function te(){ if(v.currentTime >= outS - 0.03 || v.ended){ v.removeEventListener('timeupdate', te); stopAt(); } });
+      setTimeout(stopAt, (span + 1.6) * 1000);
+      await done;
+      clearInterval(tick); stopMediaRaf();
+      v.pause(); v.muted = wasSay; v.playbackRate = 1; lucidMedia.playbackSpeed = 1;
+      const blob = new Blob(parts, { type: 'video/webm' });
+      downloadBlob(blob, 'lucid-video-' + Date.now() + '.webm');
+      setSt('Recording ⬇ ' + (parts.length? (blob.size/1048576).toFixed(1)+' MB WebM saved (graded'+tag.trim()+')' : 'failed — frame nahi capture hue')); showToast('Video exported (WebM).');
+      voiceLogPush('⬇ video export done — trim, speed aur grade ke saath' + tag + '.', false);
+    }catch(err){
+      setSt('Export fail: ' + (err.message || err)); showToast('Video export fail — '+ (err.message||err)); voiceLogPush('⬇ export fail: ' + (err.message || err), true);
+    }finally{
+      lucidMedia.exporting = false;
+      if(lucidMedia.voStream){ try{ lucidMedia.voStream.getTracks().forEach(t => t.stop()); }catch(e){} } lucidMedia.voStream = null;
+    }
+  }
+  function setMediaSpeed(x){ x = Math.max(0.25, Math.min(4, Number(x)||1)); lucidMedia.speed = x; if(lucidMedia.el) lucidMedia.el.playbackRate = x; const s = document.getElementById('vidSpeed'); if(s) s.value = x; voiceLogPush('⏩ speed '+x+'x', false); }
+  function setMediaMute(m){ lucidMedia.muted = !!m; if(lucidMedia.el) lucidMedia.el.muted = lucidMedia.muted; const b = document.getElementById('vidMuteBtn'); if(b) b.textContent = lucidMedia.muted? '🔇 Sound off':'🔊 Sound on'; }
+  window.closeMedia = closeMediaResource; window.exportMedia = exportMedia; window.setMediaSpeed = setMediaSpeed; window.mediaPlay = mediaPlay; window.setMediaMute = setMediaMute;
+
+  /* ---- VOICE: STT + Hinglish command grammar ---- */
+  const NUMWORDS = { ek:1, do:2, teen:3, char:4, chaar:4, panch:5, paanch:5, chhe:6, che:6, saat:7, aath:8, nau:9, das:10, pandrah:15, bees:20, pachees:25, tees:30, paintees:35, chaalees:40, pachas:50, pachaas:50, saath:60, sattar:70, assi:80, nabbe:90, sau:100 };
+  const QUALIFIERS = [ [/(thoda|thore|zara|slight|little|kadang)/, 8], [/(bahut|bohot|much|strong|full on|perdish)/, 45], [/(extreme|ekdum|max)/, 70] ];
+  const KEYMAP = [
+    ['exposure', /(ekspozr?|ekspozer?|exposure|एक्सपोजर|एक्सपोज़र)/],
+    ['brightness', /(brightness|chamak|chamkan|चमक|रोशनी|roshni|light karo)/],
+    ['contrast', /(contrast|कॉन्ट्रास्ट|कन्ट्रास्ट)/],
+    ['saturation', /(saturation|colou?rs? (badh|kum|karo)|रंग|rangteez)/],
+    ['hue', /(hue|color? shift|रंग बदल)/],
+    ['temperature', /(temperature|warm(?:th)?|garmi|garma|गर्म|thandak|ठंड|cool (?:tone|karo)|kool)/],
+    ['tint', /\btint\b/],
+    ['sharpen', /(sharp(?:en)?|tez|तेज़|क्रिस्टल)/],
+    ['blur', /\bblur\b|dhundh|धुंध|soft( ?focus)?|backre/],
+    ['grain', /\bgrain\b|film ?grain/],
+    ['vignette', /(vig?net?t?e?|किनारे काले|corners dark)/],
+    ['clarity', /(clarit\w*|cristal clear|khul kar dikha)/],
+    ['bloom', /\bglow\b|\bbloom\b/],
+    ['bokeh', /(boke|बोक?े|depth (?:of )?field)/],
+    ['chromatic', /chromat\w*/],
+    ['halation', /(hala\w*)/]
+  ];
+  const CMDMAP = [
+    ['undo', /\bundo\b|वापस|पीछे/],
+    ['redo', /\bredo\b|फिर से चला दो/],
+    ['reset', /\breset\b|original (?:photo|image) wapis|sab zero|रीसेट/],
+    ['auto', /auto ?(enhance|fix|फिक्स)?/],
+    ['bw', /blackwhite|black ?white|b ?& ?w|b and w|monochrome|gr[ae]yscale/],
+    ['sepia',/\bsepia\b|old ?photo/],
+    ['invert',/invert|negative/],
+    ['applyCrop', /apply (?:the )?crop|crop apply|लो। ट ठ क दो/],
+    ['cancelCrop', /cancel(?: ?crop)?|crop cancel/],
+    ['squareCrop', /square ?(?:crop)?|1 ?[x×:k] ?1|एक बाहर?ा crop/],
+    ['rotL', /rotate (?:left|left side|baye)|ghuma(?: दो)? ?baye/],
+    ['rotR', /rotate ?(?:right|clock}?wise|daya\w*)|दाहिने घुमा/],
+    ['flipH', /flip ?(?:h\b|horizontal)|mirror/],
+    ['flipV', /flip (?:v(?:ertical)?\b|up ?down)/],
+    ['expVideo', /(?:export|download|save).{0,14}(?:video|clip)|video.{0,14}(?:export|download|save)/],
+    ['export', /(export|download|save) ?(?:it|photo|image|this)?\b/],
+    ['play', /^\s*play\b|chal(?:a|ao) ?$|video chal/],
+    ['pause', /^\s*(?:pause|rok|रोक|ठहर)/],
+    ['restart', /restart|shuroomu se|शुरू से/],
+    ['mute', /mute|आवा圈 ?बंद|sound off|awaz band/],
+    ['unmute', /unmute|आवाज ?चालू|sound on|awaz chalu/],
+    ['trimIn', /trim.{0,8}(?:start|shur?oohah|beginning|here)|start ?trim|yahan se/],
+    ['trimOut', /trim.{0,8}(?:end|khatam|finish|here)|end ?trim|yahan tak/],
+    ['voiceover', /(?:narration|voice ?over)|rec (?:my )?voice|awaz record/i],
+    ['micOff', /(?:mic|voice|sunna|stop list) ?(?:band|off)?|देर नहाँ बोल(?: मत)?/]
+  ];
+  function normText(t){ return String(t||'').toLowerCase().replace(/black (and|aur|&|n)[- ]?white/g, 'blackwhite').replace(/[,،]+/g,' ').replace(/\s+/g,' ').trim(); }
+  function parseAmount(clause){
+    for(const [re, q] of QUALIFIERS){ if(re.test(clause)){ return q; } }
+    let m = clause.match(/\d{1,3}/);
+    if(m){ let n = parseInt(m[0], 10); if(n > 100) n = 100; return n; }
+    for(const w in NUMWORDS){ if(new RegExp('\\b'+w+'\\b').test(clause)) return NUMWORDS[w]; }
+    return 20;
+  }
+  function parseDir(clause){
+    if(/(kam|kum|decrease|reduce|github adv|ghata|negative|less|कम|पुरा बंद|minus|down|dark karo|kala karo)/.test(clause)) return -1;
+    if(/(absolute|reso|set ?(?:ta)? ?(?:rk)?|karo value|fix karo|equals?|equal to|barabar)/.test(clause)) return 0;
+    if(/(negative value|kam karo|kam kar)/.test(clause)) return -1;
+    return 1;
+  }
+  const LOOKHINTS = [
+    ['film noir', /film ?noir|bahut kala safed/],
+    ['noir', /noir/], ['cinematic', /cinem\w+|film look|movie earing/],
+    ['vivid pop', /vivid|bright rang/], ['golden hour', /golden ?hour|suraj|sunset/],
+    ['cool mono', /cool ?mono/], ['vintage fade', /vintage/], ['faded film', /faded/],
+    ['polaroid',/polaroid/], ['matte portrait',/(matte|portrait) (polish|portrait)/], ['matte',/matte/],
+    ['cool chrome', /cool ?chrome|chrome look|editorial cool/], ['sepia classic', /sepia (classic|photo)/],
+    ['coastal blue',/coast|beach/], ['autumn journal',/autumn|pata/], ['midnight city',/midnight|night city/],
+    ['clean product',/product ?shot|clean product/], ['cyber night',/cyber|neon night/],
+    ['emerald studio',/emerald/], ['rose editorial',/rose|gulab/], ['desert film',/desert/],
+    ['arctic mono',/arctic|winter/], ['cobalt editorial',/cobalt/], ['copper cinema',/copper/],
+    ['luxe skin',/luxe|skin soft/], ['neon dusk',/neon dusk/], ['archive 1978',/archive|1978/],
+    ['high key studio',/high ?key/], ['night recovery',/night recovery|raat ko theek/],
+    ['portrait', /portrait|chehre/], ['smart',/(smart ?enhance|behtar karo)/]
+  ];
+  function minEdit(a, b){
+    if(Math.abs(a.length - b.length) > 3) return 9;
+    const m = Array.from(a), n = Array.from(b);
+    const dp = Array.from({ length: m.length+1 }, () => new Array(n.length+1).fill(0));
+    for(let i=0;i<=m.length;i++) dp[i][0]=i;
+    for(let j=0;j<=n.length;j++) dp[0][j]=j;
+    for(let i=1;i<=m.length;i++) for(let j=1;j<=n.length;j++) dp[i][j] = Math.min(dp[i-1][j]+1, dp[i][j-1]+1, dp[i-1][j-1] + (m[i-1]===n[j-1]?0:1));
+    return dp[m.length][n.length];
+  }
+  function parseVoiceCommand(raw){
+    const text = normText(raw);
+    const actions = [], unmatched = [];
+    const clauses = text.split(/\s*(?:\baur\b|\band\b|\bthen\b|\bphir\b|\bfir\b|[、।]|,)\s*/);
+    clauses.forEach(clause => {
+      const c = normText(clause); if(!c) return;
+      let done = false;
+      for(const [name, re] of CMDMAP){ if(re.test(c)){ done = true; actions.push({ type:'cmd', name: name, text:c }); break; } }
+      if(done) return;
+      for(const hint of LOOKHINTS){ if(hint[1].test(c)){ done = true; actions.push({ type:'look', name:hint[0], text:c }); break; } }
+      if(done) return;
+      for(const entry of KEYMAP){
+        if(entry[1].test(c)){
+          const dir = /thanda|thandi|cool|cool tone|thand/.test(c)? -1 : parseDir(c);
+          const amt = parseAmount(c);
+          actions.push({ type:'adj', key:entry[0], dir:dir, amt:amt, text:c }); done = true; break;
+        }
+      }
+      if(!done){
+        let best = null, bd = 9;
+        const words = c.split(' ').filter(w => w.length > 2);
+        for(const w of words){ for(const k of KEYMAP.map(q=>q[0]).concat(['undo','redo','reset','export','crop','play'])) { const d = minEdit(w, k); if(d < bd){ bd = d; best = k; } } }
+        unmatched.push(w0(c, best));
+      }
+    });
+    return { text:text, actions:actions, unmatched:unmatched };
+  }
+  function w0(clause, guess){ return clause + (guess? ' (raasta: '+guess+')' : ''); }
+
+  /* ---- voice UI + execution ---- */
+  const voiceState = { active:false, confirm:true, rec:null, tries:0 };
+  const CAPTIONS = ['brightness badhao 30','contrast kam karo','cinematic look','black and white','thoda blur karo','golden hour','rotate right','square crop','undo','export','play video','speed 2x','trim start','export video','narration start','mic band'];
+  function speak(t){
+    if(!voiceState.confirm || !(window.speechSynthesis)) return;
+    try{ const u = new SpeechSynthesisUtterance(t); const vs = speechSynthesis.getVoices().filter(v => /hi|en[-_]IN/i.test(v.lang)); if(vs.length) u.voice = vs[0]; u.rate = 1.02; u.volume = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){}
+  }
+  window.speakLine = speak;
+  function voiceLogPush(text, bad){
+    const log = document.getElementById('voiceLog'); if(!log) return;
+    const row = document.createElement('div'); row.className = 'voice-log-item' + (bad? ' bad':'');
+    row.textContent = text; log.prepend(row);
+    while(log.children.length > 30) log.removeChild(log.lastChild);
+  }
+  function captionShow(t, keep){
+    let cap = document.getElementById('voiceLive');
+    if(!cap){ cap = document.createElement('div'); cap.id = 'voiceLive'; cap.className = 'voice-caption'; canvasArea.appendChild(cap); }
+    cap.textContent = t; cap.classList.add('show');
+    clearTimeout(cap._t); cap._t = setTimeout(() => cap.classList.remove('show'), keep? 8000 : 1500);
+  }
+  function ensureAccentFAB(){
+    if(document.getElementById('voiceFab')) return;
+    const fab = document.createElement('button'); fab.id = 'voiceFab'; fab.className = 'voice-fab'; fab.title = 'Voice on/off (hold V)';
+    fab.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="2" width="6" height="12" rx="3" fill="currentColor" fill-opacity="0.12"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v5"/><path d="M8 22h8"/></svg>';
+    fab.addEventListener('click', () => toggleVoice());
+    canvasArea.appendChild(fab);
+  }
+  function adjValueFor(key){
+    if(key in state.adjust) return state.adjust[key];
+    if(key in state.detail) return state.detail[key];
+    if(key in state.pro) return state.pro[key];
+    return 0;
+  }
+  function execVoiceAction(a){
+    if(a.type === 'cmd'){
+      const n = a.name;
+      if(n === 'undo') $('#undoBtn').click();
+      else if(n === 'redo') $('#redoBtn').click();
+      else if(n === 'reset') $('#resetBtn').click();
+      else if(n === 'auto') $('#autoBtn').click();
+      else if(n === 'bw'){ state.fx.grayscale = true; state.fx.sepia = false; syncControls(); scheduleRender(); pushHistory(); }
+      else if(n === 'sepia'){ state.fx.sepia = true; state.fx.grayscale = false; syncControls(); scheduleRender(); pushHistory(); }
+      else if(n === 'invert'){ state.fx.invert = !state.fx.invert; syncControls(); scheduleRender(); pushHistory(); }
+      else if(n === 'applyCrop'){ const b=$('#applyCropBtn'); if(b) b.click(); else showToast('Crop mode me pehle jao — Frame → Crop.'); }
+      else if(n === 'cancelCrop'){ const b=$('#cancelCropBtn'); if(b && cropMode) b.click(); }
+      else if(n === 'squareCrop'){ const b = [...document.querySelectorAll('.aspect-btn')].find(x => x.textContent.trim() === '1:1'); if(b && !lucidMedia.mode){ b.click(); $('#enterCropBtn').click(); showToast('Square crop ready — "apply crop" bolo.'); } else showToast('Video mode me crop photo-mode feature hai.'); }
+      else if(n === 'rotL') $('#rotLeftBtn').click();
+      else if(n === 'rotR') $('#rotRightBtn').click();
+      else if(n === 'flipH') $('#flipHBtn').click();
+      else if(n === 'flipV') $('#flipVBtn').click();
+      else if(n === 'export') exportImage('png');
+      else if(n === 'expVideo'){ if(lucidMedia.mode) exportMedia(); else showToast('Pehle video kholo (video file drop/file-picker se).'); }
+      else if(n === 'play'){ if(lucidMedia.mode) mediaPlay(); else showToast('Pehle video kholo.'); }
+      else if(n === 'pause'){ if(lucidMedia.mode && lucidMedia.el) lucidMedia.el.pause(); }
+      else if(n === 'restart'){ if(lucidMedia.mode && lucidMedia.el){ lucidMedia.el.currentTime = lucidMedia.trimIn; } }
+      else if(n === 'mute') setMediaMute(true);
+      else if(n === 'unmute') setMediaMute(false);
+      else if(n === 'trimIn'){ if(lucidMedia.mode && lucidMedia.el){ lucidMedia.trimIn = Math.min(lucidMedia.el.currentTime || 0, lucidMedia.trimOut - 0.2); vUpdateTrim(); } else showToast('Pehle video kholo.'); }
+      else if(n === 'trimOut'){ if(lucidMedia.mode && lucidMedia.el){ lucidMedia.trimOut = Math.max(lucidMedia.el.currentTime || 0, lucidMedia.trimIn + 0.2); vUpdateTrim(); } else showToast('Pehle video kholo.'); }
+      else if(n === 'voiceover'){ toggleVoiceover(); }
+      else if(n === 'micOff'){ stopVoice(true); }
+      return 'ok';
+    }
+    if(a.type === 'look'){
+      const hit = applyLookByName(a.name);
+      if(hit) return hit.name + ' applied';
+      return 'not-found';
+    }
+    if(a.type === 'adj'){
+      const key = a.key;
+      const target = (key in state.adjust)? state.adjust : ((key in state.detail)? state.detail : state.pro);
+      if(!(key in target)){ return 'not-found'; }
+      const old = target[key];
+      let nv;
+      if(a.dir === 0) nv = a.amt;
+      else nv = old + a.dir * a.amt;
+      nv = Math.max(-100, Math.min(100, nv));
+      if(['sharpen','grain','vignette','clarity','bloom','bokeh','chromatic','halation','blur'].includes(key) && key in state.detail){ nv = Math.max(0, nv); }
+      if(key in state.pro){ nv = Math.max(0, nv); }
+      target[key] = nv;
+      syncControls(); scheduleRender(); pushHistory();
+      return key + ' ' + (nv > old? '+':'') + Math.round(nv - old) + ' → ' + Math.round(nv);
+    }
+  }
+  window.applyVoiceAction = execVoiceAction;
+  function applyLookByName(rawN){
+    const all = [
+      ...presets, ...studioFilters, ...studioThemes, ...portfolioThemes, ...professionalPresets
+    ];
+    const n = normText(rawN);
+    let hit = all.find(x => normText(x.name) === n) || null;
+    if(!hit) hit = all.find(x => normText(x.name).split(' ').some(w => n.includes(w) && w.length > 3)) || null;
+    if(!hit){ showToast('Ye look nahi mila: ' + rawN); return null; }
+    state.adjust = Object.assign(clone(defaults.adjust), hit.adjust || {});
+    state.detail = Object.assign(clone(defaults.detail), hit.detail || {});
+    state.fx = Object.assign(clone(defaults.fx), hit.fx || {});
+    if(hit.pro) state.pro = Object.assign(clone(defaults.pro), hit.pro);
+    state.curves = clone(defaults.curves); state.tone = clone(defaults.tone); state.local = clone(defaults.local);
+    syncControls(); scheduleRender(); pushHistory(); crossfadePreview();
+    return hit;
+  }
+  function speedFromText(clause){
+    const m = clause.match(/([0-9]+(?:\.[0-9])?)\s*x\b/); if(m) return parseFloat(m[1]);
+    if(/double|do guna/.test(clause)) return 2; if(/half|aadha/.test(clause)) return 0.5;
+    const w = clause.match(/\b(do|teen|char)\b/); if(w && /(x|guna|multipl)/.test(clause)) return ({do:2,teen:3,char:4})[w[1]] || 2;
+    return null;
+  }
+  function handleVoiceText(raw, fromMic){
+    const text = normText(raw); if(!text) return;
+    const res = parseVoiceCommand(text);
+    let said = [];
+    res.actions.forEach(a => {
+      if(a.type === 'cmd' && a.name === 'play'){}
+      const out = execVoiceAction(a);
+      said.push(out === 'ok'? (a.name + ' ✓') : (out === 'not-found'? (a.text + ' (nahi mila)') : out));
+    });
+    const speedM = speedFromText(text);
+    if(speedM && lucidMedia.mode){ setMediaSpeed(speedM); said.push('speed '+speedM+'x'); }
+    if(!res.actions.length && !speedM){
+      voiceLogPush('समझ नहीं आया: “' + text + '”' + (res.unmatched.length? ' — ' + res.unmatched.join(' · ') : ''), true);
+      showToast('Ye samajh nahi aaya — chips dekho ya thoda alag bolo.'); return;
+    }
+    const line = said.filter(Boolean).join(' · ');
+    voiceLogPush('🗣 “' + text + '” → ' + line, false);
+    speak(line);
+    captionShow('✔ ' + line, false);
+  }
+  function toggleVoice(forceOff){
+    const SRc = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SRc){ showToast('Is browser me speech recognition nahi hai — Chrome/Edge try karo.'); voiceLogPush('SpeechRecognition unavailable in this browser.', true); return; }
+    if(voiceState.active || forceOff){ stopVoice(false); return; }
+    voiceState.active = true; voiceState.tries = 0;
+    const micBtn = document.getElementById('voiceMic'); const fab = document.getElementById('voiceFab');
+    if(micBtn) micBtn.classList.add('listening'); if(fab) fab.classList.add('listening');
+    if(fab) fab.classList.add('show'); ensureAccentFAB(); if(fab) fab.classList.add('show');
+    startRecognition();
+  }
+  function startRecognition(){
+    const SRc = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!voiceState.active) return;
+    try{ if(voiceState.rec){ voiceState.rec.onend = null; try{ voiceState.rec.stop(); }catch(e){} } }catch(e){}
+    const r = new SRc(); voiceState.rec = r;
+    r.lang = (document.getElementById('voiceLang')||{ value:'hi-IN' }).value;
+    r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    let interim = '';
+    r.onresult = e => {
+      let fin = '';
+      for(let i = e.resultIndex; i < e.results.length; i++){
+        const rr = e.results[i];
+        if(rr.isFinal) fin += rr[0].transcript + ' ';
+        else interim = rr[0].transcript;
+      }
+      if(fin.trim()){ captionShow('… ' + fin.trim()); handleVoiceText(fin, true); }
+      else captionShow('🎙 ' + (interim || '…'), true);
+    };
+    r.onerror = e => {
+      if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){ voiceLogPush('Mic permission chahiye — browser address bar me mic icon se allow karo.', true); captionShow('🎤 permission'); stopVoice(false); }
+      else if(e.error !== 'no-speech' && e.error !== 'aborted'){ voiceLogPush('STT: ' + e.error, true); }
+    };
+    r.onend = () => { if(voiceState.active){ clearTimeout(restartT); restartT = setTimeout(() => startRecognition(), 260); } };
+    try{ r.start(); voiceSetStatus('Sun raha hoon — bol do (jaise: “brightness badhao 30”)', true); }
+    catch(err){ voiceState.tries++; if(voiceState.tries < 4) setTimeout(startRecognition, 400); else stopVoice(true); }
+  }
+  function stopVoice(user){
+    voiceState.active = false;
+    if(restartT) clearTimeout(restartT);
+    try{ if(voiceState.rec){ voiceState.rec.onend = null; voiceState.rec.stop(); } }catch(e){}
+    const micBtn = document.getElementById('voiceMic'); const fab = document.getElementById('voiceFab');
+    if(micBtn) micBtn.classList.remove('listening'); if(fab) fab.classList.remove('listening');
+    captionShow('🎙 off'); voiceSetStatus('Mic off — chips ya typed text bhi chalta hai.', false);
+  }
+  function voiceSetStatus(t, ok){ const el = document.getElementById('voiceStatus'); if(el){ el.textContent = t; el.classList.toggle('ok', !!ok); } }
+  async function toggleVoiceover(){
+    if(lucidMedia.voActive){
+      if(lucidMedia.voStream) lucidMedia.voStream.getTracks().forEach(t => t.stop());
+      lucidMedia.voStream = null; lucidMedia.voActive = false;
+      const b = document.getElementById('vidVoiceoverToggle'); if(b) b.textContent = '🎙 Narration: OFF';
+      voiceLogPush('🎙 narration off.', false); return;
+    }
+    if(!lucidMedia.mode){ showToast('Narration video ke saath chalta hai — pehle video kholo.'); return; }
+    try{ lucidMedia.voStream = await navigator.mediaDevices.getUserMedia({ audio: true }); lucidMedia.voActive = true; const b = document.getElementById('vidVoiceoverToggle'); if(b) b.textContent = '🎙 Narration: ON (export me record hogi)'; voiceLogPush('🎙 narration ready — export pe record hogi.', false); }
+    catch(e){ voiceLogPush('🎙 mic unavailable.', true); showToast('Mic nahi mila.'); }
+  }
+  /* expose for tests + AURA bridge */
+  window.lucidVoiceParse = parseVoiceCommand; window.lucidVoice = handleVoiceText;
+  addEventListener('message', function(ev){ const d = ev.data || {}; if(d.type === 'lucidVoice' && typeof d.text === 'string'){ try{ handleVoiceText(d.text, false); ev.source.postMessage({ type:'lucidVoiceOk', text:d.text }, '*'); }catch(e){} } });
+
+  /* ---- voice panel wiring ---- */
+  (function voicePanelInit(){
+    const micBtn = document.getElementById('voiceMic');
+    if(micBtn) micBtn.addEventListener('click', () => toggleVoice(false));
+    const rt = document.getElementById('voiceRunTyped');
+    if(rt) rt.addEventListener('click', () => { const t = document.getElementById('voiceTranscript'); if(t && t.value.trim()) handleVoiceText(t.value, false); });
+    const ta = document.getElementById('voiceTranscript');
+    if(ta) ta.addEventListener('keydown', e => { if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); handleVoiceText(ta.value, false); } });
+    const ct = document.getElementById('voiceConfirmToggle');
+    if(ct) ct.addEventListener('click', () => { voiceState.confirm = !voiceState.confirm; ct.textContent = voiceState.confirm? '🔊 Confirmation: ON' : '🔇 Confirmation: OFF'; });
+    const sr = document.getElementById('voiceSampleRow');
+    if(sr) CAPTIONS.forEach(s => { const c = document.createElement('button'); c.className = 'voice-chip'; c.textContent = s; c.title = 'Is command ko turant chalao (mic ki zarurat nahi)'; c.addEventListener('click', () => handleVoiceText(s, false)); sr.appendChild(c); });
+    const fab2 = ensureAccentFAB(); const fab = document.getElementById('voiceFab'); if(fab) fab.classList.add('show');
+    const vb = document.getElementById('vidPlayBtn'); if(vb) vb.addEventListener('click', mediaPlay);
+    const mt = document.getElementById('vidMuteBtn'); if(mt) mt.addEventListener('click', () => setMediaMute(!lucidMedia.muted));
+    const sp = document.getElementById('vidSpeed'); if(sp) sp.addEventListener('change', () => setMediaSpeed(sp.value));
+    const ti = document.getElementById('vidTrimIn'); if(ti) ti.addEventListener('click', () => handleVoiceText('trim start', false));
+    const to2 = document.getElementById('vidTrimOut'); if(to2) to2.addEventListener('click', () => handleVoiceText('trim end', false));
+    const vo2 = document.getElementById('vidVoiceoverToggle'); if(vo2) vo2.addEventListener('click', toggleVoiceover);
+    const ex = document.getElementById('vidExportBtn'); if(ex) ex.addEventListener('click', exportMedia);
+    /* hold V = push to talk */
+    let vDown = false;
+    addEventListener('keydown', e => { if((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.metaKey && !vDown && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){ vDown = true; if(!voiceState.active) toggleVoice(false); } });
+    addEventListener('keyup', e => { if((e.key === 'v' || e.key === 'V') && vDown){ vDown = false; if(voiceState.active) stopVoice(true); } });
+  })();
+  window.lucidVoiceHint = () => { if(lucidMedia.mode) voiceSetStatus('Video mode: grade + trim + speed + narration voice se chalte hain.', true); };
 })();
 </script>
 </body>
