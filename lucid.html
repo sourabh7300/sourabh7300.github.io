@@ -837,6 +837,20 @@
         <div class="voice-chip-row" id="voiceSampleRow"></div>
         <div class="voice-note" style="margin-top:10px">Confirm sound:</div>
         <div class="toolkit-row"><button class="voice-chip" id="voiceConfirmToggle">🔊 Confirmation: ON</button></div>
+        <div class="voice-note" style="margin-top:12px">Advanced brain — complex sentences:</div>
+        <div class="toolkit-row">
+          <select id="brainMode" class="pro-input" style="max-width:172px">
+            <option value="off">Off (sirf local)</option>
+            <option value="aura">AURA brain (no key)</option>
+            <option value="groq">My Groq key</option>
+            <option value="gemini">My Gemini key</option>
+          </select>
+        </div>
+        <div class="toolkit-row" id="brainKeyRow" style="display:none">
+          <input id="brainKey" class="pro-input" type="password" placeholder="gsk_… ya AIza… (sirf browser me)">
+          <button class="voice-chip" id="brainKeySave">Save</button>
+        </div>
+        <p class="toolkit-note" id="brainStatus">Basic commands regex engine se turant chalte hain (zero delay). Jo regex na pakde wo AI fallback ko jata hai — pehle AURA backend (no key), phir tumhari key. Keys sirf tumhare browser me save hoti hain — kabhi upload nahi.</p>
         <div class="voice-log" id="voiceLog" aria-live="polite"></div>
         <div class="voice-video-ctl" id="voiceVideoCtl" style="display:none">
           <h4>Video editing (local)</h4>
@@ -855,7 +869,7 @@
             <button class="voice-chip" id="vidExportBtn" style="border-color:#7c5cff;color:#cdbaff">⬇ Export video (WebM)</button></div>
           <p class="toolkit-note" id="vidStatus">Video grade live preview + recorded export dono browser me hi hote hain. Export me clip unchanged chala kar record hota hai, isliye (out−in) jitna time leta hai.</p>
         </div>
-        <p class="toolkit-note" id="voiceEngineNote">Engine: browser speech recognition (hi-IN/en-IN) + Lucid ka local command grammar. Advanced model keys ki zarurat nahi — sab kuch tumhare browser me chalta hai.</p>
+        <p class="toolkit-note" id="voiceEngineNote">Engine: browser speech recognition (hi-IN/en-IN) + Lucid ka local grammar — sab basic commands zero delay, zero keys. Complex sentences ke liye optional AI fallback (AURA backend ya tumhari key). Video export local WebM.</p>
       </div>
       <!-- PRESETS -->
       <div class="panel-section" data-section="presets">
@@ -2677,8 +2691,15 @@
     const W = Math.max(2, Math.round(v.videoWidth*scale)), H = Math.max(2, Math.round(v.videoHeight*scale));
     if(canvas.width !== W) canvas.width = W; if(canvas.height !== H) canvas.height = H;
     drawMediaGrade(ctx, W, H);
-    dimsBadge.textContent = isFinite(v.duration)? (fmtT(v.currentTime)+' / '+fmtT(v.duration)+' · '+W+'×'+H) : (''+W+'×'+H);
-    const vt = document.getElementById('vidTime'); if(vt) vt.textContent = fmtT(v.currentTime)+' / '+fmtT(v.duration||0);
+    /* HUD throttle — DOM text har frame pe nahi (canvas drain nahi hota), 300ms pe ek bar + FPS */
+    lucidMedia._f = (lucidMedia._f || 0) + 1;
+    const now = performance.now();
+    if(now - (lucidMedia._hudT || 0) > 300){
+      const fps = Math.round((lucidMedia._f || 0) * 1000 / Math.max(1, now - (lucidMedia._hudT || now)));
+      lucidMedia._hudT = now; lucidMedia._f = 0;
+      dimsBadge.textContent = isFinite(v.duration)? (fmtT(v.currentTime)+' / '+fmtT(v.duration)+' · '+W+'×'+H+(fps && lucidMedia.el && !lucidMedia.el.paused? ' · '+fps+' fps':'')) : (''+W+'×'+H);
+      const vt = document.getElementById('vidTime'); if(vt) vt.textContent = fmtT(v.currentTime)+' / '+fmtT(v.duration||0);
+    }
   }
   function mediaTick(){
     if(!lucidMedia.mode || !lucidMedia.el) return;
@@ -2767,6 +2788,12 @@
     }
   }
   function setMediaSpeed(x){ x = Math.max(0.25, Math.min(4, Number(x)||1)); lucidMedia.speed = x; if(lucidMedia.el) lucidMedia.el.playbackRate = x; const s = document.getElementById('vidSpeed'); if(s) s.value = x; voiceLogPush('⏩ speed '+x+'x', false); }
+  function secNum(clause){
+    const c = normText(clause || '');
+    const d = c.match(/(\d{1,4})\s*(?:seconds?|secs?|s|सेकंड)/); if(d) return parseInt(d[1], 10);
+    for(const w in NUMWORDS){ if(new RegExp('\\b' + w + '\\b\\s*(?:seconds?|secs?|़ेकंड)').test(c)) return NUMWORDS[w]; }
+    return null;
+  }
   function setMediaMute(m){ lucidMedia.muted = !!m; if(lucidMedia.el) lucidMedia.el.muted = lucidMedia.muted; const b = document.getElementById('vidMuteBtn'); if(b) b.textContent = lucidMedia.muted? '🔇 Sound off':'🔊 Sound on'; }
   window.closeMedia = closeMediaResource; window.exportMedia = exportMedia; window.setMediaSpeed = setMediaSpeed; window.mediaPlay = mediaPlay; window.setMediaMute = setMediaMute;
 
@@ -2813,8 +2840,8 @@
     ['restart', /restart|shuroomu se|शुरू से/],
     ['mute', /mute|आवा圈 ?बंद|sound off|awaz band/],
     ['unmute', /unmute|आवाज ?चालू|sound on|awaz chalu/],
-    ['trimIn', /trim.{0,8}(?:start|shur?oohah|beginning|here)|start ?trim|yahan se/],
-    ['trimOut', /trim.{0,8}(?:end|khatam|finish|here)|end ?trim|yahan tak/],
+    ['trimIn', /trim.{0,8}(?:start|shur?oohah|beginning|here)|start ?trim|yahan se|\b(?:\d+|Das|das|bees|bees|tees|chaalees|pachas|saath)\b\s*(?:seconds?|secs?|s|सेकंड)\b.{0,8}\bse\b/],
+    ['trimOut', /trim.{0,8}(?:end|khatam|finish|here)|end ?trim|yahan tak|\b(?:\d+|Das|das|bees|bees|tees|chaalees|pachas|saath)\b\s*(?:seconds?|secs?|s|सेकंड)\b.{0,8}\btak\b/],
     ['voiceover', /(?:narration|voice ?over)|rec (?:my )?voice|awaz record/i],
     ['micOff', /(?:mic|voice|sunna|stop list) ?(?:band|off)?|देर नहाँ बोल(?: मत)?/]
   ];
@@ -2942,8 +2969,26 @@
       else if(n === 'restart'){ if(lucidMedia.mode && lucidMedia.el){ lucidMedia.el.currentTime = lucidMedia.trimIn; } }
       else if(n === 'mute') setMediaMute(true);
       else if(n === 'unmute') setMediaMute(false);
-      else if(n === 'trimIn'){ if(lucidMedia.mode && lucidMedia.el){ lucidMedia.trimIn = Math.min(lucidMedia.el.currentTime || 0, lucidMedia.trimOut - 0.2); vUpdateTrim(); } else showToast('Pehle video kholo.'); }
-      else if(n === 'trimOut'){ if(lucidMedia.mode && lucidMedia.el){ lucidMedia.trimOut = Math.max(lucidMedia.el.currentTime || 0, lucidMedia.trimIn + 0.2); vUpdateTrim(); } else showToast('Pehle video kholo.'); }
+      else if(n === 'trimIn'){
+        if(lucidMedia.mode && lucidMedia.el){
+          const sec = secNum(a.text);
+          const dur = isFinite(lucidMedia.el.duration)? lucidMedia.el.duration : 0;
+          lucidMedia.trimIn = sec != null
+            ? Math.max(0, Math.min(dur - 0.2, sec))
+            : Math.min(lucidMedia.el.currentTime || 0, lucidMedia.trimOut - 0.2);
+          vUpdateTrim();
+        } else showToast('Pehle video kholo.');
+      }
+      else if(n === 'trimOut'){
+        if(lucidMedia.mode && lucidMedia.el){
+          const sec = secNum(a.text);
+          const dur = isFinite(lucidMedia.el.duration)? lucidMedia.el.duration : 0;
+          lucidMedia.trimOut = sec != null
+            ? ((/\btak\b|\bat\b|\bpar\b/).test(a.text)? Math.max(lucidMedia.trimIn + 0.2, Math.min(dur, sec)) : Math.min(Math.max(dur, lucidMedia.trimIn + sec), lucidMedia.trimIn + sec))
+            : Math.max(lucidMedia.el.currentTime || 0, lucidMedia.trimIn + 0.2);
+          vUpdateTrim();
+        } else showToast('Pehle video kholo.');
+      }
       else if(n === 'voiceover'){ toggleVoiceover(); }
       else if(n === 'micOff'){ stopVoice(true); }
       return 'ok';
@@ -3003,14 +3048,24 @@
     });
     const speedM = speedFromText(text);
     if(speedM && lucidMedia.mode){ setMediaSpeed(speedM); said.push('speed '+speedM+'x'); }
-    if(!res.actions.length && !speedM){
-      voiceLogPush('समझ नहीं आया: “' + text + '”' + (res.unmatched.length? ' — ' + res.unmatched.join(' · ') : ''), true);
-      showToast('Ye samajh nahi aaya — chips dekho ya thoda alag bolo.'); return;
+    /* N-second seek: "5 second aage", "3 seconds back", "10 second forward" */
+    const secM = text.match(/\b(\d{1,3})\s*(?:seconds?|secs?|s|सेकंड)\b/);
+    if(secM && lucidMedia.mode && lucidMedia.el && !/\btrim\b/.test(text)){
+      const n = Math.min(600, Number(secM[1]));
+      const d = /(aage|forward|skip|jaldi)/.test(text)? 1 : /(piche|back|wapas|rewind)/.test(text)? -1 : 0;
+      if(d && text.length < 46){
+        const v = lucidMedia.el, dur = isFinite(v.duration)? v.duration : 0;
+        v.currentTime = Math.max(0, Math.min(dur - 0.05, v.currentTime + d*n));
+        said.push((d>0? '⏩ +':'⏪ −') + n + 's');
+      }
     }
-    const line = said.filter(Boolean).join(' · ');
-    voiceLogPush('🗣 “' + text + '” → ' + line, false);
-    speak(line);
-    captionShow('✔ ' + line, false);
+    if(res.actions.length || speedM || said.length){
+      const line = said.filter(Boolean).concat([]).join(' · ');
+      if(line){ voiceLogPush('🗣 “' + text + '” → ' + line, false); speak(line); captionShow('✔ ' + line, false); }
+      return;
+    }
+    /* regex engine ne kuch pakda nahi — ab LLM fallback (AURA brain / user key) */
+    brainFallback(text);
   }
   function toggleVoice(forceOff){
     const SRc = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -3068,8 +3123,77 @@
     try{ lucidMedia.voStream = await navigator.mediaDevices.getUserMedia({ audio: true }); lucidMedia.voActive = true; const b = document.getElementById('vidVoiceoverToggle'); if(b) b.textContent = '🎙 Narration: ON (export me record hogi)'; voiceLogPush('🎙 narration ready — export pe record hogi.', false); }
     catch(e){ voiceLogPush('🎙 mic unavailable.', true); showToast('Mic nahi mila.'); }
   }
+  /* =================== AI BRAIN FALLBACK ===================
+     Basic regex engine delay-free (browser local). Jo sentence woh na pakde, wo sidha
+     AI brain jata hai: pehle AURA backend /v1/chat/completions (owner ka backend —
+     koi user key nahi), warna user di Groq/Gemini key (browser-local, kabhi upload nahi).
+     LLM sirf JSON actions return karta hai — validator ganda output drop karta hai. */
+  const AURA_API = 'https://aura-backend-jomj.onrender.com';
+  function brainSel(){ const s = document.getElementById('brainMode'); return s? s.value : (localStorage.getItem('lucid_brain_mode') || 'aura'); }
+  function brainKey(){ const k = document.getElementById('brainKey'); return (localStorage.getItem('lucid_brain_key') || (k? k.value : '') || '').trim(); }
+  function brainPrompt(){
+    return 'Tum Lucid Photo Studio ke editing-controller ho. User Hinglish/English me bolta hai. SIRF JSON array return karo — koi aur text nahi. Shapes: {"type":"adj","key":"<adj-key>","dir":-1|0|1,"amt":0-100} | {"type":"cmd","name":"<cmd>"} | {"type":"look","name":"<look>"}. adj keys: exposure, brightness, contrast, saturation, hue, temperature, tint, sharpen, blur, grain, vignette, clarity, bloom, bokeh, chromatic, halation. cmd names: undo, redo, reset, auto, bw, sepia, invert, applyCrop, cancelCrop, squareCrop, rotL, rotR, flipH, flipV, export, expVideo, play, pause, restart, mute, unmute, trimIn, trimOut, voiceover, micOff. Looks: Cinematic, Vivid Pop, Golden Hour, Noir, Cool Mono, Vintage Fade, Faded Film, Film Noir, Polaroid, Matte Portrait, Cool Chrome, Sepia Classic, Coastal Blue, Autumn Journal, Midnight City, Clean Product, Cyber Night, Emerald Studio, Rose Editorial, Desert Film, Arctic Mono, Cobalt Editorial, Copper Cinema, Luxe Skin, Neon Dusk, Archive 1978, High Key Studio. dir 0 = set absolute amt (100 = max). Jitna user kehta utna hi — extra mat jodo. Kuch kaam ka na ho to [].';
+  }
+  function jsonStripP(t){ let s = String(t || '').trim().replace(/^```(?:json)?/i, '').replace(/```$/,'').trim(); const m = s.match(/\[[\s\S]*\]/); return m? m[0] : s; }
+  function validateBrainActions(arr){
+    const out = [], drops = [];
+    if(!Array.isArray(arr)){ drops.push('not array'); return { ok:false, actions:out, drops:drops }; }
+    const adjKeys = KEYMAP.map(k => k[0]);
+    const cmdNames = CMDMAP.map(k => k[0]);
+    for(const it of arr.slice(0, 6)){
+      if(!it || typeof it !== 'object'){ drops.push('khaali item'); continue; }
+      if(it.type === 'adj'){
+        if(adjKeys.indexOf(it.key) < 0){ drops.push('bad adj key ' + String(it.key).slice(0,20)); continue; }
+        const dir = (it.dir === -1 || it.dir === 0 || it.dir === 1)? it.dir : 1;
+        const amt = Math.max(0, Math.min(100, Number(it.amt) || 20));
+        out.push({ type:'adj', key:it.key, dir:dir, amt:amt });
+      } else if(it.type === 'cmd'){
+        if(cmdNames.indexOf(it.name) < 0){ drops.push('bad cmd ' + String(it.name).slice(0,20)); continue; }
+        out.push({ type:'cmd', name:it.name, text:String(it.name) });
+      } else if(it.type === 'look'){
+        const nm = String(it.name || '').slice(0, 60);
+        if(!nm){ drops.push('khaali look'); continue; }
+        out.push({ type:'look', name:nm });
+      } else drops.push('unknown type ' + String(it.type).slice(0,14));
+    }
+    return { ok: out.length > 0, actions: out, drops: drops };
+  }
+  async function fetchBrainActions(text, mode){
+    const ctl = new AbortController(); const tOff = setTimeout(() => ctl.abort(), 14000);
+    try{
+      let url = '', body = null; const headers = { 'Content-Type': 'application/json' };
+      if(mode === 'groq'){ url = 'https://api.groq.com/openai/v1/chat/completions'; headers['Authorization'] = 'Bearer ' + brainKey(); body = { messages:[{role:'system',content:brainPrompt()},{role:'user',content:text}], max_tokens:420, temperature:0.2 }; }
+      else if(mode === 'gemini'){ url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + encodeURIComponent(brainKey()); body = { contents:[{ parts:[{ text: brainPrompt() + '\nUSER: ' + text }] }] }; }
+      else { url = AURA_API + '/v1/chat/completions'; body = { messages:[{role:'system',content:brainPrompt()},{role:'user',content:text}], max_tokens:420, temperature:0.2 }; }
+      const res = await fetch(url, { method:'POST', headers:headers, body: JSON.stringify(body), signal: ctl.signal });
+      if(!res.ok){ let why = ''; try{ const j = await res.json(); why = j.message || j.error || ''; }catch(e){} throw new Error('HTTP ' + res.status + (why? ' — ' + why : '')); }
+      const j = await res.json();
+      const txt = mode === 'gemini'
+        ? ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts && j.candidates[0].content.parts[0]) ? j.candidates[0].content.parts[0].text : '')
+        : (((j.choices || [])[0] || {}).message || {}).content || '';
+      let arr = null; try{ arr = JSON.parse(jsonStripP(txt)); }catch(e){}
+      return validateBrainActions(arr);
+    } finally { clearTimeout(tOff); }
+  }
+  async function brainFallback(text){
+    const mode = brainSel();
+    if(mode === 'off'){ voiceLogPush('⚠ samajh nahi aaya — chips check karo, ya Advanced brain ON karo (panel me).', true); showToast('Ye samajh nahi aaya — chips ya AI brain try karo.'); return; }
+    if(mode !== 'aura' && !brainKey()){ voiceLogPush('⚠ ' + mode + ' ki key nahi dali — Advanced me key save karo, ya AURA brain mode chalu karo.', true); showToast(mode + ' key missing — Advanced brain me daalo.'); return; }
+    voiceLogPush('🧠 AI brain se puch raha hoon (' + (mode === 'aura'? 'AURA backend' : mode) + ')…', false);
+    try{
+      const v = await fetchBrainActions(text, mode);
+      if(!v.ok){ voiceLogPush('🧠 brain ne sahi action nahi diye' + (v.drops.length? ' (' + v.drops.slice(0,2).join(', ') + ')' : '') + '.', true); return; }
+      const said = [];
+      v.actions.forEach(a => { const o = execVoiceAction(a); said.push(o === 'ok'? a.name + ' ✓' : o); });
+      const line = '🧠 “' + text + '” → ' + said.filter(Boolean).join(' · ');
+      voiceLogPush(line, false); speak(said.filter(Boolean).join(', ')); captionShow('✔ ' + line.replace('🧠 ', ''), false);
+    }catch(err){
+      const m = String(err.message || err);
+      voiceLogPush('🧠 brain fail: ' + m, true); showToast('AI brain nahi mila — ' + m);
+    }
+  }
   /* expose for tests + AURA bridge */
-  window.lucidVoiceParse = parseVoiceCommand; window.lucidVoice = handleVoiceText;
+  window.lucidVoiceParse = parseVoiceCommand; window.lucidVoice = handleVoiceText; window.lucidBrainActions = validateBrainActions; window.lucidBrainFetch = fetchBrainActions;
   addEventListener('message', function(ev){ const d = ev.data || {}; if(d.type === 'lucidVoice' && typeof d.text === 'string'){ try{ handleVoiceText(d.text, false); ev.source.postMessage({ type:'lucidVoiceOk', text:d.text }, '*'); }catch(e){} } });
 
   /* ---- voice panel wiring ---- */
@@ -3098,6 +3222,20 @@
     addEventListener('keyup', e => { if((e.key === 'v' || e.key === 'V') && vDown){ vDown = false; if(voiceState.active) stopVoice(true); } });
   })();
   window.lucidVoiceHint = () => { if(lucidMedia.mode) voiceSetStatus('Video mode: grade + trim + speed + narration voice se chalte hain.', true); };
+  /* AURA bridge repair — lucidBatch expose restore (Edit-5 me galti se gayab hua tha) */
+  try{window.lucidBatch=function(){try{batchInput.click()}catch(e){}};window.lucidBatchInfo=function(){return{ready:!!(batchInput&&batchRunBtn)}}}catch(e){}
+  /* ---- Advanced brain panel wiring (mode + optional user key) ---- */
+  (function brainPanelInit(){
+    const sel = document.getElementById('brainMode'); if(!sel) return;
+    const savedMode = localStorage.getItem('lucid_brain_mode');
+    if(savedMode){ try{ sel.value = savedMode; }catch(e){} }
+    const kr = document.getElementById('brainKeyRow'); const kb = document.getElementById('brainKey');
+    if(localStorage.getItem('lucid_brain_key') && kb) kb.value = localStorage.getItem('lucid_brain_key');
+    const wire = () => { if(kr) kr.style.display = (sel.value === 'groq' || sel.value === 'gemini')? 'flex' : 'none'; };
+    wire();
+    sel.addEventListener('change', () => { localStorage.setItem('lucid_brain_mode', sel.value); wire(); voiceLogPush('🧠 advanced brain: ' + sel.value, false); });
+    const bs = document.getElementById('brainKeySave'); if(bs) bs.addEventListener('click', () => { if(kb) localStorage.setItem('lucid_brain_key', kb.value.trim()); localStorage.setItem('lucid_brain_mode', sel.value); voiceLogPush('🧠 key sirf browser me save hui (kabhi upload nahi).', false); });
+  })();
 })();
 </script>
 </body>
