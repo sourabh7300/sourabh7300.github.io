@@ -41,7 +41,7 @@ const STATE_VERSION = 2;
    `research` is the live-web query ARTHUR studies before writing code. */
 const MISSIONS = [
   {
-    id: "lane-self-heal",
+    id: "lane-self-heal", prio: 0,
     title: "Self-healing brain lane",
     goal: "When the backend/brain lane fails mid-answer, retry with backoff and show honest lane state instead of a dead spinner.",
     research: "LLM client retry with exponential backoff and jitter best practices",
@@ -49,7 +49,7 @@ const MISSIONS = [
     done: /AURA_LANE_HEAL/
   },
   {
-    id: "offline-outbox",
+    id: "offline-outbox", prio: 0,
     title: "Offline outbox",
     goal: "Queue messages that failed to send (no net / backend asleep) and flush them automatically when the lane is healthy again.",
     research: "offline first web app outbox queue pattern service worker background sync",
@@ -57,7 +57,7 @@ const MISSIONS = [
     done: /AURA_OFFLINE_OUTBOX/
   },
   {
-    id: "citation-integrity",
+    id: "citation-integrity", prio: 0,
     title: "Citation integrity",
     goal: "Every research answer must carry numbered sources; unsupported claims get flagged instead of presented as fact.",
     research: "retrieval augmented generation citation verification and groundedness checks",
@@ -65,7 +65,7 @@ const MISSIONS = [
     done: /AURA_CITATION_GUARD/
   },
   {
-    id: "error-explainer",
+    id: "error-explainer", prio: 1,
     title: "Failure explainer",
     goal: "A panel that explains the last few lane failures in plain language with the exact next action.",
     research: "human readable error surfacing and actionable failure messages UX",
@@ -73,7 +73,7 @@ const MISSIONS = [
     done: /AURA_FAIL_EXPLAINER/
   },
   {
-    id: "memory-compaction",
+    id: "memory-compaction", prio: 2,
     title: "Memory compaction",
     goal: "Long-term memory compacts old facts into summaries instead of silently dropping them.",
     research: "long term memory summarization compaction for AI assistants",
@@ -81,7 +81,7 @@ const MISSIONS = [
     done: /AURA_MEM_COMPACT/
   },
   {
-    id: "intent-pre-router",
+    id: "intent-pre-router", prio: 1,
     title: "Intent pre-router",
     goal: "Obvious task/code requests route to the right lane automatically, with the routing reason shown to the user.",
     research: "intent classification routing for LLM agent tool selection",
@@ -89,7 +89,7 @@ const MISSIONS = [
     done: /AURA_INTENT_ROUTER/
   },
   {
-    id: "answer-self-score",
+    id: "answer-self-score", prio: 1,
     title: "Answer self-score",
     goal: "A cheap self-critique pass scores each answer for groundedness and surfaces low-confidence answers.",
     research: "LLM self critique confidence scoring hallucination detection",
@@ -97,7 +97,7 @@ const MISSIONS = [
     done: /AURA_ANSWER_SCORE/
   },
   {
-    id: "boot-budget",
+    id: "boot-budget", prio: 0,
     title: "Boot budget",
     goal: "Measure boot time, log slow paths, and keep the first paint fast as the file grows.",
     research: "measuring and improving first paint performance single page app boot",
@@ -112,7 +112,7 @@ const MISSIONS = [
    load, so pickMission always has the next thing to build. */
 MISSIONS.push.apply(MISSIONS, [
   {
-    id: "voice-shortcuts",
+    id: "voice-shortcuts", prio: 2,
     title: "Voice shortcuts",
     goal: "Short spoken aliases map to the most-used commands, so one sentence runs a whole routine.",
     research: "voice command aliasing alias table speech recognition assistant",
@@ -120,7 +120,7 @@ MISSIONS.push.apply(MISSIONS, [
     done: /AURA_VOICE_ALIASES/
   },
   {
-    id: "chat-search",
+    id: "chat-search", prio: 2,
     title: "Chat search",
     goal: "Search across past sessions by keyword with instant result navigation.",
     research: "in-browser full text search localStorage chat history UX",
@@ -128,7 +128,7 @@ MISSIONS.push.apply(MISSIONS, [
     done: /AURA_CHAT_SEARCH/
   },
   {
-    id: "export-center",
+    id: "export-center", prio: 2,
     title: "Export center",
     goal: "One place exports chats, tasks and memory as Markdown/JSON/CSV downloads.",
     research: "client-side file export markdown csv blob download UX",
@@ -136,7 +136,7 @@ MISSIONS.push.apply(MISSIONS, [
     done: /AURA_EXPORT_CENTER/
   },
   {
-    id: "task-insights",
+    id: "task-insights", prio: 2,
     title: "Task insights",
     goal: "A weekly roll-up of tasks completed, streaks and where time went.",
     research: "personal productivity roll-up weekly stats design",
@@ -144,7 +144,7 @@ MISSIONS.push.apply(MISSIONS, [
     done: /AURA_TASK_INSIGHTS/
   },
   {
-    id: "error-classifier",
+    id: "error-classifier", prio: 1,
     title: "Error classifier",
     goal: "Lane failures get a stable category and one-line fix hint, logged consistently.",
     research: "error taxonomy classification user-facing failure messages",
@@ -152,7 +152,7 @@ MISSIONS.push.apply(MISSIONS, [
     done: /AURA_ERROR_CLASSIFY/
   },
   {
-    id: "memory-pin",
+    id: "memory-pin", prio: 1,
     title: "Memory pin",
     goal: "Pin any long-term memory fact so it survives decay and shows as priority context.",
     research: "pinning important items persistent memory UX pattern",
@@ -160,7 +160,7 @@ MISSIONS.push.apply(MISSIONS, [
     done: /AURA_MEM_PIN/
   },
   {
-    id: "theme-sync",
+    id: "theme-sync", prio: 2,
     title: "Theme sync",
     goal: "The chosen theme syncs across devices for signed-in users.",
     research: "user preference sync cloud storage web app",
@@ -168,7 +168,7 @@ MISSIONS.push.apply(MISSIONS, [
     done: /AURA_THEME_SYNC/
   },
   {
-    id: "quick-actions",
+    id: "quick-actions", prio: 1,
     title: "Quick actions bar",
     goal: "A always-visible quick-bar with the three most-used admin actions one tap deep.",
     research: "toolbar information architecture frequent actions UX",
@@ -339,7 +339,8 @@ function missionState(state, id) {
    regex-in-state: the sentinel RegExp is re-derived from the id on every read. */
 const GEN_SENTINEL = id => "AURA_GEN_" + String(id).toUpperCase().replace(/-/g, "_");
 function toMission(g) {
-  return { id: g.id, title: g.title, goal: g.goal, research: g.research || "",
+  return { id: g.id, title: g.title, goal: g.goal, prio: (g.prio === 0 || g.prio === 1 || g.prio === 2) ? g.prio : 1,
+    imp: typeof g.imp === "string" ? g.imp.slice(0, 400) : "", research: g.research || "",
     keywords: Array.isArray(g.keywords) ? g.keywords : [], done: new RegExp(GEN_SENTINEL(g.id)) };
 }
 /* strict validator — the brain proposes, this gate decides. Bad ids, collisions,
@@ -379,7 +380,9 @@ function parseGenerated(raw, state) {
     const keywords = (Array.isArray(g.keywords) ? g.keywords : []).map(k => String(k)).filter(k => k.length >= 2 && k.length <= 40).slice(0, 6);
     if (keywords.length < 2) { out.dropped.push("keywords too thin for " + id); continue; }
     known.add(id);
-    out.missions.push({ id: id, title: title, goal: goal, keywords: keywords, byAgent: true, at: Date.now() });
+    const prio = (g.prio === 0 || g.prio === 1 || g.prio === 2) ? g.prio : 1;
+    const imp = typeof g.imp === "string" ? g.imp.trim().slice(0, 400) : "";
+    out.missions.push({ id: id, title: title, goal: goal, keywords: keywords, prio: prio, imp: imp, byAgent: true, at: Date.now() });
   }
   if (arr.length > 12) out.dropped.push("agent proposed more than 12 — capped");
   return out;
@@ -390,15 +393,31 @@ function allMissions(state) {
   return gen.length ? MISSIONS.concat(gen.map(toMission)) : MISSIONS;
 }
 function findMission(state, id) { return allMissions(state).find(m => m.id === id) || null; }
+/* IMPORTANCE PICKER (owner's order, 15 Oct 2026: "bots kaam kar rahe hain pora
+   din, par unke task ko importance do"): the squad now works the MOST IMPORTANT
+   pending task first, never just the next item in array order. Every mission
+   carries prio (0 = user-trust breaking, 1 = real improvement, 2 = nice to
+   have); agent proposals may declare their own prio + one-line importance
+   ("imp") which the owner sees in the daily report. Ties keep roadmap order
+   (stable sort) so the pick is deterministic and regression-testable.
+   BOTH fields are gate-mandated in agent proposals: a mission without an
+   honest importance line is a proposal without authority. */
+/* prio guard: 0 is a VALID priority (P0 = most important) — a falsy `prio || 1`
+   would silently degrade every P0 to P1. Normalize once, use everywhere. */
+const PRIOrity = p => (p === 0 ? 0 : (p === 1 || p === 2 ? p : 1));
+function pendingByImportance(state) {
+  const list = allMissions(state).map((m, i) => ({ m: m, i: i }));
+  list.sort((a, b) => (PRIOrity(a.m.prio) - PRIOrity(b.m.prio)) || (a.i - b.i));
+  return list.filter(e => {
+    const st = missionState(state, e.m.id);
+    return !st.done && !st.parked && st.attempts < DEFAULTS.maxAttempts;
+  }).map(e => e.m);
+}
 function pickMission(state, source) {
-  for (const m of allMissions(state)) {
-    const st = missionState(state, m.id);
-    if (st.done || st.parked) continue;
-    if (st.attempts >= DEFAULTS.maxAttempts) continue;
-    if (source && m.done.test(source)) return { mission: m, already: true };
-    return { mission: m, already: false };
-  }
-  return null;
+  const pend = pendingByImportance(state);
+  if (!pend.length) return null;
+  if (source && pend[0].done.test(source)) return { mission: pend[0], already: true };
+  return { mission: pend[0], already: false };
 }
 
 /* ---------------------------------------------------------------- ERLANG sweep
@@ -436,6 +455,8 @@ function renderReport(state) {
   L.push("⚔ ARTHUR (CODE-SYSTEM): missions " + done + "/" + allMissions(s).length + " published · " + ships.length + " publish(es)" +
     (wip ? " · BUILDING: " + wip.mission + " (cycle " + (wip.cycles || 0) + ", " + ((wip.edits || []).length) + " edit(s) stored, not pushed yet)" : " · no feature in progress") +
     (parked.length ? " · parked: " + parked.map(m => m.id).join(", ") : ""));
+  const next = pendingByImportance(s)[0];
+  if (next) L.push("🎯 IMPORTANCE PICK: next-up " + next.id + " (P" + PRIOrity(next.prio) + ")" + (next.imp ? " — " + clampText(next.imp, 110) : "") + " · " + clampText(next.goal, 110));
   const gen = (s.generated || []);
   if (gen.length) L.push("🌱 SELF-ROADMAP: " + gen.length + " agent-generated mission(s) queued behind the static roadmap — " + gen.map(g => g.id).join(", "));
   const q = s.queue || [];
@@ -550,11 +571,12 @@ function createAutopilot(deps) {
       "ROADMAP AGENT — you review AURA's own engineering reality and propose the NEXT real missions (0-3).",
       "AURA is a single self-contained aura.html; missions must be concrete user-facing features/fixes, each verifiable by a sentinel comment ARTHUR will place in code.",
       "Reply with ONLY a JSON array (or [] when the roadmap already covers everything — never invent busywork):",
-      '[{"id":"kebab-case-3-40","title":"4-160 chars","goal":"10-400 chars, one concrete sentence","keywords":["2-6 real identifiers from aura.html source, 2-40 chars each] }]',
+      '{"id":"kebab-case-3-40","title":"4-160 chars","goal":"10-400 chars, one concrete sentence","keywords":["2-6 real identifiers from aura.html source, 2-40 chars each"],"prio":0,"imp":"one line WHY users need this"}]',
       "Rules: no duplicates of done/known ids, no external dependencies, never auth/secrets/keys/backend-URL, safety charter applies.",
+      "IMPORTANCE IS MANDATORY THINKING: prio and imp are required fields. prio 0 = user-trust breaking (data loss, wrong answers, dead features), 1 = real improvement, 2 = nice-to-have. imp = one honest sentence on WHY users need this now (it is shown to the owner in the daily report — never mark busywork as P0).",
       "DONE KNOWLEDGE — static missions done: " + MISSIONS.filter(m => missionState(state, m.id).done).map(m => m.id).join(", ") + ".",
       "Agent missions already queued: " + ((state.generated || []).map(g => g.id).join(", ") || "(none)").slice(0, 400) + ".",
-      "Pending right now: " + pending.map(m => m.id).join(", ") + ".",
+      "Pending right now (IMPORTANCE order — work this order): " + pending.slice().sort((a, b) => (PRIOrity(a.prio) - PRIOrity(b.prio))).map(m => m.id + " (P" + PRIOrity(m.prio) + ")").join(", ") + ".",
       "Recent failures: " + ((state.fails || []).slice(-4).map(f => f.mission + " → " + String(f.reason).slice(0, 90)).join(" | ") || "none") + ".",
       "Last research: " + ((state.research || []).slice(-2).join(" | ") || "none").slice(0, 300) + "."
     ].join("\n");
@@ -1058,6 +1080,6 @@ module.exports = {
   AUTOPILOT_ENGINEER_PROMPT, SAFETY_BRIEF,
   todayStamp, nowIso, clampText, sourceWindows, applyEdits, addedLines, scriptBlocks,
   validateSource, missionState, pickMission, serverSweep, renderReport,
-  toMission, parseGenerated, allMissions, findMission, GEN_SENTINEL,
+  toMission, parseGenerated, allMissions, findMission, GEN_SENTINEL, pendingByImportance,
   createAutopilot
 };
