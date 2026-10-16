@@ -3488,7 +3488,9 @@ slog("aura kernel v4.0 · cortex v2 loaded");slog("particle core: 560 nodes",tru
   const footer=document.createElement("footer");
   footer.id="pageFooter";
   footer.style.cssText="position:fixed;bottom:0;left:0;width:100%;text-align:center;padding:4px 0;font-size:10px;color:#888;background:rgba(0,0,0,0.6);pointer-events:none;";
-  footer.textContent="Build: 2026-09-27";
+  /* build stamp — the SHIPPED day, not a hardcoded string that goes stale and
+     makes every future build look three weeks old (owner bug report 16 Oct 2026) */
+  footer.textContent="Build: 2026-10-16";
   document.body.appendChild(footer);
 })();
 /* focus mode quick chip */
@@ -5121,14 +5123,25 @@ async function geminiCall(q,deep){
     const _now=new Date();
     const dateLine="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — anchor 'today/now/latest' to THIS moment)";
     const fresh=wantsFresh(q);
-    const web=fresh?await webContext(q):null;
+    /* OWNER FIX 16 Oct 2026 (BMSD wali galti): yahan sirf wantsFresh() keyword gate chal raha tha —
+       "bmsd finals date" jaisa sawal WEBQ se bahar nikal gaya aur brain ne frozen training data se
+       galt date ("14 November") bana di. thinkAnswer() wali policy yahan bhi: har knowledge answer
+       live web context mangaarne ki koshish karega — webContext fail-open hai, offline backend
+       pe zero cost. wantsFresh() ab als plain-chat rescue lane ke liye hai. */
+    const web=await webContext(q);
     const webBlock=web?"\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them. When they conflict with your memory of past events, dates, scores or records, the live results WIN. If they don't fully answer, say what's still uncertain — never invent dates, scores, prices or winners):\n"+web+"\n":"";
     let out=await groqCall([{role:"system",content:sys+replyStyle()+dateLine},{role:"user",content:q+convoCtx()+webBlock}],deep?2600:900);
     try{if(window.AuraCortex)out=await AuraCortex.critic(q,out,lane)}catch(e){}
     return out;
   }
   if(aiProvider()==="openrouter"){
-    return await openrouterCall([{role:"system",content:sys+replyStyle()},{role:"user",content:q+convoCtx()}],deep?2600:900);
+    /* OWNER FIX 16 Oct 2026: openrouter path bhi theek tarah live web block le — dateLine + webBlock
+       missing the, isliye wahan se aane wale answers bhi frozen-knowledge the */
+    const _now2=new Date();
+    const dateLine2="CURRENT DATE & TIME: "+_now2.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+    const web2=await webContext(q);
+    const webBlock2=web2?"LIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; live results WIN over your memory of past events; never invent dates, scores, prices or winners):\n"+web2:"";
+    return await openrouterCall([{role:"system",content:sys+replyStyle()+"\n\n"+dateLine2+webBlock2},{role:"user",content:q+convoCtx()}],deep?2600:900);
   }
   const _now=new Date();const dateLine="CURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"});const web=await webContext(q);const webBlock=web?"LIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; live results WIN over your memory of past events):\n"+web:"";
   const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key="+encodeURIComponent(geminiKey().trim()),{

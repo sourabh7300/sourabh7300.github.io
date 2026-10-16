@@ -177,11 +177,54 @@ MISSIONS.push.apply(MISSIONS, [
   }
 ]);
 
+/* ROADMAP PHASE 3 (owner's order 16 Oct 2026): "ChatGPT-Astra-class jab tak nahi,
+   nonstop kaam" — ChatGPT-parity missions. Yeh missions SQUAD_NONSTOP=1 pe load
+   hote hain (Render host pe ON), local tests pe off — taaki test expectations
+   static roadmap ke saath deterministic rahen. */
+if (String(process.env.SQUAD_NONSTOP || "0") === "1") {
+MISSIONS.push.apply(MISSIONS, [
+  {
+    id: "followup-memory", prio: 0,
+    title: "Follow-up memory",
+    goal: "In-session follow-ups (\"aur batao\", \"uski price?\") resolve pronouns/topics against the last exchange instead of answering cold.",
+    research: "conversational context resolution coreference follow-up questions chatbot UX",
+    keywords: ["convoCtx", "lastTopic", "CONVO"],
+    done: /AURA_FOLLOWUP_MEM/
+  },
+  {
+    id: "agent-mode-ui", prio: 0,
+    title: "Agent mode in chat",
+    goal: "One command flips chat into agent mode: every hard question runs the search/fetch/answer tool-loop and shows its steps live.",
+    research: "LLM agent loop streaming steps UI deep research pattern",
+    keywords: ["webContext", "toolSearch", "agent"],
+    done: /AURA_AGENT_MODE/
+  },
+  {
+    id: "answer-verify-lane", prio: 0,
+    title: "Date/fact verifier",
+    goal: "Answers carrying dates, scores or numbers get one verification pass against the live lane before they are shown; a mismatch is visibly flagged.",
+    research: "LLM output verification groundedness fact-checking pipeline",
+    keywords: ["cleanAnswer", "attachCitations", "webContext"],
+    done: /AURA_FACT_VERIFY/
+  },
+  {
+    id: "streaming-feel", prio: 1,
+    title: "Streaming everywhere",
+    goal: "Every brain lane streams token-by-token into the chat so no answer makes the user wait on a blank screen.",
+    research: "server sent events token streaming UI fallback patterns",
+    keywords: ["groqStream", "__streamEl", "stream"],
+    done: /AURA_STREAM_ALL/
+  }
+]);
+}
+
 const DEFAULTS = {
-  /* how many mission cycles a day the squad is allowed */
-  maxCyclesPerDay: parseInt(process.env.SQUAD_CYCLES_PER_DAY || "6", 10),
+  /* OWNER ORDER 16 Oct 2026: "nonstop kaam" — the squad cycles all day.
+     30 cycles/day × 20-min tick = near-continuous work inside free-tier key limits;
+     the ROADMAP AGENT keeps feeding new missions so it never sits idle. */
+  maxCyclesPerDay: parseInt(process.env.SQUAD_CYCLES_PER_DAY || "30", 10),
   /* timer cadence — the guard above decides whether a cycle actually does work */
-  tickMinutes: parseInt(process.env.SQUAD_TICK_MINUTES || "45", 10),
+  tickMinutes: parseInt(process.env.SQUAD_TICK_MINUTES || "20", 10),
   /* master switch: may the squad commit at all (SQUAD_AUTOSHIP=0 = never commit) */
   autoShip: process.env.SQUAD_AUTOSHIP !== "0",
   /* WHEN it publishes: "batch" = one commit per completed feature (default),
@@ -481,7 +524,8 @@ function renderReport(state) {
    line the squad never crosses. */
 const AUTOPILOT_ENGINEER_PROMPT = [
   "You are ARTHUR of the KRATOS SQUAD, running unsupervised in the backend on the standing mission:",
-  "\"AURA must reach Astra-class autonomous-agent quality — an assistant that plans, researches, uses tools, grounds its claims, heals its own lanes and keeps improving without being told.\"",
+  "\"STANDING ORDER (owner, 16 Oct 2026): AURA ko ChatGPT-Astra-class quality tak le jao — sharp, grounded, live-web-grounded, tool-using, multitasking assistant. Jab tak yeh standard poora nahi hota, squad Nahi RUKGI — roadmap khatam ho to squad ka meta-agent naye missions propose karega aur kaam nonstop chalta rahega.\"",
+  "Specifically she must: plan multi-step work, research the live web before time-sensitive answers, cite dated sources, ground every fact (dates/scores/prices by live sources ONLY, never the training cutoff), use tools, remember durable user facts, heal failed lanes, and ship user-visible improvements every single day — without any prompt from the owner.",
   "You edit the REAL aura.html (one self-contained file) through anchored find/replace edits, and a feature may take SEVERAL cycles — the work you store is kept and continued next cycle.",
   "METHOD (research first, like a real engineer):",
   "(1) Read the RESEARCH block (live sources) and the real source excerpts you are given before writing anything.",
