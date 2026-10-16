@@ -178,10 +178,10 @@ MISSIONS.push.apply(MISSIONS, [
 ]);
 
 /* ROADMAP PHASE 3 (owner's order 16 Oct 2026): "ChatGPT-Astra-class jab tak nahi,
-   nonstop kaam" — ChatGPT-parity missions. Yeh missions SQUAD_NONSTOP=1 pe load
-   hote hain (Render host pe ON), local tests pe off — taaki test expectations
-   static roadmap ke saath deterministic rahen. */
-if (String(process.env.SQUAD_NONSTOP || "0") === "1") {
+   nonstop kaam" — ChatGPT-parity missions. OWNER ORDER me yeh NONSTOP roadmap hai
+   so DEFAULT ON hai; SQUAD_NONSTOP=0 se band hota hai (tests/host bina AI budget
+   ke chalana chahe to). */
+if (String(process.env.SQUAD_NONSTOP || "1") === "1") {
 MISSIONS.push.apply(MISSIONS, [
   {
     id: "followup-memory", prio: 0,
