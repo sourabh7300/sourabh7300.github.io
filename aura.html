@@ -3514,8 +3514,11 @@ slog("aura kernel v4.0 · cortex v2 loaded");slog("particle core: 560 nodes",tru
     });
     chips.appendChild(c);
   }
-  if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}
-  else{init();}
+  const bootStart = performance.now();
+  function bootEnd(){ const bootEnd = performance.now(); pushSys(`boot ${bootEnd-bootStart}ms`); }
+  if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",function(){init(); bootEnd();});}
+  else{init(); bootEnd();}
+/* AURA_BOOT_BUDGET */
 })();
 
 /* ---------------- conversation ---------------- */
@@ -3620,6 +3623,29 @@ async function visionDescribe(dataURL,q){
   /* route through the full brain chain: owner backend → local key bank → fallbacks */
   return await withRetry(()=>groqCall(messages,900,"meta-llama/llama-4-scout-17b-16e-instruct"), "vision");
 }
+/* ---------------- news briefing ---------------- */
+
+/* AURA_INTENT_ROUTER */
+async function routeIntent(input) {
+  const codeKeywords = ['code', 'program', 'function', 'algorithm', 'syntax', 'debug', 'compile', 'execute'];
+  const visionKeywords = ['image', 'photo', 'picture', 'describe', 'analyze', 'vision'];
+  const newsKeywords = ['news', 'briefing', 'headlines', 'update', 'latest'];
+
+  if (codeKeywords.some(keyword => input.toLowerCase().includes(keyword))) {
+    addMsg('Routing to Code Forge lane.');
+    return 'code';
+  } else if (visionKeywords.some(keyword => input.toLowerCase().includes(keyword))) {
+    addMsg('Routing to Vision lane.');
+    return 'vision';
+  } else if (newsKeywords.some(keyword => input.toLowerCase().includes(keyword))) {
+    addMsg('Routing to News Briefing lane.');
+    return 'news';
+  } else {
+    addMsg('No specific lane detected. Using default lane.');
+    return 'default';
+  }
+}
+
 /* ---------------- news briefing ---------------- */
 async function newsBrief(){
   try{
@@ -10574,6 +10600,7 @@ document.addEventListener("DOMContentLoaded",function(){
       }
     }catch(e){}
     if(!S.pins||typeof S.pins!=="object")S.pins={};
+    if(!S.follow||typeof S.follow!=="object")S.follow={}; /* fresh-visit boot fix: bubbleEl reads S.follow[S.who] — without this guard the whole chat pane crashed for a first-time visitor (TypeError 'kratos' → blank chat, dead buttons) */
     /* migrate v1 squad state (auto-loop world) so nothing is lost */
     try{
       const v1=JSON.parse(localStorage.getItem("aura_bots_v1")||"null");
