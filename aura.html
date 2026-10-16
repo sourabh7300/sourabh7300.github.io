@@ -2006,7 +2006,40 @@ body:not(.theme-classical):not(.theme-gold) .msg.user{
   border-radius:var(--r-pill)!important;background:var(--gl)!important;transition:.25s;
 }
 .chip:hover{background:rgba(233,185,73,.16)!important;border-color:var(--g)!important}
-/* The phone chip row (#chipsMobile) is a duplicate of the desktop #chips row.
+/* ============================================================
+   DESKTOP-FIRST OVERRIDE (owner order, 16 Oct 2026: "mobile wala system hata,
+   laptop/computer based hi bana") — every phone-only layout layer is FORCED
+   off at ALL widths. The 84px left rail is the one true navigation,
+   dock/panels keep their desktop geometry, and the mobile chip strip
+   (#chipsMobile) is retired everywhere. Phones get the same deck —
+   a desktop layout that fits, not a second "mobile system".
+   Loaded LAST so it wins every earlier @media block without !import-wars
+   inside them.
+   ============================================================ */
+#chipsMobile{display:none!important}
+@media(max-width:768px){
+  /* rail stays a left sidebar, never the phone bottom bar */
+  #tabbar{top:68px!important;bottom:0!important;left:0!important;right:auto!important;width:84px!important;
+    flex-direction:column!important;justify-content:flex-start!important;
+    border-right:1px solid var(--line)!important;border-top:0!important;
+    padding:18px 0!important;background:transparent!important;backdrop-filter:none;-webkit-backdrop-filter:none;}
+  #tabbar button{width:60px!important;flex:0 0 auto!important;margin:0!important}
+  /* phone panel geometry: same desktop anchoring, snapped to the narrow viewport */
+  body[data-tab="chat"] #conv{top:126px!important;left:98px!important;right:14px!important;width:auto!important;margin-left:0!important;bottom:190px!important}
+  #sessPanel{top:126px!important;left:98px!important;right:14px!important;width:auto!important;max-height:calc(100vh - 250px)!important;bottom:auto!important}
+  #codePage{top:152px!important;left:98px!important;right:14px!important;bottom:24px!important;flex-direction:column!important}
+  body[data-tab="code"] #dock{display:none}
+  #dock{left:98px!important;right:14px!important;bottom:28px!important;padding:0 2px}
+  #dock .chip{display:none}
+  #telemetry{top:122px!important;left:98px!important;right:14px!important;width:auto!important;max-height:calc(100vh - 200px)!important;overflow:auto!important}
+  #syslog{left:98px!important;right:14px!important}
+  #adminPage{top:118px!important;left:98px!important;right:14px!important;bottom:24px!important}
+  #stopBtn{bottom:190px!important;padding:12px 30px;font-size:12px}
+  #q{font-size:14px!important;padding:12px 16px!important}
+  #stateText,#authName{display:none}#topbar{padding:0 14px!important}
+  body #settingsMenu{top:84px!important;left:98px!important;right:14px!important;bottom:44px!important}
+  body{--dockH:150px}
+}
    At v5's 14px chip size it wrapped onto two lines and collided with the mic
    (measured 172x43px overlap), so it is phone-only and stays compact there. */
 @media(min-width:601px){#chipsMobile{display:none!important}}
