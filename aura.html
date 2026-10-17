@@ -3566,13 +3566,25 @@ slog("aura kernel v4.0 · cortex v2 loaded");slog("particle core: 560 nodes",tru
 })();
 
 /* ---------------- conversation ---------------- */
+/* ==== AURA_OFFLINE_OUTBOX ==== persistent queue for asks that need the ONLINE
+   brain while the uplink is dark (owner order 17 Oct 2026: offline bhi kaam,
+   reconnect par turant answer). flush level-route: real gateway ask(), never the
+   phantom sendMessage that an earlier patch referenced (ReferenceError bug). */
 const offlineQueue = [];
+function outboxLoad(){try{return JSON.parse(localStorage.getItem("aura_outbox")||"[]").filter(x=>x&&typeof x==="string")}catch(e){return[]}}
+function outboxSave(){try{localStorage.setItem("aura_outbox",JSON.stringify(offlineQueue.slice(-20)))}catch(e){}}
+function queueOfflineAsk(t){offlineQueue.push(String(t).slice(0,400));outboxSave()}
 function flushOfflineQueue() {
+  if(offlineQueue.length<1&&!localStorage.getItem("aura_outbox"))return;
+  if(offlineQueue.length<1)outboxLoad().forEach(x=>offlineQueue.push(x));
+  if(typeof navigator!=="undefined"&&!navigator.onLine)return;
   while (offlineQueue.length > 0) {
-    const msg = offlineQueue.shift();
-    sendMessage(msg);
+    const msg = offlineQueue.shift();outboxSave();
+    try{ask(msg)}catch(e){offlineQueue.push(msg);outboxSave();return}
   }
 }
+try{window.addEventListener("online",function(){setTimeout(flushOfflineQueue,2400)})}catch(e){}
+try{flushOfflineQueue()}catch(e){}
 const log=$("log");
 function addMsg(who,text,cls){
   const d=document.createElement("div");d.className="msg "+cls;
@@ -6191,13 +6203,16 @@ function dailyBriefAnswer(){
    question. Say "read my mind" anytime to see the live profile. ================= */
 window.AuraMind=(function(){
   const KEY="aura_mind_v1";
-  const blank=function(){return{msgs:0,langs:{},moods:{},topics:{},depth:{short:0,medium:0,deep:0},expert:0,casual:0,hinglish:0,urgent:0,curious:0,verdict:"",fb:{g:{},b:{},gt:0,bt:0,drift:0},lastStyle:null,dayLog:{},greetedDay:""}};
+  const blank=function(){return{msgs:0,langs:{},moods:{},topics:{},depth:{short:0,medium:0,deep:0},expert:0,casual:0,hinglish:0,urgent:0,curious:0,verdict:"",fb:{g:{},b:{},gt:0,bt:0,drift:0},lastStyle:null,dayLog:{},greetedDay:"",devlang:{}}};
   let M=blank();try{M=Object.assign(blank(),JSON.parse(localStorage.getItem(KEY)||"{}"))}catch(e){}
   const save=function(){try{localStorage.setItem(KEY,JSON.stringify(M))}catch(e){}};
   const HING=/\b(kya|kaise|kaisa|kyun|nahi|haan|acha|accha|matlab|bhai|yaar|thoda|zara|karo|batao|chahiye|hogaya|ho\ gaya|samajh)\b|[\u0900-\u097F]/i;
   const URGE=/^(asap|urgent|jaldi|quickly|fast|right now|abhi|emergency)\b|!\s*$/i;
   const MOODS={frustrated:/not working|doesn'?t work|stopped|error|broken|fail|crash|problem|issue|thak gaya|kuch nahi ho raha/i,sad:/sad|depress|alone|lonely|upset|cry|dukhi|udaas|akela/i,happy:/happy|great|awesome|love (it|this|you)|amazing|wonderful|mast|badhiya/i,excited:/wow|can'?t wait|finally|lets? go|kamaal|dhamaal/i};
   const EXPERT=/\b(api|backend|frontend|deploy|docker|kubernetes|regex|async|await|promise|endpoint|payload|javascript|python|sql|database|server|ssh|git|node|npm|render|ml|neural|model)\b/i;
+  /* DEV-LANGUAGE BIAS (training pass 2, 17 Oct 2026): which stack this user builds
+     in, learned from their own words — the brains read it and default there. */
+  const DEVLANG={python:/\b(python|py\b|pandas|numpy|pygame|django|flask)\b/i,javascript:/\b(javascript|js\b|node|express|npm)\b/i,react:/\b(react|jsx|next\.?js)\b/i,web:/\b(html|css|tailwind|landing page)\b/i,sql:/\b(sql|mysql|postgres|sqlite|schema)\b/i,java:/\bjava\b/i,typescript:/\b(typescript|ts\b|type-safe)\b/i,cpp:/\bc\+\+|\bcpp\b/i,go:/\bgolang\b/i,rust:/\brust\b/i};
   const FBPOS=/^(yes+|yep|yeah|haan+|bilkul|ekdum|perfect|exactly|spot on|correct|right|sahi( hai)?|shabash|great|good (job|answer|one)|nice|awesome|amazing|wonderful|mast|badhiya|kamaal|love it|it worked|worked perfectly|that('s| is) (it|right|correct))/i;
   const FBNEG=/^(no+|nope|nahi|galat|wrong|incorrect|not (it|right|correct|what|related|like that)|you (misunderstood|got it wrong|answered something else)|that('s| is) (wrong|not it|not what|off topic|irrelevant|old|outdated)|i asked (about|for)|answer something else|kuch aur chahiye|yeh nahi|bekar|useless)/i;
   function top(o,n){return Object.keys(o||{}).sort(function(a,b){return o[b]-o[a]}).slice(0,n||3)}
@@ -6214,6 +6229,7 @@ window.AuraMind=(function(){
     if(/^(hi|hello|hey|yo|thanks|thank you|ok|good)/i.test(s)&&s.length<25)M.casual++;
     if(/\?|\b(how|why|what|when|where|who|kya|kaise|kyun)\b/i.test(s))M.curious++;
     if(s.length<28)M.depth.short++;else if(s.length>140)M.depth.deep++;else M.depth.medium++;
+    M.devlang=M.devlang||{};for(const dl in DEVLANG){if(DEVLANG[dl].test(s)){M.devlang[dl]=(M.devlang[dl]||0)+1;break}}
     const words=s.toLowerCase().replace(/[^\w\u0900-\u097F ]/g," ").split(/\s+/).filter(function(w){return w.length>4});
     words.slice(0,4).forEach(function(w){M.topics[w]=(M.topics[w]||0)+1});
     if(M.msgs%6===0)verdict();
@@ -6284,7 +6300,8 @@ window.AuraMind=(function(){
   function profileBlock(){
     if(M.msgs<3)return"";
     const v=M.verdict||verdict();const t=top(M.topics,4);const ls=lessons();
-    return "\n\nUSER MIND-READ (learned live from this user's own messages - adapt to it silently, never mention it): "+v+(t.length?"; recurring interests: "+t.join(", "):"")+". Match their language, energy and depth."+(ls?" FEEDBACK CALIBRATION (from this user's own reactions - obey it): "+ls+".":"");
+    const dl=top(M.devlang,1)[0];
+    return "\n\nUSER MIND-READ (learned live from this user's own messages - adapt to it silently, never mention it): "+v+(t.length?"; recurring interests: "+t.join(", "):"")+(dl?"; works mostly in "+dl+" code - default code answers and examples to that language":"")+". Match their language, energy and depth."+(ls?" FEEDBACK CALIBRATION (from this user's own reactions - obey it): "+ls+".":"");
   }
   function report(){
     if(M.msgs<1)return"I haven't learned your rhythm yet - chat with me a little and ask again.";
@@ -6940,6 +6957,8 @@ async function aiReply(q){
   if(w2b)return w2b;
   if(hiMode){const hw2=await hiWikiAnswer(q,deep);if(hw2)return hw2;}
   setMode("alert");setTimeout(()=>{if(mode==="alert")setMode("idle")},5000);
+  if(!navigator.onLine){try{queueOfflineAsk(q)}catch(e2){}
+    return{t:"(OFFLINE) I answered what I could from my local core and I've QUEUED this question — the moment our uplink returns, the full AI brain takes it and answers it properly here. My offline core still handles math, conversions, tech, science and 'who built you'.",eng:"offline core + queued"};}
   return{t:"I reached for the live internet but every uplink timed out just now — check the connection and ask me again. My offline core still handles math, conversions, tech, science and 'who built you'. And a free Gemini key (SET AI KEY) unlocks unlimited frontier-grade answers.",eng:"offline core"};
 }
 
@@ -8574,13 +8593,103 @@ async function codeBrain(messages,maxTok,tag){
       if(t&&t.trim())return t.trim();
     }catch(e){lastErr=e}
   }
+  /* TIER 4 — OFFLINE CODE CORE: every uplink dark, the CODE tab still ships real code (owner order 17 Oct 2026) */
+  try{
+    const tip=String((messages[0]&&messages[0].content)||"").toLowerCase();
+    const lastMsg=messages.slice().reverse().find(m=>m&&m.role==="user");
+    const langHit=/complete html document/.test(tip)?"html":/react component named app/.test(tip)?"react":/complete python 3/.test(tip)?"python":/runnable sql/.test(tip)?"sql":/bash script starting/.test(tip)?"bash":/script>-ready/.test(tip)?"javascript":/complete ts/.test(tip)?"typescript":"";
+    if(langHit){const loc=localCodeForge(langHit,String((lastMsg&&lastMsg.content)||""));
+      if(loc&&loc.length>30){codeLog("— offline code core took over (no uplink)");return loc+"\n/* offline code core — live brain unreachable */"}}
+  }catch(e){try{slog("offline code core skipped: "+(e.message||e),true)}catch(e2){}}
   throw new Error((lastErr&&lastErr.message||"all brains down")+" (backend Mistral code lane unreachable and no backup key)");
 }
+/* ==== LOCALCODEFORGE ==== zero-network code writer — the CODE tab keeps
+   SHIPPING code offline (owner order 17 Oct 2026: "offline bhi codes likhtee rahee").
+   Deterministic pattern core: recognised asks get real complete programs, everything
+   else gets a working, runnable skeleton in that exact language — always honestly
+   labelled "offline code core" so the user knows which brain wrote it. */
+function localCodeForge(lang,ask){
+  const t=String(ask||"").toLowerCase().replace(/[^\w]/g," ").replace(/\s+/g," ").trim();
+  const hit=re=>re.test(t);
+  const O="<scr"+"ipt>",C="</scr"+"ipt>"; /* split tokens — never break the host HTML */
+  if(lang==="html"){
+    if(hit(/todo/)){
+      return '<!doctype html><html><head><meta charset="utf-8"><title>Todo</title><style>'
+      +'body{font-family:system-ui;background:#0b1220;color:#e2f3ff;max-width:520px;margin:40px auto}'
+      +'li.done{opacity:.45;text-decoration:line-through}form{display:flex;gap:8px}'
+      +'input{flex:1;padding:8px}button{padding:8px 14px}</style></head><body><h1>Todo</h1>'
+      +'<form id="f"><input id="i" placeholder="kaam likho..."><button>Add</button></form><ul id="l"></ul>'
+      +O+'const L=document.getElementById("l"),I=document.getElementById("i");'
+      +'let items=JSON.parse(localStorage.getItem("todo")||"[]");'
+      +'function draw(){L.innerHTML="";items.forEach(function(it,x){const li=document.createElement("li");'
+      +'if(it.done)li.className="done";li.textContent=it.t;li.onclick=function(){items[x].done=!items[x].done;save();draw()};L.appendChild(li)})}'
+      +'function save(){localStorage.setItem("todo",JSON.stringify(items))}'
+      +'document.getElementById("f").onsubmit=function(e){e.preventDefault();if(!I.value.trim())return;'
+      +'items.push({t:I.value.trim(),done:false});I.value="";save();draw()};draw();'
+      +C+'</body></html>';
+    }
+    return '<!doctype html><html><head><meta charset="utf-8"><title>Page</title><style>'
+    +'body{font-family:system-ui;background:#0b1220;color:#e2f3ff;max-width:640px;margin:60px auto;line-height:1.6}'
+    +'h1{color:#22d3ee}button{padding:8px 16px;border:0;border-radius:8px;background:#22d3ee;color:#032;font-weight:700}'
+    +'</style></head><body><h1>'+t.toUpperCase()+'</h1>'
+    +'<p>Served from the offline code core — a clean starting page.</p>'
+    +'<button onclick="alert(\'it works - offline\')">Test chip</button>'
+    +O+'console.log("offline page booted");'+C+'</body></html>';
+  }
+  if(lang==="react"){
+    if(hit(/counter|count|timer|tally|number/)){
+      return 'function App(){const[n,setN]=React.useState(0);'
+      +'const st={font:"system-ui",display:"grid",placeItems:"center",height:"100vh",background:"#0b1220",color:"#e2f3ff"};'
+      +'return (<div style={st}><h1>{n}</h1>'
+      +'<button onClick={()=>setN(n+1)} style={{padding:"10px 22px",borderRadius:10,border:0,background:"#22d3ee",fontWeight:700}}>+1</button>'
+      +'</div>)}';
+    }
+    return 'function App(){const[txt,setTxt]=React.useState("offline core");'
+    +'const st={font:"system-ui",display:"grid",placeItems:"center",height:"100vh",background:"#0b1220",color:"#e2f3ff"};'
+    +'return (<div style={st}><h1>{txt}</h1>'
+    +'<input value={txt} onChange={e=>setTxt(e.target.value)} style={{padding:10,borderRadius:8,border:0}} placeholder="your ask"/>'
+    +'</div>)}';
+  }
+  if(lang==="python")return "# AURA offline code core - Python\nfrom datetime import datetime\n\ndef seen(v):\n    return v\n\ndef main():\n    print(\"offline core booted\", datetime.now())\n    # ask: "+String(t).slice(0,110)+"\n    print(seen(\"demo output\"))\n\nif __name__ == \"__main__\":\n    main()\n";
+  if(lang==="javascript")return "// AURA offline code core - JavaScript\nfunction run(input){\n  return input.map(function(x){return x*2});\n}\n// demo\nconsole.log(run([1,2,3]));\n";
+  if(lang==="sql")return "-- AURA offline code core - SQL\nCREATE TABLE notes (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  title TEXT NOT NULL,\n  body TEXT,\n  created_at TEXT DEFAULT CURRENT_TIMESTAMP\n);\nINSERT INTO notes (title, body) VALUES ('first', 'hello');\nSELECT * FROM notes;\n";
+  if(lang==="bash")return "#!/bin/bash\n# AURA offline code core - bash\nset -e\necho \"offline core booted: "+String(t).slice(0,90)+"\"\n";
+  const sk={css:"/* AURA offline code core - CSS */\n.card{border:1px solid #123;padding:12px;border-radius:10px;background:#0b1220}\n",
+  c:"#include <stdio.h>\nint main(void){printf(\"offline core booted\\n\");return 0;}\n",
+  java:"public class Main{public static void main(String[] a){System.out.println(\"offline core booted\");}}\n",
+  cpp:"#include <iostream>\nint main(){std::cout<<\"offline core booted\\n\";}\n",
+  go:"package main\nimport \"fmt\"\nfunc main(){fmt.Println(\"offline core booted\")}\n",
+  rust:"fn main(){println!(\"offline core booted\");}\n",
+  php:"<?php echo \"offline core booted\";\n",
+  ruby:"puts \"offline core booted\"\n",
+  swift:"import Foundation\nprint(\"offline core booted\")\n",
+  kotlin:"fun main(){println(\"offline core booted\")}\n",
+  dart:"void main(){print(\"offline core booted\");}\n",
+  typescript:"const run=(x:number)=>x*2;\nconsole.log(run(21));\n",
+  lua:"print(\"offline core booted\")\n",
+  perl:"print \"offline core booted\\n\";\n",
+  haskell:"main=putStrLn \"offline core booted\"\n",
+  scala:"object Main{def main(a:Array[String]):Unit=println(\"offline core booted\")}\n",
+  r:"cat(\"offline core booted\\n\")\n",
+  matlab:"disp('offline core booted')\n"};
+  if(sk[lang])return "/* ask: "+String(t).slice(0,110)+" */\n"+sk[lang];
+  return "// AURA offline code core - "+String(lang)+" skeleton\n// ask: "+String(t).slice(0,110)+"\n";
+}
+/* ==== /LOCALCODEFORGE ==== */
 async function buildCode(){
   const lang=document.getElementById("codeLang").value;
   const q=document.getElementById("codePrompt").value.trim();
   if(!q){codeLog("// describe what to build in the prompt box first");return}
-  if(!geminiKey()&&!backendUrl()){codeLog("// forge offline — no AI brain reachable right now");return}
+  if(!geminiKey()&&!backendUrl()){
+    /* OFFLINE FIRST (17 Oct 2026): zero uplink is not an error anymore — the local
+       pattern forge writes real code and auto-runs it, labelled honestly. */
+    const loc=localCodeForge(lang,q);
+    if(loc){codeLog("— no AI uplink: offline code core took over");
+      document.getElementById("codeEditor").value=loc;
+      codeLog("✓ forged "+loc.split("\n").length+" lines of "+lang+" (OFFLINE CORE)");
+      if(["javascript","html","react","typescript","python"].indexOf(lang)>=0)runCode();
+      return}
+    codeLog("// forge offline — no AI brain reachable right now");return}
   const btn=document.getElementById("codeGen");btn.textContent="⏳ FORGING…";btn.disabled=true;
   try{
   codeLog("⚡ forging "+lang+" — reading your idea, planning, writing code…");
