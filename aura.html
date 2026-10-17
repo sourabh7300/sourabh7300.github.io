@@ -2311,9 +2311,12 @@ body[data-tab="chat"] #conv{display:flex!important;flex-direction:column!importa
 #chipsMobile{margin:0!important}
 @media(max-width:768px){
   #topbar{height:60px!important}
-  #conv{top:60px!important;bottom:150px!important;padding:20px 14px!important}
-  #dock{bottom:76px!important;max-width:none;left:0!important;right:0!important;
-    width:auto!important;margin:0 14px!important}
+  /* DESKTOP-FIRST (17 Oct 2026): phones get the SAME deck beside the 84px rail —
+     the old full-width re-anchor (left:0/top:60) let #conv slide under the rail
+     (z 9 vs 12) and hid content on its whole left strip. */
+  #conv{left:98px!important;right:14px!important;top:66px!important;bottom:150px!important;padding:20px 14px!important}
+  #dock{bottom:76px!important;max-width:none;left:98px!important;right:14px!important;
+    width:auto!important;margin:0!important}
 }
 
 /* ---- specificity match: the old centred-panel rules are
@@ -2327,7 +2330,9 @@ body[data-tab="chat"] #conv>div#log{max-width:1060px;margin:0 auto;width:100%}
 body[data-tab="chat"] #chips{max-width:1060px;margin:0 auto 12px!important;width:100%}
 body[data-tab="chat"] #stageEmpty{max-width:1060px;margin:0 auto 8px!important;width:100%}
 @media(max-width:768px){
-  body[data-tab="chat"] #conv{left:0!important;top:60px!important;bottom:150px!important;margin:0!important}
+  /* DESKTOP-FIRST: the wider data-tab selector used to slam #conv back to
+     left:0/top:60 AFTER the base fix — keep the rail-clearing geometry here. */
+  body[data-tab="chat"] #conv{left:98px!important;right:14px!important;top:66px!important;bottom:150px!important;margin:0!important}
 }
 
 /* old AURA HUD overlays — v5 has no equivalent chrome */
@@ -8442,7 +8447,13 @@ updateEngTag();
   try{
     const __lt=localStorage.getItem("aura_last_tab");
     if(__lt&&__lt!=="admin"&&["chat","chats","code","system","settings"].indexOf(__lt)>=0)apply(__lt);
-  }catch(e){}
+    /* FIRST VISIT (17 Oct 2026): with no saved tab the restore block skipped
+       apply() entirely — body[data-tab] stayed null, so #conv/#dock stayed
+       display:none and the whole app looked broken ("kuch nahi kar raha")
+       until a tab was clicked. Fresh visits now land in CHAT, same as a
+       returning user. */
+    else apply("chat");
+  }catch(e){try{apply("chat")}catch(e2){}}
   /* inside here AuraAuth is undefined yet — so never assume the admin tab */
 // ==== CODE PAGE SETUP ==== //
 (function(){
