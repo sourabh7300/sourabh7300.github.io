@@ -6722,7 +6722,37 @@ function buildThinkPrompt(q,term,evs,deep,hi){
 /* attach a SOURCES block listing the sources actually cited with [n] markers (or the top sources if none cited) */
 function attachCitations(t,evs){
   /* chat-app mode: never attach a SOURCES block — answers read like a normal chat app */
-  return cleanAnswer(t);
+  const cleaned = cleanAnswer(t);
+  return verifyFactsAgainstSources(cleaned, evs);
+}
+/* AURA_FACT_VERIFY — fact verification lane */
+function verifyFactsAgainstSources(ans, evs){
+  if(!evs || !evs.length) return ans;
+  const srcText = evs.map(e => e.snippet || e.text || "").join(" \n ");
+  const patterns = [
+    /\b\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\b/g,
+    /\b\d{4}[-/]\d{1,2}[-/]\d{1,2}\b/g,
+    /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b/gi,
+    /\b\d+(?:[.,]\d+)?\s*(?:%|percent|crore|lakh|million|billion|trillion|USD|INR|EUR|GBP|points?|runs?|wickets?|goals?)\b/gi,
+    /\b\d+(?:[.,]\d+)?\s*(?:km|m|cm|mm|kg|g|lb|oz|°C|°F|Mbps|Gbps|TB|GB|MB)\b/gi
+  ];
+  let out = ans;
+  patterns.forEach(re => {
+    let m;
+    while((m = re.exec(ans)) !== null){
+      const val = m[0];
+      const idx = m.index;
+      const ctxStart = Math.max(0, idx - 80);
+      const ctxEnd = Math.min(ans.length, idx + val.length + 80);
+      const context = ans.slice(ctxStart, ctxEnd).toLowerCase();
+      const found = srcText.toLowerCase().includes(val.toLowerCase().replace(/[.,]/g, ""));
+      if(!found){
+        const flag = ` ⚠️ VERIFY: "${val}" not found in live sources`;
+        out = out.slice(0, idx + val.length) + flag + out.slice(idx + val.length);
+      }
+    }
+  });
+  return out;
 }
 /* strip source lists, wiki attribution tails and [n] citation markers from any answer */
 function cleanAnswer(t){
