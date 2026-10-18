@@ -5194,17 +5194,41 @@ function renderCitations(parsed){
   return html;
 }
 
+/* AURA_FOLLOWUP_MEM — in-session follow-up resolver */
+function getLastExchange(){
+  const h=hist.load("convo")||[];
+  let lastUser="", lastAsst="";
+  for(let i=h.length-1;i>=0;i--){
+    if(h[i].role==="assistant"&&!lastAsst) lastAsst=String(h[i].content||"");
+    else if(h[i].role==="user"&&!lastUser){ lastUser=String(h[i].content||""); break; }
+  }
+  return {q:lastUser, a:lastAsst};
+}
+const FOLLOW_UP=/^(aur\s+batao|tell me more|more|elaborate|expand|continue|go on|why\b|how\b|what about|and\s+(him|her|it|that)|what else|details?|explain|summarize|shorter|in hindi|translate|when was\s+(he|she|it)|who is\s+(he|she)|how old|uski|uska|iski|iska|price|cost|rate)\b/i;
+function resolveFollowUp(q){
+  const ex=getLastExchange();
+  if(!ex.q||!FOLLOW_UP.test(q.trim())) return q;
+  const PRON=/\b(he|she|it|his|her|him|its|their|they|that|this|those|uski|uska|iski|iska)\b/i;
+  if(PRON.test(q)){
+    const topic=ex.q.replace(/^(what|who|where|when|why|how)\s+(is|was|are|were|does|do|did)\s+/i,"").replace(/\?+$/,"");
+    return q.replace(PRON,topic);
+  }
+  return ex.q+" — follow-up: "+q;
+}
+
 async function geminiCall(q,deep){
   const name=memGet().name;
   const P=PERSONAS[persona()];
   const style=" Persona: AURA — warm, curious, sharp holographic assistant designed and built by Sourabh Singh.";
   const lane=(function(){try{return window.AuraCortex?AuraCortex.classify(q):"chat"}catch(e){return"chat"}})();
   const spec=(function(){try{return window.AuraCortex?AuraCortex.specialist(lane,false):""}catch(e){return""}})();
-  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+spec+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer ANY subject confidently from it; NEVER say 'out of my data', 'not in my training data' or 'I don't have that information', never apologize for missing knowledge, never mention training cutoffs; if a very recent fact may have changed, add at most one short line offering to check live.\n\nCITATION RULE (mandatory): Every factual claim MUST carry a numbered citation [1], [2], [3] inline at the end of the sentence that makes the claim. If you used LIVE WEB RESULTS, cite them by their bracketed index. If a claim has no source, write [UNSUPPORTED] instead of the claim — do not present unsupported claims as fact. Collect all cited sources at the end under a 'SOURCES:' heading with one line per source: [1] Title — URL. Never add links, urls or source lists unless the user explicitly asks for a link or you are listing SOURCES."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"");
+  let lastTopic = "";
+  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+spec+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer ANY subject confidently from it; NEVER say 'out of my data', 'not in my training data' or 'I don't have that information', never apologize for missing knowledge, never mention training cutoffs; if a very recent fact may have changed, add at most one short line offering to check live.\n\nCITATION RULE (mandatory): Every factual claim MUST carry a numbered citation [1], [2], [3] inline at the end of the sentence that makes the claim. If you used LIVE WEB RESULTS, cite them by their bracketed index. If a claim has no source, write [UNSUPPORTED] instead of the claim — do not present unsupported claims as fact. Collect all cited sources at the end under a 'SOURCES:' heading with one line per source: [1] Title — URL. Never add links, urls or source lists unless the user explicitly asks for a link or you are listing SOURCES."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"")+(lastTopic?" The last topic discussed was "+lastTopic+".":"");
   if(aiProvider()==="groq"){
     const _now=new Date();
     const dateLine="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — anchor 'today/now/latest' to THIS moment)";
-    const fresh=wantsFresh(q);
+    const fresh=wantsFresh(q); lastTopic = q; if (/^(aur batao|uski price|more|explain|details)/i.test(q)) { window.__auraFollowUp = lastTopic; } /* AURA_FOLLOWUP_MEM */
+  lastTopic = q;
     /* OWNER FIX 16 Oct 2026 (BMSD wali galti): yahan sirf wantsFresh() keyword gate chal raha tha —
        "bmsd finals date" jaisa sawal WEBQ se bahar nikal gaya aur brain ne frozen training data se
        galt date ("14 November") bana di. thinkAnswer() wali policy yahan bhi: har knowledge answer
