@@ -1468,7 +1468,7 @@ app.get("/health", async (req, res) => {
 /* THE PROXY — key stays server-side forever */
 app.post("/v1/chat/completions", async (req, res) => {
   const body = req.body || {};
-  const messages = body.messages;
+  let messages = body.messages;
   if (!Array.isArray(messages) || !messages.length) {
     return res.status(400).json({ error: "messages[] required" });
   }
@@ -1496,6 +1496,33 @@ app.post("/v1/chat/completions", async (req, res) => {
     if (!GEMINI_API_KEY) return res.status(501).json({ error: "no_vision_model", message: "My image brain needs its key — the owner can enable it privately in the hosting dashboard. Text answers are unaffected." });
     return res.status(502).json({ error: "vision_failed", message: "The vision model could not read that image — try a clearer photo." });
   }
+
+  /* STALE-KNOWLEDGE FIX 19 Oct 2026 (owner report: “purani sources se reply de rha hai”):
+     direct API requests carried no date and no web context, so the model answered from
+     its frozen training cutoff (verified live: “I don’t have information beyond my last
+     update in June 2024”). Every plain knowledge question now gets TODAY’S date plus
+     live web results (the same toolSearch/toolFetch lanes /v1/websearch uses) injected
+     as a system block before the model call. Small talk and already-armed requests are
+     untouched; empty search costs nothing (fail-open). */
+  try {
+    const _lastUser = [...messages].reverse().find(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
+    const _q = _lastUser ? _lastUser.content.trim().slice(0, 300) : "";
+    const _small = /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon)|who are you|what('s| is) your name|are you (real|human|an ai))\b/i.test(_q);
+    const _alreadyArmed = messages.some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
+    if (_q && !_small && !_alreadyArmed) {
+      const _now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+      let _web = "";
+      try {
+        const _hits = await toolSearch(_q.replace(/\s+/g, " "));
+        if (_hits && _hits.length) {
+          const _top = _hits.slice(0, 2);
+          const _reads = await Promise.all(_top.map(h => toolFetch(h.url).catch(() => null)));
+          _web = _top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String((_reads[i] && _reads[i].length > 80) ? _reads[i] : (h.title || "")).slice(0, 1600)).join("\n\n");
+        }
+      } catch (e) { /* search down → date-only block still fixes the cutoff */ }
+      messages = messages.concat([{ role: "system", content: "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value.") }]);
+    }
+  } catch (e) { /* amplification is best-effort — never block the answer */ }
 
   let sawLimit = false; // at least one key hit a rate/limit error
   /* KEY LANE — the CODE forge tags its requests with lane:"code" so they burn
