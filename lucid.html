@@ -853,10 +853,10 @@
         <div class="voice-note" style="margin-top:12px">Advanced brain — complex sentences:</div>
         <div class="toolkit-row">
           <select id="brainMode" class="pro-input" style="max-width:172px">
-            <option value="off">Off (sirf local)</option>
             <option value="aura">AURA brain (no key)</option>
             <option value="groq">My Groq key</option>
             <option value="gemini">My Gemini key</option>
+            <option value="off">Off (sirf local)</option>
           </select>
         </div>
         <div class="toolkit-row" id="brainKeyRow" style="display:none">
@@ -3172,7 +3172,7 @@
     return { ok: out.length > 0, actions: out, drops: drops };
   }
   async function fetchBrainActions(text, mode){
-    const ctl = new AbortController(); const tOff = setTimeout(() => ctl.abort(), 14000);
+    const ctl = new AbortController(); const tOff = setTimeout(() => ctl.abort(), 28000);
     try{
       let url = '', body = null; const headers = { 'Content-Type': 'application/json' };
       if(mode === 'groq'){ url = 'https://api.groq.com/openai/v1/chat/completions'; headers['Authorization'] = 'Bearer ' + brainKey(); body = { messages:[{role:'system',content:brainPrompt()},{role:'user',content:text}], max_tokens:420, temperature:0.2 }; }
@@ -3241,7 +3241,7 @@
   (function brainPanelInit(){
     const sel = document.getElementById('brainMode'); if(!sel) return;
     const savedMode = localStorage.getItem('lucid_brain_mode');
-    if(savedMode){ try{ sel.value = savedMode; }catch(e){} }
+    if(savedMode){ try{ sel.value = savedMode; }catch(e){} } else { sel.value = 'aura'; }
     const kr = document.getElementById('brainKeyRow'); const kb = document.getElementById('brainKey');
     if(localStorage.getItem('lucid_brain_key') && kb) kb.value = localStorage.getItem('lucid_brain_key');
     const wire = () => { if(kr) kr.style.display = (sel.value === 'groq' || sel.value === 'gemini')? 'flex' : 'none'; };
