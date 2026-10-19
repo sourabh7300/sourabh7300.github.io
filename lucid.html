@@ -2815,14 +2815,14 @@
   const QUALIFIERS = [ [/(thoda|thore|zara|slight|little|kadang)/, 8], [/(bahut|bohot|much|strong|full on|perdish)/, 45], [/(extreme|ekdum|max)/, 70] ];
   const KEYMAP = [
     ['exposure', /(ekspozr?|ekspozer?|exposure|एक्सपोजर|एक्सपोज़र)/],
-    ['brightness', /(brightness|chamak|chamkan|चमक|रोशनी|roshni|light karo)/],
+    ['brightness', /(brightness|chamak|chamkan|उजाला|ujala|चमक|रोशनी|roshni|light karo)/],
     ['contrast', /(contrast|कॉन्ट्रास्ट|कन्ट्रास्ट)/],
-    ['saturation', /(saturation|colou?rs? (badh|kum|karo)|रंग|rangteez)/],
-    ['hue', /(hue|color? shift|रंग बदल)/],
+    ['saturation', /(saturation|colou?rs? (badh|kum|karo)|रंग(त)?|rangat|\brang\b|rangteez)/],
+    ['hue', /(hue|color? shift|रंग बदल|rang badal)/],
     ['temperature', /(temperature|warm(?:th)?|garmi|garma|गर्म|thandak|ठंड|cool (?:tone|karo)|kool)/],
     ['tint', /\btint\b/],
     ['sharpen', /(sharp(?:en)?|tez|तेज़|क्रिस्टल)/],
-    ['blur', /\bblur\b|dhundh|धुंध|soft( ?focus)?|backre/],
+    ['blur', /\bblur\b|dhundh|dhundl(?:a|i|e)?|धुंध|soft( ?focus)?|backre/],
     ['grain', /\bgrain\b|film ?grain/],
     ['vignette', /(vig?net?t?e?|किनारे काले|corners dark)/],
     ['clarity', /(clarit\w*|cristal clear|khul kar dikha)/],
@@ -2832,31 +2832,31 @@
     ['halation', /(hala\w*)/]
   ];
   const CMDMAP = [
-    ['undo', /\bundo\b|वापस|पीछे/],
-    ['redo', /\bredo\b|फिर से चला दो/],
+    ['undo', /\bundo\b|wapas ?(?:pehle|puran|karo|do)|वापस|पीछे/],
+    ['redo', /\bredo\b|phir se wapas|फिर से चला दो/],
     ['reset', /\breset\b|original (?:photo|image) wapis|sab zero|रीसेट/],
     ['auto', /auto ?(enhance|fix|फिक्स)?/],
-    ['bw', /blackwhite|black ?white|b ?& ?w|b and w|monochrome|gr[ae]yscale/],
+    ['bw', /blackwhite|black ?white|b ?& ?w|b and w|monochrome|gr[ae]yscale|kala ?safed|safed ?kala|काला सफेद/],
     ['sepia',/\bsepia\b|old ?photo/],
     ['invert',/invert|negative/],
-    ['applyCrop', /apply (?:the )?crop|crop apply|लो। ट ठ क दो/],
+    ['applyCrop', /apply (?:the )?crop|crop apply/],
     ['cancelCrop', /cancel(?: ?crop)?|crop cancel/],
-    ['squareCrop', /square ?(?:crop)?|1 ?[x×:k] ?1|एक बाहर?ा crop/],
-    ['rotL', /rotate (?:left|left side|baye)|ghuma(?: दो)? ?baye/],
-    ['rotR', /rotate ?(?:right|clock}?wise|daya\w*)|दाहिने घुमा/],
-    ['flipH', /flip ?(?:h\b|horizontal)|mirror/],
-    ['flipV', /flip (?:v(?:ertical)?\b|up ?down)/],
-    ['expVideo', /(?:export|download|save).{0,14}(?:video|clip)|video.{0,14}(?:export|download|save)/],
-    ['export', /(export|download|save) ?(?:it|photo|image|this)?\b/],
-    ['play', /^\s*play\b|chal(?:a|ao) ?$|video chal/],
-    ['pause', /^\s*(?:pause|rok|रोक|ठहर)/],
-    ['restart', /restart|shuroomu se|शुरू से/],
-    ['mute', /mute|आवा圈 ?बंद|sound off|awaz band/],
+    ['squareCrop', /square ?(?:crop)?|1 ?[x×:k] ?1|chauras ?crop/],
+    ['rotL', /rotate (?:left|left side|baye)|ghuma(?: ?do)? ?baye|(?:bayen?|left).{0,6}ghuma/],
+    ['rotR', /rotate ?(?:right|clockwise|daya\w*|daye(?:n)?)|दाहिने घुमा|(?:dayen?|dahine|right).{0,6}ghuma/],
+    ['flipH', /flip ?(?:h\b|horizontal)|mirror|palat ?(?:do|de)|aaina/],
+    ['flipV', /flip (?:v(?:ertical)?\b|up ?down)|ulta ?karo|upar ?niche/],
+    ['expVideo', /(?:export|download|save|nikal|bhejo).{0,14}(?:video|clip)|video.{0,14}(?:export|download|save|nikal|bhejo)/],
+    ['export', /(export|download|save) ?(?:it|photo|image|this)?\b|(?:photo|tasveer)\s*(?:nikal|save|download|bhejo)/],
+    ['restart', /restart|shuru ?se|phir ?se ?shuru|shuroomu se|शुरू से/],
+    ['play', /^\s*play\b|\bchal(?:a|ao)?\b ?$|(?:video|clip|movie).{0,10}\b(?:chal|start|shuru|play)|video chal/],
+    ['pause', /^\s*(?:pause|rok|ठहर)|(?:video|clip|movie).{0,12}\b(?:rok|band|pause|ruka)/],
+    ['mute', /mute|आवाज ?बंद|sound off|awaz band/],
     ['unmute', /unmute|आवाज ?चालू|sound on|awaz chalu/],
-    ['trimIn', /trim.{0,8}(?:start|shur?oohah|beginning|here)|start ?trim|yahan se|\b(?:\d+|Das|das|bees|bees|tees|chaalees|pachas|saath)\b\s*(?:seconds?|secs?|s|सेकंड)\b.{0,8}\bse\b/],
-    ['trimOut', /trim.{0,8}(?:end|khatam|finish|here)|end ?trim|yahan tak|\b(?:\d+|Das|das|bees|bees|tees|chaalees|pachas|saath)\b\s*(?:seconds?|secs?|s|सेकंड)\b.{0,8}\btak\b/],
-    ['voiceover', /(?:narration|voice ?over)|rec (?:my )?voice|awaz record/i],
-    ['micOff', /(?:mic|voice|sunna|stop list) ?(?:band|off)?|देर नहाँ बोल(?: मत)?/]
+    ['trimIn', /trim.{0,8}(?:start|shuru|beginning)|start ?trim|yahan se|\b(?:\d+|das|bees|tees|chaalees|pachas|saath)\b\s*(?:seconds?|secs?|s|सेकंड)\b.{0,8}\bse\b/],
+    ['trimOut', /trim.{0,8}(?:end|khatam|finish)|end ?trim|yahan tak|\b(?:\d+|das|bees|tees|chaalees|pachas|saath)\b\s*(?:seconds?|secs?|s|सेकंड)\b.{0,8}\btak\b/],
+    ['voiceover', /(?:narration|voice ?over)|rec (?:my )?voice|awaz (?:record|dalo?|dol)|apni awaz/i],
+    ['micOff', /\b(?:mic|voice|sunna|sunnee)\b.{0,8}\b(?:band|off)\b|stop listening|awaz ?band|आवाज बंद करो/],
   ];
   function normText(t){ return String(t||'').toLowerCase().replace(/black (and|aur|&|n)[- ]?white/g, 'blackwhite').replace(/[,،]+/g,' ').replace(/\s+/g,' ').trim(); }
   function parseAmount(clause){
@@ -2874,9 +2874,9 @@
   }
   const LOOKHINTS = [
     ['film noir', /film ?noir|bahut kala safed/],
-    ['noir', /noir/], ['cinematic', /cinem\w+|film look|movie earing/],
+    ['noir', /noir/],    ['cinematic', /cinem\w+|film look|movie (?:jaisa|feeling|wal)|filmi/],
     ['vivid pop', /vivid|bright rang/], ['golden hour', /golden ?hour|suraj|sunset/],
-    ['cool mono', /cool ?mono/], ['vintage fade', /vintage/], ['faded film', /faded/],
+    ['cool mono', /cool ?mono/],    ['vintage fade', /vintage|purani (?:yaad|photo)|purana (?:zamana|look)/], ['faded film', /faded/],
     ['polaroid',/polaroid/], ['matte portrait',/(matte|portrait) (polish|portrait)/], ['matte',/matte/],
     ['cool chrome', /cool ?chrome|chrome look|editorial cool/], ['sepia classic', /sepia (classic|photo)/],
     ['coastal blue',/coast|beach/], ['autumn journal',/autumn|pata/], ['midnight city',/midnight|night city/],
@@ -2928,6 +2928,31 @@
   /* ---- voice UI + execution ---- */
   const voiceState = { active:false, confirm:true, rec:null, tries:0 };
   const CAPTIONS = ['brightness badhao 30','contrast kam karo','cinematic look','black and white','thoda blur karo','golden hour','rotate right','square crop','undo','export','play video','speed 2x','trim start','export video','narration start','mic band'];
+  /* brain fail / OFF hone par — nearest local command se graceful fallback (zero net).
+     Sirf CONTENT words (karo/kam/zara filler hatake) milna zaruri — junk sentence reject hoga. */
+  const NEAR_CANDIDATES = CAPTIONS.concat(['brightness thoda badhao','brightness kam karo','contrast badhao','contrast kam karo','saturation badhao','saturation kam karo','warm kar do','thanda kar do','blur kam karo','vignette karo','undo kar do','reset kar do','video band karo','video chalao','video restart','photo nikal do','awaz band']);
+  const NEAR_FILLER = /^(?:karo|kar|kardo|kro|kr|do|de|kya|ho|hai|rahe|yaar|pe|me|mein|the|ko|se|tak|bana|banao|laga|lagao|thoda|thodi|thore|zara|jara|bahut|bohot|aur|and|to|tu|pls|please|ekdum|badha|badhao|kam|kum|zyada|tez|up|down|nahi|mat|abhi)$/;
+  function fuzzyLocal(text){
+    const q0 = normText(text).replace(/\d+/g, ' '); if(!q0 || q0.trim().length < 3 || q0.trim().length > 70) return null;
+    const qt = q0.split(' ').filter(w => w && w.length > 1);
+    if(!qt.length || qt.length > 8) return null;
+    const qw = qt.filter(w => !NEAR_FILLER.test(w));
+    if(!qw.length) return null;
+    let best = null, bpct = 0;
+    for(const cand of NEAR_CANDIDATES){
+      const cw = normText(cand).replace(/\d+/g, ' ').split(' ').filter(w => w && w.length > 1 && !NEAR_FILLER.test(w));
+      if(!cw.length || qw.length > cw.length + 2) continue;
+      let matched = 0, unmatched = 0;
+      for(const c of cw){ const tol = c.length > 7 ? 2 : 1; if(qw.some(q => q === c || minEdit(q, c) <= tol)) matched++; else unmatched++; }
+      for(const q of qw){ const tol = q.length > 7 ? 2 : 1; if(!cw.some(c => c === q || minEdit(c, q) <= tol)) unmatched++; }
+      if(matched === cw.length && unmatched === 0 && qw.length >= cw.length){
+        const pct = Math.min(99, Math.round((matched / qw.length) * 100));
+        if(pct > bpct){ bpct = pct; best = cand; }
+      }
+    }
+    return (best && bpct >= 50) ? { phrase: best, pct: bpct } : null;
+  }
+  window.lucidNearest = fuzzyLocal;
   function speak(t){
     if(!voiceState.confirm || !(window.speechSynthesis)) return;
     try{ const u = new SpeechSynthesisUtterance(t); const vs = speechSynthesis.getVoices().filter(v => /hi|en[-_]IN/i.test(v.lang)); if(vs.length) u.voice = vs[0]; u.rate = 1.02; u.volume = 0.9; speechSynthesis.cancel(); speechSynthesis.speak(u); }catch(e){}
@@ -3085,6 +3110,7 @@
     if(!SRc){ showToast('Is browser me speech recognition nahi hai — Chrome/Edge try karo.'); voiceLogPush('SpeechRecognition unavailable in this browser.', true); return; }
     if(voiceState.active || forceOff){ stopVoice(false); return; }
     voiceState.active = true; voiceState.tries = 0;
+    brainWarm('mic');
     const micBtn = document.getElementById('voiceMic'); const fab = document.getElementById('voiceFab');
     if(micBtn) micBtn.classList.add('listening'); if(fab) fab.classList.add('listening');
     if(fab) fab.classList.add('show'); ensureAccentFAB(); if(fab) fab.classList.add('show');
@@ -3142,6 +3168,18 @@
      koi user key nahi), warna user di Groq/Gemini key (browser-local, kabhi upload nahi).
      LLM sirf JSON actions return karta hai — validator ganda output drop karta hai. */
   const AURA_API = 'https://aura-backend-jomj.onrender.com';
+  /* cold-start guard: Render free backend sota hai — pehle hi jaaga do (har 5 min me ek baar) */
+  const BRAIN_WARM = { last: 0 };
+  function brainWarm(reason){
+    if(Date.now() - BRAIN_WARM.last < 5*60*1000) return;
+    BRAIN_WARM.last = Date.now();
+    const t0 = Date.now();
+    try{
+      fetch(AURA_API + '/health?warm=lucid-voice', { cache: 'no-store' })
+        .then(r => { if(r.ok) voiceLogPush('🧠 brain ready (' + Math.round((Date.now()-t0)/1000) + 's) — ab bolne pe jaldi jawab milega.', false); })
+        .catch(() => { BRAIN_WARM.last = 0; });
+    }catch(e){ BRAIN_WARM.last = 0; }
+  }
   function brainSel(){ const s = document.getElementById('brainMode'); return s? s.value : (localStorage.getItem('lucid_brain_mode') || 'aura'); }
   function brainKey(){ const k = document.getElementById('brainKey'); return (localStorage.getItem('lucid_brain_key') || (k? k.value : '') || '').trim(); }
   function brainPrompt(){
@@ -3190,7 +3228,11 @@
   }
   async function brainFallback(text){
     const mode = brainSel();
-    if(mode === 'off'){ voiceLogPush('⚠ samajh nahi aaya — chips check karo, ya Advanced brain ON karo (panel me).', true); showToast('Ye samajh nahi aaya — chips ya AI brain try karo.'); return; }
+    if(mode === 'off'){
+      const near0 = fuzzyLocal(text);
+      if(near0){ voiceLogPush('🔁 nearest local: “' + near0.phrase + '” (' + near0.pct + '% match) — laga diya (brain OFF tha).', false); handleVoiceText(near0.phrase, false); return; }
+      voiceLogPush('⚠ samajh nahi aaya — chips pe tap karo, ya Advanced brain “AURA brain (no key)” pe rakho.', true); showToast('Ye samajh nahi aaya — chips try karo.'); return;
+    }
     if(mode !== 'aura' && !brainKey()){ voiceLogPush('⚠ ' + mode + ' ki key nahi dali — Advanced me key save karo, ya AURA brain mode chalu karo.', true); showToast(mode + ' key missing — Advanced brain me daalo.'); return; }
     voiceLogPush('🧠 AI brain se puch raha hoon (' + (mode === 'aura'? 'AURA backend' : mode) + ')…', false);
     try{
@@ -3203,6 +3245,8 @@
     }catch(err){
       const m = String(err.message || err);
       voiceLogPush('🧠 brain fail: ' + m, true); showToast('AI brain nahi mila — ' + m);
+      const near1 = fuzzyLocal(text);
+      if(near1){ voiceLogPush('🔁 brain down tha, local se nearest pakda: “' + near1.phrase + '” (' + near1.pct + '% match) — laga diya. Galat lago to “undo” bol do.', false); captionShow('🔁 ' + near1.phrase, false); handleVoiceText(near1.phrase, false); }
     }
   }
   /* expose for tests + AURA bridge */
@@ -3229,6 +3273,7 @@
     const to2 = document.getElementById('vidTrimOut'); if(to2) to2.addEventListener('click', () => handleVoiceText('trim end', false));
     const vo2 = document.getElementById('vidVoiceoverToggle'); if(vo2) vo2.addEventListener('click', toggleVoiceover);
     const ex = document.getElementById('vidExportBtn'); if(ex) ex.addEventListener('click', exportMedia);
+    setTimeout(() => { if(document.visibilityState === 'visible') brainWarm('panel'); }, 2500);
     /* hold V = push to talk */
     let vDown = false;
     addEventListener('keydown', e => { if((e.key === 'v' || e.key === 'V') && !e.ctrlKey && !e.metaKey && !vDown && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)){ vDown = true; if(!voiceState.active) toggleVoice(false); } });
