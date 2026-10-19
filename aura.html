@@ -5216,6 +5216,15 @@ function resolveFollowUp(q){
   return ex.q+" — follow-up: "+q;
 }
 
+// AURA_AGENT_MODE — agent mode state & toggle
+var agentMode = false;
+function toggleAgentMode(){
+  agentMode = !agentMode;
+  pushSys(agentMode?"🤖 Agent mode ON — hard questions will run live search/fetch/answer loop":"🤖 Agent mode OFF");
+  $("#agentBadge").textContent = agentMode?"AGENT":"CHAT";
+  $("#agentBadge").className = agentMode?"badge agent-on":"badge";
+}
+
 async function geminiCall(q,deep){
   const name=memGet().name;
   const P=PERSONAS[persona()];
