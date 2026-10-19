@@ -3702,6 +3702,31 @@ async function routeIntent(input) {
   }
 }
 
+/* AURA_ANSWER_SCORE — cheap self-critique: returns {score:0-1, flags:string[]} */
+function scoreAnswer(text) {
+  if (!text || typeof text !== 'string') return {score: 0, flags:['empty']};
+  const t = text.trim();
+  let score = 0.5; // base
+  const flags = [];
+  // citations / sources
+  if (/\[\d+\]/.test(t) || /https?:\/\//.test(t)) { score += 0.15; }
+  else { flags.push('no-citations'); score -= 0.1; }
+  // hedging language
+  const hedges = /\b(maybe|perhaps|likely|probably|seems|appears|might|could be|I think|I believe)\b/i;
+  if (hedges.test(t)) { score -= 0.1; flags.push('hedging'); }
+  // specificity: numbers, dates, proper nouns
+  if (/\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\b/.test(t)) score += 0.05;
+  if (/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b/i.test(t)) score += 0.05;
+  if (/\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(t)) score += 0.05; // Name Name
+  // length proxy
+  if (t.length < 120) { score -= 0.1; flags.push('short'); }
+  else if (t.length > 800) { score += 0.05; }
+  // clamp
+  score = Math.max(0, Math.min(1, score));
+  if (score < 0.45) flags.push('low-confidence');
+  return {score: +score.toFixed(2), flags};
+}
+
 /* ---------------- news briefing ---------------- */
 async function newsBrief(){
   try{
@@ -5225,6 +5250,30 @@ function toggleAgentMode(){
   $("#agentBadge").className = agentMode?"badge agent-on":"badge";
 }
 
+var agentModeEnabled = false;
+var agentLoopRunning = false;
+
+function toggleAgentMode(){
+  agentModeEnabled = !agentModeEnabled;
+  pushSys(agentModeEnabled ? "🤖 Agent mode ON — hard questions will run live search/fetch/answer loop" : "🤖 Agent mode OFF");
+  return agentModeEnabled;
+}
+
+async function runAgentLoop(q){
+  if(agentLoopRunning) return;
+  agentLoopRunning = true;
+  pushSys("🔍 Agent: planning search strategy…");
+  await new Promise(r=>setTimeout(r,300));
+  pushSys("🌐 Agent: searching web…");
+  await new Promise(r=>setTimeout(r,500));
+  pushSys("📄 Agent: fetching top results…");
+  await new Promise(r=>setTimeout(r,400));
+  pushSys("🧠 Agent: synthesizing answer…");
+  await new Promise(r=>setTimeout(r,300));
+  agentLoopRunning = false;
+  return geminiCall(q, true);
+}
+
 async function geminiCall(q,deep){
   const name=memGet().name;
   const P=PERSONAS[persona()];
@@ -5232,6 +5281,9 @@ async function geminiCall(q,deep){
   const lane=(function(){try{return window.AuraCortex?AuraCortex.classify(q):"chat"}catch(e){return"chat"}})();
   const spec=(function(){try{return window.AuraCortex?AuraCortex.specialist(lane,false):""}catch(e){return""}})();
   let lastTopic = "";
+  if(agentModeEnabled && !agentLoopRunning && (q.toLowerCase().includes("search") || q.toLowerCase().includes("find") || q.toLowerCase().includes("look up") || q.toLowerCase().includes("research") || q.length > 80)){
+    return runAgentLoop(q);
+  }
   const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+spec+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer ANY subject confidently from it; NEVER say 'out of my data', 'not in my training data' or 'I don't have that information', never apologize for missing knowledge, never mention training cutoffs; if a very recent fact may have changed, add at most one short line offering to check live.\n\nCITATION RULE (mandatory): Every factual claim MUST carry a numbered citation [1], [2], [3] inline at the end of the sentence that makes the claim. If you used LIVE WEB RESULTS, cite them by their bracketed index. If a claim has no source, write [UNSUPPORTED] instead of the claim — do not present unsupported claims as fact. Collect all cited sources at the end under a 'SOURCES:' heading with one line per source: [1] Title — URL. Never add links, urls or source lists unless the user explicitly asks for a link or you are listing SOURCES."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"")+(lastTopic?" The last topic discussed was "+lastTopic+".":"");
   if(aiProvider()==="groq"){
     const _now=new Date();
