@@ -2826,6 +2826,9 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
       <div id="autoBoard"></div>
       <div id="autoBatch"></div>
       <div id="autoQueue"></div>
+      <!-- PUSH HISTORY TIMELINE (owner order 20 Oct 2026): kaunsa feature kab push hua,
+           kaunsa sha, live-verify ka sach — newest first, honest badges. -->
+      <div id="autoShips"></div>
       <pre id="autoReport">squad ka clock load ho raha hai…</pre>
       <div id="autoHint"></div>
     </div>
@@ -2948,6 +2951,20 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
       #autoBatch b,#autoQueue b{color:#fcd34d}
       #autoBatch.build{border-color:rgba(34,211,238,.45)}
       #autoQueue.ready{border-color:rgba(52,211,153,.5)}
+      /* PUSH HISTORY TIMELINE — same panel language, timeline rows with sha links */
+      #autoShips{display:none;font:10.5px/1.6 'JetBrains Mono',monospace;color:#8ea6bd;white-space:normal;max-height:210px;overflow:auto;background:rgba(2,10,16,.45);border:1px dashed rgba(52,211,153,.35);border-radius:10px;padding:8px 11px}
+      #autoShips.on{display:block}
+      #autoShips>b{color:#6ee7b7;display:block;margin-bottom:3px}
+      #autoShips .ship{display:flex;gap:8px;align-items:baseline;padding:2px 0;border-top:1px solid rgba(142,166,189,.09);flex-wrap:wrap}
+      #autoShips .ship:first-of-type{border-top:0}
+      #autoShips .ship b{flex:0 0 auto;font-weight:700;min-width:86px}
+      #autoShips .ship.ship{color:#8ea6bd}
+      #autoShips .ship .sha{color:#d8e9f6;flex:0 1 auto}
+      #autoShips .ship .sha a{color:#4fe3ff;text-decoration:none}
+      #autoShips .ship .sha a:hover{text-decoration:underline}
+      #autoShips .ship i{font-style:normal;color:#7e93a8;font-size:9.5px;flex:1 1 auto;text-align:right}
+      #autoShips .ship.rev b{color:#fcd34d}
+      #autoShips .ship.rev{color:#a8814f}
       .auto-btn.pub{border-color:rgba(52,211,153,.5);color:#6ee7b7}
     </style>
   </div>
@@ -11527,6 +11544,27 @@ document.addEventListener("DOMContentLoaded",function(){
         qe.innerHTML=q.length
           ? ("📤 <b>READY TO PUBLISH ("+q.length+")</b> — verified complete, push ke liye tumhara word chahiye:\n"+q.map(function(x){return "  • "+autoEsc(x.title||x.mission)+" — "+(x.edits||0)+" edits · "+autoEsc(String(x.note||"").slice(0,80))}).join("\n")+"\n→ \"PUBLISH QUEUE\" dabao (ya bolo \"publish it\")")
           : "📤 publish queue: khaali — jo push hua wo neeche KRATOS report me hai";
+      }
+      /* PUSH HISTORY TIMELINE — ships (survivors, green) merged with fails (reverts,
+         amber), newest first. A ship entry only exists if its sentinel verified live
+         (backend records verify:"live-verified") — reverted publishes live in fails. */
+      const sl=$("autoShips");
+      if(sl){
+        const ships=(st.ships||[]).map(function(x){return {kind:"ship",sha:(x.sha||"").slice(0,7),mission:x.mission,when:x.when,edits:x.edits,batch:x.batch||"",verify:x.verify||"pushed",byAdmin:!!x.byAdmin}});
+        const reverts=(st.fails||[]).filter(function(f){return /live verification failed|auto-revert/.test(String(f.reason||""))}).map(function(f){return {kind:"revert",mission:f.mission,when:f.when,reason:String(f.reason||"").slice(0,120)}});
+        const ts=function(x){const n=(typeof x.when==="number")?x.when:Date.parse(String(x.when||""));return isNaN(n)?0:n};
+        const tl=ships.concat(reverts).sort(function(a,b){return ts(b)-ts(a)}).slice(0,20);
+        if(tl.length){
+          sl.className="on";
+          sl.innerHTML="<b>⏱ PUSH HISTORY — "+tl.length+" entry(ies), newest first</b>\n"+tl.map(function(x){
+            const t=(x.when!==undefined&&x.when)?(function(w){try{const d=(typeof w==="number")?new Date(w):new Date(String(w));return isNaN(d.getTime())?String(w):d.toLocaleString()}catch(e){return String(w)}})(x.when):"";
+            if(x.kind==="ship"){
+              const ver=(x.verify||"").indexOf("live-verified")===0?"✓ live-verified":(x.verify||"").indexOf("drain-pushed")===0?"📤 drain-pushed":"✓ pushed";
+              return '<div class="ship" title="'+autoEsc(x.batch||"")+'"><b>'+(x.byAdmin?"👤":"🤖")+(x.byAdmin?" admin":" auto")+'</b><span class="sha">'+autoEsc(x.mission)+'</span><i>'+(x.sha?'<a href="https://github.com/sourabh7300/aura/commit/'+x.sha+'" target="_blank" rel="noopener">'+x.sha+'</a>':'(no sha)')+' · '+ver+(x.edits?(' · '+x.edits+' edits'):'')+' · '+autoEsc(t)+'</i></div>';
+            }
+            return '<div class="ship rev" title="'+autoEsc(x.reason||"")+'"><b>⚠ reverted</b><span class="sha">'+autoEsc(x.mission)+'</span><i>'+autoEsc(x.reason||"").slice(0,110)+' · '+autoEsc(t)+'</i></div>';
+          }).join("");
+        }else{ sl.className=""; sl.innerHTML="⏱ push history: khaali — pehla publish hone pe yahan timeline bharegi (sha + verify sach)"; }
       }
       const rp=$("autoReport");
       if(rp)rp.textContent=(st.report&&st.report.text)?st.report.text:"(koi report abhi nahi — pehla cycle hone pe KRATOS yahan likhega)";

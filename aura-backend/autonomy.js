@@ -991,7 +991,10 @@ function createAutopilot(deps) {
       commit = await d.commit(candidate, "AURA autopilot: " + mission.id + " — " + mission.title + "\n\n" + mission.goal + "\n" + batchNote + ((wip.findings || []).length ? "\nresearch: " + clampText(wip.findings[0], 180) : ""));
     } catch (e) { const r = "publish failed: " + (e.message || e); st.note = r; state.fails.push({ mission: mission.id, reason: r, when: Date.now() }); return { fail: r }; }
     const sha = (commit && commit.sha || "").slice(0, 7);
-    state.ships.push({ sha: sha, mission: mission.id, when: nowIso(), edits: (wip.edits || []).length, batch: batchNote });
+    /* verify field feeds the admin panel's push-history timeline (owner order 20 Oct 2026):
+       the entry only survives the revert-check when the sentinel verified live, so a
+       recorded ship is a TRUE green. */
+    state.ships.push({ sha: sha, mission: mission.id, when: nowIso(), edits: (wip.edits || []).length, batch: batchNote, verify: "live-verified" });
     if (state.ships.length > 80) state.ships = state.ships.slice(-80);
     log(state, "arthur", "🚀 published " + sha + " — " + mission.id + " (" + batchNote + ")");
     clearWip(state, "published: " + mission.id);
@@ -1042,7 +1045,7 @@ function createAutopilot(deps) {
       try {
         const c = await d.commit(cand.src, "AURA autopilot: " + mission.id + " — " + mission.title + "\n\n" + mission.goal + "\n" + (item.note || "") + "\npublished on the admin's word");
         pushed.push({ mission: mission.id, sha: (c && c.sha || "").slice(0, 7) });
-        state.ships.push({ sha: (c && c.sha || "").slice(0, 7), mission: mission.id, when: nowIso(), edits: (item.edits || []).length, batch: item.note || "", byAdmin: true });
+        state.ships.push({ sha: (c && c.sha || "").slice(0, 7), mission: mission.id, when: nowIso(), edits: (item.edits || []).length, batch: item.note || "", byAdmin: true, verify: "drain-pushed (no live check in the drain lane)" });
         const mst = state.missions[mission.id] || (state.missions[mission.id] = {});
         mst.done = true; mst.sha = (c && c.sha || "").slice(0, 7); mst.when = Date.now(); mst.note = "published on the admin's word";
         state.queue = state.queue.filter(x => x.at !== item.at);
@@ -1091,7 +1094,7 @@ function createAutopilot(deps) {
       sweep: state.sweep ? { pass: state.sweep.pass, fail: state.sweep.fail, failed: state.sweep.failed, at: state.sweep.at } : null,
       world: state.world || null,
       research: (state.research || []).slice(-3),
-      ships: (state.ships || []).slice(-8),
+      ships: (state.ships || []).slice(-20),
       fails: (state.fails || []).slice(-5),
       missions: allMissions(state).map(m => ({ id: m.id, title: m.title, goal: m.goal, research: m.research || "", state: missionState(state, m.id) })),
       progress: { done: done, total: allMissions(state).length },
