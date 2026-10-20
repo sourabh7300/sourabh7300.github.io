@@ -11558,12 +11558,14 @@ document.addEventListener("DOMContentLoaded",function(){
       }catch(e){AUD.err=(e.message||String(e));autoPaint();return "autopilot lane error (honest): "+AUD.err}
       finally{if(a)a.disabled=false;if(b)b.disabled=false}
     }
-    async function autopilotRun(force){
+    async function autopilotRun(force,publishNow){
       if(!isAdmin())return "admin only — cycle control is the owner's.";
       const r=$("autoRun");if(r){r.disabled=true;r.textContent="⏳ CYCLE RUNNING…"}
-      entry("kratos","⚡ manual cycle — ERLANG sweep → ARTHUR mission → PHOENIX watch → KRATOS report");
+      entry("kratos","⚡ manual cycle — ERLANG sweep → ARTHUR mission → PHOENIX watch → KRATOS report"+(publishNow?(" → PUSH (publishNow)"):""));
       try{
-        const j=await autoCall("/v1/squad/tick",force?{force:true,trigger:"admin"}:{trigger:"admin"});
+        /* publishNow (owner's order 20 Oct 2026): the AUTO WORK tap publishes the finished
+           feature immediately — a leftover HOLD policy can no longer trap the work */
+        const j=await autoCall("/v1/squad/tick",force?{force:true,trigger:"admin",publishNow:!!publishNow}:{trigger:"admin"});
         AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
         if(j.skipped){entry("kratos","cycle skipped — "+j.skipped);return "Cycle skipped, Sir — "+j.skipped}
         return "⚡ Cycle done, Sir — report desk pe:\n\n"+((j.report&&j.report.text)||autoStatusText());
@@ -12021,15 +12023,23 @@ document.addEventListener("DOMContentLoaded",function(){
           }
           if(AUD.state&&!(AUD.state.enabled)){flow("⏳ autopilot start ho raha…");await autopilotToggle(true)}
           if(AUD.err){flow("✗ autopilot lane: " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot","autopilot lane error (honest): "+AUD.err)}catch(e4){}return}
-          flow("⏳ cycle chal raha hai (Nemotron pe)…");awB.textContent="⚡ WORKING…";
-          const r=await autopilotRun(true);
+          flow("⏳ cycle chal raha hai (publishNow)…");awB.textContent="⚡ WORKING…";
+          const r=await autopilotRun(true,true);
           if(AUD.err){
             const _a2=/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH/i.test(AUD.err+"");
             flow("✗ " + (AUD.err+"").slice(0,110));
             try{push(S.who||"kratos","bot",r||("cycle lane error (honest): "+AUD.err))}catch(e2){}
             if(_a2)openAuth();
           }
-          else{flow("✓ cycle done "+new Date().toLocaleTimeString());try{push(S.who||"kratos","bot",r||"")}catch(e2){}}
+          else{
+            /* AUTO WORK = work + PUSH (owner's order 20 Oct 2026): after the cycle, drain
+               whatever verified features are still waiting in the publish queue so one tap
+               takes everything live instead of leaving finished work parked. */
+            flow("⏳ queue drain…");
+            const pu=await autopilotPublish();
+            flow("✓ done "+new Date().toLocaleTimeString());
+            try{push(S.who||"kratos","bot",String(r||"")+(pu&&!/^publish lane error/.test(String(pu))?("\n\n"+pu):""))}catch(e2){}
+          }
         }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,90))}
         finally{awB.textContent="⚡ AUTO WORK";awB.disabled=false;puB&&(puB.disabled=false)}
       };
