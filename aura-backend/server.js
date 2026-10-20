@@ -67,6 +67,10 @@ async function reserveCall(messages, maxTok, temperature, req) {
   } catch (e) { return null; }
 }
 
+/* OWNER ORDER 12 Oct 2026 — the bots run NVIDIA NEMOTRON FIRST, on the maker's
+   own NIM key. Set NVIDIA_NIM_KEY in the hosting dashboard. /health exposes only
+   its presence (boolean), never its value, so the owner can SEE it's wired. */
+const NVIDIA_NIM_KEY = envv("NVIDIA_NIM_KEY", "NVIDIA_API_KEY", "NIM_API_KEY", "AI_KEY_NVIDIA");
 /* Image questions route to the vision brain when a vision key is configured.
    No vision key → an honest 501 — never a text model pretending it saw the photo. */
 function msgHasImage(messages) {
@@ -1462,7 +1466,7 @@ app.get("/health", async (req, res) => {
   const now = Date.now();
   fbInit(); /* eager init so the diagnostic tells the truth immediately */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck(), research: await researchProbe(), brain: brainLast, squad: squadHealth() });
+  res.json({ ok: true, build: BUILD, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck(), research: await researchProbe(), brain: brainLast, squad: squadHealth() });
 });
 
 /* THE PROXY — key stays server-side forever */
