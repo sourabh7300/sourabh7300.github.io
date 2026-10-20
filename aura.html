@@ -11593,7 +11593,24 @@ document.addEventListener("DOMContentLoaded",function(){
       }
       if(AUD.busy)return AUD.state;
       try{AUD.busy=true;AUD.state=await autoCall("/v1/squad/state");AUD.err=""}
-      catch(e){AUD.err=(e.message||String(e));if(!quiet)entry("kratos","autopilot state lane: "+AUD.err)}
+      catch(e){
+        AUD.err=(e.message||String(e));
+        /* LEGACY-TOKEN FALLBACK (root cause of the eternal "UNREACHABLE" on the owner's
+           own browser 20 Oct 2026): the old localStorage admin token says isAdmin=true
+           client-side, but the backend needs a REAL Firebase bearer and answers 401 —
+           so the panel died on UNREACHABLE instead of showing anything true. Now that
+           case paints the honest guest view (public counters) + an exact sign-in line. */
+        if(/admin session|NO_SESSION|401|Unauthorized/i.test(AUD.err) && !(typeof fbUser==="function" && fbUser())){
+          AUD.err="";AUD.state=null;
+          try{const h=await fetch(backendUrl()+"/v1/squad/beat",{cache:"no-store"});AUD.beat=(await h.json().catch(()=>null))||null}catch(e2){AUD.beat=null}
+          autoPaintGuest();
+          const _h=$("autoHint");
+          if(_h)_h.textContent="🔐 owner panel sign-in pending — counters upar PUBLIC heartbeat ke sach hain (live). ⚙ SETTINGS → Sign in / switch user, phir poora panel khud bhar jayega.";
+          if(!quiet)entry("kratos","admin lane 401 on legacy token — guest view painted, sign-in needed for full data");
+          return null;
+        }
+        if(!quiet)entry("kratos","autopilot state lane: "+AUD.err)
+      }
       finally{AUD.busy=false}
       autoPaint();
       return AUD.state;
