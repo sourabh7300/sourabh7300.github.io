@@ -3199,6 +3199,32 @@ const STATES={
 let mode="idle",modeT=0;
 function setMode(m){mode=m;modeT=0;$("stateText").textContent=STATES[m].label;try{const hw=document.getElementById("hudWord");if(hw){const P=window.PERSONAS;const nm=(P&&P[(function(){try{return localStorage.getItem("aura_persona")}catch(e){return null}})()]||{name:"AURA"}).name.toUpperCase();const map={idle:" "+nm+" ONLINE",listening:"LISTENING…",thinking:"PROCESSING…",speaking:"RESPONDING…"};hw.textContent=map[m]||map.idle;hw.style.opacity=m==="idle"?"":"1";}}catch(e){};if(m!="alert")flushOfflineQueue();}/* AURA_OFFLINE_OUTBOX */
 
+/* AURA_ERROR_CLASSIFY — lane error classifier with stable categories & one-line fix hints */
+const ERR_CAT={
+  NETWORK:   {cat:"NETWORK",   hint:"Check connectivity / retry with backoff"},
+  TIMEOUT:   {cat:"TIMEOUT",   hint:"Increase deadline or simplify request"},
+  PARSE:     {cat:"PARSE",     hint:"Validate schema / sanitize input before parse"},
+  AUTH:      {cat:"AUTH",      hint:"Refresh token or re-authenticate"},
+  QUOTA:     {cat:"QUOTA",     hint:"Back off / rotate key / reduce rate"},
+  LOGIC:     {cat:"LOGIC",     hint:"Add guard clause / fix branch condition"},
+  UNKNOWN:   {cat:"UNKNOWN",   hint:"Log full stack / add telemetry"}
+};
+function classifyError(err){
+  const msg=String(err?.message||err||'').toLowerCase();
+  if(/network|fetch|econn|enotfound|eai_again|socket|timeout/i.test(msg)) return ERR_CAT.NETWORK;
+  if(/timeout|timed out|deadline/i.test(msg)) return ERR_CAT.TIMEOUT;
+  if(/json|parse|syntax|unexpected token/i.test(msg)) return ERR_CAT.PARSE;
+  if(/401|403|unauthorized|forbidden|auth|token/i.test(msg)) return ERR_CAT.AUTH;
+  if(/429|quota|rate.?limit|too many requests/i.test(msg)) return ERR_CAT.QUOTA;
+  if(/typeerror|referenceerror|undefined|null|logic|assert/i.test(msg)) return ERR_CAT.LOGIC;
+  return ERR_CAT.UNKNOWN;
+}
+function logLaneError(lane,err){
+  const c=classifyError(err);
+  pushSys(`[ERR:${c.cat}] ${lane} — ${c.hint}`);
+  return c;
+}
+
 /* ---------------- 3D particle core ---------------- */
 const cv=$("fx"),cx=cv.getContext("2d");
 let W,H,CX,CY,R;
