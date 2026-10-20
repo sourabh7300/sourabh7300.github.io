@@ -1197,10 +1197,12 @@ async function squadProbeWith(storeDurable) {
 }
 const autopilot = autopilotLib.createAutopilot({
   config: {
-    /* HOLD is the owner's standing policy (12 Oct 2026): the squad keeps working and
-       KEEPING finished features in the publish queue — nothing auto-commits. He taps
-       PUSH once when he wants everything live. Environment can override if ever needed. */
-    publish: process.env.SQUAD_PUBLISH || "hold"
+    /* HOLD RETIRED 20 Oct 2026 (owner's standing word): the squad now defaults to
+       BATCH — every finished feature pushes itself after the verify gates, and the
+       AUTO WORK tap additionally drains the publish queue. The old stored hold
+       migrates to batch once in the engine (autonomy.load). SQUAD_PUBLISH=hold can
+       still pin the old behavior from the dashboard if ever wanted back. */
+    publish: process.env.SQUAD_PUBLISH || "batch"
   },
   loadState: squadLoadState,
   saveState: squadSaveState,

@@ -586,6 +586,16 @@ function createAutopilot(deps) {
     if (!Array.isArray(fresh.research)) fresh.research = [];
     if (!Array.isArray(fresh.generated)) fresh.generated = [];
     fresh.generated = fresh.generated.filter(g => g && typeof g.id === "string" && /^[a-z][a-z0-9-]{2,39}$/.test(g.id));
+    /* HOLD RETIRED 20 Oct 2026 (owner's word: "HOLD hatao, AUTO WORK pe auto-push ho").
+       Saved states used to pin publish:"hold" forever (that was the 12 Oct default), so
+       finished features sat queued even when nobody got around to tapping PUSH. A stored
+       hold WITHOUT the migration marker becomes BATCH on the first reload — unless the
+       deployment explicitly pins SQUAD_PUBLISH=hold. The admin can still choose hold
+       later: setPublish stamps holdMigrated, so a deliberate new hold survives reloads. */
+    if (st && st.v === STATE_VERSION && st.publish === "hold" && st.holdMigrated !== true
+        && !/^hold$/i.test(String(process.env.SQUAD_PUBLISH || ""))) {
+      fresh.publish = "batch"; fresh.holdMigrated = true;
+    }
     memory.state = fresh;
     return fresh;
   }
@@ -1119,6 +1129,7 @@ function createAutopilot(deps) {
   async function setPublish(mode) {
     const state = await load(true);
     state.publish = /^hold$/i.test(String(mode || "")) ? "hold" : "batch";
+    state.holdMigrated = true; /* a deliberate admin choice survives the legacy-hold migration above */
     log(state, "kratos", "push policy → " + state.publish);
     const report = renderReport(state);
     state.reports.push({ day: state.day, at: Date.now(), text: clampText(report, 3000), cycle: state.cycle || "" });
