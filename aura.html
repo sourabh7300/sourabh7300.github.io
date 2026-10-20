@@ -11976,13 +11976,24 @@ document.addEventListener("DOMContentLoaded",function(){
       }catch(e){}
       entry("kratos","KRATOS SQUAD online — Mythos protocol loaded, admin-only, autopilot clock on the server");
       const aOn=$("autoOn"),aOff=$("autoOff"),aRun=$("autoRun"),aRf=$("autoRefresh");
-      if(aOn)aOn.onclick=function(){autopilotToggle(true)};
-      if(aOff)aOff.onclick=function(){autopilotToggle(false)};
-      if(aRun)aRun.onclick=function(){autopilotRun(true)};
-      if(aRf)aRf.onclick=function(){autopilotRefresh(false)};
+      /* BUTTONS THAT SPOKE — DEAD-CLICK FIX (owner report 20 Oct 2026, live browser proof:
+         every panel button had NO onclick because __squadWireChips was exported but never
+         called, and these wrappers threw the lane's honest result-string away). Now every
+         press answers in the bot chat; auth failures open the sign-in modal instead of
+         dying silently. */
+      const showRes=async function(r){
+        if(typeof r==="string"&&r.trim()){
+          try{push(S.who||"kratos","bot",r)}catch(e8){try{entry("kratos",String(r).slice(0,200))}catch(e9){}}
+          if(/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH|admin only/i.test(r)){try{AuraAuth.openModal()}catch(e6){}}
+        }
+      };
+      if(aOn)aOn.onclick=async function(){showRes(await autopilotToggle(true))};
+      if(aOff)aOff.onclick=async function(){showRes(await autopilotToggle(false))};
+      if(aRun)aRun.onclick=async function(){showRes(await autopilotRun(true))};
+      if(aRf)aRf.onclick=function(){autopilotRefresh(false).then(function(r){if(!r&&AUD.err)showRes("refresh lane: "+AUD.err)})};
       const aPub=$("autoPublish"),aPol=$("autoPolicy");
-      if(aPub)aPub.onclick=function(){autopilotPublish()};
-      if(aPol)aPol.onclick=function(){autopilotPolicy()};
+      if(aPub)aPub.onclick=async function(){showRes(await autopilotPublish())};
+      if(aPol)aPol.onclick=async function(){showRes(await autopilotPolicy())};
       /* OWNER'S SIMPLICITY ORDER — TWO buttons do the whole job (13 Oct 2026):
          ⚡ AUTO WORK = autopilot ON (agar band hai) + ek real cycle turant; honest status tag.
          🚀 PUSH     = verified publish-queue sab ek saath live karo. */
@@ -12040,7 +12051,10 @@ document.addEventListener("DOMContentLoaded",function(){
       autopilotRefresh(true);
       shiftBoot();
     }
-    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
+    /* DEAD-CLICK ROOT FIX — the wiring below used to exist only inside
+       __squadWireChips, which was exported but never invoked by anyone, so the
+       autopilot panel buttons never received handlers (live bug, 20 Oct 2026). */
+    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",function(){boot();__squadWireChips();});else{boot();__squadWireChips();}
     return {sweep:sweep,wireChips:__squadWireChips,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},morningShift:morningShift,shift:function(){return shiftLoad()},autopilot:{refresh:autopilotRefresh,set:autopilotToggle,run:autopilotRun,publish:autopilotPublish,policy:autopilotPolicy,status:autoStatusText,state:function(){return AUD.state}},db:function(){return {protocol:BOT_DB.protocol,daily:BOT_DB.daily,standing:BOT_DB.standing,goal:BOT_DB.goal,research:BOT_DB.research,safety:BOT_DB.safetyCharter,pushPolicy:BOT_DB.pushPolicy,autopilot:BOT_DB.autopilot,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode(),shift:S.shift}}};
   })();
 
