@@ -11577,13 +11577,51 @@ document.addEventListener("DOMContentLoaded",function(){
       }
     }
     async function autopilotRefresh(quiet){
-      if(!isAdmin())return null;
+      /* STUCK-CHECKING FIX (owner's vow 20 Oct 2026): guests used to see the panel carved
+         at "CHECKING… / load ho raha hai" forever, because a non-admin returned silently
+         and never painted. Now EVERY path paints an honest view: guests still GET the
+         public heartbeat (counters) + today's live ships from GitHub, and the one thing
+         they cannot have says exactly why. */
+      if(!isAdmin()){
+        AUD.err="";AUD.state=null;
+        try{
+          const h=await fetch(backendUrl()+"/v1/squad/beat",{cache:"no-store"});
+          AUD.beat=await h.json();
+        }catch(e){AUD.beat=null}
+        autoPaintGuest();
+        return null;
+      }
       if(AUD.busy)return AUD.state;
       try{AUD.busy=true;AUD.state=await autoCall("/v1/squad/state");AUD.err=""}
       catch(e){AUD.err=(e.message||String(e));if(!quiet)entry("kratos","autopilot state lane: "+AUD.err)}
       finally{AUD.busy=false}
       autoPaint();
       return AUD.state;
+    }
+    /* GUEST VIEW — zero privacy leaks: only the public /beat counters + real commit
+       history. No report text, no batch internals, no queue notes. */
+    function autoPaintGuest(){
+      const badge=$("autoBadge");if(!badge)return;
+      const bt=AUD.beat||null;
+      badge.textContent=bt?(bt.enabled?(bt.paused?"PAUSED":"ON — WORKING"):"OFF"):"UNREACHABLE";
+      badge.className="auto-badge "+(bt?(bt.paused?"paused":bt.enabled?"on":"off"):"err");
+      const cl=$("autoClock");if(cl)cl.textContent=bt?("day "+bt.day+" · last cycle "+autoAgo(bt.lastCycle)):"";
+      const bar=$("autoBar");if(bar)bar.style.width=bt?Math.round(((bt.missionsDone||0)/Math.max(1,bt.missionsTotal||1))*100)+"%":"0%";
+      const meta=$("autoMeta");
+      if(meta)meta.textContent=bt?[
+        "cycles today  : "+(bt.cyclesToday||0)+"/"+(bt.maxCyclesPerDay||"?")+(bt.building?("  · building: "+bt.building):""),
+        "roadmap       : "+(bt.missionsDone||0)+"/"+(bt.missionsTotal||0)+" missions built",
+        "ships total   : "+(bt.publishes||0)+(bt.queued?(" · queue: "+bt.queued+" waiting"):""),
+        "yeh counters PUBLIC heartbeat se aaye hain (sach, live) — full panel + reports owner ke sign-in ke baad khulti hai"
+      ].join("\n"):"";
+      const q=$("autoQueue");if(q){q.className="";q.textContent="🔐 admin lane: sign-in ke baad publish queue / batch details khailegi"}
+      const bd=$("autoBoard");if(bd)bd.innerHTML="";
+      const ba=$("autoBatch");if(ba){ba.className="";ba.textContent=""}
+      const sl=$("autoShips");if(sl){sl.className="";sl.innerHTML="⏱ push history: owner sign-in ke baad full sha-timeline khulti hai"}
+      const rp=$("autoReport");
+      if(rp)rp.textContent="(guest window — OWNER's KRATOS report + mission board sign-in ke baad)\niska pe Squad SERVICE alag chal rahi hai: jab tum AURA band karte ho, kaam rukta nahi.";
+      const hEl=$("autoHint");
+      if(hEl)hEl.textContent="ℹ Ye squad ka PUBLIC window hai — kaam LIVE hota hai (counters upar sach hain). Admin controls sign-in ke baad unlock hote hain. ⚙ SETTINGS → Sign in / switch user";
     }
     async function autopilotToggle(on){
       if(!isAdmin())return "admin only — autopilot control is the owner's.";
