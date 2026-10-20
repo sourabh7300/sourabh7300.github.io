@@ -2800,6 +2800,7 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
            Hinglish natively, so the old chip texts still work when typed. -->
       <button class="bot-chip" id="btnAutoWork" style="border-color:rgba(52,211,153,.5);color:#6ee7b7">⚡ AUTO WORK</button>
       <button class="bot-chip" id="btnPushAll" style="border-color:rgba(52,211,153,.5);color:#6ee7b7">🚀 PUSH</button>
+      <button class="bot-chip" id="btnNonstop" style="border-color:rgba(251,191,36,.5);color:#fcd34d" title="Keep working nonstop 24/7 without stopping">⚡ NONSTOP: OFF</button>
       <span id="botFlowTag" style="font:600 9.5px 'JetBrains Mono',monospace;letter-spacing:1px;color:#8ea6bd;align-self:center;padding-left:6px">WORKFLOW: idle</span>
     </div>
     <div id="botRow">
@@ -11031,6 +11032,7 @@ document.addEventListener("DOMContentLoaded",function(){
       {c:"/publish",a:"[hold|batch]",d:"push the verified queue / switch policy",run:function(s){chat(s&&/hold|batch/i.test(s)?s+" mode":"publish it")}},
       {c:"/morning",a:"",d:"run today's daily shift now",run:function(){chat("morning shift")}},
       {c:"/autopilot",a:"[on|off]",d:"the squad's 24/7 clock",run:function(s){chat(s&&/off/i.test(s)?"stop autopilot":"autopilot on")}},
+      {c:"/nonstop",a:"[on|off]",d:"continuous 24/7 nonstop work loop",run:function(s){chat(s&&/off/i.test(s)?"stop nonstop":"nonstop kaam karo")}},
       {c:"/clear",a:"",d:"clear this bot's chat log",run:function(){clearChat()}},
       {c:"/export",a:"",d:"download this chat as Markdown",run:function(){downloadChat()}},
       {c:"/pins",a:"",d:"show pinned messages",run:function(){renderPins(true)}},
@@ -11503,14 +11505,22 @@ document.addEventListener("DOMContentLoaded",function(){
       }
       if(!st)return;
       const done=(st.progress&&st.progress.done)||0,total=(st.progress&&st.progress.total)||1;
-      badge.textContent=st.paused?("PAUSED — "+String(st.paused).toUpperCase()):(st.enabled?"ON — WORKING":"OFF — WAITING FOR COMMAND");
-      badge.className="auto-badge "+(st.paused?"paused":st.enabled?"on":"off");
-      const cl=$("autoClock");if(cl)cl.textContent="day "+st.day+" · last cycle "+autoAgo(st.lastCycle);
+      badge.textContent=st.paused?("PAUSED — "+String(st.paused).toUpperCase()):(st.nonstop?"⚡ NONSTOP — ACTIVE":(st.enabled?"ON — WORKING":"OFF — WAITING FOR COMMAND"));
+      badge.className="auto-badge "+(st.paused?"paused":st.nonstop?"on":st.enabled?"on":"off");
+      const nsB=$("btnNonstop");
+      if(nsB){
+        const isNs=!!(st&&st.nonstop);
+        nsB.textContent=isNs?"⚡ NONSTOP: ON (ACTIVE)":"⚡ NONSTOP: OFF";
+        nsB.style.background=isNs?"rgba(251,191,36,.25)":"";
+        nsB.style.borderColor=isNs?"#fbbf24":"rgba(251,191,36,.5)";
+      }
+      const cl=$("autoClock");if(cl)cl.textContent="day "+st.day+" · last cycle "+autoAgo(st.lastCycle)+(st.nonstop?" · ⚡ NONSTOP":"");
       const pb=$("autoPolicy");if(pb)pb.textContent="📤 PUSH: "+String(st.publish||"batch").toUpperCase();
       const bar=$("autoBar");if(bar)bar.style.width=Math.round((done/Math.max(1,total))*100)+"%";
       const last=(st.ships&&st.ships.length)?st.ships[st.ships.length-1]:null;
       const meta=$("autoMeta");
       if(meta)meta.textContent=[
+        (st.nonstop?"mode           : ⚡ NONSTOP — continuous 24/7 autonomous execution without stopping":null),
         "cycles today  : "+st.cyclesToday+"/"+st.maxCyclesPerDay+(st.running?"  (⏳ ek cycle abhi chal raha hai)":""),
         "roadmap       : "+done+"/"+total+" missions built"+(st.current?("  · doing: "+st.current):"")+((st.generated||0)?("  · +"+st.generated+" agent-gen") : ""),
         ((st.generated||0)?("self-roadmap  : 🌱 roadmap agent ne "+st.generated+" naya mission(s) propose kiye (queue thin hone par)"):null),
@@ -11691,13 +11701,34 @@ document.addEventListener("DOMContentLoaded",function(){
           : "📤 BATCH mode, Sir — har finished feature verified gates ke baad khud push hoga, par chote changes pe kabhi nahi.";
       }catch(e){return "policy lane error (honest): "+(e.message||e)}
     }
+    async function autopilotTask(task, nonstop){
+      if(!isAdmin())return "admin only — squad task dispatch is the owner's.";
+      try{
+        const j=await autoCall("/v1/squad/task",{task:task,runNow:true,nonstop:!!nonstop,publishNow:true});
+        AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
+        return j;
+      }catch(e){
+        AUD.err=(e.message||String(e));autoPaint();
+        return null;
+      }
+    }
+    async function autopilotNonstop(on){
+      if(!isAdmin())return "admin only — nonstop control is the owner's.";
+      try{
+        const j=await autoCall("/v1/squad/nonstop",{enabled:!!on});
+        AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
+        return on
+          ? "⚡ NONSTOP WORK ENGAGED, Sir! Squad server pe continuously bina ruke kaam karegi — admin tasks priority #1 par execute honge."
+          : "⏸ Nonstop mode paused, Sir — squad normal schedule pe wapas aa gayi.";
+      }catch(e){return "nonstop lane error: "+(e.message||e)}
+    }
     function autoStatusText(){
       const st=AUD.state;
       if(AUD.err||!st)return "🤖 AUTOPILOT — is page pe state nahi aayi ("+(AUD.err||"no state")+").\nSach: squad ka clock SERVICE + GitHub cron pe chalta hai, is browser pe nahi — backend utha to panel khud bhar jayega. Panel se 'RUN A CYCLE NOW' ya '↻ REFRESH' try karo.";
       const d=(st.progress&&st.progress.done)||0,t=(st.progress&&st.progress.total)||0;
       const last=(st.ships&&st.ships.length)?st.ships[st.ships.length-1]:null;
       return "🤖 AUTOPILOT — real state, Sir:\n"+
-        "• status: "+(st.paused?("PAUSED ("+st.paused+")"):(st.enabled?"ON — squad khud kaam kar rahi hai":"OFF — sirf aapke command pe"))+(st.running?" · ⏳ ek cycle abhi chal raha hai":"")+"\n"+
+        "• status: "+(st.paused?("PAUSED ("+st.paused+")"):(st.nonstop?"⚡ NONSTOP (continuous 24/7 cycles)":(st.enabled?"ON — squad khud kaam kar rahi hai":"OFF — sirf aapke command pe")))+(st.running?" · ⏳ ek cycle abhi chal raha hai":"")+"\n"+
         "• aaj ke cycles: "+st.cyclesToday+"/"+st.maxCyclesPerDay+(st.cyclesToday>=st.maxCyclesPerDay?" (aaj ka budget khatam → next din)":" (baaki cycles apne aap chalenge)")+"\n"+
         "• roadmap: "+d+"/"+t+" missions built"+(st.current?(" · doing: "+st.current):"")+"\n"+
         "• auto-ship: "+(st.autoShip?"ON — verified gates → commit → live verify → auto-revert":"OFF (SQUAD_AUTOSHIP=0)")+(last?(" · last ship "+last.sha+" ("+last.mission+")"):"")+"\n"+
@@ -11910,15 +11941,24 @@ document.addEventListener("DOMContentLoaded",function(){
         const fixish=/\b(fix|repair|patch|bug|solve|broken|failed|theek|thik|sudhaar|sudhar|dur kar|door kar|hata|hatado|theek krr|thik krr)\b/.test(t);
         const q=/\?$/.test(t)||/^(what|who|when|where|why|how|which|can|could|do|does|is|are|should|would|explain|tell)\b/.test(t)||/^(kya|kaun|kab|kahan|kahaan|kyun|kyu|kaise|kitna|kitne|batao|bata|poochh)\b/.test(t)||/\b(hai kya|kya haal|kya chal raha|hua kya|kaam kya|kya kar|kya kar rahe)\b/.test(t)||/\b(batao|bata de|bata do|batana|poochho|poochhna|dikhao|dikha do)\b/.test(t)&&!/^(arthur|erlang|kratos|phoenix)\b/.test(t);
         const taskish=(/\b(fix|add|build|create|write|change|update|remove|delete|make|refactor|improve|optimize|implement|install|rename|move|clean|debug|repair|revise|rejig|banao|bana de|banado|lagao|lagana|kardo|kar do|krr do|badal|badlo)\b/.test(t))||(!q&&text.length>14);
+        const nonstopOff=/\b(stop nonstop|nonstop off|nonstop band|pause nonstop|turn off nonstop|band karo nonstop)\b/i.test(t);
+        const nonstopOn=/\b(non[- ]?stop|bina ruke|lagatar|rukna mat|keep working|nonstop kaam|continuous|24\/7 kaam)\b/i.test(t)&&!nonstopOff;
         /* THE ADMIN NAMES THE EXECUTOR — "arthur: …" / "to erlang: …" — bots never pick the dept themselves */
         const dir=text.match(/^(?:to\s+|give\s+(?:this|it)\s+to\s+|assign\s+(?:this\s+)?to\s+|dispatch\s+(?:this\s+)?to\s+)?(kratos|erlang|arthur|phoenix)\s*[:\-—]\s*(.+)$/i);
         const dName=dir?dir[1].toLowerCase():null,dTask=dir?dir[2].trim():"",toOther=!!dir&&dName!=="kratos";
         let reply=null;
-        if(toOther&&vague(dTask)){reply=askClarity();}
+        if(nonstopOff){
+          reply=await autopilotNonstop(false);
+        }else if(nonstopOn && !taskish && !(/\b(add|build|create|write|fix|repair|implement|banao|banado|badal)\b/i.test(t)&&t.length>20)){
+          reply=await autopilotNonstop(true);
+        }else if(toOther&&vague(dTask)){reply=askClarity();}
         else if(toOther&&dName==="arthur"){
+          const isNs=!!(nonstopOn || (AUD.state&&AUD.state.nonstop));
+          if(nonstopOn && !(AUD.state&&AUD.state.nonstop))autopilotNonstop(true);
           S.orders.push({t:Date.now(),task:dTask.slice(0,200),by:"admin"});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
           entry("kratos","admin assigned to ⚔ ARTHUR: "+dTask.slice(0,110));
           push(id,"sys","⚔ ARTHUR is on it — YOUR assignment → plan → code → verify…");
+          autopilotTask(dTask, isNs);
           reply=await finishWork(id,text,"⚔ ARTHUR",await arthurWork(dTask));
         }
         else if(toOther&&dName==="erlang"){
@@ -11955,9 +11995,25 @@ document.addEventListener("DOMContentLoaded",function(){
           }else if(sweepish&&!fixish){
             reply=await runSweepFor(id,text); /* the WORK is named (a sweep) — no dept-picking involved */
           }else if(taskish&&!q){
-            S.orders.push({t:Date.now(),task:text.slice(0,200),by:"admin",note:true});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
-            entry("kratos","order noted — NOT dispatched (the admin assigns the executor)");
-            reply=vague(text)?askClarity():orderReceipt(text);
+            if(vague(text)){
+              reply=askClarity();
+            }else{
+              const isNs=!!(nonstopOn || (AUD.state&&AUD.state.nonstop));
+              if(nonstopOn && !(AUD.state&&AUD.state.nonstop))await autopilotNonstop(true);
+              S.orders.push({t:Date.now(),task:text.slice(0,200),by:"admin",dispatched:true});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
+              entry("kratos","admin task DISPATCHED → ⚔ ARTHUR + Autopilot: "+text.slice(0,110));
+              push(id,"sys","⚔ ARTHUR & Autopilot on it — dispatching task (plan → build → verify → nonstop)…");
+              const autoRes=await autopilotTask(text, isNs);
+              if(autoRes&&autoRes.ok){
+                reply="👑 KRATOS COMMAND: Task dispatched to squad & executed on backend!\n"+
+                  "• Mission: "+(autoRes.mission||"custom")+
+                  (autoRes.cycle&&autoRes.cycle.ship?"\n• 🚀 Shipped: commit "+autoRes.cycle.ship.sha:"\n• Status: verified & queued")+
+                  (isNs?"\n• ⚡ NONSTOP ACTIVE — squad will keep working on roadmap and tasks without stopping.":"");
+              }else{
+                const aw=await arthurWork(text);
+                reply=await finishWork(id,text,"⚔ ARTHUR",aw);
+              }
+            }
           }else reply=await ai(id,text);
         }else if(id==="erlang"){
           if(sweepish&&!fixish){
@@ -11971,7 +12027,14 @@ document.addEventListener("DOMContentLoaded",function(){
           }else if(sweepish&&!fixish){
             reply=await runSweepFor(id,text);
           }else if(taskish&&!q){
-            reply=vague(text)?askClarity():await arthurWork(text);
+            if(vague(text)){
+              reply=askClarity();
+            }else{
+              const isNs=!!(nonstopOn || (AUD.state&&AUD.state.nonstop));
+              if(nonstopOn && !(AUD.state&&AUD.state.nonstop))autopilotNonstop(true);
+              autopilotTask(text, isNs);
+              reply=await arthurWork(text);
+            }
           }else reply=await ai(id,text);
         }else{
           if(sweepish&&!fixish){
@@ -12006,9 +12069,20 @@ document.addEventListener("DOMContentLoaded",function(){
           return r;
         });
       }
-      S.orders.push({t:Date.now(),task:task.slice(0,200),by:"zeus",note:true});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
-      entry("kratos","order noted (via ZEUS) — NOT dispatched, the admin assigns the executor");
-      push("kratos","bot",orderReceipt(task));
+      S.orders.push({t:Date.now(),task:task.slice(0,200),by:"zeus",dispatched:true});if(S.orders.length>40)S.orders=S.orders.slice(-40);save();
+      entry("kratos","admin order (via ZEUS) DISPATCHED → Autopilot: "+task.slice(0,110));
+      push("kratos","sys","⚡ Zeus admin task queued for nonstop Autopilot: "+task.slice(0,100)+"…");
+      autopilotTask(task, !!(AUD.state&&AUD.state.nonstop)).then(function(res){
+        if(res&&res.ok){
+          push("kratos","bot","👑 KRATOS: Zeus order received & executed on Autopilot!\n• Mission: "+(res.mission||task)+"\n• Server autonomy active.");
+        }else{
+          arthurWork(task).then(function(aw){
+            push("kratos","bot","⚔ ARTHUR (via ZEUS):\n"+aw);
+          });
+        }
+      }).catch(function(e){
+        push("kratos","bot","⚠ Dispatch error: "+(e.message||e));
+      });
       return true;
     }
     function dispatch(task){return assign(task)}
@@ -12066,6 +12140,7 @@ document.addEventListener("DOMContentLoaded",function(){
     function __squadWireChips(){
       try{
         Array.prototype.forEach.call(document.querySelectorAll("#botChips .bot-chip"),function(c){
+          if(c.id==="btnAutoWork"||c.id==="btnPushAll"||c.id==="btnNonstop")return;
           c.onclick=function(){chat(c.textContent)};
         });
       }catch(e){}
@@ -12089,16 +12164,17 @@ document.addEventListener("DOMContentLoaded",function(){
       const aPub=$("autoPublish"),aPol=$("autoPolicy");
       if(aPub)aPub.onclick=async function(){showRes(await autopilotPublish())};
       if(aPol)aPol.onclick=async function(){showRes(await autopilotPolicy())};
-      /* OWNER'S SIMPLICITY ORDER — TWO buttons do the whole job (13 Oct 2026):
+      /* OWNER'S SIMPLICITY ORDER — THREE buttons do the whole job:
          ⚡ AUTO WORK = autopilot ON (agar band hai) + ek real cycle turant; honest status tag.
-         🚀 PUSH     = verified publish-queue sab ek saath live karo. */
-      const flowTag=$("botFlowTag"),awB=$("btnAutoWork"),puB=$("btnPushAll");
+         🚀 PUSH     = verified publish-queue sab ek saath live karo.
+         ⚡ NONSTOP  = 24/7 continuous autonomous execution loop. */
+      const flowTag=$("botFlowTag"),awB=$("btnAutoWork"),puB=$("btnPushAll"),nsB=$("btnNonstop");
       const flow=(s)=>{try{if(flowTag)flowTag.textContent="WORKFLOW: "+s}catch(e){}};
       /* auth fail → open the sign-in modal right there, not a dead end (owner's 1000th complaint, 13 Oct 2026) */
       const openAuth=function(){try{AuraAuth.openModal()}catch(e4){try{push(S.who||"kratos","sys","sign-in modal unavailable — ⚙ SETTINGS se sign-in karo")}catch(e5){}}};
       if(awB)awB.onclick=async function(){
         if(awB.disabled)return;
-        awB.disabled=true;puB&&(puB.disabled=true);
+        awB.disabled=true;puB&&(puB.disabled=true);nsB&&(nsB.disabled=true);
         /* HONEST WORKFLOW (owner bug-report 13 Oct 2026): the autopilot lanes return
            their errors as STRINGS (they never throw), so the old catch-only tag painted
            "✓ cycle done" over a FAILING cycle. Success is only claimed when the lane's
@@ -12134,11 +12210,11 @@ document.addEventListener("DOMContentLoaded",function(){
             try{push(S.who||"kratos","bot",String(r||"")+(pu&&!/^publish lane error/.test(String(pu))?("\n\n"+pu):""))}catch(e2){}
           }
         }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,90))}
-        finally{awB.textContent="⚡ AUTO WORK";awB.disabled=false;puB&&(puB.disabled=false)}
+        finally{awB.textContent="⚡ AUTO WORK";awB.disabled=false;puB&&(puB.disabled=false);nsB&&(nsB.disabled=false)}
       };
       if(puB)puB.onclick=async function(){
         if(puB.disabled)return;
-        puB.disabled=true;awB&&(awB.disabled=true);
+        puB.disabled=true;awB&&(awB.disabled=true);nsB&&(nsB.disabled=true);
         try{flow("🚀 push ho raha hai…");puB.textContent="🚀 PUSHING…";
           const r=await autopilotPublish();
           if(/^publish lane error|^admin only/.test(String(r))){
@@ -12148,7 +12224,25 @@ document.addEventListener("DOMContentLoaded",function(){
           else{flow("✓ pushed "+new Date().toLocaleTimeString())}
           try{push(S.who||"kratos","bot",r||"")}catch(e2){}
         }catch(e1){flow("✗ " + ((e1.message||e1)+"").slice(0,90))}
-        finally{puB.textContent="🚀 PUSH";puB.disabled=false;awB&&(awB.disabled=false)}
+        finally{puB.textContent="🚀 PUSH";puB.disabled=false;awB&&(awB.disabled=false);nsB&&(nsB.disabled=false)}
+      };
+      if(nsB)nsB.onclick=async function(){
+        if(nsB.disabled)return;
+        nsB.disabled=true;awB&&(awB.disabled=true);puB&&(puB.disabled=true);
+        try{
+          flow("⏳ nonstop toggling…");
+          const cur=!!(AUD.state&&AUD.state.nonstop);
+          const nextState=!cur;
+          nsB.textContent=nextState?"⚡ STARTING…":"⚡ STOPPING…";
+          const res=await autopilotNonstop(nextState);
+          flow(nextState?"⚡ NONSTOP ACTIVE":"✓ nonstop stopped");
+          try{push(S.who||"kratos","bot",res||"")}catch(e2){}
+        }catch(e1){
+          flow("✗ " + ((e1.message||e1)+"").slice(0,90));
+        }finally{
+          nsB.disabled=false;awB&&(awB.disabled=false);puB&&(puB.disabled=false);
+          autoPaint();
+        }
       };
       try{const tag=$("autoPolicy");if(tag&&AUD.state)tag.textContent=AUD.state.publish==="hold"?"📤 PUSH: HOLD":"📤 PUSH: BATCH"}catch(e){}
       autopilotRefresh(true);
@@ -12158,7 +12252,7 @@ document.addEventListener("DOMContentLoaded",function(){
        __squadWireChips, which was exported but never invoked by anyone, so the
        autopilot panel buttons never received handlers (live bug, 20 Oct 2026). */
     if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",function(){boot();__squadWireChips();});else{boot();__squadWireChips();}
-    return {sweep:sweep,wireChips:__squadWireChips,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},morningShift:morningShift,shift:function(){return shiftLoad()},autopilot:{refresh:autopilotRefresh,set:autopilotToggle,run:autopilotRun,publish:autopilotPublish,policy:autopilotPolicy,status:autoStatusText,state:function(){return AUD.state}},db:function(){return {protocol:BOT_DB.protocol,daily:BOT_DB.daily,standing:BOT_DB.standing,goal:BOT_DB.goal,research:BOT_DB.research,safety:BOT_DB.safetyCharter,pushPolicy:BOT_DB.pushPolicy,autopilot:BOT_DB.autopilot,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode(),shift:S.shift}}};
+    return {sweep:sweep,wireChips:__squadWireChips,assign:assign,dispatch:dispatch,report:report,render:renderRoster,worldSync:worldSync,chat:chat,switchBot:switchBot,staged:function(){return S.staged},morningShift:morningShift,shift:function(){return shiftLoad()},autopilot:{refresh:autopilotRefresh,set:autopilotToggle,run:autopilotRun,publish:autopilotPublish,policy:autopilotPolicy,status:autoStatusText,state:function(){return AUD.state},task:autopilotTask,nonstop:autopilotNonstop},db:function(){return {protocol:BOT_DB.protocol,daily:BOT_DB.daily,standing:BOT_DB.standing,goal:BOT_DB.goal,research:BOT_DB.research,safety:BOT_DB.safetyCharter,pushPolicy:BOT_DB.pushPolicy,autopilot:BOT_DB.autopilot,depts:BOT_DB.depts,world:S.world,learned:S.learned,orders:S.orders,keyMode:keyMode(),shift:S.shift}}};
   })();
 
   /* ================= ADMIN PAGE — server-verified maker/ceo only; edits live database config ================= */
