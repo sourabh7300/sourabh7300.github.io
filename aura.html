@@ -4983,7 +4983,7 @@ async function duel(topic){
     {a:"CLOSING: your final word — why you win, in one memorable line.",j:"CLOSING: your final word — the dispassionate strategic verdict, in one line."}
   ];
   const hist=[];
-  const duelBrain=async(sysMsg,tok)=>{try{return await groqStream([{role:"system",content:sysMsg}],tok)}catch(e1){await new Promise(r=>setTimeout(r,1400));try{return await groqStream([{role:"system",content:sysMsg}],tok)}catch(e2){return ""}}};
+  const duelBrain=async(sysMsg,tok,onToken)=>{try{return await groqStream([{role:"system",content:sysMsg}],tok,onToken)}catch(e1){await new Promise(r=>setTimeout(r,1400));try{return await groqStream([{role:"system",content:sysMsg}],tok,onToken)}catch(e2){return ""}}}; /* AURA_STREAM_ALL */
   const render=(who,txt)=>{const el=addMsg(who,"","aura");typewrite(el,txt);if(voiceAllowed())speak(String(txt).replace(/\[E\d\]/g,""));log.scrollTop=log.scrollHeight;};
   for(let i=0;i<rounds.length;i++){
     if(gen!==window.__duelGen)return;
