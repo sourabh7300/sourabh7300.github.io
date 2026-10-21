@@ -10009,6 +10009,29 @@ const AuraAuth = (function(){
     return localStorage.getItem("aura_admin_token") || "";
   }
 
+  /* STALE-LEGACY-TOKEN AUTO-CLEAN (owner's order 21 Oct 2026 — no more DevTools
+     localStorage commands): a leftover aura_admin_token with NO live cloud session
+     paints "admin" client-side while every engine lane answers 401 — the exact
+     stuck-panel state he kept screenshot-ing. The boot sweep (page load +5 s, so
+     restoring a real session gets its window) clears that stale token honestly. A
+     REAL cloud owner session is never touched, and the hidden elevation path still
+     works verbatim on the live page — boot only sweeps the browser history residue. */
+  function cleanStaleAdminToken(){
+    try{
+      if(getAdminToken() !== "verified_admin_sourabh_singh") return false;
+      const u = fbUser();
+      /* fbUser reads aura_fb_live straight from storage — a saved cloud session is
+         found even before the firebase script finishes loading */
+      if(u && u.uid) return false; /* real cloud session record exists — nothing stale here */
+      localStorage.removeItem("aura_admin_token");
+      localStorage.removeItem("aura_admin_remember");
+      updateBadge();
+      try{ applyRoleUi(); }catch(e){}
+      try{ slog("stale legacy admin token auto-cleaned — koi live cloud session nahi mila; sign-in karo owner panel ke liye"); }catch(e){}
+      return true;
+    }catch(e){ return false; }
+  }
+
   function getUsers(){
     try{
       const u = JSON.parse(localStorage.getItem("aura_users_registry") || "[]");
@@ -10336,6 +10359,7 @@ const AuraAuth = (function(){
       return u;
     },
     fbReady: function(){ return fbInit(); },
+    cleanStaleAdminToken: cleanStaleAdminToken,
     signOutAll: function(){
       fbSignOut();
       localStorage.removeItem("aura_admin_token");
@@ -10892,6 +10916,11 @@ document.addEventListener("DOMContentLoaded",function(){
   // Initial badge update + role-driven UI
   AuraAuth.updateBadge();
   setTimeout(function(){ try{ applyRoleUi(); }catch(e){} }, 800);
+  /* boot sweep: ek baali legacy admin token jiske saath koi live cloud session
+     nahi bacha — auto-cleaned; owner ke DevTools command ki zaroorat khatam.
+     +5 s: firebase restore ka fair chance pehle (a saved session par FB_LIVE
+     already storage me hota hai, isliye sweep wo koall bhi pehle dekh leta hai). */
+  setTimeout(function(){ try{ AuraAuth.cleanStaleAdminToken(); }catch(e){} }, 5000);
   /* ADMIN PAGE RESTORE — if the admin's last tab was Mission Control, land him
      back there once the role UI is applied (profile badge is also a manual way in) */
   setTimeout(function(){

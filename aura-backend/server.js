@@ -1226,7 +1226,7 @@ function squadHealth() {
   const clock = Object.assign({}, squadClock);
   if (!st) return { armed: !!GH_TOKEN, enabled: process.env.SQUAD_AUTOPILOT !== "0", loaded: false, clock: clock, sourceLane: lastSourceLane, store: Object.assign({}, storeLast, storeWhere()) };
   const done = autopilotLib.MISSIONS.filter(m => autopilotLib.missionState(st, m.id).done).length;
-  return { armed: !!GH_TOKEN, enabled: !!st.enabled, day: st.day, cyclesToday: st.cyclesToday || 0, missionsDone: done, missionsTotal: autopilotLib.MISSIONS.length, ships: (st.ships || []).length, paused: st.paused || "", lastCycle: st.lastCycle || 0, clock: clock, sourceLane: lastSourceLane, store: Object.assign({}, storeLast, storeWhere()) };
+  return { armed: !!GH_TOKEN, enabled: !!st.enabled, nonstop: !!st.nonstop, day: st.day, cyclesToday: st.cyclesToday || 0, missionsDone: done, missionsTotal: autopilotLib.MISSIONS.length, ships: (st.ships || []).length, paused: st.paused || "", lastCycle: st.lastCycle || 0, clock: clock, sourceLane: lastSourceLane, store: Object.assign({}, storeLast, storeWhere()) };
 }
 /* AUTOPILOT ACCESS — the signed-in owner (panel) or the cron key (GitHub Actions) */
 async function squadAuth(req, res) {
@@ -1306,6 +1306,47 @@ app.post("/v1/squad/publish", async (req, res) => {
   if (!(await squadAuth(req, res))) return;
   try { res.json(await autopilot.publishQueued()); }
   catch (e) { res.status(502).json({ ok: false, error: e.message || String(e) }); }
+});
+/* ADMIN TASK LANE — inject custom tasks directly into the 24/7 squad's priority queue */
+app.post("/v1/squad/task", async (req, res) => {
+  if (!(await squadAuth(req, res))) return;
+  const b = req.body || {};
+  const task = String(b.task || b.goal || "").trim();
+  if (!task) return res.status(400).json({ ok: false, error: "task string required" });
+  try {
+    const out = await autopilot.addTask({
+      task: task,
+      title: b.title,
+      goal: b.goal || task,
+      prio: b.prio != null ? b.prio : 0,
+      nonstop: !!b.nonstop
+    });
+    let tickRes = null;
+    if (b.runNow || b.nonstop) {
+      tickRes = await autopilot.tick({ trigger: "admin-task", force: true, publishNow: !!b.publishNow });
+    }
+    const snap = await autopilot.snapshot();
+    res.json({
+      ok: true,
+      task: out.task,
+      tick: tickRes,
+      state: Object.assign(snap, { clock: Object.assign({}, squadClock), sourceLane: lastSourceLane })
+    });
+  } catch (e) {
+    res.status(502).json({ ok: false, error: e.message || String(e) });
+  }
+});
+/* NONSTOP MODE TOGGLE — keep squad running continuous cycles without stopping */
+app.post("/v1/squad/nonstop", async (req, res) => {
+  if (!(await squadAuth(req, res))) return;
+  const b = req.body || {};
+  const enabled = b.enabled !== undefined ? !!b.enabled : (b.nonstop !== undefined ? !!b.nonstop : true);
+  try {
+    const out = await autopilot.setNonstop(enabled);
+    res.json(Object.assign({ ok: true }, out, { state: await autopilot.snapshot() }));
+  } catch (e) {
+    res.status(502).json({ ok: false, error: e.message || String(e) });
+  }
 });
 /* PUBLIC HEARTBEAT for the browser extension — counters only: no code, no shas,
    no report text, no admin data. This is what keeps the badge honest on the go. */
