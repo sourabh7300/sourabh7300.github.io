@@ -381,6 +381,31 @@ function missionState(state, id) {
    persisted beside the static ones. Proposals are data (JSON in state), never
    regex-in-state: the sentinel RegExp is re-derived from the id on every read. */
 const GEN_SENTINEL = id => "AURA_GEN_" + String(id).toUpperCase().replace(/-/g, "_");
+const TASK_SENTINEL = id => "AURA_TASK_" + String(id).toUpperCase().replace(/[^A-Z0-9]/g, "_");
+
+function extractKeywords(text) {
+  const words = String(text || "").replace(/[^a-zA-Z0-9_\-]/g, " ").split(/\s+/).filter(w => w.length >= 3 && !/^(the|and|for|with|that|this|from|have|make|karo|krr|chahiye|hona|hai|nahi|bhai|yaar|admin|code|task)$/i.test(w));
+  const kw = [...new Set(words)].slice(0, 6);
+  if (kw.length < 2) kw.push("aura", "system");
+  return kw;
+}
+
+function toCustomMission(c) {
+  const sent = c.sentinel || TASK_SENTINEL(c.id);
+  return {
+    id: c.id,
+    title: c.title || c.task || "Admin task",
+    goal: c.goal || c.task || "Admin requested task",
+    prio: 0,
+    imp: typeof c.imp === "string" ? c.imp : "Admin commanded task (execute immediately)",
+    research: c.research || c.task || "",
+    keywords: Array.isArray(c.keywords) && c.keywords.length >= 2 ? c.keywords : extractKeywords(c.task || c.goal || ""),
+    done: new RegExp(sent),
+    sentinelStr: sent,
+    byAdmin: true
+  };
+}
+
 function toMission(g) {
   return { id: g.id, title: g.title, goal: g.goal, prio: (g.prio === 0 || g.prio === 1 || g.prio === 2) ? g.prio : 1,
     imp: typeof g.imp === "string" ? g.imp.slice(0, 400) : "", research: g.research || "",
@@ -432,8 +457,13 @@ function parseGenerated(raw, state) {
 }
 /* the effective roadmap: static missions first, agent-generated ones behind them */
 function allMissions(state) {
+  const custom = (state && Array.isArray(state.custom)) ? state.custom : [];
   const gen = (state && Array.isArray(state.generated)) ? state.generated : [];
-  return gen.length ? MISSIONS.concat(gen.map(toMission)) : MISSIONS;
+  if (!custom.length && !gen.length) return MISSIONS;
+  let res = MISSIONS;
+  if (custom.length) res = custom.map(toCustomMission).concat(res);
+  if (gen.length) res = res.concat(gen.map(toMission));
+  return res;
 }
 function findMission(state, id) { return allMissions(state).find(m => m.id === id) || null; }
 /* IMPORTANCE PICKER (owner's order, 15 Oct 2026: "bots kaam kar rahe hain pora
@@ -564,6 +594,7 @@ function createAutopilot(deps) {
   const blank = () => ({
     v: STATE_VERSION, enabled: true, day: todayStamp(), cyclesToday: 0, lastCycle: 0, lastShiftDay: "",
     missions: {}, ships: [], fails: [], queue: [], wip: null, sweep: null, world: null, research: [], reports: [], paused: "", log: [], generated: [],
+    custom: [], nonstop: false,
     maxCyclesPerDay: cfg.maxCyclesPerDay, publish: cfg.publish, autoShip: !!cfg.autoShip, updated: Date.now()
   });
   function log(state, who, msg) {
@@ -573,8 +604,8 @@ function createAutopilot(deps) {
   async function load(reload) {
     if (memory.state && !reload) return memory.state;
     let st = null;
-    try { st = d.loadState ? await d.loadState() : null; } catch (e) { st = null; }
-    const fresh = Object.assign(blank(), st && st.v === STATE_VERSION ? st : {});
+    try { st = d.loadState ? await d.loadState() : memory.state; } catch (e) { st = memory.state; }
+    const fresh = Object.assign(blank(), st && st.v === STATE_VERSION ? st : (memory.state && memory.state.v === STATE_VERSION ? memory.state : {}));
     /* ENV IS THE SOURCE OF TRUTH for the engine's own knobs: a stored state must
        never pin an old budget forever. (It did: setting SQUAD_CYCLES_PER_DAY=8 on
        the host changed nothing, because the saved state kept saying 6 — exactly the
@@ -585,6 +616,8 @@ function createAutopilot(deps) {
     if (!Array.isArray(fresh.queue)) fresh.queue = [];
     if (!Array.isArray(fresh.research)) fresh.research = [];
     if (!Array.isArray(fresh.generated)) fresh.generated = [];
+    if (!Array.isArray(fresh.custom)) fresh.custom = [];
+    fresh.nonstop = !!fresh.nonstop;
     fresh.generated = fresh.generated.filter(g => g && typeof g.id === "string" && /^[a-z][a-z0-9-]{2,39}$/.test(g.id));
     /* HOLD RETIRED 20 Oct 2026 (owner's word: "HOLD hatao, AUTO WORK pe auto-push ho").
        Saved states used to pin publish:"hold" forever (that was the 12 Oct default), so
@@ -652,11 +685,16 @@ function createAutopilot(deps) {
 
   /* one cycle: ERLANG → ARTHUR (build/advance a feature) → PHOENIX → KRATOS */
   async function tick(opts) {
-    const o = Object.assign({ trigger: "timer", force: false, dryRun: false, noAI: false, publishNow: false }, opts || {});
+    const o = Object.assign({ trigger: "timer", force: false, dryRun: false, noAI: false, publishNow: false, nonstop: false }, opts || {});
     if (memory.running && !o.force) return { ok: false, skipped: "a cycle is already running" };
     memory.running = true;
     /* always start from the persisted state — a restart must not lose in-flight work */
     const state = await load(true);
+    if (o.nonstop || state.nonstop) {
+      state.nonstop = true;
+      state.enabled = true;
+      state.paused = "";
+    }
     const day = todayStamp();
     if (state.day !== day) {
       state.day = day; state.cyclesToday = 0;
@@ -674,12 +712,12 @@ function createAutopilot(deps) {
       log(state, "kratos", woken ? ("new day — " + woken + " parked mission(s) get a fresh attempt budget (daily second chance)") : "new day — cycles reset");
     }
     try {
-      if (!state.enabled && !o.force) return { ok: true, skipped: "autopilot is off" };
-      if (!o.force && state.paused) return { ok: true, skipped: "paused: " + state.paused };
-      if (!o.force && (state.cyclesToday || 0) >= (state.maxCyclesPerDay || cfg.maxCyclesPerDay)) return { ok: true, skipped: "daily cycle budget reached (" + state.cyclesToday + ")" };
+      if (!state.enabled && !o.force && !state.nonstop) return { ok: true, skipped: "autopilot is off" };
+      if (!o.force && !state.nonstop && state.paused) return { ok: true, skipped: "paused: " + state.paused };
+      if (!o.force && !state.nonstop && (state.cyclesToday || 0) >= (state.maxCyclesPerDay || cfg.maxCyclesPerDay)) return { ok: true, skipped: "daily cycle budget reached (" + state.cyclesToday + ")" };
 
       const cycle = { at: Date.now(), trigger: o.trigger, sweep: null, mission: null, publish: null, fail: null, world: null, stage: "sweep" };
-      log(state, "kratos", "▶ cycle started (" + o.trigger + (o.dryRun ? ", dry-run" : "") + ")");
+      log(state, "kratos", "▶ cycle started (" + o.trigger + (o.dryRun ? ", dry-run" : "") + (state.nonstop ? ", nonstop" : "") + ")");
 
       /* 1 — ERLANG: deterministic sweep of the real system */
       let probe = {};
@@ -706,6 +744,15 @@ function createAutopilot(deps) {
             const next = pickMission(state, src);
             mission = next ? next.mission : null;
           } else mission = picked ? picked.mission : null;
+        }
+        if (!mission && state.nonstop) {
+          /* in nonstop mode, unpark any parked missions to give continuous attempts */
+          for (const id of Object.keys(state.missions || {})) {
+            const stm = state.missions[id];
+            if (stm.parked && !stm.done) { stm.parked = false; stm.attempts = 0; }
+          }
+          const retryPick = pickMission(state, src);
+          if (retryPick && !retryPick.already) mission = retryPick.mission;
         }
         if (!mission) {          const pending = allMissions(state).filter(m => { const st = missionState(state, m.id); return !st.done && !st.parked && st.attempts < cfg.maxAttempts; });
           if (!pending.length) {
@@ -771,6 +818,12 @@ function createAutopilot(deps) {
       if (state.reports.length > 40) state.reports = state.reports.slice(-40);
       log(state, "kratos", "✓ cycle complete — report signed");
       if (d.onReport) { try { await d.onReport(state.reports[state.reports.length - 1], state); } catch (e) {} }
+      if (state.nonstop && state.enabled) {
+        if (memory.nonstopTimer) clearTimeout(memory.nonstopTimer);
+        memory.nonstopTimer = setTimeout(() => {
+          tick({ trigger: "nonstop", force: true }).catch(e => console.log("[squad nonstop] cycle error:", (e && e.message) || e));
+        }, 15000);
+      }
       await persist(state);
       return { ok: true, cycle: cycle, report: state.reports[state.reports.length - 1], state: state };
     } finally {
@@ -852,10 +905,23 @@ function createAutopilot(deps) {
     const em = String(raw).match(/```json\s*([\s\S]*?)```/i);
     if (em) { try { const j = JSON.parse(em[1].trim()); if (Array.isArray(j) && j.length <= 12 && j.every(e => e && typeof e.find === "string" && e.find.length >= 12)) edits = j; } catch (e) { edits = null; } }
 
+    const targetSentinel = mission.sentinelStr || (mission.done && mission.done.source ? mission.done.source.replace(/[\\^$*+?.()|[\]{}]/g, "") : "");
+
     if (!edits || !edits.length) {
       if (complete) {
         /* the model says the stored batch is finished — verify the sentinel ourselves */
-        const cur = wip.edits.length ? applyEdits(src, wip.edits) : { ok: false };
+        let cur = wip.edits.length ? applyEdits(src, wip.edits) : { ok: false };
+        if (cur.ok && !mission.done.test(cur.src) && targetSentinel && wip.edits.length > 0) {
+          const lastEd = wip.edits[wip.edits.length - 1];
+          const withSentinel = Object.assign({}, lastEd, { replace: String(lastEd.replace || "") + "\n/* " + targetSentinel + " */\n" });
+          const trialEdits = wip.edits.slice(0, -1).concat([withSentinel]);
+          const trialCur = applyEdits(src, trialEdits);
+          if (trialCur.ok && mission.done.test(trialCur.src)) {
+            wip.edits[wip.edits.length - 1] = withSentinel;
+            cur = trialCur;
+            log(state, "arthur", "auto-injected verification sentinel on complete (" + targetSentinel + ")");
+          }
+        }
         if (cur.ok && mission.done.test(cur.src)) return await finalize(state, mission, src, cur.src, wip, o);
         const r = "model reported COMPLETE but the sentinel " + mission.done.source + " is not in the stored batch — refusing to publish";
         st.note = r; state.fails.push({ mission: mission.id, reason: r, when: Date.now() }); log(state, "arthur", "✗ " + r);
@@ -897,6 +963,20 @@ function createAutopilot(deps) {
       if (state.fails.length > 60) state.fails = state.fails.slice(-60);
       return { fail: r };
     }
+
+    /* auto-inject sentinel if missing so admin tasks or complete features are not trapped */
+    if ((mission.byAdmin || state.nonstop) && targetSentinel && !mission.done.test(next.src) && edits.length > 0) {
+      const lastEd = edits[edits.length - 1];
+      const withSentinel = Object.assign({}, lastEd, { replace: String(lastEd.replace || "") + "\n/* " + targetSentinel + " */\n" });
+      const trialEdits = wip.edits.concat(edits.slice(0, -1)).concat([withSentinel]);
+      const trialNext = applyEdits(src, trialEdits);
+      if (trialNext.ok && mission.done.test(trialNext.src)) {
+        edits[edits.length - 1] = withSentinel;
+        next = trialNext;
+        log(state, "arthur", "auto-injected mission verification sentinel (" + targetSentinel + ") next to the new code");
+      }
+    }
+
     wip.edits = wip.edits.concat(edits);
     wip.notes.push(clampText(String(raw).match(/NOTE:\s*(.+)/i) ? String(raw).match(/NOTE:\s*(.+)/i)[1] : "", 120));
     log(state, "arthur", "stored increment " + wip.edits.length + " edit(s) in the batch (nothing pushed yet)");
@@ -906,6 +986,23 @@ function createAutopilot(deps) {
 
     /* still building: keep the work, respect the batch budget */
     if (wip.cycles >= cfg.maxWipCycles) {
+      if (state.nonstop) {
+        if (wip.edits.length > 0 && targetSentinel) {
+          const lastEd = wip.edits[wip.edits.length - 1];
+          const withSentinel = Object.assign({}, lastEd, { replace: String(lastEd.replace || "") + "\n/* " + targetSentinel + " */\n" });
+          const trialEdits = wip.edits.slice(0, -1).concat([withSentinel]);
+          const trialCur = applyEdits(src, trialEdits);
+          if (trialCur.ok && mission.done.test(trialCur.src)) {
+            wip.edits[wip.edits.length - 1] = withSentinel;
+            log(state, "arthur", "salvaged batch before park limit by auto-injecting sentinel (" + targetSentinel + ")");
+            return await finalize(state, mission, src, trialCur.src, wip, o);
+          }
+        }
+        wip.cycles = 0;
+        wip.edits = [];
+        log(state, "arthur", "nonstop mode: reset batch for " + mission.id + " to retry fresh next cycle");
+        return { building: "nonstop retry", stored: 0 };
+      }
       const r = "feature not complete after " + wip.cycles + " cycles (sentinel " + mission.done.source + " still missing) — batch kept for review, mission parked";
       st.note = r; st.parked = true; state.fails.push({ mission: mission.id, reason: r, when: Date.now() });
       log(state, "arthur", "⚠ " + r);
@@ -1080,6 +1177,8 @@ function createAutopilot(deps) {
       ok: true,
       enabled: !!state.enabled,
       paused: state.paused || "",
+      nonstop: !!state.nonstop,
+      custom: (state.custom || []).length,
       day: state.day,
       cyclesToday: state.cyclesToday || 0,
       maxCyclesPerDay: state.maxCyclesPerDay || cfg.maxCyclesPerDay,
@@ -1110,7 +1209,7 @@ function createAutopilot(deps) {
     if (!st) return { ok: true, loaded: false, enabled: !!cfg.autoShip };
     const done = allMissions(st).filter(m => missionState(st, m.id).done).length;
     return {
-      ok: true, loaded: true, enabled: !!st.enabled, paused: st.paused || "",
+      ok: true, loaded: true, enabled: !!st.enabled, paused: st.paused || "", nonstop: !!st.nonstop,
       cyclesToday: st.cyclesToday || 0, maxCyclesPerDay: st.maxCyclesPerDay || cfg.maxCyclesPerDay,
       missionsDone: done, missionsTotal: allMissions(st).length, generated: (st.generated || []).length, publishes: (st.ships || []).length,
       queued: (st.queue || []).length, building: st.wip ? st.wip.mission : "",
@@ -1139,7 +1238,51 @@ function createAutopilot(deps) {
     await persist(state);
     return { ok: true, publish: state.publish, report: state.reports[state.reports.length - 1] };
   }
-  return { tick, boot, snapshot, beat, setEnabled, setPublish, publishQueued, load, persist, renderReport, state: () => memory.state };
+
+  async function addTask(taskObj) {
+    const state = await load(true);
+    const rawTask = typeof taskObj === "string" ? taskObj : (taskObj.task || taskObj.goal || "");
+    const slug = rawTask.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 30) || "task";
+    const id = "task-" + slug + "-" + Date.now().toString(36);
+    const title = (taskObj && taskObj.title) || (rawTask.slice(0, 60) + (rawTask.length > 60 ? "…" : ""));
+    const goal = (taskObj && taskObj.goal) || rawTask;
+    const item = {
+      id: id,
+      title: title,
+      goal: goal,
+      task: rawTask,
+      prio: 0,
+      keywords: extractKeywords(rawTask),
+      at: Date.now()
+    };
+    if (!Array.isArray(state.custom)) state.custom = [];
+    state.custom.unshift(item);
+    if (taskObj && taskObj.nonstop) {
+      state.nonstop = true;
+      state.enabled = true;
+      state.paused = "";
+    }
+    log(state, "kratos", "🎯 admin task queued at priority #1: " + title + (state.nonstop ? " (NONSTOP MODE ON)" : ""));
+    await persist(state);
+    return { ok: true, task: item, state: await snapshot(state) };
+  }
+
+  async function setNonstop(enabled) {
+    const state = await load(true);
+    state.nonstop = !!enabled;
+    if (state.nonstop) {
+      state.enabled = true;
+      state.paused = "";
+    }
+    log(state, "kratos", state.nonstop ? "⚡ NONSTOP MODE ENGAGED — squad will work continuously without stopping" : "⏸ nonstop mode paused");
+    await persist(state);
+    if (state.nonstop) {
+      setTimeout(() => { tick({ trigger: "nonstop-start", force: true }).catch(() => {}); }, 100);
+    }
+    return { ok: true, nonstop: state.nonstop, state: await snapshot(state) };
+  }
+
+  return { tick, boot, snapshot, beat, setEnabled, setPublish, publishQueued, load, persist, renderReport, addTask, setNonstop, state: () => memory.state };
 }
 
 module.exports = {
