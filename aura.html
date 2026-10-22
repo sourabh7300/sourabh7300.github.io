@@ -3911,6 +3911,87 @@ function exportChat(){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="aura-chat-"+Date.now()+".txt";a.click();
   pushSys("conversation exported");
 }
+/* ---------------- AURA TASK INSIGHTS: weekly analytics (AURA_TASK_INSIGHTS) ---------------- */
+(function(){
+  function dayKey(d){return d.toISOString().split('T')[0]}
+  function daysAgo(n){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-n);return d}
+  function parseTS(ts){return ts?new Date(ts):null}
+
+  window.AuraTasks = window.AuraTasks || {};
+  AuraTasks.insights = function(){
+    const tasks = (AuraTasks.all && AuraTasks.all()) || [];
+    const completed = tasks.filter(t=>t.done && t.completedAt).map(t=>({
+      day: dayKey(parseTS(t.completedAt)),
+      ts: parseTS(t.completedAt)
+    }));
+    const today = dayKey(new Date());
+    const last7 = Array.from({length:7},(_,i)=>dayKey(daysAgo(6-i)));
+    const prev7 = Array.from({length:7},(_,i)=>dayKey(daysAgo(13-i)));
+    const countByDay = {};
+    completed.forEach(c=>{countByDay[c.day]=(countByDay[c.day]||0)+1});
+    const thisWeek = last7.map(d=>countByDay[d]||0);
+    const prevWeek = prev7.map(d=>countByDay[d]||0);
+    const totalThis = thisWeek.reduce((a,b)=>a+b,0);
+    const totalPrev = prevWeek.reduce((a,b)=>a+b,0);
+    let streak = 0;
+    for(let i=6;i>=0;i--){if(thisWeek[i]>0) streak++; else break}
+    const bestDay = Math.max(...thisWeek);
+    const delta = totalPrev===0 ? (totalThis>0?100:0) : Math.round(((totalThis-totalPrev)/totalPrev)*100);
+    return {last7, thisWeek, prevWeek, totalThis, totalPrev, streak, bestDay, delta};
+  };
+
+  AuraTasks.renderInsights = function(container){
+    const I = AuraTasks.insights();
+    const maxVal = Math.max(...I.thisWeek, ...I.prevWeek, 1);
+    const barW = 28, gap = 6, h = 60;
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS,'svg');
+    svg.setAttribute('viewBox',`0 0 ${7*(barW+gap)} ${h+20}`);
+    svg.style.width='100%';svg.style.height='auto';svg.style.display='block';
+    I.thisWeek.forEach((val,i)=>
+    {
+      const x = i*(barW+gap)+gap;
+      const bh = Math.max(2, (val/maxVal)*h);
+      const y = h - bh;
+      const rect = document.createElementNS(svgNS,'rect');
+      rect.setAttribute('x',x);
+      rect.setAttribute('y',y);
+      rect.setAttribute('width',barW);
+      rect.setAttribute('height',bh);
+      rect.setAttribute('fill','var(--cy2)');
+      rect.setAttribute('rx',3);
+      rect.setAttribute('ry',3);
+      rect.style.cursor='pointer';
+      const title = document.createElementNS(svgNS,'title');
+      title.textContent = `${I.last7[i]}: ${val} task${val!==1?'s':''}`;
+      rect.appendChild(title);
+      svg.appendChild(rect);
+    });
+    const deltaEl = document.createElement('div');
+    deltaEl.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--dim-bright)';
+    const arrow = I.delta>=0 ? '▲' : '▼';
+    const deltaColor = I.delta>=0 ? 'var(--ok)' : 'var(--warn)';
+    deltaEl.innerHTML = `<span style="color:${deltaColor}">${arrow} ${Math.abs(I.delta)}%</span> vs previous week`;
+    const card = document.createElement('div');
+    card.id = 'taskInsights';
+    card.style.cssText = 'background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:16px;font-family:var(--mono);font-size:12px;color:var(--ice)';
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+        <strong style="color:var(--cy)">Weekly Insights</strong>
+        <span style="color:var(--dim)">${I.last7[0]} – ${I.last7[6]}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;text-align:center">
+        <div><div style="font-size:20px;font-weight:700;color:var(--cy)">${I.totalThis}</div><div style="font-size:10px;color:var(--dim)">Completed</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:var(--cy)">${I.streak}</div><div style="font-size:10px;color:var(--dim)">Streak (days)</div></div>
+        <div><div style="font-size:20px;font-weight:700;color:var(--cy)">${I.bestDay}</div><div style="font-size:10px;color:var(--dim)">Best Day</div></div>
+      </div>
+    `;
+    card.appendChild(svg);
+    card.appendChild(deltaEl);
+    container.appendChild(card);
+  };
+})();
+
 /* ---------------- EXPORT CENTER: client-side builders (AURA_EXPORT_CENTER) ---------------- */
 function exportChatsMD(){
   const raw=hist.load("convo")||[];
