@@ -11588,6 +11588,22 @@ document.addEventListener("DOMContentLoaded",function(){
        hone pe bhi cycles chalte rehte hain, ships hote hain, aur KRATOS report likhta hai.
        Is page pe KOI browser timer nahi hai — sirf real state read + admin control. */
     let AUD={state:null,err:"",busy:false};
+    let __nsAuthFailAt=0; /* last time a lane died on a dead admin session (blocks auto-re-engage for 3 min) */
+    /* REPEAT-ERROR TRAP (owner report 22 Oct 2026 — "autopilot lane error / nonstop lane error"
+       har beat pe repeat): session expire hote hi har lane wahi NO_SESSION line chat me girta
+       tha. Ab ONE-AND-DONE: same error-ish message 3 min me ek hi baar; repeat ek chhoti
+       placeholder line ban jaata hai. Normal (non-error) replies kabhi throttle nahi hote. */
+    const __laneErrChatAt={};
+    function laneErrChat(msg){
+      const s=String(msg==null?"":msg);
+      if(!/(lane error|lane:|^admin only|NO_SESSION|Unauthorized)/i.test(s))return s;
+      const sig=s.replace(/\s+/g," ").trim().slice(0,110);
+      const now=Date.now();const seen=__laneErrChatAt[sig]||0;
+      __laneErrChatAt[sig]=now;
+      if(now-seen<180000)return "⏳ (wahi lane error — 3 min me ek hi baar bolunga; sign-in hone tak chup. Panel ke UNREACHABLE badge se state dekhte rehna.)";
+      const ks=Object.keys(__laneErrChatAt);if(ks.length>60)for(let i=0;i<20;i++)delete __laneErrChatAt[ks[i]];
+      return s;
+    }
     function autoBase(){try{return backendUrl()}catch(e){return ""}}
     function autoAgo(ts){if(!ts)return "never";const m=Math.round((Date.now()-ts)/60000);return m<1?"just now":m<60?m+" min ago":Math.round(m/60)+" h ago"}
     function autoEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
@@ -11761,7 +11777,7 @@ document.addEventListener("DOMContentLoaded",function(){
         AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
         entry("kratos",on?"AUTOPILOT started — squad SERVICE pe kaam karegi, AURA band ho tab bhi":"AUTOPILOT paused — squad sirf aapke command pe chalegi");
         return on?"▶ Autopilot ON, Sir — cycles service pe chalenge (AURA band ho tab bhi).\n"+autoStatusText():"⏸ Autopilot paused, Sir — squad ab sirf aapke command pe chalegi. State safe hai.";
-      }catch(e){AUD.err=(e.message||String(e));autoPaint();return "autopilot lane error (honest): "+AUD.err}
+      }catch(e){AUD.err=(e.message||String(e));autoPaint();const _t=laneErrChat("autopilot lane error (honest): "+AUD.err);if(/NO_SESSION|admin session|Unauthorized|401/.test(AUD.err+"")){try{if(window.__auraOpenAuthSoft)window.__auraOpenAuthSoft()}catch(e2){}}return _t}
       finally{if(a)a.disabled=false;if(b)b.disabled=false}
     }
     async function autopilotRun(force,publishNow){
@@ -11775,7 +11791,7 @@ document.addEventListener("DOMContentLoaded",function(){
         AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
         if(j.skipped){entry("kratos","cycle skipped — "+j.skipped);return "Cycle skipped, Sir — "+j.skipped}
         return "⚡ Cycle done, Sir — report desk pe:\n\n"+((j.report&&j.report.text)||autoStatusText());
-      }catch(e){AUD.err=(e.message||String(e));autoPaint();return "cycle lane error (honest): "+AUD.err}
+      }catch(e){AUD.err=(e.message||String(e));autoPaint();return laneErrChat("cycle lane error (honest): "+AUD.err)}
       finally{if(r){r.disabled=false;r.textContent="⚡ RUN A CYCLE NOW"}}
     }
     async function autopilotPublish(){
@@ -11790,7 +11806,7 @@ document.addEventListener("DOMContentLoaded",function(){
         return "🚀 PUSHED, Sir — "+j.published+" verified feature(s):\n"+((j.pushed||[]).map(function(x){return "• "+x.mission+" → "+(x.sha||"?")}).join("\n"))+
           ((j.refused&&j.refused.length)?("\n\n⚠ refused (raw):\n"+j.refused.map(function(x){return "• "+x.mission+" — "+x.reason}).join("\n")):"")+
           "\n\nLive site ~60s me update hoga (GitHub Pages).";
-      }catch(e){return "publish lane error (honest): "+(e.message||e)}
+      }catch(e){return laneErrChat("publish lane error (honest): "+(e.message||e))}
       finally{if(b){b.disabled=false;b.textContent="📤 PUBLISH QUEUE"}}
     }
     async function autopilotPolicy(){
@@ -11802,7 +11818,7 @@ document.addEventListener("DOMContentLoaded",function(){
         return next==="hold"
           ? "🔒 HOLD mode, Sir — complete features queue me ruke rahenge, tum \"publish it\" bolo tab ek saath push honge (kaam tab tak safe store rahega)."
           : "📤 BATCH mode, Sir — har finished feature verified gates ke baad khud push hoga, par chote changes pe kabhi nahi.";
-      }catch(e){return "policy lane error (honest): "+(e.message||e)}
+      }catch(e){return laneErrChat("policy lane error (honest): "+(e.message||e))}
     }
     async function autopilotTask(task, nonstop){
       if(!isAdmin())return "admin only — squad task dispatch is the owner's.";
@@ -11815,15 +11831,20 @@ document.addEventListener("DOMContentLoaded",function(){
         return null;
       }
     }
-    async function autopilotNonstop(on){
+    async function autopilotNonstop(on,safe){
       if(!isAdmin())return "admin only — nonstop control is the owner's.";
+      /* AUTO-ENGAGE TRAP (owner, 22 Oct 2026): session dead pe dispatch-path har beat
+         apne aap nonstop ON chal raha tha — har cycle pe wahi keys error. Ab auth-fail ke
+         3 min tak auto-engage chup (safe pass na karo); manual NONSTOP button turant try,
+         session wapas aane pe khud unblock. */
+      if(on&&!safe&&__nsAuthFailAt&&Date.now()-__nsAuthFailAt<180000)return "";
       try{
         const j=await autoCall("/v1/squad/nonstop",{enabled:!!on});
-        AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
+        AUD.state=j.state||AUD.state;AUD.err="";autoPaint();__nsAuthFailAt=0;
         return on
           ? "⚡ NONSTOP WORK ENGAGED, Sir! Squad server pe continuously bina ruke kaam karegi — admin tasks priority #1 par execute honge."
           : "⏸ Nonstop mode paused, Sir — squad normal schedule pe wapas aa gayi.";
-      }catch(e){return "nonstop lane error: "+(e.message||e)}
+      }catch(e){const _m=String(e.message||e);if(/NO_SESSION|admin session|Unauthorized|401/i.test(_m))__nsAuthFailAt=Date.now();return laneErrChat("nonstop lane error: "+_m)}
     }
     function autoStatusText(){
       const st=AUD.state;
@@ -12051,9 +12072,9 @@ document.addEventListener("DOMContentLoaded",function(){
         const dName=dir?dir[1].toLowerCase():null,dTask=dir?dir[2].trim():"",toOther=!!dir&&dName!=="kratos";
         let reply=null;
         if(nonstopOff){
-          reply=await autopilotNonstop(false);
+          __nsAuthFailAt=0;reply=await autopilotNonstop(false,true);
         }else if(nonstopOn && !taskish && !(/\b(add|build|create|write|fix|repair|implement|banao|banado|badal)\b/i.test(t)&&t.length>20)){
-          reply=await autopilotNonstop(true);
+          __nsAuthFailAt=0;reply=await autopilotNonstop(true,true);
         }else if(toOther&&vague(dTask)){reply=askClarity();}
         else if(toOther&&dName==="arthur"){
           const isNs=!!(nonstopOn || (AUD.state&&AUD.state.nonstop));
@@ -12147,9 +12168,9 @@ document.addEventListener("DOMContentLoaded",function(){
             reply=await ai(id,text,"LIVE WORLD DATA:\n"+worldText());
           }else reply=await ai(id,text);
         }
-        push(id,"bot",reply||"…");
+        push(id,"bot",laneErrChat(reply||"…"));
       }catch(e){
-        push(id,"bot","⚠ lane error (honest): "+(e.message||e)+"\n\n"+fallbackFor(id));
+        push(id,"bot",laneErrChat("⚠ lane error (honest): "+(e.message||e)+"\n\n"+fallbackFor(id)));
       }finally{
         setTyping(false);
         const s=$("botChatSend");if(s)s.disabled=false;
@@ -12256,8 +12277,8 @@ document.addEventListener("DOMContentLoaded",function(){
          dying silently. */
       const showRes=async function(r){
         if(typeof r==="string"&&r.trim()){
-          try{push(S.who||"kratos","bot",r)}catch(e8){try{entry("kratos",String(r).slice(0,200))}catch(e9){}}
-          if(/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH|admin only/i.test(r)){try{AuraAuth.openModal()}catch(e6){}}
+          try{push(S.who||"kratos","bot",laneErrChat(r))}catch(e8){try{entry("kratos",String(r).slice(0,200))}catch(e9){}}
+          if(/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH|admin only/i.test(r))openAuth();
         }
       };
       if(aOn)aOn.onclick=async function(){showRes(await autopilotToggle(true))};
@@ -12273,8 +12294,33 @@ document.addEventListener("DOMContentLoaded",function(){
          ⚡ NONSTOP  = 24/7 continuous autonomous execution loop. */
       const flowTag=$("botFlowTag"),awB=$("btnAutoWork"),puB=$("btnPushAll"),nsB=$("btnNonstop");
       const flow=(s)=>{try{if(flowTag)flowTag.textContent="WORKFLOW: "+s}catch(e){}};
-      /* auth fail → open the sign-in modal right there, not a dead end (owner's 1000th complaint, 13 Oct 2026) */
-      const openAuth=function(){try{AuraAuth.openModal()}catch(e4){try{push(S.who||"kratos","sys","sign-in modal unavailable — ⚙ SETTINGS se sign-in karo")}catch(e5){}}};
+      /* auth fail → open the sign-in modal right there, not a dead end (owner's 1000th complaint, 13 Oct 2026)
+         SPAM-MODAL FIX (owner report 21 Oct 2026: "main kuch likh raha hun bots pr ya click kar raha hun
+         toh ACCOUNT modal baar baar aata hai"): a stale/expired ONE-HOUR Firebase bearer made EVERY
+         admin action answer the auth-fail string, and each one auto-opened the ACCOUNT modal —
+         click-after-click popup hell. Now:
+           · already open  → do nothing
+           · signed-in owner (fbUser truthy) but backend 401s → NEVER auto-open; the sign-in
+             pop-up won't fix a bearer/role problem — honest chat line + one-tap badge instead
+           · not signed-in → auto-open at most once per 60 s (cooldown), badge is always one tap
+         The flow tag + chat still carry the full honest error every time. */
+      let __authPopAt=0;
+      const openAuth=function(){
+        try{
+          const m=$("authModal");
+          const already=m&&getComputedStyle(m).display==="flex";
+          const signed=(typeof fbUser==="function")&&!!fbUser();
+          if(already||signed||(Date.now()-__authPopAt<60000)){
+            if(!already)push(S.who||"kratos","sys",signed
+              ? "⚠ backend lane session nahi maan raha — tum sign-in ho (ya Firebase bearer/role ka sawaal hai). Modal KOI tap me: 👤 profile badge (neeche-left) pe click, ya ⚙ SETTINGS → Sign in / switch user. Page reload bhi fresh bearer le aayega."
+              : "🔐 sign-in needed — ACCOUNT modal abhi khula tha (60s ke andar auto-open nahi dohrata). 👤 profile badge (neeche-left) ya ⚙ SETTINGS se kabhi bhi khol lo.");
+            return;
+          }
+          __authPopAt=Date.now();
+          AuraAuth.openModal();
+        }catch(e4){try{push(S.who||"kratos","sys","sign-in modal unavailable — ⚙ SETTINGS se sign-in karo")}catch(e5){}}
+      };
+      window.__auraOpenAuthSoft=openAuth;
       if(awB)awB.onclick=async function(){
         if(awB.disabled)return;
         awB.disabled=true;puB&&(puB.disabled=true);nsB&&(nsB.disabled=true);
@@ -12285,22 +12331,22 @@ document.addEventListener("DOMContentLoaded",function(){
         try{
           flow("⏳ state check…");
           await autopilotRefresh(true);
-          if(!isAdmin()){flow("✗ admin session chahiye → sign-in khol raha hoon…");openAuth();return}
+          if(!isAdmin()){flow("✗ admin session chahiye → honest line chat me");openAuth();return}
           if(AUD.err){
             const _auth=/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH/i.test(AUD.err+"");
             flow("✗ " + (AUD.err+"").slice(0,110));
-            try{push(S.who||"kratos","bot","cycle lane error (honest): "+AUD.err+(_auth?("\nℹ sign-in modal khol raha hoon — fresh login ke baadAUTO WORK dobara dabao."):""))}catch(e4){}
+            try{push(S.who||"kratos","bot",laneErrChat("cycle lane error (honest): "+AUD.err+(_auth?("\nℹ sign-in modal khol raha hoon — fresh login ke baad AUTO WORK dobara dabao."):"")))}catch(e4){}
             if(_auth)openAuth();
             return
           }
           if(AUD.state&&!(AUD.state.enabled)){flow("⏳ autopilot start ho raha…");await autopilotToggle(true)}
-          if(AUD.err){flow("✗ autopilot lane: " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot","autopilot lane error (honest): "+AUD.err)}catch(e4){}return}
+          if(AUD.err){flow("✗ autopilot lane: " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot",laneErrChat("autopilot lane error (honest): "+AUD.err))}catch(e4){}return}
           flow("⏳ cycle chal raha hai (publishNow)…");awB.textContent="⚡ WORKING…";
           const r=await autopilotRun(true,true);
           if(AUD.err){
             const _a2=/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH/i.test(AUD.err+"");
             flow("✗ " + (AUD.err+"").slice(0,110));
-            try{push(S.who||"kratos","bot",r||("cycle lane error (honest): "+AUD.err))}catch(e2){}
+            try{push(S.who||"kratos","bot",laneErrChat(r||("cycle lane error (honest): "+AUD.err)))}catch(e2){}
             if(_a2)openAuth();
           }
           else{
@@ -12333,11 +12379,12 @@ document.addEventListener("DOMContentLoaded",function(){
         if(nsB.disabled)return;
         nsB.disabled=true;awB&&(awB.disabled=true);puB&&(puB.disabled=true);
         try{
+          __nsAuthFailAt=0; /* manual press always retries, trap off */
           flow("⏳ nonstop toggling…");
           const cur=!!(AUD.state&&AUD.state.nonstop);
           const nextState=!cur;
           nsB.textContent=nextState?"⚡ STARTING…":"⚡ STOPPING…";
-          const res=await autopilotNonstop(nextState);
+          const res=await autopilotNonstop(nextState, true);
           flow(nextState?"⚡ NONSTOP ACTIVE":"✓ nonstop stopped");
           try{push(S.who||"kratos","bot",res||"")}catch(e2){}
         }catch(e1){
