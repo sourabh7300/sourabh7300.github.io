@@ -139,13 +139,7 @@ body.focus-mode #topbar,body.focus-mode #tabbar,body.focus-mode #dock,body.focus
 #quickActions .qbtn:hover{background:rgba(34,211,238,.18);border-color:var(--cy);color:#fff;box-shadow:0 0 18px rgba(34,211,238,.35)}
 #quickActions .qbtn:active{transform:scale(.96)}
 body.focus-mode #quickActions{opacity:.35}
-/* AURA_QUICK_ACTIONS */
 #micWrap{position:absolute;right:8px;top:-58px;flex-direction:row;align-items:center;gap:8px}
-<div id="quickActions" aria-label="Quick admin actions">
-  <button class="qbtn" id="qaClear" title="Clear current chat" aria-label="Clear chat">CLR</button>
-  <button class="qbtn" id="qaExport" title="Export session logs" aria-label="Export logs">EXP</button>
-  <button class="qbtn" id="qaPersona" title="Cycle persona" aria-label="Cycle persona">PSN</button>
-</div>
 #micBtn{width:66px;height:66px;border-radius:50%;border:2px solid var(--cy);background:radial-gradient(circle at 50% 35%,rgba(34,211,238,.35),rgba(4,18,26,.9));color:var(--cy2);font-size:24px;cursor:pointer;transition:.25s;box-shadow:0 0 24px rgba(34,211,238,.35),inset 0 0 18px rgba(34,211,238,.15)}
 #micBtn:hover{transform:scale(1.06)}
 #micBtn.listening{border-color:var(--red);color:#fecaca;box-shadow:0 0 34px rgba(248,113,113,.5);animation:pp 1s infinite}
@@ -3078,6 +3072,11 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
 </div>
 
 
+<div id="quickActions" aria-label="Quick admin actions">
+  <button class="qbtn" id="qaClear" title="Clear current chat" aria-label="Clear chat">CLR</button>
+  <button class="qbtn" id="qaExport" title="Export session logs" aria-label="Export logs">EXP</button>
+  <button class="qbtn" id="qaPersona" title="Cycle persona" aria-label="Cycle persona">PSN</button>
+</div>
 <div id="dock">
   <div id="chipsMobile" style="display:flex;gap:7px;flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;scrollbar-width:none"></div>
   <div id="camWrap">
