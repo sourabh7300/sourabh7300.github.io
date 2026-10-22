@@ -122,7 +122,7 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "chat-search", prio: 2,
     title: "Chat search",
-    goal: "CHATS tab (data-tab=\"chats\") top gets a search row (input id=chatSearchInput + count id=chatSearchCount): typing case-insensitively filters the aura_history_v1 convo entries AND saved sessions — aura_history_v1 is the localStorage key the file ALREADY uses for history; a hit line shows its date + first 80 chars of the matching text, one click opens that chat and highlights the match; zero hits show an honest \"no match for …\" line; clearing the box restores the full list.",
+    goal: "CHATS tab (data-tab=\"chats\") top gets a search row (input id=chatSearchInput + count id=chatSearchCount): typing case-insensitively filters the aura_history_v1 convo entries AND saved sessions — aura_history_v1 is the localStorage key the file ALREADY uses for history; a hit line shows its date + first 80 chars of the matching text, one click opens that chat and highlights the match; zero hits show an honest \"no match for …\" line; clearing the box restores the full list. ADVANCED bar: the count line reads \"n of m hits\" while filtering, Enter (or the row's next-arrow) cycles through every match in order, and the filter scans BOTH user and assistant sides of each convo entry.",
     research: "in-browser full text search localStorage chat history UX",
     keywords: ["aura_history_v1", "convo", "chats"],
     done: /AURA_CHAT_SEARCH/
@@ -130,7 +130,7 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "export-center", prio: 2,
     title: "Export center",
-    goal: "SETTINGS panel gets ONE export section (id=exportCenter, three buttons EXPORT CHATS / EXPORT TASKS / EXPORT MEMORY). The chat export already exists as a dlBlob .txt lane (the call building head+L) — extend that lane: EXPORT CHATS = Markdown with session headers + timestamps + both sides; EXPORT TASKS = JSON from the existing AuraTasks store; EXPORT MEMORY = CSV with a header row from memGet(). Every file is built client-side through the existing dlBlob(b,name) helper and after each download one honest line shows the filename + row count. No new endpoints, no new network calls.",
+    goal: "SETTINGS panel gets ONE export section (id=exportCenter, three buttons EXPORT CHATS / EXPORT TASKS / EXPORT MEMORY). The chat export already exists as a dlBlob .txt lane (the call building head+L) — extend that lane: EXPORT CHATS = Markdown with session headers + timestamps + both sides; EXPORT TASKS = JSON from the existing AuraTasks store; EXPORT MEMORY = CSV with a header row from memGet(). Every file is built client-side through the existing dlBlob(b,name) helper and after each download one honest line shows the filename + row count. No new endpoints, no new network calls. ADVANCED bar: a fourth button BACKUP ALL (one JSON with chats+tasks+memory inside a single timestamped envelope) and a small include-row of checkboxes so the admin can skip bulky sections before downloading.",
     research: "client-side file export markdown csv blob download UX",
     keywords: ["dlBlob", "convo", "export"],
     done: /AURA_EXPORT_CENTER/
@@ -138,7 +138,7 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "task-insights", prio: 2,
     title: "Task insights",
-    goal: "Extend window.AuraTasks with a WEEKLY INSIGHTS card (id=taskInsights) rendered where the task board paints (inside the AuraTasks module's own render path): tasks completed in the last 7 days, current completion streak in days, best single day, and a compact 7-bar sparkline (per-day completions) computed from the EXISTING task timestamps — no new storage format, no new keys; a day with zero completions shows 0, never a blank.",
+    goal: "Extend window.AuraTasks with a WEEKLY INSIGHTS card (id=taskInsights) rendered where the task board paints (inside the AuraTasks module's own render path): tasks completed in the last 7 days, current completion streak in days, best single day, and a compact 7-bar sparkline (per-day completions) computed from the EXISTING task timestamps — no new storage format, no new keys; a day with zero completions shows 0, never a blank. ADVANCED bar: the sparkline is pure SVG in the file's own palette (var(--cy2)) with a per-day tooltip on each bar, and a delta line compares this week with the previous one as an arrow + percent change (both computed from the same timestamps).",
     research: "personal productivity roll-up weekly stats design",
     keywords: ["AuraTasks", "task", "stats"],
     done: /AURA_TASK_INSIGHTS/
@@ -154,7 +154,7 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "memory-pin", prio: 1,
     title: "Memory pin",
-    goal: "Every long-term memory fact gets a pin toggle: pinned facts store pinned:true inside the EXISTING memory store (the memGet/memSet lane + the per-user getMemKey variant; AuraMem/memRender is the render path), sort to the TOP of the list with a visible pin marker, never fall to the decay/compaction trim, and the prompt builder injects pinned facts FIRST as priority context before unpinned ones; unpinning restores normal order. Works for guests too — same memory lane, no server.",
+    goal: "Every long-term memory fact gets a pin toggle: pinned facts store pinned:true inside the EXISTING memory store (the memGet/memSet lane + the per-user getMemKey variant; AuraMem/memRender is the render path), sort to the TOP of the list with a visible pin marker, never fall to the decay/compaction trim, and the prompt builder injects pinned facts FIRST as priority context before unpinned ones; unpinning restores normal order. Works for guests too — same memory lane, no server. ADVANCED bar: stable pinned order (pinned first by recency, then unpinned by recency), the pinned flag survives the memory lane's export/import and cloud push untouched (same object shape, no schema bump), and a pinned row shows its source date only when the record actually has one.",
     research: "pinning important items persistent memory UX pattern",
     keywords: ["memRender", "memGet", "AuraMem"],
     done: /AURA_MEM_PIN/
@@ -162,7 +162,7 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "theme-sync", prio: 2,
     title: "Theme sync",
-    goal: "For signed-in users the chosen theme persists with their profile: on theme change the theme name is written into the user's EXISTING profile record, and on load a signed-in session applies the saved theme BEFORE first paint; localStorage remains the guest fallback. NO new endpoint, NO new fetch target — ride only lanes that already exist.",
+    goal: "For signed-in users the chosen theme persists with their profile: on theme change the theme name is written into the user's EXISTING profile record, and on load a signed-in session applies the saved theme BEFORE first paint; localStorage remains the guest fallback. NO new endpoint, NO new fetch target — ride only lanes that already exist. ADVANCED bar: the saved theme applies BEFORE first paint (no theme flash on load), a sync failure falls back to the guest localStorage theme and logs the failure honestly, and sign-out restores the guest theme deterministically.",
     research: "user preference sync cloud storage web app",
     keywords: ["theme", "fbUser", "profile"],
     done: /AURA_THEME_SYNC/
@@ -565,6 +565,7 @@ const AUTOPILOT_ENGINEER_PROMPT = [
   "(5) Match the file's existing style: $() helper, pushSys()/addMsg() for UI logs, var(--cy2) etc, Rajdhani/Orbitron fonts, compact one-line statements.",
   "(6) The mission's sentinel comment (e.g. /* AURA_LANE_HEAL */) must appear next to the finished code — that is how completion is VERIFIED and published.",
   "(7) When the accumulated work already satisfies the GOAL, reply with EDITS: [] and NOTE: COMPLETE (do not invent busywork).",
+  "(8) SELF-CHECK before NOTE: COMPLETE — against the candidate build: every new element id is wired to behaviour, no dead listeners, guest mode AND signed-in mode both still work, and the new UI matches the file's own fonts/colours. If any check is false, keep building — do not claim COMPLETE.",
   "SAFETY (hard rules — violating these is a failure, not a bug):",
   "- Only ever change AURA's own source. Never touch auth, API keys, secrets, tokens, the backend URL, user data, or the ship gates.",
   "- Never write code that attacks, scans, probes, fingerprints or exfiltrates from any other system or person. No malware, no credential harvesting, no scraping that bypasses protections.",

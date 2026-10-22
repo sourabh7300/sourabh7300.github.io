@@ -11853,7 +11853,7 @@ document.addEventListener("DOMContentLoaded",function(){
       const last=(st.ships&&st.ships.length)?st.ships[st.ships.length-1]:null;
       return "🤖 AUTOPILOT — real state, Sir:\n"+
         "• status: "+(st.paused?("PAUSED ("+st.paused+")"):(st.nonstop?"⚡ NONSTOP (continuous 24/7 cycles)":(st.enabled?"ON — squad khud kaam kar rahi hai":"OFF — sirf aapke command pe")))+(st.running?" · ⏳ ek cycle abhi chal raha hai":"")+"\n"+
-        "• aaj ke cycles: "+st.cyclesToday+"/"+st.maxCyclesPerDay+(st.cyclesToday>=st.maxCyclesPerDay?" (aaj ka budget khatam → next din)":" (baaki cycles apne aap chalenge)")+"\n"+
+        "• aaj ke cycles: "+st.cyclesToday+"/"+st.maxCyclesPerDay+(st.cyclesToday>=st.maxCyclesPerDay?" (aaj ka budget khatam → ⚡ NONSTOP on karo to bypass, ya kal phir se)":" (baaki cycles apne aap chalenge)")+"\n"+
         "• roadmap: "+d+"/"+t+" missions built"+(st.current?(" · doing: "+st.current):"")+"\n"+
         "• auto-ship: "+(st.autoShip?"ON — verified gates → commit → live verify → auto-revert":"OFF (SQUAD_AUTOSHIP=0)")+(last?(" · last ship "+last.sha+" ("+last.mission+")"):"")+"\n"+
         "• last cycle: "+autoAgo(st.lastCycle)+" · sweep: "+(st.sweep?((st.sweep.fail?"✗ ":"✓ ")+st.sweep.pass+"/"+(st.sweep.pass+st.sweep.fail)):"never")+"\n"+
