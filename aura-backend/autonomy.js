@@ -122,23 +122,23 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "chat-search", prio: 2,
     title: "Chat search",
-    goal: "CHATS panel top gets a search row (input id=chatSearchInput, count line id=chatSearchCount): typing filters saved sessions AND their messages case-insensitively; a hit line shows its date + first 80 chars of the match, one click opens the session and scrolls to the highlighted match; zero hits show an honest \"no match\" line; clearing the box restores the full list.",
+    goal: "CHATS tab (data-tab=\"chats\") top gets a search row (input id=chatSearchInput + count id=chatSearchCount): typing case-insensitively filters the aura_history_v1 convo entries AND saved sessions — aura_history_v1 is the localStorage key the file ALREADY uses for history; a hit line shows its date + first 80 chars of the matching text, one click opens that chat and highlights the match; zero hits show an honest \"no match for …\" line; clearing the box restores the full list.",
     research: "in-browser full text search localStorage chat history UX",
-    keywords: ["aura_history_v1", "session", "search"],
+    keywords: ["aura_history_v1", "convo", "chats"],
     done: /AURA_CHAT_SEARCH/
   },
   {
     id: "export-center", prio: 2,
     title: "Export center",
-    goal: "SETTINGS panel gets an export section (id=exportCenter) with three buttons: EXPORT CHATS (Markdown with session headers + timestamps + both sides), EXPORT TASKS (JSON from the existing task store), EXPORT MEMORY (CSV with a header row). Each file is built client-side and downloaded through the existing dlBlob helper; after each download one honest line shows the filename and row count. No new endpoints, no server changes.",
+    goal: "SETTINGS panel gets ONE export section (id=exportCenter, three buttons EXPORT CHATS / EXPORT TASKS / EXPORT MEMORY). The chat export already exists as a dlBlob .txt lane (the call building head+L) — extend that lane: EXPORT CHATS = Markdown with session headers + timestamps + both sides; EXPORT TASKS = JSON from the existing AuraTasks store; EXPORT MEMORY = CSV with a header row from memGet(). Every file is built client-side through the existing dlBlob(b,name) helper and after each download one honest line shows the filename + row count. No new endpoints, no new network calls.",
     research: "client-side file export markdown csv blob download UX",
-    keywords: ["dlBlob", "export", "download"],
+    keywords: ["dlBlob", "convo", "export"],
     done: /AURA_EXPORT_CENTER/
   },
   {
     id: "task-insights", prio: 2,
     title: "Task insights",
-    goal: "TASKS panel gets a WEEKLY INSIGHTS card (id=taskInsights): tasks completed in the last 7 days, current completion streak in days, best single day, and a compact 7-bar sparkline (per-day completions) computed from the EXISTING task timestamps — no new storage format, no new keys; a day with zero completions shows 0, never a blank.",
+    goal: "Extend window.AuraTasks with a WEEKLY INSIGHTS card (id=taskInsights) rendered where the task board paints (inside the AuraTasks module's own render path): tasks completed in the last 7 days, current completion streak in days, best single day, and a compact 7-bar sparkline (per-day completions) computed from the EXISTING task timestamps — no new storage format, no new keys; a day with zero completions shows 0, never a blank.",
     research: "personal productivity roll-up weekly stats design",
     keywords: ["AuraTasks", "task", "stats"],
     done: /AURA_TASK_INSIGHTS/
@@ -154,9 +154,9 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "memory-pin", prio: 1,
     title: "Memory pin",
-    goal: "Every long-term memory fact gets a pin toggle: pinned facts store pinned:true, sort to the TOP of the memory list with a visible pin marker, are never dropped by the decay/compaction trim, and the prompt builder injects pinned facts FIRST as priority context before unpinned ones; unpinning restores normal order and decay. Works for guests too (same memory lane, no server).",
+    goal: "Every long-term memory fact gets a pin toggle: pinned facts store pinned:true inside the EXISTING memory store (the memGet/memSet lane + the per-user getMemKey variant; AuraMem/memRender is the render path), sort to the TOP of the list with a visible pin marker, never fall to the decay/compaction trim, and the prompt builder injects pinned facts FIRST as priority context before unpinned ones; unpinning restores normal order. Works for guests too — same memory lane, no server.",
     research: "pinning important items persistent memory UX pattern",
-    keywords: ["AuraMem", "memory", "fact"],
+    keywords: ["memRender", "memGet", "AuraMem"],
     done: /AURA_MEM_PIN/
   },
   {
