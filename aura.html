@@ -125,11 +125,9 @@ canvas#fx{position:fixed;inset:0;z-index:0}
 .chip{font-family:var(--mono);font-size:10px;letter-spacing:.5px;color:var(--cy2);border:1px solid var(--line);background:rgba(34,211,238,.06);border-radius:14px;padding:5px 11px;cursor:pointer;transition:.2s}
 .chip:hover{background:rgba(34,211,238,.18);box-shadow:0 0 12px rgba(34,211,238,.25)}
 #topbar,#tabbar,#dock,#telemetry,#chips{transition:opacity .25s ease}
-/* AURA_QUICK_ACTIONS */
-#quickActions{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:50;display:flex;gap:6px;background:rgba(18,25,42,.9);border:1px solid var(--line);border-radius:12px;padding:6px 8px;backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
-#quickActions button{background:rgba(34,211,238,.1);border:1px solid var(--line2);color:var(--cy2);font-family:var(--mono);font-size:11px;font-weight:700;padding:6px 12px;border-radius:8px;cursor:pointer;transition:.15s;white-space:nowrap}
-#quickActions button:hover{background:rgba(34,211,238,.25);border-color:var(--cy);box-shadow:0 0 12px rgba(34,211,238,.3)}
-body.focus-mode #quickActions{opacity:.35}
+/* AURA_QUICK_ACTIONS — the STALE first-ship CSS block was removed (21 Oct 2026 dup-ship bug):
+   its left:50%/translateX(-50%) survived the cascade and skew-shifted the real bottom bar.
+   One design now lives in the bottom-controls section below. */
 body.focus-mode #topbar,body.focus-mode #tabbar,body.focus-mode #dock,body.focus-mode #telemetry,body.focus-mode #chips{opacity:.35}
 #chipFocus.on{background:rgba(34,211,238,.28);border-color:var(--cy);color:var(--ice);box-shadow:0 0 14px rgba(34,211,238,.45)}
 
@@ -4285,6 +4283,15 @@ function setPersona(p,announce){
   });
 })();
 (function(){try{if(localStorage.getItem("aura_persona")==="jarvis"){document.body.dataset.persona="jarvis";setHue("gold")}}catch(e){}})();
+/* QUICK-ACTIONS WIRING — the dup-ship bug shipped the bar TWICE (markup fine, but the
+   three buttons had NO click handlers anywhere: dead CLR/EXP/PSN on the live site).
+   Wire each to the app's OWN existing lane — no new code paths: */
+(function(){
+  const qaw=(id,fn)=>{const b=document.getElementById(id);if(b&&!b.dataset.qawired){b.dataset.qawired="1";b.addEventListener("click",fn)}};
+  qaw("qaClear",function(){try{hist.clear();CONVO.length=0;lastTopic="";pushSys("chat cleared — fresh start")}catch(e){pushSys("clear failed: "+(e.message||e))}});
+  qaw("qaExport",function(){try{exportChat()}catch(e){pushSys("export failed: "+(e.message||e))}});
+  qaw("qaPersona",function(){try{setPersona(persona()==="aura"?"jarvis":"aura",true)}catch(e){pushSys("persona switch failed: "+(e.message||e))}});
+})();
 
 /* ---------------- local intelligence (big offline core) ---------------- */
 function memGet(){try{return JSON.parse(localStorage.getItem("aura_memory")||"{}")}catch(e){return{}}}
