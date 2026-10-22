@@ -4292,8 +4292,34 @@ function memSet(m){try{localStorage.setItem("aura_memory",JSON.stringify(m));try
 /* ============ LONG-TERM MEMORY — durable facts about the user, recalled by relevance ============ */
 window.AuraMem=(function(){
   const KEY="aura_facts_v1";
+  const SUMMARY_KEY="aura_facts_summary_v1";
+  const MAX_FACTS=140;
+  const COMPACT_THRESHOLD=120;
   function all(){try{return JSON.parse(localStorage.getItem(KEY)||"[]")}catch(e){return[]}}
-  function save(a){try{localStorage.setItem(KEY,JSON.stringify(a.slice(-140)))}catch(e){}}
+  function summaries(){try{return JSON.parse(localStorage.getItem(SUMMARY_KEY)||"[]")}catch(e){return[]}}
+  function saveSummaries(s){try{localStorage.setItem(SUMMARY_KEY,JSON.stringify(s.slice(-20)))}catch(e){}}
+  function compact(oldFacts){
+    if(!oldFacts.length) return;
+    const grouped={};
+    oldFacts.forEach(f=>{const d=new Date(f.ts).toISOString().slice(0,7);(grouped[d]=grouped[d]||[]).push(f.text)});
+    const summary=Object.entries(grouped).map(([month,texts])=>({
+      month:month,
+      count:texts.length,
+      gist:texts.slice(0,5).join("; ").slice(0,300),
+      ts:new Date(month+"-01").getTime()
+    }));
+    const existing=summaries();
+    saveSummaries([...existing,...summary]);
+  }
+  function save(a){
+    if(a.length>COMPACT_THRESHOLD){
+      const toCompact=a.slice(0,a.length-MAX_FACTS);
+      if(toCompact.length) compact(toCompact);
+    }
+    try{localStorage.setItem(KEY,JSON.stringify(a.slice(-MAX_FACTS)))}catch(e){}
+  }
+/* AURA_MEM_COMPACT */
+
   function norm(s){return String(s).toLowerCase().replace(/[^a-z0-9\u0900-\u097F ]/g,"").trim()}
   function add(txt,src){
     const t=String(txt||"").trim().slice(0,240);if(t.length<3)return false;
