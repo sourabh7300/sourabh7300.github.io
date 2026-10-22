@@ -4432,6 +4432,38 @@ window.AuraAgent=(function(){
 })();
 window.AuraLive=(function(){
   let r=null,on=false;
+  /* AURA_VOICE_ALIASES — short spoken aliases → full commands */
+  const VOICE_ALIASES={
+    'new chat':'start new chat',
+    'fresh chat':'start new chat',
+    'clear chat':'start new chat',
+    'read last':'read last message',
+    'read it':'read last message',
+    'say again':'repeat last',
+    'repeat':'repeat last',
+    'stop talking':'stop speech',
+    'shut up':'stop speech',
+    'go dark':'toggle dark mode',
+    'lights out':'toggle dark mode',
+    'show memory':'open memory',
+    'memory':'open memory',
+    'forget me':'clear memory',
+    'wipe memory':'clear memory',
+    'search web':'web search',
+    'google':'web search',
+    'look up':'web search',
+    'run code':'execute code',
+    'execute':'execute code',
+    'save this':'save note',
+    'note this':'save note',
+    'help':'show help',
+    'what can you do':'show help',
+    'commands':'show help'
+  };
+  function expandAlias(cmd){
+    const key=cmd.toLowerCase().trim();
+    return VOICE_ALIASES[key]||cmd;
+  }
   function label(t){const h=document.getElementById('micHint');if(h)h.textContent=t}
   function start(){
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
