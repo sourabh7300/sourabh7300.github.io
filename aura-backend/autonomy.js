@@ -122,7 +122,7 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "chat-search", prio: 2,
     title: "Chat search",
-    goal: "Search across past sessions by keyword with instant result navigation.",
+    goal: "CHATS panel top gets a search row (input id=chatSearchInput, count line id=chatSearchCount): typing filters saved sessions AND their messages case-insensitively; a hit line shows its date + first 80 chars of the match, one click opens the session and scrolls to the highlighted match; zero hits show an honest \"no match\" line; clearing the box restores the full list.",
     research: "in-browser full text search localStorage chat history UX",
     keywords: ["aura_history_v1", "session", "search"],
     done: /AURA_CHAT_SEARCH/
@@ -130,7 +130,7 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "export-center", prio: 2,
     title: "Export center",
-    goal: "One place exports chats, tasks and memory as Markdown/JSON/CSV downloads.",
+    goal: "SETTINGS panel gets an export section (id=exportCenter) with three buttons: EXPORT CHATS (Markdown with session headers + timestamps + both sides), EXPORT TASKS (JSON from the existing task store), EXPORT MEMORY (CSV with a header row). Each file is built client-side and downloaded through the existing dlBlob helper; after each download one honest line shows the filename and row count. No new endpoints, no server changes.",
     research: "client-side file export markdown csv blob download UX",
     keywords: ["dlBlob", "export", "download"],
     done: /AURA_EXPORT_CENTER/
@@ -138,7 +138,7 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "task-insights", prio: 2,
     title: "Task insights",
-    goal: "A weekly roll-up of tasks completed, streaks and where time went.",
+    goal: "TASKS panel gets a WEEKLY INSIGHTS card (id=taskInsights): tasks completed in the last 7 days, current completion streak in days, best single day, and a compact 7-bar sparkline (per-day completions) computed from the EXISTING task timestamps — no new storage format, no new keys; a day with zero completions shows 0, never a blank.",
     research: "personal productivity roll-up weekly stats design",
     keywords: ["AuraTasks", "task", "stats"],
     done: /AURA_TASK_INSIGHTS/
@@ -154,7 +154,7 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "memory-pin", prio: 1,
     title: "Memory pin",
-    goal: "Pin any long-term memory fact so it survives decay and shows as priority context.",
+    goal: "Every long-term memory fact gets a pin toggle: pinned facts store pinned:true, sort to the TOP of the memory list with a visible pin marker, are never dropped by the decay/compaction trim, and the prompt builder injects pinned facts FIRST as priority context before unpinned ones; unpinning restores normal order and decay. Works for guests too (same memory lane, no server).",
     research: "pinning important items persistent memory UX pattern",
     keywords: ["AuraMem", "memory", "fact"],
     done: /AURA_MEM_PIN/
@@ -162,9 +162,9 @@ MISSIONS.push.apply(MISSIONS, [
   {
     id: "theme-sync", prio: 2,
     title: "Theme sync",
-    goal: "The chosen theme syncs across devices for signed-in users.",
+    goal: "For signed-in users the chosen theme persists with their profile: on theme change the theme name is written into the user's EXISTING profile record, and on load a signed-in session applies the saved theme BEFORE first paint; localStorage remains the guest fallback. NO new endpoint, NO new fetch target — ride only lanes that already exist.",
     research: "user preference sync cloud storage web app",
-    keywords: ["theme", "localStorage", "sync"],
+    keywords: ["theme", "fbUser", "profile"],
     done: /AURA_THEME_SYNC/
   },
   {
@@ -1063,7 +1063,8 @@ function createAutopilot(deps) {
     if (!cfg.autoShip || !d.commit) {
       const r = !d.commit ? "GitHub lane not connected (GH_TOKEN missing) — the finished feature could not be pushed" : "publishing disabled (SQUAD_AUTOSHIP=0) — verified feature held";
       st.note = r; log(state, "arthur", "○ " + r);
-      state.queue.push({ mission: mission.id, title: mission.title, goal: mission.goal, edits: wip.edits, note: batchNote, at: Date.now() });
+      /* DUPLICATE-SHIP GUARD (engine quirk 21 Oct 2026: quick-actions shipped twice, c542289 + 01438f8): a mission that already has a ship record never queues again, and one queue entry never queues twice. */
+      if (!state.queue.some(x => x.mission === mission.id) && !state.ships.some(s => s.mission === mission.id)) state.queue.push({ mission: mission.id, title: mission.title, goal: mission.goal, edits: wip.edits, note: batchNote, at: Date.now() });
       if (state.queue.length > 12) state.queue = state.queue.slice(-12);
       clearWip(state, "held: " + mission.id);
       return { queued: true, note: r };
@@ -1074,7 +1075,8 @@ function createAutopilot(deps) {
       return { queued: true, note: st.note };
     }
     if (state.publish === "hold" && !o.publishNow) {
-      state.queue.push({ mission: mission.id, title: mission.title, goal: mission.goal, edits: wip.edits, note: batchNote, at: Date.now() });
+      /* DUPLICATE-SHIP GUARD (engine quirk 21 Oct 2026: quick-actions shipped twice, c542289 + 01438f8): a mission that already has a ship record never queues again, and one queue entry never queues twice. */
+      if (!state.queue.some(x => x.mission === mission.id) && !state.ships.some(s => s.mission === mission.id)) state.queue.push({ mission: mission.id, title: mission.title, goal: mission.goal, edits: wip.edits, note: batchNote, at: Date.now() });
       if (state.queue.length > 12) state.queue = state.queue.slice(-12);
       st.note = "READY — verified complete, waiting for the admin's \"publish it\"";
       log(state, "arthur", "📦 " + mission.id + " verified complete (" + batchNote + ") — queued for your publish word, nothing pushed yet");
@@ -1134,6 +1136,15 @@ function createAutopilot(deps) {
     for (const item of state.queue.slice()) {
       const mission = findMission(state, item.mission);
       if (!mission) { refused.push({ mission: item.mission, reason: "unknown mission (dropped)" }); dropDead(item); continue; }
+      /* DUPLICATE-SHIP GUARD (drain lane): a mission with a ship record is DONE — a second
+         queue entry for it would commit the same feature twice (the quick-actions bug).
+         Drop the duplicate honestly: no second commit, no ship-record pollution. */
+      if (state.ships.some(s => s.mission === mission.id)) {
+        const prev = (state.ships.find(s => s.mission === mission.id) || {}).sha || "?";
+        log(state, "kratos", "publish queue: " + mission.id + " already shipped (" + prev + ") — duplicate queue entry dropped, no second commit");
+        state.queue = state.queue.filter(x => x.at !== item.at);
+        continue;
+      }
       const cand = applyEdits(src, item.edits);
       if (!cand.ok) { refused.push({ mission: item.mission, reason: "edits no longer apply — dropped: " + cand.error }); dropDead(item); continue; }
       const gate = validateSource(src, cand.src, cfg);
