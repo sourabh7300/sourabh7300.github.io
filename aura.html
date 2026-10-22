@@ -3890,6 +3890,45 @@ function exportChat(){
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="aura-chat-"+Date.now()+".txt";a.click();
   pushSys("conversation exported");
 }
+/* ---------------- EXPORT CENTER: client-side builders (AURA_EXPORT_CENTER) ---------------- */
+function exportChatsMD(){
+  const raw=hist.load("convo")||[];
+  if(!raw.length){pushSys("no chats to export");return}
+  let md="# AURA Chat Export — "+new Date().toISOString().split("T")[0]+"\n\n";
+  let session=1, count=0;
+  raw.forEach(m=>{
+    if(m.role==="user"){md+="## Session "+session+++" — "+(m.ts?new Date(m.ts).toLocaleString():"unknown")+"\n\n";count++}
+    md+="**"+(m.role==="user"?"You":"AURA")+"**: "+String(m.content||"").replace(/\n/g,"\n")+"\n\n";
+  });
+  dlBlob(new Blob([md],{type:"text/markdown"}),"aura-chats-"+Date.now()+".md");
+  pushSys("exported aura-chats-<ts>.md — "+count+" sessions");
+}
+function exportTasksJSON(){
+  const tasks=(window.AuraTasks&&AuraTasks.all?AuraTasks.all():[]);
+  if(!tasks.length){pushSys("no tasks to export");return}
+  const payload={exported:new Date().toISOString(),count:tasks.length,tasks};
+  dlBlob(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),"aura-tasks-"+Date.now()+".json");
+  pushSys("exported aura-tasks-<ts>.json — "+tasks.length+" tasks");
+}
+function exportMemoryCSV(){
+  const mem=memGet?memGet():{};
+  const rows=[["key","value","updated"]];
+  Object.entries(mem).forEach(([k,v])=>rows.push([k,String(v).replace(/"/g,'""'),""]));
+  if(rows.length===1){pushSys("memory empty — nothing to export");return}
+  const csv=rows.map(r=>r.map(c=>"\""+c+"\"").join(",")).join("\n");
+  dlBlob(new Blob([csv],{type:"text/csv"}),"aura-memory-"+Date.now()+".csv");
+  pushSys("exported aura-memory-<ts>.csv — "+(rows.length-1)+" entries");
+}
+function exportBackupAll(skip={}){
+  const chats=hist.load("convo")||[];
+  const tasks=(window.AuraTasks&&AuraTasks.all?AuraTasks.all():[]);
+  const mem=memGet?memGet():{};
+  const env={exported:new Date().toISOString(),version:"1.0",chats:skip.chats?undefined:chats,tasks:skip.tasks?undefined:tasks,memory:skip.memory?undefined:mem};
+  const json=JSON.stringify(env,null,2);
+  dlBlob(new Blob([json],{type:"application/json"}),"aura-backup-"+Date.now()+".json");
+  const parts=[];if(!skip.chats)parts.push(chats.length+" chats");if(!skip.tasks)parts.push(tasks.length+" tasks");if(!skip.memory)parts.push(Object.keys(mem).length+" mem");
+  pushSys("exported aura-backup-<ts>.json — "+parts.join(", "));
+}
 /* ---------------- TOOLBELT: document engine (PDF) + image converter ---------------- */
 function docPDF(title,body){
   const w=window.open("","_blank");
