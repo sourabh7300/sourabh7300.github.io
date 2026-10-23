@@ -11237,8 +11237,10 @@ document.addEventListener("DOMContentLoaded",function(){
     function bot(id){return BOTS.find(function(b){return b.id===id})||BOTS[0]}
     /* ---------- chat storage + rendering ---------- */
     function push(id,who,msg){
+      const _m=String(msg==null?"":msg);
+      if(!_m.trim())return; /* SILENT-FLOOD GUARD (23 Oct): laneErrChat repeat = "" — chat me khaali/ganda bubble kabhi nahi */
       const arr=S.chats[id]||(S.chats[id]=[]);
-      arr.push({who:who,m:String(msg==null?"":msg),t:Date.now()});
+      arr.push({who:who,m:_m,t:Date.now()});
       if(arr.length>200)S.chats[id]=arr.slice(-200);
       save();
       if(id===S.who)renderChat();
@@ -11747,19 +11749,25 @@ document.addEventListener("DOMContentLoaded",function(){
        Is page pe KOI browser timer nahi hai — sirf real state read + admin control. */
     let AUD={state:null,err:"",busy:false};
     let __nsAuthFailAt=0; /* last time a lane died on a dead admin session (blocks auto-re-engage for 3 min) */
-    /* REPEAT-ERROR TRAP (owner report 22 Oct 2026 — "autopilot lane error / nonstop lane error"
-       har beat pe repeat): session expire hote hi har lane wahi NO_SESSION line chat me girta
-       tha. Ab ONE-AND-DONE: same error-ish message 3 min me ek hi baar; repeat ek chhoti
-       placeholder line ban jaata hai. Normal (non-error) replies kabhi throttle nahi hote. */
+    /* REPEAT-ERROR TRAP v2 (owner report 23 Oct 2026 — "error hi error dedeti hai, jiski
+       koi haad nahi"): the v1 trap was keyed by the full message string — but EVERY lane
+       prefixes its own text ("autopilot lane error…", "nonstop lane error…", "cycle lane
+       error…" + the backend's long NO_SESSION tail), so one dead session produced THREE
+       different signatures = three bubbles back-to-back, then the throttle's placeholder
+       bubble itself felt like a fourth error. Now: signatures group by WHICH LANE failed,
+       and a repeat is SILENT — laneErrChat returns "" (push() refuses empty bubbles), the
+       only visible states are the panel badge/hint + the ✗ flow tag. First failure per
+       lane still shows the full honest one-line reason. */
     const __laneErrChatAt={};
     function laneErrChat(msg){
       const s=String(msg==null?"":msg);
       if(!/(lane error|lane:|^admin only|NO_SESSION|Unauthorized)/i.test(s))return s;
-      const sig=s.replace(/\s+/g," ").trim().slice(0,110);
+      const lane=(s.match(/\b(autopilot|nonstop|cycle|publish|policy|state|refresh|task|dispatch)\s+lane/i)||[])[1]||"misc";
+      const sig=lane.toLowerCase();
       const now=Date.now();const seen=__laneErrChatAt[sig]||0;
       __laneErrChatAt[sig]=now;
-      if(now-seen<180000)return "⏳ (wahi lane error — 3 min me ek hi baar bolunga; sign-in hone tak chup. Panel ke UNREACHABLE badge se state dekhte rehna.)";
-      const ks=Object.keys(__laneErrChatAt);if(ks.length>60)for(let i=0;i<20;i++)delete __laneErrChatAt[ks[i]];
+      if(seen)return ""; /* SILENT — panel badge khud ka status dikha raha hai hai; chat me ganda na ho */
+      const ks=Object.keys(__laneErrChatAt);if(ks.length>40)for(let i=0;i<12;i++)delete __laneErrChatAt[ks[i]];
       return s;
     }
     function autoBase(){try{return backendUrl()}catch(e){return ""}}
@@ -11902,9 +11910,22 @@ document.addEventListener("DOMContentLoaded",function(){
            gone when the one-hour session silently expires. That case used to fall through to the raw
            UNREACHABLE badge forever. Now EVERY 401 paints the honest guest view (public heartbeat
 counters live) + an exact recovery line: no-session → sign-in pending; stale session → one honest
-           "session expired, sign in again" line instead of a dead panel. */
-        if(/admin session|NO_SESSION|401|Unauthorized/i.test(AUD.err)){
-          const _signed=!!(typeof fbUser==="function" && fbUser());
+           "session expired, sign in again" line instead of a dead panel. */          if(/admin session|NO_SESSION|401|Unauthorized/i.test(AUD.err)){
+          let _signed=!!(typeof fbUser==="function" && fbUser());
+          /* STALE-SESSION SELF-HEAL (owner report 23 Oct 2026 — "errors hi errors"): the
+             lis-localStorage admin record can outlive Firebase's own session (one-hour
+             bearer, IndexedDB cleared, popup sign-in not persisted). While that zombie
+             record sat there, isAdmin() stayed true and EVERY admin lane 401'd — the
+             page kept bubbling errors forever. When Firebase's currentUser is gone we
+             retire the zombie ONCE: role UI flips to the honest guest view, lanes stop
+             firing, and the next sign-in rebuilds the record cleanly. */
+          try{
+            if(_signed && typeof firebase!=="undefined" && firebase.auth && !firebase.auth().currentUser){
+              localStorage.removeItem("aura_fb_live");_signed=false;
+              try{AuraAuth.updateBadge()}catch(e5a){}
+              try{applyRoleUi&&applyRoleUi()}catch(e5b){}
+            }
+          }catch(e5){}
           AUD.err="";AUD.state=null;
           try{const h=await fetch(backendUrl()+"/v1/squad/beat",{cache:"no-store"});AUD.beat=(await h.json().catch(()=>null))||null}catch(e2){AUD.beat=null}
           autoPaintGuest();
