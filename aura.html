@@ -265,6 +265,15 @@ body.theme-classical .src-card .srch{color:#a08662}
 #tabbar button:hover{border-color:var(--line);color:var(--cy2)}
 #tabbar button.on{color:var(--cy2);border-color:var(--line);background:rgba(34,211,238,.14)}
 body:not([data-tab="system"]) #telemetry,body:not([data-tab="system"]) #syslog,body:not([data-tab="system"]) #memPanel{display:none}
+/* CHAT SEARCH ROW */
+#chatSearchRow{display:flex;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--panel);border:1px solid var(--line2);border-radius:8px;font-family:var(--mono);font-size:11px}
+#chatSearchInput{flex:1;background:var(--bg);border:1px solid var(--line);color:var(--fg);padding:6px 10px;border-radius:6px;outline:none}
+#chatSearchInput:focus{border-color:var(--cy2);box-shadow:0 0 0 2px rgba(34,211,238,.15)}
+#chatSearchCount{color:var(--dim);white-space:nowrap;align-self:center;font-size:10px}
+#chatSearchNext{background:none;border:1px solid var(--line2);color:var(--dim);border-radius:5px;padding:4px 8px;cursor:pointer;font-family:var(--mono);font-size:10px}
+#chatSearchNext:hover{color:var(--cy2);border-color:var(--cy2)}
+/* AURA_CHAT_SEARCH */
+
 #memPanel{position:fixed;left:22px;bottom:286px;width:225px;max-height:44vh;overflow:auto;z-index:9}
 #memSide .memrow{display:flex;gap:6px;align-items:flex-start;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 #memSide .memrow .mtx{flex:1;font-family:var(--mono);font-size:9.5px;color:#7fb3c4;line-height:1.5;word-break:break-word}
@@ -4300,15 +4309,18 @@ function voiceAllowed(){ /* VOICE MASTER SWITCH — every "write AND speak" repl
    ON → answers are written and spoken; OFF → written only. No session windows, no silent answers. */
   try{return canAutoSpeak()}catch(e){return true}}
 function stopSpeech(){speakGen++;ttsActive=false;try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
-let __neuralVoice=(localStorage.getItem("aura_neural")||"auto")==="on";
-async function speakNeural(t,gen,done){
+/* VOICE UPGRADE (owner request 'aachi si voice lagaa'): neural server voice is the DEFAULT now —
+   the raw device fallback voice (robotic) was what made AURA sound bad. Neural renders
+   real human-class speech for Hindi AND English; the device chain stays as safety net. */
+let __neuralVoice=(localStorage.getItem("aura_neural")||"on")!=="off";
+async function speakNeural(t,gen,done,lang){ lang=lang==="hi"?"hi":"en";
   /* NEURAL TIER — server-rendered voice (Orpheus). Returns true if it spoke.
      SILENCE FIX: an autoplay-blocked or dead TTS lane previously left the caller
      with no fallback; now any failure pauses+revokes and returns false fast. */
   let a=null,url=null;
   try{
     if(!backendUrl())return false;
-    const r=await fetch(backendUrl()+"/v1/tts",{method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(30000),body:JSON.stringify({input:String(t).slice(0,900),voice:persona()==="jarvis"?"venom":"hilda"})});
+    const r=await fetch(backendUrl()+"/v1/tts",{method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(30000),body:JSON.stringify({input:String(t).slice(0,900),voice:persona()==="jarvis"?"venom":"hilda",lang:lang})});
     if(!r.ok)return false;
     const blob=await r.blob();if(!blob.size)return false;
     url=URL.createObjectURL(blob);
@@ -4339,7 +4351,7 @@ function speak(t){
     ttsActive=true;lastSpoken=t;lastSpokeAt=Date.now();
     if(typeof wake!=="undefined"&&wake&&typeof listening!=="undefined"&&listening){try{recog.abort()}catch(e){}}
     const P=PERSONAS[persona()];
-    const clean=t.replace(/SOURCES:[\s\S]*$/,"").replace(/— live from Wikipedia[^\n]*/g,"").replace(/\[\d+\]/g,"").replace(/🔗 ?https?:\S+/g,"").replace(/[#*_▸►`_]/g,"");
+    const clean=t.replace(/SOURCES:[\s\S]*$/,"").replace(/📚[\s\S]*$/m,"").replace(/— live from Wikipedia[^\n]*/g,"").replace(/\[\d+\]/g,"").replace(/🔗 ?https?:\S+/g,"").replace(/[#*_▸►`_]/g,"");
     const parts=[];const keep=[];let rest=clean;
     while(rest.length){
       if(rest.length<=190){parts.push(rest);break}
@@ -4347,11 +4359,11 @@ function speak(t){
       parts.push(rest.slice(0,cut+1));rest=rest.slice(cut+1).replace(/^\s+/,"");
     }
     const hi=window.__auraLang==="hi"||(window.__auraLang!=="en"&&detectedLang==="hi");
-    /* NEURAL VOICE TIER — English answers try the server-rendered voice first;
-       Hindi goes straight to the device voice. SILENCE FIX: a failed or autoplay-blocked
-       neural attempt now FALLS BACK to the device voice chain instead of dying quietly. */
-    if(__neuralVoice&&!hi&&parts.length){
-      speakNeural(parts.join(" "),gen,()=>{ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}}).then(ok=>{
+    /* NEURAL VOICE TIER — Hindi AND English answers both get the server-rendered
+       human voice first (vendor picks the right language per call). SILENCE FIX:
+       a failed or autoplay-blocked neural attempt FALLS BACK to the device voice chain. */
+    if(__neuralVoice&&parts.length){
+      speakNeural(parts.join(" "),gen,()=>{ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}},hi?"hi":"en").then(ok=>{
         if(ok)return;
         if(gen!==speakGen)return; /* a newer speak() took over meanwhile */
         ttsActive=true; /* device chain takes over with the speaking flag armed */
@@ -4683,7 +4695,7 @@ window.AuraEco=(function(){
   const nb=document.getElementById('neuralBtn');
   if(nb){
     const paint=()=>{nb.textContent=__neuralVoice?'🎙 NEURAL':'🎙 ROBOT VOICE'};paint();
-    nb.onclick=()=>{__neuralVoice=!__neuralVoice;try{localStorage.setItem('aura_neural',__neuralVoice?'on':'off')}catch(e){}paint();pushSys(__neuralVoice?'🎙 neural voice ON — English answers use the server-rendered human voice (falls back silently to the device voice)':'🎙 neural voice OFF — using the built-in device voice')};
+    nb.onclick=()=>{__neuralVoice=!__neuralVoice;try{localStorage.setItem('aura_neural',__neuralVoice?'on':'off')}catch(e){}paint();pushSys(__neuralVoice?'🎙 neural voice ON — Hindi AND English answers use the server-rendered human voice (falls back silently to the device voice)':'🎙 neural voice OFF — using the built-in device voice')};
   }
 })();
 /* ---------- matplotlib chart bridge + package auto-install for the Python sandbox ---------- */
@@ -5573,7 +5585,7 @@ async function geminiCall(q,deep){
        pe zero cost. wantsFresh() ab als plain-chat rescue lane ke liye hai. */
     const web=await webContext(q);
     const webBlock=web?"\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them. When they conflict with your memory of past events, dates, scores or records, the live results WIN. If they don't fully answer, say what's still uncertain — never invent dates, scores, prices or winners):\n"+web+"\n":"";
-    let out=await groqCall([{role:"system",content:sys+replyStyle()+dateLine},{role:"user",content:q+convoCtx()+webBlock}],deep?2600:900);
+    let out=await groqCall([{role:"system",content:sys+replyStyle()+dateLine},{role:"user",content:q+convoCtx()+webBlock}],deep?3400:1800);
     try{if(window.AuraCortex)out=await AuraCortex.critic(q,out,lane)}catch(e){}
     return out;
   }
@@ -6692,7 +6704,12 @@ function personaName(){try{return (PERSONAS[persona()]||PERSONAS.aura).name}catc
    researchReply lanes): the model never claims a training cutoff or out-dated knowledge. */
 const TIME_PROTO=" KNOWLEDGE & TIME PROTOCOL: this context carries the user's real CURRENT DATE & TIME - trust it over any internal guess. You are wired to a LIVE web lane that feeds same-day sources for anything time-sensitive, so your working knowledge is current-day. HARD RULE: never say or imply you are outdated, frozen, 'two years out of date', or limited by a training cutoff; NEVER mention training data, model freeze dates or cutoff years in any answer. If a current fact is missing from the provided context, answer from your own knowledge WITHOUT cutoff disclaimers and offer to pull live web sources. Questions like 'what year is it' are answered confidently with the context date.";
 function replyStyle(){
-  const common=" READ THE QUESTION BEHIND THE QUESTION: detect what the user actually wants (a fix? reassurance? a decision? a shortcut? the why?) and deliver THAT first; if their message sounds frustrated or sad, acknowledge the feeling in one short line before solving; if two intents are possible, answer the likely one fully and offer the other in one closing line; mirror the user's language (Hindi or Hinglish if they use it), their energy and their depth - never lecture past what was asked. Never open with dictionary framing like 'X is a...' or 'X refers to...'. Never say 'according to Wikipedia'. NEVER refuse or claim a fact is 'out of your data' / 'not in your training data' / 'I don't have that information' — you have wide knowledge on every subject; answer confidently from it. Never attach source lists, Wikipedia links or '— live from …' attribution lines; share a link only when the user explicitly asks for one. Match the depth the user implies: brief when they are brief, and when they ask for detail or say 'more', give the full deep answer.";
+  const lang=(function(){
+    /* LANGUAGE MIRROR PROTOCOL (owner: "yeh catch kre user kiss language main bol rha hai") —
+       reply in EXACTLY the language shape of the user's latest message, every time. */
+    return " LANGUAGE MIRROR (hard rule): reply in EXACTLY the language shape of the user's LATEST message. (1) User writes Hindi in Devanagari → reply fully in Hindi (Devanagari). (2) User writes HINGLISH — Roman-script Hindi mixed with English words like 'kya scene hai', 'bata de', 'samjha do', 'kaam krr' → reply in HINGLISH TOO: Roman Hindi like the user writes, with the same casual English words mixed in naturally. NEVER answer Hinglish with pure full-English, and NEVER with Devanagari Hindi unless the user themselves wrote Devanagari. (3) User writes plain English → plain English. Technical terms and code stay in English inside any language.";
+  })();
+  const common=" READ THE QUESTION BEHIND THE QUESTION: detect what the user actually wants (a fix? reassurance? a decision? a shortcut? the why?) and deliver THAT first; if their message sounds frustrated or sad, acknowledge the feeling in one short line before solving; if two intents are possible, answer the likely one fully and offer the other in one closing line; mirror the user's energy and their depth - never lecture past what was asked. Never open with dictionary framing like 'X is a...' or 'X refers to...'. Never say 'according to Wikipedia'. NEVER refuse or claim a fact is 'out of your data' / 'not in your training data' / 'I don't have that information' — you have wide knowledge on every subject; answer confidently from it. Share links only when they genuinely complete the answer: when you answered from the LIVE WEB lane, end with one compact '📚 sources:' line (top 2-3, one per line). Match the depth the user implies — but NEVER answer a how-to, why, comparison or what-is question in a single throwaway line: give the complete useful answer the way a great answer does — the direct answer first, then the why, then a concrete example or the numbers, and short **bold** headings or bullets when the answer has 3+ distinct parts. Still zero filler, zero lecture.";
   const timeproto=TIME_PROTO;
   return (persona()==="jarvis"?" IMPORTANT - you are ZEUS, the owner's tactical command protocol: formal British courtesy, dry wit, address the user as 'sir' once or twice; lead with the direct answer; short, precise sentences; think like a strategic analyst - end with an implication, trade-off or recommended next action; sense the user's state from their wording (pressure gives crisp orders plus reassurance; confusion gets one clarifying line then the answer) and adapt silently."+common+timeproto:" IMPORTANT - sound like a smart human who knows this user, never an encyclopedia: lead with the direct answer; short sentences; use you/I/we naturally; give the interesting reason or story behind the facts; vary rhythm; at most one short list; if the user is low, be warm first; if they are excited, match the spark; if they want depth, go deep, if snappy, stay tight."+common+timeproto);
 }
@@ -9827,6 +9844,7 @@ async function webResearch(q){
   return out}
 async function researchReply(q,hi){
   const P=PERSONAS[persona()];
+  const hing=!hi&&isHinglish(q); /* Hinglish input → Hinglish answer, not Devanagari */
   window.__researching=true;
   const __stallT=setTimeout(function(){try{if(window.__researching)pushSys("research is grinding — deep sources take a few more seconds…")}catch(e){}},9000);
   try{
@@ -9838,23 +9856,26 @@ async function researchReply(q,hi){
   const userMsg="Question: "+q+"\n\nLIVE WEB EVIDENCE:\n"+src+"\n\nTOP PAGE TEXT:\n"+(r.txt||"(reader blocked — rely on titles+snippets)");
   /* ONE job: understand the question, then answer it NOW — evidence + own knowledge together. The old
      'using ONLY the provided evidence' wording let the model refuse whenever a detail was missing. */
-  const sys="You are "+P.name+". The user asked a real question and wants a real answer RIGHT NOW. First read the live evidence below, understand what the question is really asking, then answer it directly in your own words — combining the evidence with your wide general knowledge. HARD RULE — NEVER REFUSE: never say 'I don't have…', 'I cannot confirm…', 'not in the provided evidence', 'the sources do not explicitly…', 'share the specific article text', or ask the user to paste/upload/send a source — you already have the live web plus your own knowledge. If the evidence misses the exact detail (an exact list, a score, a name, a roster), still give your BEST complete answer: everything the evidence does establish plus what you know yourself, and add at most ONE short closing line that the detail may have been updated and you can pull a fresher live check. Understand the user's intent first and answer THAT — fast, confident, human, never encyclopedic, never apologetic. No citation markers, no SOURCES list and no links — weave the facts into a natural chat answer. Answer in the user's language."+TIME_PROTO+(hi?" Reply in Hindi (Devanagari).":"");
+  const sys="You are "+P.name+". The user asked a real question and wants a real answer RIGHT NOW. First read the live evidence below, understand what the question is really asking, then answer it directly in your own words — combining the evidence with your wide general knowledge. HARD RULE — NEVER REFUSE: never say 'I don't have…', 'I cannot confirm…', 'not in the provided evidence', 'the sources do not explicitly…', 'share the specific article text', or ask the user to paste/upload/send a source — you already have the live web plus your own knowledge. If the evidence misses the exact detail (an exact list, a score, a name, a roster), still give your BEST complete answer: everything the evidence does establish plus what you know yourself, and add at most ONE short closing line that the detail may have been updated and you can pull a fresher live check. Understand the user's intent first and answer THAT — fast, confident, human, never encyclopedic, never apologetic. No citation markers like [1] inside the answer and no SOURCES heading — you will either weave links naturally or the caller will attach them. Answer in the user's language — EXACT language shape: Hinglish input gets a Hinglish reply, Devanagari Hindi gets Hindi, English gets English."+TIME_PROTO+(hi?" The user wrote in Devanagari Hindi: reply fully in Hindi (Devanagari).":hing?" The user wrote HINGLISH (Roman Hindi + English): reply in HINGLISH — Roman Hindi with natural English words mixed in, never pure English, never Devanagari.":"");
   /* a refusal-shaped reply is a bug, not an answer — force one direct retry, else hand off to the thinking brain */
   const REFUSE=/\b(i don'?t have|do not have the specific|cannot confirm|can'?t confirm|not (?:available|listed|included) in the (?:provided )?evidence|if you (?:can|could) share|share the specific|more detailed source|without that specific data|apologi[sz]e|i'?m sorry,? but i can'?t)\b/i;
   let txt=null;
-  try{txt=await aiChat([{role:"system",content:sys},{role:"user",content:userMsg}],1400)}catch(e){txt=null}
+  try{txt=await aiChat([{role:"system",content:sys},{role:"user",content:userMsg}],2400)}catch(e){txt=null}
   if(txt&&REFUSE.test(String(txt))){
     slog("research: answer came back refusal-shaped — forcing a direct answer",true);
-    try{const t2=await aiChat([{role:"system",content:sys},{role:"user",content:userMsg+"\n\nIMPORTANT: your previous reply refused and asked the user for more sources. That is never allowed here. Answer the question directly RIGHT NOW from the evidence above plus your own knowledge — best-effort, complete, confident. No apologies, no 'cannot confirm', no requests for the user to share anything."}],1600);
+    try{const t2=await aiChat([{role:"system",content:sys},{role:"user",content:userMsg+"\n\nIMPORTANT: your previous reply refused and asked the user for more sources. That is never allowed here. Answer the question directly RIGHT NOW from the evidence above plus your own knowledge — best-effort, complete, confident. No apologies, no 'cannot confirm', no requests for the user to share anything."}],2800);
       txt=(t2&&String(t2).trim()&&!REFUSE.test(String(t2)))?t2:null;
     }catch(e){txt=null}
   }
+  /* OWNER REQUEST: khud search karke sources bhi dikhaye — answer ke niche compact clickable sources */
+  const srcLine=r.hits.slice(0,3).map(h=>"📚 ["+String(h.t||"source").slice(0,64)+"]("+h.u+")").join("\n");
   if(txt&&String(txt).trim()){
-    /* strip any source list the model invented — plain chat answer, no sources shown */
-    return String(txt).replace(/\n?\s*SOURCES?:[\s\S]*$/i,"").trim();
+    /* strip any source list the model invented — then attach OUR compact sources (top 3 live hits) */
+    const ans=String(txt).replace(/\n?\s*SOURCES?:[\s\S]*$/i,"").trim();
+    if(ans&&!/📚/.test(ans))return ans+"\n\n"+srcLine;
   }
   return null}catch(e){return null}finally{try{clearTimeout(__stallT)}catch(e){}window.__researching=false}}
-const NEED_WEB=/\b(price|weather|today|current|latest|news|live score|stock|exchange rate|who won|release date|schedule|update on|right now|this week|this month|2024|2025|2026)\b|कीमत|मौसम|आज|ताज़ा|लाइव/i;
+const NEED_WEB=/\b(price|prices|pricing|weather|today|current|latest|newest|news|headline|live score|stocks?|stock market|exchange rate|who won|release date|release|launched|launch|schedule|update on|update|right now|this week|this month|this year|2024|2025|2026|forecast|result|results|winner|best|top|recommended)|\b(compare|versus|vs|alternatives?|alternatives to|worth it|should i (?:buy|use|get|download)|how to|tutorial|kaise|kaun sa|kon sa|setup|install)\b| कीमत|दाम|मौसम|आज|ताज़ा|कैसे|कौन|लाइव|न्यूज़| 결과/i;
 /* CURRENCY_Q — self-currency questions ('are you updated', 'your training data', 'what year is it')
    are answered instantly from real local state via localReply; NEVER let them fall into the
    research lane even though words like 'latest'/'updated' also match NEED_WEB. */
