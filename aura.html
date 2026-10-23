@@ -11765,8 +11765,21 @@ document.addEventListener("DOMContentLoaded",function(){
     function autoBase(){try{return backendUrl()}catch(e){return ""}}
     function autoAgo(ts){if(!ts)return "never";const m=Math.round((Date.now()-ts)/60000);return m<1?"just now":m<60?m+" min ago":Math.round(m/60)+" h ago"}
     function autoEsc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+    /* SQUAD-LANE TIMEOUT (owner's report 22 Oct 2026: "✗ signal timed out" + panel
+       UNREACHABLE): the old 60 s fetch window kept dying on Render's free-tier cold
+       start (~50 s before the first byte) and on long lanes — the page aborted the
+       call ITSELF and painted it as a backend failure. 180 s + one retry on a real
+       timeout gives the lanes the window they need; the abort was never the bots' fault. */
+    const SQUAD_LANE_MS=180000;
     async function autoCall(path,body){
-      const r=await __ahRetry(body?"POST":"GET",autoBase()+path,body);
+      let r=null;
+      try{
+        r=await __ahRetry(body?"POST":"GET",autoBase()+path,body,SQUAD_LANE_MS);
+      }catch(e){
+        if(!/signal timed out/i.test(String(e&&e.message||e)))throw e;
+        await new Promise(function(rs){setTimeout(rs,3000)});
+        r=await __ahRetry(body?"POST":"GET",autoBase()+path,body,SQUAD_LANE_MS);
+      }
       const j=await r.json().catch(function(){return{}});
       if(!r.ok)throw new Error(j.error||("HTTP "+r.status));
       return j;
@@ -12600,13 +12613,13 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
       return "";
     }
   }
-  async function __ah(method,url,body){
+  async function __ah(method,url,body,ms){
     const tok=await __freshTok();
-    return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(tok?{"Authorization":"Bearer "+tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(60000)});
+    return fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},(tok?{"Authorization":"Bearer "+tok}:{})),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(ms||60000)});
   }
-  async function __ahRetry(method,url,body){
-    let r=await __ah(method,url,body);
-    if(r.status===401){const tok=await __freshTok();if(tok)r=await fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},{Authorization:"Bearer "+tok}),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(60000)})}
+  async function __ahRetry(method,url,body,ms){
+    let r=await __ah(method,url,body,ms);
+    if(r.status===401){const tok=await __freshTok();if(tok)r=await fetch(url,{method:method,headers:Object.assign({"Content-Type":"application/json"},{Authorization:"Bearer "+tok}),body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(ms||60000)})}
     return r;
   }
   window.__ahRetry=__ahRetry;

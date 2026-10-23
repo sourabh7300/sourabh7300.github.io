@@ -1180,6 +1180,25 @@ async function squadSaveState(state) {
   storeVerdict("save", "memory-only");
 }
 /* RESEARCH — the squad's own librarian: live search + read, no keys, real sources */
+async function squadGuardedPut(content, message, file, expectedBase) {
+  /* CHANGE-OVERWRITE GUARD (owner's 22 Oct 2026 report, live proof: the squad's
+     publish + auto-revert silently rewrote aura.html back to a PRE-deploy snapshot
+     and erased a shipped fix that landed mid-cycle). A cycle can run many minutes
+     (brain calls), and anywhere in that window another writer — the owner's
+     deploy.js, the admin's revert lane — can push to main. The old lane PUT its
+     full-file candidate anyway (the fresh sha made GitHub happy) and the OTHER
+     writer's change was gone. Now every squad write to the LIVE PAGE re-fetches
+     the source of truth first and refuses to overwrite a base that no longer
+     matches — the engine rebases on the fresh source next cycle instead. */
+  if (typeof expectedBase === "string" && expectedBase.length > 1000) {
+    let cur = null;
+    try { cur = await ghFetchRaw(); } catch (e) { cur = null; }
+    if (cur && cur.length > 1000 && cur !== expectedBase)
+      throw new Error("CHANGE-OVERWRITE GUARD: live source moved since this batch's base (" + Buffer.byteLength(expectedBase) + " → " + Buffer.byteLength(cur) + " bytes) — refused to overwrite another writer's commit; next cycle rebases on the fresh source");
+  }
+  return ghPutFile(content, message, file);
+}
+/* RESEARCH — the squad's own librarian: live search + read, no keys, real sources */
 async function squadResearch(mission) {
   const q = (mission && (mission.research || mission.title)) || "";
   if (!q) return "";
@@ -1211,7 +1230,7 @@ const autopilot = autopilotLib.createAutopilot({
   sourceLane: () => lastSourceLane,
   brain: squadBrain,
   research: squadResearch,
-  commit: (content, message) => ghPutFile(content, message, GH_FILE),
+  commit: (content, message, expectedBase) => squadGuardedPut(content, message, GH_FILE, expectedBase),
   verifyLive: squadVerifyLive,
   worldWatch: squadWorldWatch,
   signReport: squadSignReport,
