@@ -35,6 +35,53 @@
       try { return JSON.parse(trimmed); }
       catch(e){ pushSys('[JSON parse' + (ctx ? ' ' + ctx : '') + '] ' + e.message); return fallback; }
     };
+    // AURA_GEN_CHAT_SEARCH_RETRY_FIX — retry wrapper with exponential backoff for chat-search EDITS parsing
+    window.safeJSONParseWithRetry = function(str, fallback, ctx, maxRetries, baseDelay){
+      maxRetries = maxRetries || 4; baseDelay = baseDelay || 150;
+      var attempt = 0;
+      function tryParse(){
+        var result = window.safeJSONParse(str, null, ctx);
+        if (result !== null) return result;
+        if (attempt >= maxRetries) { pushSys('[JSON parse retry' + (ctx ? ' ' + ctx : '') + '] max retries reached'); return fallback; }
+        var delay = baseDelay * Math.pow(2, attempt);
+        pu
+    // AURA_GEN_CHAT_SEARCH_CHANGE_GUARD — prevents live source conflicts during chat-search updates
+    window.chatSearchChangeGuard = (function(){
+      var version = 0;
+      var lastUpdate = 0;
+      var pending = null;
+      function stamp(){ return Date.now() + '-' + (++version); }
+      function checkConflict(incomingVersion, incomingTime){
+        if (!incomingVersion || !incomingTime) return false;
+        var age = Date.now() - incomingTime;
+        return age > 30000 || incomingVersion !== version; // 30s staleness or version mismatch
+      }
+      function beginUpdate(){
+        var token = stamp();
+        lastUpdate = Date.now();
+        pending = token;
+        pushSys('[chat-search guard] update started: ' + token);
+        return token;
+      }
+      function commitUpdate(token, data){
+        if (pending !== token) { pushSys('[chat-search guard] stale token rejected: ' + token); return false; }
+        version++;
+        lastUpdate = Date.now();
+        pending = null;
+        pushSys('[chat-search guard] update committed v' + version);
+        return true;
+      }
+      function abortUpdate(token){
+        if (pending === token) { pending = null; pushSys('[chat-search guard] update aborted: ' + token); }
+      }
+      function getState(){ return { version: version, lastUpdate: lastUpdate, pending: pending }; }
+      return { beginUpdate: beginUpdate, commitUpdate: commitUpdate, abortUpdate: abortUpdate, getState: getState, checkConflict: checkConflict };
+    })();shSys('[JSON parse retry' + (ctx ? ' ' + ctx : '') + '] attempt ' + (attempt+1) + '/' + maxRetries + ' waiting ' + delay + 'ms');
+        attempt++;
+        return new Promise(function(resolve){ setTimeout(function(){ resolve(tryParse()); }, delay); });
+      }
+      return tryParse();
+    };
     try{
       var theme = null;
       var fb = window.safeJSONParse(localStorage.getItem('aura_fb_live'), null, 'aura_fb_live');
@@ -3032,7 +3079,7 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
 
 <div class="panel" id="aboutCard" style="display:none">
   <h3>ABOUT AURA</h3>
-  <p style="font-size:11.5px;line-height:1.55;color:var(--ice);margin:4px 0 8px"><b>AURA</b> — Adaptive Universal Reasoning Assistant. A <b>voice + code AI assistant</b> by Sourabh Singh: speak or type, I research the live web for you, write and run code in the built-in forge, and remember you across devices when signed in.</p>
+  <p style="font-size:11.5px;line-height:1.55;color:var(--ice);margin:4px 0 8px"><b>AURA</b> — Adaptive Universal Reasoning Assistant. A <b>voice + code AI assistant</b> by Sourabh Singh: speak or type, research live web sources with citations, write and run code in the built-in forge, and remember you across devices when signed in.</p>
   <div class="trow"><span>BRAINS</span><b>LLaMA via Groq · Gemini vision</b></div>
   <div class="trow"><span>VOICE</span><b>speech in · speech out</b></div>
   <div class="trow"><span>FORGE</span><b>run · explain · convert · zip</b></div>
@@ -3141,7 +3188,7 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
   <button class="ibtn" id="docsBtn" title="Upload your PDFs & notes — answers cite file and page">📚 DOCS</button>
   <button class="ibtn" id="wakeBtn" style="display:none">WAKE: OFF</button>
   <button class="ibtn" id="deepThinkBtn" style="display:none" title="DEEP THINK: always engage maximum reasoning">🧠 DEEP</button>
-  <button class="ibtn" id="agentBtn" style="display:none" title="AGENT MODE: multi-step live research">🤖 AGENT</button>
+  <button class="ibtn" id="agentBtn" style="display:none" title="AGENT MODE: multi-step research with citations">🤖 AGENT</button>
   <button class="ibtn" id="auraLiveBtn" style="display:none" title="Hands-free continuous listening">🎙 LIVE</button>
   <button class="ibtn" id="remindBtn" style="display:none" title="Reminders">⏰ REMIND</button>
   <button class="ibtn" id="neuralBtn" style="display:none" title="Neural voice — server-rendered speech">🎙 ROBOT VOICE</button>
@@ -4694,7 +4741,7 @@ window.AuraEco=(function(){
 })();
 (function(){
   const ab=document.getElementById('agentBtn');
-  if(ab)ab.onclick=()=>{const qi=document.getElementById('q');const t=((qi&&qi.value)||'').trim();if(t){window.__agentArmed=true;ask(t)}else{window.__agentArmed=true;addMsg(msgTag(),'🤖 Agent armed. Type or say your question — I will plan, search the web and give you a clean answer (sources stay internal). (Say "agent mode <question>" anytime.)','aura')}};
+  if(ab)ab.onclick=()=>{const qi=document.getElementById('q');const t=((qi&&qi.value)||'').trim();if(t){window.__agentArmed=true;ask(t)}else{window.__agentArmed=true;addMsg(msgTag(),'🤖 Agent armed. Type or say your question — I will plan, search the web, read sources and answer with citations. (Say "agent mode <question>" anytime.)','aura')}};
   const lb=document.getElementById('auraLiveBtn');
   if(lb)lb.onclick=()=>AuraLive.toggle();
   const rb=document.getElementById('remindBtn');
@@ -4919,7 +4966,7 @@ const KB={
   "who made you":"I was built by Sourabh Singh, a B.Tech CSE student at JECRC University specializing in AI, DevOps and Cloud Automation.",
   "your creator":"My creator is Sourabh Singh — B.Tech CSE, JECRC University. He built me entirely from scratch: no frameworks, no engines, one file.",
   "sourabh":"Sourabh Singh — my creator. B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. He hand-coded my holographic core, my voice pipeline and my brain in a single HTML file.",
-  "what can you do":"Ask me anything — I research the live web, think and give you a clean confident answer (sources mere internal kaam hain, tumhe chahiye to khud bol dunga). THINGS TO TRY: 'google quantum computing' or 'youtube lofi beats' · 'set a timer for 10 minutes' · 'note: project due friday' + 'read my notes' · 'open lucid' / 'open portfolio' / 'open foodora' · math & conversions · 'weather in Jaipur' · 'screenshot' · 'batch resize my photos with noir' · Hindi aur Hinglish, spoken aur typed. The bar moves whenever you do.",
+  "what can you do":"Ask me anything and I research live sources, think and answer with citations. THINGS TO TRY: 'google quantum computing' or 'youtube lofi beats' · 'set a timer for 10 minutes' · 'note: project due friday' + 'read my notes' · 'open lucid' / 'open portfolio' / 'open foodora' · math & conversions · 'weather in Jaipur' · 'screenshot' · 'summarize https://…' · 'batch resize my photos with noir' · Hindi and English, spoken and typed. The bar moves whenever you do.",
   "jecrc":"JECRC University is in Jaipur, Rajasthan — where my creator Sourabh Singh studies B.Tech CSE.",
   "b.tech":"B.Tech is a four-year engineering degree. My creator studies the Computer Science track with AI, DevOps and Cloud Automation.",
   "portfolio":"Sourabh's portfolio is a single page that live-embeds six of his web apps — including me. Say 'open portfolio' and I'll launch it.",
@@ -4964,7 +5011,7 @@ const KB={
   "quantum":"Quantum computing uses qubits, which can be 0 and 1 at once — promising massive speedups for special problems.",
   "encryption":"Encryption scrambles data so only the right key can read it — the reason HTTPS, banking and chats are safe.",
   "iron man":"No relation to any film character — ZEUS here is the owner's tactical protocol, armed only for Sourabh Singh's signed-in account, and everything under this interface is his own engineering: 560-particle core, voice in/out, three-layer brain, one hand-written file.",
-  "duel":"The duel protocol (AURA vs ZEUS, live evidence, judged verdict) is armed only for Sourabh's own account — sign in as the owner (top-right) and say 'duel on <topic>'. Ask me the topic normally and I'll research it live and answer clean.",
+  "duel":"The duel protocol (AURA vs ZEUS, live evidence, judged verdict) is armed only for Sourabh's own account — sign in as the owner (top-right) and say 'duel on <topic>'. Ask me the topic normally and I'll research it with citations.",
 };
 /* ---------------- knowledge pack 2 (broad coverage) ---------------- */
 Object.assign(KB,{
@@ -7994,6 +8041,11 @@ async function askCore(text0){
       if(fx&&String(fx).trim()&&!REFUSE_SHAPE.test(String(fx)))t=cleanAnswer(fx);
     }catch(e){}
   }
+  /* FINAL LANGUAGE GUARD — sab brains ek hi jagah converge karte hain, to owner ka
+     language-mirror order yahan enforce hota hai: Hinglish sawaal pe Devanagari ya
+     pure-English jawab aaya to yahin Hinglish rewrite ho jaata hai (extra call sirf
+     mismatch ke waqt, clean case me zero cost). */
+  t=await answerLangGuard(text,t);
   lastAnswer=t;lastSrc=src||"";window.__lastQ=text;
   try{const __u=JSON.parse(localStorage.getItem("aura_usage")||"{\"answers\":0}");__u.answers=(__u.answers||0)+1;localStorage.setItem("aura_usage",JSON.stringify(__u))}catch(e){}
   convoAdd("user",text);convoAdd("assistant",t);try{sessions.sync()}catch(e){}
