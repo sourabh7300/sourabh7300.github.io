@@ -33,7 +33,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v4";
+const BUILD = process.env.AURA_BUILD || "tts-v5";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2060,14 +2060,18 @@ app.post("/v1/chat/stream", async (req, res) => {
   finish();
 });
 
-/* ============ NEURAL VOICE — server-rendered speech (Orpheus) ============
-   POST /v1/tts { input, voice } → audio. Tier 1: premium neural voice (needs a
-   one-time terms acceptance by the org admin in the AI console). Tier 2: free
-   server-rendered neural voice — no key needed, works immediately. The client
-   plays whatever audio bytes come back, so this is invisible to users. */
-const ttsFallback = async (input, voice, res) => {
+/* ============ NEURAL VOICE — premium multilingual speech (owner demanded ChatGPT/Google-class voice) ============
+   POST /v1/tts { input, voice, lang: "hi"|"en" } → audio.
+   Tier 1: ElevenLabs eleven_multilingual_v2 — lifelike, Hindi + English, auto-detects language
+           from the text; needs ELEVENLABS_API_KEY (free tier: 10k chars/month). Voice by persona:
+           female (aurora) → Rachel, male (jarvis) → Adam — the same premade voice for both langs.
+   Tier 2: Google translate neural voice — Hindi (tl=hi) or English, keyless, always available.
+   Tier 3: Groq Orpheus English neural — kept as an English-only backup.
+   The client plays whatever audio bytes come back, so tiering is invisible to users. */
+const ELEVEN_VOICES = { female: "21m00Tcm4TlvDq8ikWAM", male: "pNInz6obpgDQGcFmaJgB" } ;
+const ttsFallback = async (input, voice, res, lang) => {
   /* server-side neural voice: chunk text ≤190 chars, fetch MP3 parts, join them */
-  const lang = /atlas|gb|uk|brit/i.test(voice) ? "en-gb" : "en";
+  const tl = String(lang) === "hi" ? "hi" : (/atlas|gb|uk|brit/i.test(voice) ? "en-gb" : "en");
   const chunks = [];
   let rest = input;
   while (rest.length) {
@@ -2078,7 +2082,7 @@ const ttsFallback = async (input, voice, res) => {
   try {
     const parts = [];
     for (const c of chunks) {
-      const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + lang + "&q=" + encodeURIComponent(c);
+      const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + tl + "&q=" + encodeURIComponent(c);
       const r = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://translate.google.com/" }, signal: AbortSignal.timeout(20_000) });
       if (!r.ok) throw new Error("fallback HTTP " + r.status);
       parts.push(Buffer.from(await r.arrayBuffer()));
@@ -2089,32 +2093,56 @@ const ttsFallback = async (input, voice, res) => {
     return res.send(buf);
   } catch (e) { return res.status(502).json({ error: "tts unavailable" }); }
 };
+const elevenTTS = async (input, voice, lang, res) => {
+  const key = (process.env.ELEVENLABS_API_KEY || "").trim();
+  if (!key) return false;
+  const gender = /venom|adam|male|george|jarvis/i.test(voice) ? "male" : "female";
+  try {
+    const r = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + ELEVEN_VOICES[gender], {
+      method: "POST",
+      headers: { "xi-api-key": key, "Content-Type": "application/json" },
+      body: JSON.stringify({ text: input, model_id: "eleven_multilingual_v2", voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.2, use_speaker_boost: true } }),
+      signal: AbortSignal.timeout(45_000)
+    });
+    if (!r.ok) { await r.text().catch(() => ""); return false; }
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (!buf.length) return false;
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buf); return true;
+  } catch (e) { return false; }
+};
+const orpheusTTS = async (input, voice, res) => {
+  const key = pickKey();
+  if (!key) return false;
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/audio/speech", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "canopylabs/orpheus-v1-english", voice, input }),
+      signal: AbortSignal.timeout(60_000)
+    });
+    if (!r.ok) { await r.text().catch(() => ""); if (r.status === 429) keyCool.set(key, Date.now() + 70_000); return false; }
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (!buf.length) return false;
+    res.setHeader("Content-Type", "audio/wav");
+    res.setHeader("Cache-Control", "no-store");
+    res.send(buf); return true;
+  } catch (e) { return false; }
+};
 app.post("/v1/tts", async (req, res) => {
   const body = req.body || {};
   const input = String(body.input || "").trim().slice(0, 900);
   const voice = String(body.voice || "hilda").trim().slice(0, 40);
+  const lang = String(body.lang || "en").trim().slice(0, 6);
   if (!input) return res.status(400).json({ error: "input required" });
-  const key = pickKey();
-  if (key) {
-    try {
-      const r = await fetch("https://api.groq.com/openai/v1/audio/speech", {
-        method: "POST",
-        headers: { "Authorization": "Bearer " + key, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "canopylabs/orpheus-v1-english", voice, input }),
-        signal: AbortSignal.timeout(60_000)
-      });
-      if (r.ok) {
-        const buf = Buffer.from(await r.arrayBuffer());
-        res.setHeader("Content-Type", "audio/wav");
-        res.setHeader("Cache-Control", "no-store");
-        return res.send(buf);
-      }
-      const t = await r.text().catch(() => "");
-      if (r.status === 429) keyCool.set(key, Date.now() + 70_000);
-      /* terms not accepted / rate-limited / hiccup → free neural fallback below */
-    } catch (e) { /* fall through to fallback */ }
-  }
-  return ttsFallback(input, voice, res);
+  /* Tier 1 — ElevenLabs multilingual (best quality, Hindi + English) */
+  if (await elevenTTS(input, voice, lang, res)) return;
+  /* Tier 2 — Hindi answers go straight to the Google neural voice (best free Hindi);
+     English tries Groq Orpheus first, then the Google voice. */
+  if (lang === "hi") return ttsFallback(input, voice, res, lang);
+  try { if (await orpheusTTS(input, voice, res)) return; } catch (e) { /* fall through */ }
+  return ttsFallback(input, voice, res, lang);
 });
 
 app.listen(PORT, () => {
