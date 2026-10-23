@@ -26,8 +26,13 @@
 <script>
   (function(){
     // AURA_GEN_CHAT_SEARCH_PARSE_FIX — safe JSON parse with context, used by chat-search & all consumers
+    // AURA_GEN_CHAT_SEARCH_FIX — hardened parser prevents chat-search crashes on malformed responses
     window.safeJSONParse = function(str, fallback, ctx){
-      try{ return JSON.parse(str); }
+      if (str === undefined || str === null) { pushSys('[JSON parse' + (ctx ? ' ' + ctx : '') + '] null/undefined input'); return fallback; }
+      if (typeof str !== 'string') { pushSys('[JSON parse' + (ctx ? ' ' + ctx : '') + '] non-string input: ' + typeof str); return fallback; }
+      var trimmed = str.trim();
+      if (!trimmed) { pushSys('[JSON parse' + (ctx ? ' ' + ctx : '') + '] empty string'); return fallback; }
+      try { return JSON.parse(trimmed); }
       catch(e){ pushSys('[JSON parse' + (ctx ? ' ' + ctx : '') + '] ' + e.message); return fallback; }
     };
     try{
@@ -3623,7 +3628,7 @@ slog("aura kernel v4.0 · cortex v2 loaded");slog("particle core: 560 nodes",tru
   footer.style.cssText="position:fixed;bottom:0;left:0;width:100%;text-align:center;padding:4px 0;font-size:10px;color:#888;background:rgba(0,0,0,0.6);pointer-events:none;";
   /* build stamp — the SHIPPED day, not a hardcoded string that goes stale and
      makes every future build look three weeks old (owner bug report 16 Oct 2026) */
-  footer.textContent="Build: 2026-10-23 · backend squad-v4 · app+backend live (content-verified deploy)";
+  footer.textContent="Build: 2026-10-23 · backend squad-v5 · app+backend live (content-verified deploy)";
   document.body.appendChild(footer);
 })();
 /* focus mode quick chip */
@@ -5587,6 +5592,7 @@ async function geminiCall(q,deep){
     const webBlock=web?"\n\nLIVE WEB RESULTS (gathered seconds ago — REAL and CURRENT; ground every time-sensitive fact in them. When they conflict with your memory of past events, dates, scores or records, the live results WIN. If they don't fully answer, say what's still uncertain — never invent dates, scores, prices or winners):\n"+web+"\n":"";
     let out=await groqCall([{role:"system",content:sys+replyStyle()+dateLine},{role:"user",content:q+convoCtx()+webBlock}],deep?3400:1800);
     try{if(window.AuraCortex)out=await AuraCortex.critic(q,out,lane)}catch(e){}
+    out=await answerLangGuard(q,out);
     return out;
   }
   if(aiProvider()==="openrouter"){
@@ -9746,6 +9752,25 @@ async function pyRun(src){
 }
 async function ensurePy(say){if(!pyReady){say&&say();loadPyodideNow();return false}return true}
 function AICTX(){const a=document.getElementById("codeEditor");return a&&a.value.trim()?("\n\nCurrent code in the editor:\n```\n"+a.value.slice(0,5000)+"\n```"):""}
+/* ANSWER-LANGUAGE GUARD (owner: user jis bhasha me likhta hai usi me jawab) — the model
+   sometimes ignores the Hinglish instruction and answers in Devanagari. This guard detects
+   the mismatch (Devanagari answer to a Hinglish/English question) and forces ONE rewrite
+   pass; otherwise it returns the answer untouched — zero extra calls in the good case. */
+function devanagariRatio(s){const t=String(s||"");if(!t.trim())return 0;const n=(t.match(/[\u0900-\u097F]/g)||[]).length;return n/t.replace(/\s/g,"").length}
+async function answerLangGuard(q,txt){
+  try{
+    const t=String(txt||"");if(!t.trim())return t;
+    const rl=devanagariRatio(t);
+    const hinglishQ=!HI_HINT_RE.test(q)&&isHinglish(q);
+    /* Hinglish/English question → Devanagari answer = mismatch → rewrite in Hinglish */
+    if(hinglishQ&&rl>=0.06){
+      slog("language guard: answer came back Devanagari for a Hinglish question — rewriting",true);
+      const rw=await aiChat([{role:"system",content:replyStyle()},{role:"user",content:"Rewrite EXACTLY this answer in HINGLISH — Roman-script Hindi mixed casually with English words (jaise kya, bata, ho gaya), never Devanagari, never pure English. Keep every fact, number and link intact:\n\n"+t}],2400);
+      if(rw&&rw.trim()&&devanagariRatio(rw)<0.06)return rw.trim();
+    }
+  }catch(e){}
+  return String(txt||"");
+}
 async function aiChat(msgs,tok){
   const out=await groqCall(msgs,tok||1200);
   return String(out||"");
@@ -9872,7 +9897,8 @@ async function researchReply(q,hi){
   if(txt&&String(txt).trim()){
     /* strip any source list the model invented — then attach OUR compact sources (top 3 live hits) */
     const ans=String(txt).replace(/\n?\s*SOURCES?:[\s\S]*$/i,"").trim();
-    if(ans&&!/📚/.test(ans))return ans+"\n\n"+srcLine;
+    const guarded=await answerLangGuard(q,ans);
+    if(guarded&&guarded.trim())return (guarded&&!/📚/.test(guarded))?guarded+"\n\n"+srcLine:guarded;
   }
   return null}catch(e){return null}finally{try{clearTimeout(__stallT)}catch(e){}window.__researching=false}}
 const NEED_WEB=/\b(price|prices|pricing|weather|today|current|latest|newest|news|headline|live score|stocks?|stock market|exchange rate|who won|release date|release|launched|launch|schedule|update on|update|right now|this week|this month|this year|2024|2025|2026|forecast|result|results|winner|best|top|recommended)|\b(compare|versus|vs|alternatives?|alternatives to|worth it|should i (?:buy|use|get|download)|how to|tutorial|kaise|kaun sa|kon sa|setup|install)\b| कीमत|दाम|मौसम|आज|ताज़ा|कैसे|कौन|लाइव|न्यूज़| 결과/i;
