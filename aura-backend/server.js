@@ -2069,8 +2069,26 @@ app.post("/v1/chat/stream", async (req, res) => {
    Tier 3: Groq Orpheus English neural — kept as an English-only backup.
    The client plays whatever audio bytes come back, so tiering is invisible to users. */
 const ELEVEN_VOICES = { female: "21m00Tcm4TlvDq8ikWAM", male: "pNInz6obpgDQGcFmaJgB" } ;
-const ttsFallback = async (input, voice, res, lang) => {
-  /* server-side neural voice: chunk text ≤190 chars, fetch MP3 parts, join them */
+/* HYBRID VOICE ENGINE — speech-text sanitizer (client already renders clean chat text; this
+   second pass strips anything the raw answer still carried: markdown, links, citations,
+   emoji labels) + a small cache so repeat lines answer instantly at premium quality. */
+function speechText(input) {
+  return String(input || "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/\[([^\]]+)\]\(https?:[^)\s]+\)/gi, "$1")
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, " ")
+    .replace(/\[\d+\]/g, " ")
+    .replace(/[#*_`>|]+/g, " ")
+    .replace(/\s*[—–]\s*(?:live|लाइव)[^\n]*/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+const ttsCache = new Map(); /* input+voice+lang → {buf, type, at} — short-lived, memory-bounded */
+function ttsCacheKey(input, voice, lang) { return (String(voice) + "|" + String(lang) + "|" + String(input)).slice(0, 400); }
+/* Tier 2 — Google translate neural voice — Hindi (tl=hi) or English, keyless, always available.
+   Returns {buf, type} or throws. */
+const ttsFallback = async (input, voice, lang) => {
   const tl = String(lang) === "hi" ? "hi" : (/atlas|gb|uk|brit/i.test(voice) ? "en-gb" : "en");
   const chunks = [];
   let rest = input;
@@ -2079,23 +2097,22 @@ const ttsFallback = async (input, voice, res, lang) => {
     let cut = rest.lastIndexOf(". ", 180); if (cut < 80) cut = rest.lastIndexOf(" ", 180); if (cut < 80) cut = 180;
     chunks.push(rest.slice(0, cut + 1)); rest = rest.slice(cut + 1).replace(/^\s+/, "");
   }
-  try {
-    const parts = [];
-    for (const c of chunks) {
-      const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + tl + "&q=" + encodeURIComponent(c);
-      const r = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://translate.google.com/" }, signal: AbortSignal.timeout(20_000) });
-      if (!r.ok) throw new Error("fallback HTTP " + r.status);
-      parts.push(Buffer.from(await r.arrayBuffer()));
-    }
-    const buf = Buffer.concat(parts);
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader("Cache-Control", "no-store");
-    return res.send(buf);
-  } catch (e) { return res.status(502).json({ error: "tts unavailable" }); }
+  const parts = [];
+  for (const c of chunks) {
+    const u = "https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=" + tl + "&q=" + encodeURIComponent(c);
+    const r = await fetch(u, { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://translate.google.com/" }, signal: AbortSignal.timeout(20_000) });
+    if (!r.ok) throw new Error("fallback HTTP " + r.status);
+    parts.push(Buffer.from(await r.arrayBuffer()));
+  }
+  const buf = Buffer.concat(parts);
+  if (!buf.length) throw new Error("fallback empty");
+  return { buf: buf, type: "audio/mpeg" };
 };
-const elevenTTS = async (input, voice, lang, res) => {
+/* Tier 1 — ElevenLabs multilingual (premium lifelike, Hindi + English).
+   Returns {buf, type} or null when no key / upstream hiccup. */
+const elevenTTS = async (input, voice) => {
   const key = (process.env.ELEVENLABS_API_KEY || "").trim();
-  if (!key) return false;
+  if (!key) return null;
   const gender = /venom|adam|male|george|jarvis/i.test(voice) ? "male" : "female";
   try {
     const r = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + ELEVEN_VOICES[gender], {
@@ -2104,17 +2121,16 @@ const elevenTTS = async (input, voice, lang, res) => {
       body: JSON.stringify({ text: input, model_id: "eleven_multilingual_v2", voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.2, use_speaker_boost: true } }),
       signal: AbortSignal.timeout(45_000)
     });
-    if (!r.ok) { await r.text().catch(() => ""); return false; }
+    if (!r.ok) { await r.text().catch(() => ""); return null; }
     const buf = Buffer.from(await r.arrayBuffer());
-    if (!buf.length) return false;
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader("Cache-Control", "no-store");
-    res.send(buf); return true;
-  } catch (e) { return false; }
+    if (!buf.length) return null;
+    return { buf: buf, type: "audio/mpeg" };
+  } catch (e) { return null; }
 };
-const orpheusTTS = async (input, voice, res) => {
+/* Tier 3 — Groq Orpheus English neural. Returns {buf, type} or null. */
+const orpheusTTS = async (input, voice) => {
   const key = pickKey();
-  if (!key) return false;
+  if (!key) return null;
   try {
     const r = await fetch("https://api.groq.com/openai/v1/audio/speech", {
       method: "POST",
@@ -2122,27 +2138,39 @@ const orpheusTTS = async (input, voice, res) => {
       body: JSON.stringify({ model: "canopylabs/orpheus-v1-english", voice, input }),
       signal: AbortSignal.timeout(60_000)
     });
-    if (!r.ok) { await r.text().catch(() => ""); if (r.status === 429) keyCool.set(key, Date.now() + 70_000); return false; }
+    if (!r.ok) { await r.text().catch(() => ""); if (r.status === 429) keyCool.set(key, Date.now() + 70_000); return null; }
     const buf = Buffer.from(await r.arrayBuffer());
-    if (!buf.length) return false;
-    res.setHeader("Content-Type", "audio/wav");
-    res.setHeader("Cache-Control", "no-store");
-    res.send(buf); return true;
-  } catch (e) { return false; }
+    if (!buf.length) return null;
+    return { buf: buf, type: "audio/wav" };
+  } catch (e) { return null; }
 };
 app.post("/v1/tts", async (req, res) => {
   const body = req.body || {};
-  const input = String(body.input || "").trim().slice(0, 900);
+  let input = speechText(String(body.input || "")).slice(0, 900);
   const voice = String(body.voice || "hilda").trim().slice(0, 40);
   const lang = String(body.lang || "en").trim().slice(0, 6);
   if (!input) return res.status(400).json({ error: "input required" });
-  /* Tier 1 — ElevenLabs multilingual (best quality, Hindi + English) */
-  if (await elevenTTS(input, voice, lang, res)) return;
-  /* Tier 2 — Hindi answers go straight to the Google neural voice (best free Hindi);
-     English tries Groq Orpheus first, then the Google voice. */
-  if (lang === "hi") return ttsFallback(input, voice, res, lang);
-  try { if (await orpheusTTS(input, voice, res)) return; } catch (e) { /* fall through */ }
-  return ttsFallback(input, voice, res, lang);
+  const ck = ttsCacheKey(input, voice, lang);
+  const hit = ttsCache.get(ck);
+  if (hit && (Date.now() - hit.at) < 30 * 60_000) {
+    res.setHeader("Content-Type", hit.type);
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(hit.buf);
+  }
+  let out = null;
+  /* Tier 1 — premium multilingual (when the owner's ElevenLabs key is configured) */
+  try { out = await elevenTTS(input, voice); } catch (e) { out = null; }
+  /* Tier 2 — Hindi: straight to the Google neural voice (best free Hindi);
+     English: Groq Orpheus first, then the Google voice. */
+  if (!out && lang === "hi") { try { out = await ttsFallback(input, voice, lang); } catch (e) { out = null; } }
+  if (!out) { try { out = await orpheusTTS(input, voice); } catch (e) { out = null; } }
+  if (!out) { try { out = await ttsFallback(input, voice, lang); } catch (e) { out = null; } }
+  if (!out) return res.status(502).json({ error: "tts unavailable" });
+  ttsCache.set(ck, { buf: out.buf, type: out.type, at: Date.now() });
+  if (ttsCache.size > 120) { const k0 = ttsCache.keys().next().value; ttsCache.delete(k0); }
+  res.setHeader("Content-Type", out.type);
+  res.setHeader("Cache-Control", "no-store");
+  return res.send(out.buf);
 });
 
 app.listen(PORT, () => {
