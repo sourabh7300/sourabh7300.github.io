@@ -1088,7 +1088,10 @@ function createAutopilot(deps) {
     /* PUBLISH — exactly one commit for this finished feature */
     let commit = null;
     try {
-      commit = await d.commit(candidate, "AURA autopilot: " + mission.id + " — " + mission.title + "\n\n" + mission.goal + "\n" + batchNote + ((wip.findings || []).length ? "\nresearch: " + clampText(wip.findings[0], 180) : ""));
+      /* baseSrc rides along (22 Oct 2026): the commit guard on the backend compares
+         the LIVE GitHub source against THIS batch's base before the PUT — so a fresh
+         deploy landing mid-cycle can never be silently erased by a stale candidate. */
+      commit = await d.commit(candidate, "AURA autopilot: " + mission.id + " — " + mission.title + "\n\n" + mission.goal + "\n" + batchNote + ((wip.findings || []).length ? "\nresearch: " + clampText(wip.findings[0], 180) : ""), baseSrc);
     } catch (e) { const r = "publish failed: " + (e.message || e); st.note = r; state.fails.push({ mission: mission.id, reason: r, when: Date.now() }); return { fail: r }; }
     const sha = (commit && commit.sha || "").slice(0, 7);
     /* verify field feeds the admin panel's push-history timeline (owner order 20 Oct 2026):
