@@ -25,22 +25,24 @@
 <!-- AURA_THEME_SYNC: early theme apply (runs before first paint) -->
 <script>
   (function(){
+    // AURA_GEN_CHAT_SEARCH_PARSE_FIX — safe JSON parse with context, used by chat-search & all consumers
+    window.safeJSONParse = function(str, fallback, ctx){
+      try{ return JSON.parse(str); }
+      catch(e){ pushSys('[JSON parse' + (ctx ? ' ' + ctx : '') + '] ' + e.message); return fallback; }
+    };
     try{
       var theme = null;
-      var fb = null;
-      try{ fb = JSON.parse(localStorage.getItem('aura_fb_live') || 'null'); }catch(e){}
+      var fb = window.safeJSONParse(localStorage.getItem('aura_fb_live'), null, 'aura_fb_live');
       if(fb && fb.uid){
-        try{
-          var users = JSON.parse(localStorage.getItem('aura_users_registry') || '[]');
-          var me = users.find(function(u){ return u.id === fb.uid; });
-          if(me && me.theme){ theme = me.theme; }
-        }catch(e){}
+        var users = window.safeJSONParse(localStorage.getItem('aura_users_registry'), [], 'aura_users_registry');
+        var me = users.find(function(u){ return u.id === fb.uid; });
+        if(me && me.theme){ theme = me.theme; }
       }
       if(!theme){ theme = localStorage.getItem('aura_theme') || 'default'; }
       document.documentElement.setAttribute('data-theme', theme);
       var meta = document.querySelector('meta[name=theme-color]');
       if(meta) meta.setAttribute('content', theme === 'default' ? '#05070E' : '#0B1020');
-    }catch(e){}
+    }catch(e){ pushSys('[theme init] ' + e.message); }
   })();
 </script>
 <!-- share card — rich preview on WhatsApp, Telegram, Google, iMessage -->
