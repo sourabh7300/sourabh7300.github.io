@@ -4362,7 +4362,7 @@ window.__tpDebug=function(){return JSON.stringify({keys:TP.keyTimes.length,pmas:
 function voiceAllowed(){ /* VOICE MASTER SWITCH — every "write AND speak" reply path asks this one gate:
    ON → answers are written and spoken; OFF → written only. No session windows, no silent answers. */
   try{return canAutoSpeak()}catch(e){return true}}
-function stopSpeech(){speakGen++;ttsActive=false;try{if(__ttsAudio){__ttsAudio.pause();try{__ttsAudio.currentTime=0}catch(e9){}__ttsAudio=null}}catch(e0){}try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
+function stopSpeech(){speakGen++;ttsActive=false;try{if(__ttsAudio){__ttsAudio.pause();try{__ttsAudio.currentTime=0}catch(e9){}__ttsAudio=null}}catch(e0){}try{synth.cancel()}catch(e){}ampTarget=0;try{document.getElementById("stopBtn").classList.remove("show")}catch(e8){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
 /* VOICE UPGRADE (owner request 'aachi si voice lagaa'): neural server voice is the DEFAULT now —
    the raw device fallback voice (robotic) was what made AURA sound bad. Neural renders
    real human-class speech for Hindi AND English; the device chain stays as safety net. */
