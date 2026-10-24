@@ -3189,7 +3189,7 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
   <button class="ibtn" id="wakeBtn" style="display:none">WAKE: OFF</button>
   <button class="ibtn" id="deepThinkBtn" style="display:none" title="DEEP THINK: always engage maximum reasoning">🧠 DEEP</button>
   <button class="ibtn" id="agentBtn" style="display:none" title="AGENT MODE: multi-step research with citations">🤖 AGENT</button>
-  <button class="ibtn" id="auraLiveBtn" style="display:none" title="Hands-free continuous listening">🎙 LIVE</button>
+  <button class="ibtn" id="auraLiveBtn" title="Voice mode — she listens continuously and answers in your language">🎙 VOICE MODE</button>
   <button class="ibtn" id="remindBtn" style="display:none" title="Reminders">⏰ REMIND</button>
   <button class="ibtn" id="neuralBtn" style="display:none" title="Neural voice — server-rendered speech">🎙 ROBOT VOICE</button>
   </div>
@@ -4315,7 +4315,7 @@ let voices=[];function loadV(){voices=synth?synth.getVoices():[]}loadV();if(synt
 let detectedLang="en";window.__auraLang=localStorage.getItem("aura_lang")||"auto";
 if(["auto","en","hi"].indexOf(window.__auraLang)<0)window.__auraLang="auto";
 (function(){const lb=document.getElementById("langBtn");if(lb)lb.textContent="LANG: "+(window.__auraLang==="hi"?"हिंदी":window.__auraLang==="en"?"ENG":"AUTO")})();
-let speakGen=0,ttsActive=false,lastSpoken="",lastSpokeAt=0,voiceSessionUntil=0;
+let speakGen=0,ttsActive=false,lastSpoken="",lastSpokeAt=0,voiceSessionUntil=0,__ttsAudio=null;
 /* ============ TYPING-PACE VOICE TUNING — the assistant's voice tempo mirrors YOUR hands.
    Tracks inter-key rhythm while you type into the chat box; classifies you as a sprint
    typist / steady / methodical; adapts speech rate (and slightly pitch) so answers are
@@ -4362,7 +4362,7 @@ window.__tpDebug=function(){return JSON.stringify({keys:TP.keyTimes.length,pmas:
 function voiceAllowed(){ /* VOICE MASTER SWITCH — every "write AND speak" reply path asks this one gate:
    ON → answers are written and spoken; OFF → written only. No session windows, no silent answers. */
   try{return canAutoSpeak()}catch(e){return true}}
-function stopSpeech(){speakGen++;ttsActive=false;try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
+function stopSpeech(){speakGen++;ttsActive=false;try{if(__ttsAudio){__ttsAudio.pause();try{__ttsAudio.currentTime=0}catch(e9){}__ttsAudio=null}}catch(e0){}try{synth.cancel()}catch(e){}try{recog&&recog.abort&&wake&&listening&&recog.abort()}catch(e){}if(mode==="speaking")setMode("idle")}
 /* VOICE UPGRADE (owner request 'aachi si voice lagaa'): neural server voice is the DEFAULT now —
    the raw device fallback voice (robotic) was what made AURA sound bad. Neural renders
    real human-class speech for Hindi AND English; the device chain stays as safety net. */
@@ -4378,9 +4378,9 @@ async function speakNeural(t,gen,done,lang){ lang=lang==="hi"?"hi":"en";
     if(!r.ok)return false;
     const blob=await r.blob();if(!blob.size)return false;
     url=URL.createObjectURL(blob);
-    a=new Audio(url);a.volume=1;
-    a.onended=()=>{URL.revokeObjectURL(url);done()};
-    a.onerror=()=>{URL.revokeObjectURL(url);done()};
+    a=new Audio(url);a.volume=1;__ttsAudio=a;
+    a.onended=()=>{if(__ttsAudio===a)__ttsAudio=null;URL.revokeObjectURL(url);done()};
+    a.onerror=()=>{if(__ttsAudio===a)__ttsAudio=null;URL.revokeObjectURL(url);done()};
     if(gen!==speakGen){URL.revokeObjectURL(url);return true}
     ttsActive=true;ampTarget=1;setMode("speaking");try{document.getElementById("stopBtn").classList.add("show")}catch(e){}
     /* AUTOPLAY GUARD — browsers refuse audio without a user gesture; if playback
@@ -4391,7 +4391,7 @@ async function speakNeural(t,gen,done,lang){ lang=lang==="hi"?"hi":"en";
     try{if(a)a.pause()}catch(e2){}
     try{if(url)URL.revokeObjectURL(url)}catch(e3){}
     try{document.getElementById("stopBtn").classList.remove("show")}catch(e4){}
-    try{done()}catch(e5){}
+    try{if(__ttsAudio===a)__ttsAudio=null;if(gen===speakGen)done()}catch(e5){}
     return false;
   }
 }
@@ -4655,75 +4655,196 @@ window.AuraAgent=(function(){
   return{run:run};
 })();
 window.AuraLive=(function(){
-  let r=null,on=false;
-  /* AURA_VOICE_ALIASES — short spoken aliases → full commands */
+  /* ================= VOICE MODE — live microphone conversation, ChatGPT-style =================
+     ONE continuously open ear, ONE answer per turn:
+       · speak any length, mid-sentence pauses are fine — the finished sentence is asked at once
+       · the best-confidence alternative wins (live interim words are never thrown away)
+       · speak over her → the voice stops in that same instant and your new words win (barge-in)
+       · her own voice is recognised and discarded, so she can never answer herself
+       · the ear follows the language: Hinglish/Hindi in → Hindi ear, English in → English ear
+       · "stop / band karo / so jao" ends the mode; the ear always reopens itself after
+         Chrome's ~60s stream timeout, with backoff, never in a tight loop */
+  let r=null,on=false,gen=0,interimKeep="",lastFinal="",suppressUntil=0,settleT=null,restarts=0;
+  /* "quiet" keeps voice mode on, just silences the current answer */
+  const QUIET=/^(?:(?:hey|ok|okay|arre)\s+)?(?:stop talking|shut up|be quiet|quiet|chup|chup ho|chup raho|stop speech|चुप|चुप रहो)[\s.!?।]*$/i;
+  /* "stop" closes voice mode itself */
+  const STOP=/^(?:(?:ok|okay|hey|arre|ab)\s+)?(?:stop|stop it|stop listening|stop live|stop voice mode|band karo|band kar|band ho|band ho jao|ruko|ruk jao|bas|bas karo|so jao|so ja|goodbye|bye|bye bye|good night|बंद करो|बंद कर|बंद हो|रुको|रुक जाओ|बस|बस करो|सो जाओ|सो जा|अलविदा|गुड नाइट)[\s.!?।]*$/i;
+  /* short spoken aliases → the same commands the buttons use */
   const VOICE_ALIASES={
-    'new chat':'start new chat',
-    'fresh chat':'start new chat',
-    'clear chat':'start new chat',
-    'read last':'read last message',
-    'read it':'read last message',
-    'say again':'repeat last',
-    'repeat':'repeat last',
-    'stop talking':'stop speech',
-    'shut up':'stop speech',
-    'go dark':'toggle dark mode',
-    'lights out':'toggle dark mode',
-    'show memory':'open memory',
-    'memory':'open memory',
-    'forget me':'clear memory',
-    'wipe memory':'clear memory',
-    'search web':'web search',
-    'google':'web search',
-    'look up':'web search',
-    'run code':'execute code',
-    'execute':'execute code',
-    'save this':'save note',
-    'note this':'save note',
-    'help':'show help',
-    'what can you do':'show help',
-    'commands':'show help'
+    'new chat':'start new chat','fresh chat':'start new chat','clear chat':'start new chat',
+    'read last':'read last message','read it':'read last message','say again':'repeat last','repeat':'repeat last',
+    'go dark':'toggle dark mode','lights out':'toggle dark mode',
+    'show memory':'open memory','memory':'open memory','forget me':'clear memory','wipe memory':'clear memory',
+    'search web':'web search','google':'web search','look up':'web search',
+    'run code':'execute code','execute':'execute code','save this':'save note','note this':'save note',
+    'help':'show help','what can you do':'show help','commands':'show help'
   };
-  function expandAlias(cmd){
-    const key=cmd.toLowerCase().trim();
-    return VOICE_ALIASES[key]||cmd;
-  }
+  function expandAlias(cmd){const k=String(cmd||'').toLowerCase().trim();return VOICE_ALIASES[k]||cmd}
   function label(t){const h=document.getElementById('micHint');if(h)h.textContent=t}
-  function start(){
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){if(typeof pushSys==='function')pushSys('hands-free needs Chrome/Edge — typing works everywhere');return false}
-    on=true;window.__liveOn=true;
-    if('Notification' in window&&Notification.permission==='default'){try{Notification.requestPermission().catch(()=>{})}catch(e){}}
+  function paint(){
+    const lb=document.getElementById('auraLiveBtn');if(!lb)return;
+    lb.textContent=on?'🎙 LIVE ON':'🎙 VOICE MODE';
+    lb.style.borderColor=on?'rgba(34,211,238,.9)':'';
+    lb.style.color=on?'#a5f3fc':'';
+    lb.style.boxShadow=on?'0 0 0 1px rgba(34,211,238,.45),0 0 18px rgba(34,211,238,.45)':'';
+    lb.setAttribute('aria-pressed',on?'true':'false');
+  }
+  /* which recognition ear to open — it follows the language you actually speak */
+  function earLang(){
+    if(window.__auraLang==='hi')return 'hi-IN';
+    if(window.__auraLang==='en')return 'en-IN';
+    if(!lastFinal)return 'hi-IN'; /* AUTO, first turn: the Hindi ear also catches Hinglish */
+    try{if(typeof isHinglish==='function'&&isHinglish(lastFinal))return 'hi-IN'}catch(e){}
+    return detectedLang==='en'?'en-IN':'hi-IN';
+  }
+  /* is this final the same sentence an interim settle already answered?
+     STRICT on purpose: a merely similar new question must never be swallowed */
+  function sameWords(a,b){
+    try{
+      const A=normEcho(a),B=normEcho(b);
+      if(!A||!B)return false;
+      if(A===B)return true;
+      if(A.length>8&&B.indexOf(A)>-1)return true;
+      if(B.length>8&&A.indexOf(B)>-1)return true;
+      const aw=A.split(' ').filter(Boolean),bw=B.split(' ').filter(Boolean);
+      if(!aw.length||!bw.length)return false;
+      let c=0;for(let k=0;k<aw.length;k++){if(bw.indexOf(aw[k])>-1)c++}
+      const ratio=c/Math.max(aw.length,bw.length);
+      const lenRatio=Math.min(aw.length,bw.length)/Math.max(aw.length,bw.length);
+      return ratio>=0.75&&lenRatio>=0.7;
+    }catch(e){return false}
+  }
+  function submit(t,queued){
+    let c=String(t||'').trim();
+    /* wake words are optional here — voice mode already has your attention */
+    c=c.replace(/^(?:hey|ok|okay|hi|arre|are|हे|हेय)\s+/i,'').replace(/^(?:aura|ऑरा|jarvis|zeus)[,.!]?\s*/i,'').trim();
+    if(c.replace(/[\s?!.,।]/g,'').length<2)return;
+    lastFinal=c;suppressUntil=Date.now()+6000;
     try{voiceSessionUntil=Date.now()+86400000}catch(e){}
-    spawn();return true;
+    label((queued?'⏳ ':'🧠 ')+'heard: "'+c.slice(0,42)+'"');
+    try{blip(queued?520:660,.06)}catch(e){}
+    if(window.__camOn&&window.__camAsk){try{window.__camAsk(c);return}catch(e){}}
+    try{askOnce(expandAlias(c))}catch(e){try{askOnce(c)}catch(e2){}}
+  }
+  /* Chrome sometimes leaves a finished sentence as interim text; 1.7s of silence settles it */
+  function settle(live){
+    clearTimeout(settleT);
+    const t=cleanTranscript(live);
+    if(!t||t.replace(/[\s?!.,।]/g,'').length<2)return;
+    settleT=setTimeout(()=>{
+      if(!on)return;
+      if(typeof ttsActive!=='undefined'&&ttsActive)return;
+      if(typeof busy!=='undefined'&&busy)return;
+      if(typeof isEcho==='function'&&isEcho(t))return;
+      if(QUIET.test(t)){if(typeof stopSpeech==='function')stopSpeech();return}
+      if(STOP.test(t)){stop();return}
+      if(Date.now()<suppressUntil&&sameWords(t,lastFinal))return;
+      submit(t);
+    },1700);
+  }
+  function handle(e){
+    let ft='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const res=e.results[i];
+      if(res.isFinal){
+        /* best alternative by CONFIDENCE — length only breaks a near-tie (same rule as tap-to-talk) */
+        let best='',bc=-1;
+        for(let j=0;j<res.length;j++){
+          const t2=(res[j].transcript||'').trim();
+          const cf=(typeof res[j].confidence==='number'&&res[j].confidence>0)?res[j].confidence:0.1;
+          const sc=cf*1000+t2.length*0.01;
+          if(sc>bc){bc=sc;best=t2}
+        }
+        if(best)ft+=(ft?' ':'')+best;
+      }
+    }
+    const speakingNow=(typeof ttsActive!=='undefined')&&ttsActive;
+    if(!ft){
+      const iv=(e.results[e.results.length-1]||[])[0];
+      const live=iv&&iv.transcript?String(iv.transcript):'';
+      if(!live)return;
+      interimKeep=live;
+      if(!speakingNow){label('"'+live.slice(-46)+'"');settle(live)} /* never echo-chat while she talks */
+      return;
+    }
+    interimKeep="";clearTimeout(settleT);
+    const t=cleanTranscript(ft);
+    if(!t)return;
+    /* her own voice, always discarded — she must never answer herself */
+    if(typeof isEcho==='function'&&isEcho(t)){try{slog('voice mode: my own voice — ignored',true)}catch(e){}return}
+    if(QUIET.test(t)){if(typeof stopSpeech==='function')stopSpeech();label('🔇 quiet — still listening');return}
+    if(STOP.test(t)){stop();return}
+    /* BARGE-IN: you spoke over her → she stops the instant you start, and your words win */
+    if(speakingNow){
+      if(t.replace(/[\s?!.,।]/g,'').length<5)return; /* a cough is not a command */
+      if(typeof stopSpeech==='function')stopSpeech();
+      try{pushSys('⚡ you took the floor — she stopped and is listening to you')}catch(e){}
+    }
+    /* a final that merely repeats the interim sentence already answered */
+    if(Date.now()<suppressUntil&&sameWords(t,lastFinal))return;
+    /* while she is still thinking ask() queues the turn — nothing you say is dropped */
+    submit(t,(typeof busy!=='undefined')&&busy);
   }
   function spawn(){
     if(!on)return;
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){stop();return}
+    const my=++gen;
     try{
-      r=new SR();r.lang=window.__auraLang==='hi'?'hi-IN':'en-IN';r.interimResults=true;r.maxAlternatives=3;r.continuous=true;
-      r.onstart=()=>{label('🎙 HANDS-FREE — just talk');if(typeof setMode==='function')setMode('listening')};
-      r.onresult=e=>{
-        let ft='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)ft+=e.results[i][0].transcript}
-        if(!ft)return;
-        const c=typeof cleanTranscript==='function'?cleanTranscript(ft):ft.trim();
-        if(typeof isEcho==='function'&&isEcho(c))return;
-        if(typeof ttsActive!=='undefined'&&ttsActive){if(typeof stopSpeech==='function')stopSpeech();return} /* BARGE-IN — speech over AURA's voice interrupts it */
-        if(typeof busy!=='undefined'&&busy)return;
-        const m=c.match(/(?:hey |ok |okay )?(?:aura|ऑरा|jarvis|zeus)[,.!]?\s*(.*)/i);
-        const cmd=m?m[1]:c;
-        if(cmd.replace(/[\s?!.]/g,'').length<2)return;
-        try{voiceSessionUntil=Date.now()+86400000}catch(e){}
-        if(typeof ask==='function')ask(cmd);
+      r=new SR();
+      r.lang=earLang();r.interimResults=true;r.continuous=true;r.maxAlternatives=5;
+      r.onstart=()=>{
+        if(!on||my!==gen)return;
+        restarts=0;
+        label(r.lang==='hi-IN'?'🎙 सुन रही हूँ — बोलिए':'🎙 LISTENING — speak freely');
+        if(typeof setMode==='function')setMode('listening');
       };
-      r.onerror=ev=>{if(ev.error==='not-allowed'||ev.error==='service-not-allowed'){stop();if(typeof pushSys==='function')pushSys('mic blocked — hands-free needs microphone permission')}};
-      r.onend=()=>{if(on)setTimeout(spawn,400)};
+      r.onresult=e=>{if(!on||my!==gen)return;try{handle(e)}catch(err){try{slog('voice mode: '+String(err&&err.message||err).slice(0,70),true)}catch(e2){}}};
+      r.onerror=ev=>{
+        if(my!==gen)return;
+        const err=(ev&&ev.error)||'';
+        if(err==='not-allowed'||err==='service-not-allowed'){
+          on=false;gen++;paint();label('TAP TO SPEAK');if(typeof setMode==='function')setMode('idle');
+          try{pushSys('mic blocked — allow the microphone for this page, then tap 🎙 VOICE MODE again')}catch(e){}
+        }
+      };
+      r.onend=()=>{
+        if(!on||my!==gen)return;
+        /* Chrome closes a continuous stream after ~60s — reopen the ear, backing off on repeats */
+        const wait=Math.min(2600,420+restarts*300);restarts++;
+        setTimeout(()=>{if(on&&my===gen)spawn()},wait);
+      };
       r.start();
-    }catch(e){setTimeout(spawn,900)}
+    }catch(e){setTimeout(()=>{if(on)spawn()},1200)}
   }
-  function stop(){on=false;window.__liveOn=false;try{if(r)r.abort()}catch(e){}label(typeof wake!=='undefined'&&wake?'WAKE WORD: \'HEY AURA\'':'TAP TO SPEAK');if(typeof setMode==='function')setMode('idle')}
-  function toggle(){if(on){stop();if(typeof pushSys==='function')pushSys('hands-free OFF — tap-to-talk is back');return}if(start()&&typeof pushSys==='function')pushSys('🎙 HANDS-FREE ON — talk naturally; speak over me to interrupt')}
-  return{toggle:toggle,stop:stop,isOn:function(){return on}};
+  function start(){
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){if(typeof pushSys==='function')pushSys('voice mode needs Chrome or Edge — typing works everywhere');return false}
+    if(on)return true;
+    on=true;gen++;restarts=0;
+    try{if(typeof wake!=='undefined'&&wake){wake=false;try{recog&&recog.abort()}catch(e1){}}}catch(e0){} /* one ear only — the wake engine steps aside */
+    try{voiceSessionUntil=Date.now()+86400000}catch(e){}
+    /* the click IS your permission gesture — make sure her voice may answer at all */
+    if(typeof soundOn!=='undefined'&&!soundOn&&typeof setVoiceConsent==='function')setVoiceConsent(true);
+    paint();label('🎙 VOICE MODE ON — बोलिए / just talk');
+    if(typeof setMode==='function')setMode('listening');
+    if(typeof pushSys==='function')pushSys('🎙 voice mode ON — talk in Hindi, Hinglish or English; speak over me to interrupt. Say "band karo" to stop.');
+    spawn();return true;
+  }
+  function stop(){
+    if(!on)return;
+    on=false;gen++;clearTimeout(settleT);
+    try{if(r)r.abort()}catch(e){}
+    r=null;paint();label('TAP TO SPEAK');
+    if(typeof setMode==='function')setMode('idle');
+    if(typeof pushSys==='function')pushSys('🎙 voice mode OFF — tap to talk');
+  }
+  function toggle(){
+    if(on){stop();return}
+    start();
+  }
+  try{paint()}catch(e){}
+  return{toggle:toggle,start:start,stop:stop,isOn:function(){return on},refresh:paint};
 })();
 window.AuraEco=(function(){
   function openApp(file,hash){try{const w=window.open(file+(hash?'#'+hash:''),'_blank');if(!w&&typeof pushSys==='function')pushSys('popup blocked — allow popups for ecosystem commands');return w}catch(e){return null}}
@@ -8126,7 +8247,9 @@ function normEcho(s){return (s||"").toLowerCase().replace(/[^a-z\u0900-\u097F\s]
 function isEcho(c){ /* true if the mic just heard AURA's own voice — kills the self-talk loop */
   if(!lastSpoken)return false;
   if(Date.now()-lastSpokeAt<900)return true; /* raw audio still ringing — nothing accepted in this instant */
-  if(Date.now()-lastSpokeAt>15000)return false;
+  /* while she is still talking her voice is live in the room — the 15s staleness clock must not open the gate */
+  const speakingNow=(typeof ttsActive!=="undefined"&&ttsActive);
+  if(!speakingNow&&Date.now()-lastSpokeAt>15000)return false;
   const a=normEcho(c),b=normEcho(lastSpoken);
   if(!a)return true;
   if(a.length>8&&b.indexOf(a)>-1)return true;
@@ -8216,6 +8339,7 @@ function startListen(hiEar){
   try{recog=r;r.start()}catch(e){}
 }
 $("micBtn").onclick=()=>{
+  if(window.AuraLive&&AuraLive.isOn()){pushSys("voice mode is already listening — just talk, or tap 🎙 VOICE MODE to switch it off");return}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){pushSys("voice input needs Chrome/Edge — typing works everywhere");return}
   if(listening){try{recog.stop()}catch(e){};return}
