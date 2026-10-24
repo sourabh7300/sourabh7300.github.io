@@ -4664,7 +4664,7 @@ window.AuraLive=(function(){
        · the ear follows the language: Hinglish/Hindi in → Hindi ear, English in → English ear
        · "stop / band karo / so jao" ends the mode; the ear always reopens itself after
          Chrome's ~60s stream timeout, with backoff, never in a tight loop */
-  let r=null,on=false,gen=0,interimKeep="",lastFinal="",suppressUntil=0,settleT=null,restarts=0;
+  let r=null,on=false,gen=0,netFails=0,interimKeep="",lastFinal="",suppressUntil=0,settleT=null,restarts=0;
   /* "quiet" keeps voice mode on, just silences the current answer */
   const QUIET=/^(?:(?:hey|ok|okay|arre)\s+)?(?:stop talking|shut up|be quiet|quiet|chup|chup ho|chup raho|stop speech|चुप|चुप रहो)[\s.!?।]*$/i;
   /* "stop" closes voice mode itself */
@@ -4795,7 +4795,7 @@ window.AuraLive=(function(){
       r.lang=earLang();r.interimResults=true;r.continuous=true;r.maxAlternatives=5;
       r.onstart=()=>{
         if(!on||my!==gen)return;
-        restarts=0;
+        restarts=0;netFails=0;
         label(r.lang==='hi-IN'?'🎙 सुन रही हूँ — बोलिए':'🎙 LISTENING — speak freely');
         if(typeof setMode==='function')setMode('listening');
       };
@@ -4803,9 +4803,20 @@ window.AuraLive=(function(){
       r.onerror=ev=>{
         if(my!==gen)return;
         const err=(ev&&ev.error)||'';
-        if(err==='not-allowed'||err==='service-not-allowed'){
+        /* permission and hardware problems are terminal — never sit in a restart loop */
+        if(err==='not-allowed'||err==='service-not-allowed'||err==='audio-capture'){
           on=false;gen++;paint();label('TAP TO SPEAK');if(typeof setMode==='function')setMode('idle');
-          try{pushSys('mic blocked — allow the microphone for this page, then tap 🎙 VOICE MODE again')}catch(e){}
+          try{pushSys(err==='audio-capture'?'no microphone found — plug one in (or close the app using the mic) and tap 🎙 VOICE MODE again':'mic blocked — allow the microphone for this page, then tap 🎙 VOICE MODE again')}catch(e){}
+          return;
+        }
+        /* a flaky speech service is retried, but not forever */
+        if(err==='network'){
+          netFails++;
+          try{slog('voice mode: speech service unreachable ('+netFails+'/3)',true)}catch(e){}
+          if(netFails>=3){
+            on=false;gen++;paint();label('TAP TO SPEAK');if(typeof setMode==='function')setMode('idle');
+            try{pushSys('speech service unreachable — voice mode turned off, typing still works')}catch(e){}
+          }
         }
       };
       r.onend=()=>{
@@ -4821,7 +4832,7 @@ window.AuraLive=(function(){
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
     if(!SR){if(typeof pushSys==='function')pushSys('voice mode needs Chrome or Edge — typing works everywhere');return false}
     if(on)return true;
-    on=true;gen++;restarts=0;
+    on=true;gen++;restarts=0;netFails=0;
     try{if(typeof wake!=='undefined'&&wake){wake=false;try{recog&&recog.abort()}catch(e1){}}}catch(e0){} /* one ear only — the wake engine steps aside */
     try{voiceSessionUntil=Date.now()+86400000}catch(e){}
     /* the click IS your permission gesture — make sure her voice may answer at all */
