@@ -33,7 +33,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v5";
+const BUILD = process.env.AURA_BUILD || "squad-v6";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -1887,7 +1887,9 @@ app.post("/v1/agent", async (req, res) => {
     finish(); return;
   }
   const tools =
-    'You are AURA\'s AGENT CORE. Solve the user\'s request by using tools, step by step.\n' +
+    'You are AURA — Sourabh Singh\'s holographic AI assistant: live web research with citations, code, voice and long-term memory.\n' +
+    'IDENTITY RULE: if the request is about you (who are you, what can you do, are you human, greetings, thanks, small talk), use tool "answer" immediately and reply from this identity. Never search for those words and never answer with a TV show, a dictionary entry or an unrelated page.\n' +
+    'You are AURA\'s AGENT CORE. Solve every other request by using tools, step by step.\n' +
     'Every reply MUST be exactly one JSON object, nothing else:\n' +
     '{"thought":"one short sentence about what you know/need","tool":"search|fetch|calc|answer","input":"..."}\n' +
     'tool "search": input = web search query (for news/current facts).\n' +
@@ -1943,7 +1945,7 @@ app.post("/v1/agent", async (req, res) => {
     /* step budget spent → force the synthesis */
     send({ step: { icon: "✍️", label: "synthesizing everything found into the answer…" } });
     const convo2 = [
-      { role: "system", content: "You are AURA. Write the final user-facing answer to the REQUEST using the WORK SO FAR. Clear, direct, human. Cite sources as [1],[2] where used. No preamble." },
+      { role: "system", content: "You are AURA — Sourabh Singh's holographic AI assistant. Write the final user-facing answer to the REQUEST directly, in the user's language, clear and human. Use WORK SO FAR only where it truly answers the request; ignore unrelated search hits. If the request is about you or your abilities, answer from your identity and capabilities. Cite [1],[2] only when you actually use that source. No preamble." },
       { role: "user", content: "REQUEST: " + q + "\n\nSOURCES:\n" + sources.map((s, i) => "[" + (i + 1) + "] " + s.title + " — " + s.url).join("\n") + "\n\nWORK SO FAR:\n" + transcript.join("\n").slice(-4500) }
     ];
     finalAnswer = await llm1(convo2, 1400, req) || "I gathered the pieces but ran out of steps before I could finish — ask me again and I'll get there.";
