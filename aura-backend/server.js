@@ -345,7 +345,9 @@ app.use((req, res, next) => {
   if (req.path === "/health" || req.path === "/" || req.path === "/v1/ping" || req.path === "/v1/squad/beat") {
     /* public paths still need CORS headers or browsers block the boot ping */
     if (okOrigin) { res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Vary", "Origin"); }
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    /* the app itself saves chats/notes with PUT and wipes them with DELETE —
+     omitting those methods made every preflight fail on the live site */
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-AURA-Key, Authorization");
     if (req.method === "OPTIONS") return res.sendStatus(204);
     return next();
@@ -360,7 +362,9 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  /* the app itself saves chats/notes with PUT and wipes them with DELETE —
+     omitting those methods made every preflight fail on the live site */
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-AURA-Key, Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
