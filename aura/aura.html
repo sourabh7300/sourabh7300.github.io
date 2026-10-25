@@ -5306,7 +5306,14 @@ const fmtNum=v=>{const r=Math.round(v*1e6)/1e6;return r.toLocaleString()};
 function KB_OVER(k){
   if(k==="who are you"){if(persona()==="jarvis")return PERSONAS.jarvis.who;return "I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks. One design, one mind.";}
   if(k==="introduce yourself"){if(persona()==="jarvis")return "I am ZEUS — the tactical command protocol this interface runs when the owner takes command. Built from scratch by Sourabh Singh: a 560-particle holographic core, voice in and voice out, live evidence, and a formal British tongue. All his own design — no borrowed fiction.";return "I am AURA — Adaptive Universal Reasoning Assistant — designed and built by Sourabh Singh. A 560-particle holographic core, voice in and voice out, and a three-layer brain: local core, frontier AI uplink, and live internet evidence.";}
-  if(k==="your name"){if(persona()==="jarvis")return "ZEUS — the owner's tactical protocol. Address me as such and I'll keep the reply short, sir.";return "I am AURA — Adaptive Universal Reasoning Assistant. You can call me AURA.";}
+  if(k==="your name"||k==="what is your name"||k==="what's your name"){if(persona()==="jarvis")return "ZEUS — the owner's tactical protocol. Address me as such and I'll keep the reply short, sir.";return "I am AURA — Adaptive Universal Reasoning Assistant. You can call me AURA.";}
+  if(/^(?:so )?(?:what|what all|what exactly) (?:can|could) (?:you|u) do$|^what (?:are|r) your (?:features|abilities|capabilities|powers|skills)$|^what do (?:you|u) do$|^(?:tell me )?what (?:you|u) can do$/.test(k)){
+    if(persona()==="jarvis")return "Operational scope, sir: real-time web research with live sources, spoken and typed dialogue in English and Hindi, live microphone conversation with barge-in, calculations and unit conversion, timers and reminders, on-device notes, weather and news briefings, page summarising, launching the portfolio's apps, screenshot capture, device diagnostics, photo batch processing, and the quiz and code forge modules. Say the word and I execute.";
+    return "Here's what I actually do: live web research with today's sources (news, prices, scores, dates), spoken and typed conversation in English and Hindi, live microphone mode where you talk and I reply, maths and unit conversion, timers and notes on this device, weather and daily briefings, summarising any link, screenshot capture, diagnostics, launching the portfolio apps, batch photo processing, quizzes, and the code forge. Ask me anything else and I'll still take a run at it.";}
+  if(/^(?:who|what) (?:built|made|created|designed|programmed|coded) (?:you|u)$|^who is your (?:creator|maker|developer|owner)$/.test(k))return "I was designed and hand-built by Sourabh Singh — B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. Every line is his: the 560-particle holographic core, the voice system, and the three-layer brain (local core, frontier uplink, live web evidence). Vanilla JavaScript, no frameworks.";
+  if(/^are (?:you|u) (?:real|human|alive|conscious|sentient)$/.test(k))return "Neither human nor a recording — I'm a working interface: a holographic front end wired to a three-layer brain (local logic, a frontier language model, and live web evidence). The voice, the motion and the answers are all generated here, in this page. Sourabh Singh built me, and the code is his.";
+  if(/^are (?:you|u) (?:an? )?(?:ai|bot|robot|assistant|program|machine)$/.test(k))return "Yes — an AI assistant, and a fairly literal one: a hand-written holographic interface with voice in, voice out, a local reasoning core, a frontier model uplink and live web evidence. No borrowed framework, no canned replies. Built by Sourabh Singh.";
+  if(/^(?:tell me about (?:yourself|you)|what are you)$/.test(k))return "I'm AURA — Adaptive Universal Reasoning Assistant — built by Sourabh Singh (B.Tech CSE, JECRC University). I speak and listen in English and Hindi, research the live web when a fact has to be current, and answer with the reasoning behind the fact. Around me: a 560-particle holographic core, a voice engine, and a three-layer brain — local core, frontier uplink, live evidence.";
   if(/^(?:who|what) (?:is|are) (?:jarvis|zeus)$/.test(k))return "ZEUS is the owner's tactical protocol — it arms only for Sourabh's signed-in account (top-right). AURA remains fully at your service.";
   if(/^(?:hey )?(?:jarvis|zeus)$/.test(k)){if(typeof AuraAuth!=="undefined"&&AuraAuth.isAdmin()){setPersona("jarvis",true);return "ZEUS tactical protocol armed, sir — all systems standing by."}return "ZEUS is the owner's tactical protocol — it arms only for Sourabh's signed-in account (top-right). AURA remains fully at your service.";}
   return null;
@@ -7510,14 +7517,20 @@ async function aiReply(q){
   const qr=quizReply(q);if(qr)return{t:qr,eng:"quiz mode"};
   if(/[\u0900-\u097F]/.test(q)||/\b(namaste|namaskar|hindi mein|hindi me)\b/i.test(q)){const hp=hiPersonalReply(q);if(hp)return{t:hp,eng:"हिंदी कोर"};}
   /* knowledge questions go LIVE first — local core is the offline fallback, not the first answer */
+  /* identity / capability / self questions — answered by the local core or the persona-aware
+     brain, never by live web research. Broad on purpose: a trailing question mark used to
+     hijack these into the research lane ("what can you do?" returned a Wikipedia extract). */
+  const PERSONAL_Q=/^(?:\s*(?:hey|hi|ok|so)?[\s,]*)?(?:who|what)\s+(?:are|r|is)\s+(?:you|u|your)\b|what\s+(?:can|all\s+can|could)\s+(?:you|u)\s+do|what\s+do\s+(?:you|u)\s+do|what\s+are\s+your\s+(?:features|abilities|capabilities|skills|powers)|your\s+name|who\s+(?:built|made|created|designed|programmed|coded)\s+(?:you|u)|are\s+(?:you|u)\s+(?:real|human|alive|conscious|sentient|an?\s+ai|a\s+bot|a\s+robot)|tell\s+me\s+about\s+(?:yourself|you)|introduce\s+yourself|how\s+do\s+(?:you|u)\s+work|what\s+(?:is|are)\s+(?:this|aura)/i;
   const personal=/(who|what) (are|r) (you|u)\b|who (built|made|created|designed) you|your name|what can you do|who (is|made) sourabh|about sourabh|tell me about yourself|introduce yourself|open \w+|diagnostic|\bscan\b|joke|flip|roll|what time|time is it|today'?s date|my name|who am i|^(?:तुम|आप)\s+(?:कौन|क्या)|तुम्हें\s+किसने|आपको\s+किसने|तुम्हारा\s+नाम|आपका\s+नाम|किसने\s+बनाया|कौन\s+बनाया|तुम\s+क्या\s+कर\s+सकती|तुम\s+क्या\s+कर\s+सकते|अपने\s+बारे\s+में|अपना\s+परिचय/i;
   let knowledge=!personal.test(q)&&(isKnowledgeEN(q)||deep||isKnowledgeHI(q));
   const hiMode=detectedLang==="hi";
   const rc=resolveContext(q);if(rc!==q)q=rc;
   /* safety net: after context resolution the text may have become a full question — recheck before denying the live brain */
   if(!knowledge&&isKnowledgeEN(q)&&q.split(/\s+/).length>=3){try{if(localReply(q)===undefined)knowledge=true}catch(e){}}
-  /* any explicit question mark deserves the full brain, not a shrug */
-  if(!knowledge&&/\?/.test(q))knowledge=true;
+  /* any explicit question mark deserves the full brain, not a shrug — EXCEPT
+     identity/capability questions, which must keep the local core first so
+     "what can you do?" / "who are you?" never get routed into Wikipedia research */
+  if(!knowledge&&/\?/.test(q)&&!personal.test(q)&&!PERSONAL_Q.test(q))knowledge=true;
   if(knowledge){
     /* SELF-CURRENCY questions exit FIRST — localReply answers instantly with the real date;
        never burn a research cycle on 'are you updated' just because it contains 'latest'. */
