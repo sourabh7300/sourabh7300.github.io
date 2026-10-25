@@ -301,7 +301,9 @@ html.noanim .rv{opacity:1!important;transform:none!important}
 #home h1{max-width:1000px;font-size:clamp(34px,5.2vw,64px)}
 @media(max-width:1024px){#stage{display:none}}
 @media(max-height:700px){#stage{display:none}}
-#ui small{max-width:92vw;overflow-wrap:anywhere;padding:0 12px}
+#ui small{width:100%;max-width:100%;padding:0 16px;overflow-wrap:anywhere}
+#ui small a{overflow-wrap:anywhere}
+.qapp{max-width:calc(100vw - 24px)}
 @media(max-width:768px){.qapp{top:12px;right:12px;padding:8px 14px;font-size:12px}#lock{display:none}#hd{bottom:30vh}}
 
 </style>
