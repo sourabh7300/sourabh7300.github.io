@@ -282,6 +282,28 @@ footer a{color:var(--mut)}
   #ivChart{height:150px}
 }
 
+
+/* ===== visible-first hero — nothing waits on a timer ===== */
+#hd .ln span{transform:none!important;transition:none!important}
+#hd #sb{opacity:1!important;transition:none!important}
+#stage .gc{opacity:1!important;transform:translate3d(0,0,var(--z,0))!important;transition:none!important}
+.nums i{height:100%}
+#lock{display:none!important}
+#ui{opacity:1!important;pointer-events:auto!important;transition:none!important}
+.qapp{position:fixed;top:16px;right:16px;z-index:95;display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:99px;border:1px solid rgba(129,140,248,.45);background:rgba(10,10,22,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#c7d2fe;font:500 13px var(--f);text-decoration:none;transition:background .25s,border-color .25s}
+.qapp:hover,.qapp:focus-visible{background:rgba(129,140,248,.22);border-color:#818cf8}
+#ui .uiapp{display:inline-flex;align-items:center;gap:6px;padding:10px 22px;border-radius:99px;border:1px solid rgba(129,140,248,.45);background:rgba(129,140,248,.1);color:#c7d2fe;font:500 14px var(--f);text-decoration:none;transition:background .2s,border-color .2s}
+#ui .uiapp:hover,#ui .uiapp:focus-visible{background:rgba(129,140,248,.22);border-color:#818cf8}
+.nojs{position:fixed;inset:0;z-index:300;display:grid;place-items:center;gap:14px;text-align:center;padding:24px;background:#05060b;color:#e8e8f0;font:16px/1.6 var(--f)}
+.nojs a{color:#c7d2fe;text-decoration:underline}
+html.noanim *,html.noanim *::before,html.noanim *::after{transition-duration:0s!important;transition-delay:0s!important;animation-duration:.001s!important;animation-delay:0s!important}
+html.noanim .rv{opacity:1!important;transform:none!important}
+#home h1{max-width:1000px;font-size:clamp(34px,5.2vw,64px)}
+@media(max-width:1024px){#stage{display:none}}
+@media(max-height:700px){#stage{display:none}}
+#ui small{max-width:92vw;overflow-wrap:anywhere;padding:0 12px}
+@media(max-width:768px){.qapp{top:12px;right:12px;padding:8px 14px;font-size:12px}#lock{display:none}#hd{bottom:30vh}}
+
 </style>
 </head>
 <body>
@@ -290,6 +312,7 @@ footer a{color:var(--mut)}
 <div id="intro">
   <div id="dots"></div>
   <canvas id="gl" aria-hidden="true"></canvas>
+  <a class="qapp" href="https://ideaveda-live-app.web.app/app" target="_blank" rel="noreferrer">App kholo <span aria-hidden="true">↗</span></a>
   <div id="hd">
     <div class="ln sm"><span>Meet</span></div>
     <div class="ln big"><span>IdeaVeda.</span></div>
@@ -303,10 +326,12 @@ footer a{color:var(--mut)}
   <div id="lock"><small>IDEAVEDA</small><p>Business idea se launch tak — poora decision engine, ek app me.</p></div>
   <div id="ui">
     <button id="enter">Enter IdeaVeda</button>
+    <a class="uiapp" href="https://ideaveda-live-app.web.app/app" target="_blank" rel="noreferrer">App kholo — Free ↗</a>
     <small>Built by Sourabh Singh, JECRC University · <a href="https://github.com/sourabh7300">github.com/sourabh7300</a></small>
   </div>
 </div>
 <button id="skip" aria-label="Skip intro and open the site">Skip intro</button>
+<noscript><div class="nojs"><p>IdeaVeda app kholne ke liye JavaScript on karo.</p><a href="https://ideaveda-live-app.web.app/app">App kholo ↗</a></div></noscript>
 <div id="flash"></div>
 
 <!-- ============ INNER SITE ============ -->
@@ -610,7 +635,7 @@ function openSite(){
 }
 function finish(){t0=performance.now()-15600}
 $('#skip').onclick=function(){finish();setTimeout(openSite,600)};
-$('#enter').onclick=function(){if(!warping)warping=1};
+$('#enter').onclick=function(){if(!warping)warping=1;setTimeout(function(){if(!siteMode)openSite()},1400)};
 
 /* ============ intro loop ============ */
 (function L(ms){
@@ -622,12 +647,7 @@ $('#enter').onclick=function(){if(!warping)warping=1};
   if(!siteMode){
     draw(m,ms/1000,warpS,0);
     $('#cards').style.transform='rotateY('+(-8-mx*16)+'deg) rotateX('+(my*10)+'deg)';
-    if(t>4.2&&cue<1){cue=1;chime()}
-    if(t>8.6&&cue<2){cue=2;chime()}
-    if(t>4.2&&st<1){st=1;$('#hd').classList.add('on')}
-    if(t>8.4&&st<2){st=2;$('#hd').classList.add('off');B.classList.add('on3')}
-    if(t>13.2&&st<3){st=3;B.classList.add('on4');chime()}
-    if(t>14.6&&st<4){st=4;B.classList.add('fin')}
+    /* hero is painted immediately — no staged gating */
     if(warping>0){
       ent=Math.min(1,ent+.02);
       if(ent>=1&&warping==1){warping=2;$('#flash').style.opacity=1;
@@ -684,6 +704,19 @@ function startReveals(){
 /* direct links, reduced motion, returning visitors */
 (function(){
   if(location.hash==='#app'){location.replace(APP);return}
+  /* some windows never start CSS transitions (background/non-drawn tabs).
+     Probe once and drop them, so no section can stay stuck at opacity 0. */
+  (function(){
+    var probe=document.createElement('div');
+    probe.style.cssText='position:fixed;left:-20px;top:0;width:2px;height:2px;opacity:0;transition:opacity .2s linear;pointer-events:none;z-index:-1';
+    document.documentElement.appendChild(probe);
+    requestAnimationFrame(function(){probe.style.opacity='1'});
+    setTimeout(function(){
+      var ran=parseFloat(getComputedStyle(probe).opacity)>0.5;
+      probe.remove();
+      if(!ran)document.documentElement.classList.add('noanim');
+    },700);
+  })();
   const targets=['#home','#match','#calc','#plan','#feat','#how','#ideas','#voices'];
   if(targets.includes(location.hash)){
     finish();openSite();
@@ -691,7 +724,7 @@ function startReveals(){
   }else if(RM){
     finish();openSite();
   }else if(visited){
-    t0=performance.now()-13000;setTimeout(openSite,3400);
+    setTimeout(openSite,1600);
   }
 })();
 </script>
