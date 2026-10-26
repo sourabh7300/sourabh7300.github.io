@@ -6019,9 +6019,31 @@ const sessions={
 /* ================= CLOUD SYNC — chats + memory per signed-in account (Firebase token → owner backend → Firestore) ================= */
 let __cloudTimer=0;
 function cloudAuthHeader(){
-  try{const u=JSON.parse(localStorage.getItem("aura_fb_live")||"null");return (u&&u.tok)?{"Authorization":"Bearer "+u.tok}:{}}catch(e){return{}}
+  try{
+    const u=JSON.parse(localStorage.getItem("aura_fb_live")||"null");
+    if(!u||!u.tok)return {};
+    /* Firebase ID tokens die after 60 min. A stale one turns every autosave into a
+       silent 401 loop, so stop pretending we are signed in to the cloud at 55 min
+       and let cloudEnsureFreshToken() mint a new one on the next sync. */
+    if(u.ts&&Date.now()-u.ts>55*60*1000)return {};
+    return {Authorization:"Bearer "+u.tok};
+  }catch(e){return{}}
 }
 function cloudSignedIn(){return !!cloudAuthHeader().Authorization}
+/* refresh the stored ID token when it is getting old — no-op for guests */
+async function cloudEnsureFreshToken(){
+  try{
+    const u=JSON.parse(localStorage.getItem("aura_fb_live")||"null");
+    if(!u||!u.tok)return;
+    if(u.ts&&Date.now()-u.ts<10*60*1000)return;
+    if(typeof firebase==="undefined"||!firebase.auth)return;
+    const cu=firebase.auth().currentUser;
+    if(!cu)return;
+    const tok=await cu.getIdToken(true);
+    u.tok=tok;u.ts=Date.now();
+    localStorage.setItem("aura_fb_live",JSON.stringify(u));
+  }catch(e){}
+}
 function cloudPushDebounced(){
   if(!backendUrl()||!cloudSignedIn())return;
   clearTimeout(__cloudTimer);
@@ -6029,6 +6051,7 @@ function cloudPushDebounced(){
 }
 async function cloudPushNow(){
   try{
+    await cloudEnsureFreshToken();
     if(!backendUrl()||!cloudSignedIn())return;
     const blob={convo:CONVO.slice(-120),memory:memGet(),sessions:sessions.all().slice(-30),lastTopic:lastTopic||"",usage:(function(){try{return JSON.parse(localStorage.getItem("aura_usage")||"{}")}catch(e){return{}}})(),settings:(function(){try{return{topics:briefTopicsLoad(),routines:routinesLoad(),cal:calCfg(),sleep:(function(){try{return sleepLoad()}catch(e){return{}}})()}}catch(e){return{}}})()};
     await fetch(backendUrl()+"/v1/userdata",{method:"PUT",headers:Object.assign({"Content-Type":"application/json"},cloudAuthHeader()),body:JSON.stringify(blob),signal:AbortSignal.timeout(15000)});
@@ -6037,6 +6060,7 @@ async function cloudPushNow(){
 }
 async function cloudPullAndRestore(){
   try{
+    await cloudEnsureFreshToken();
     if(!backendUrl()||!cloudSignedIn())return false;
     const r=await fetch(backendUrl()+"/v1/userdata",{headers:cloudAuthHeader(),signal:AbortSignal.timeout(15000)});
     if(!r.ok)return false;
