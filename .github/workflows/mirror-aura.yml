@@ -46,11 +46,15 @@ jobs:
 
           # cache-bust: raw.githubusercontent edge caches can serve a stale blob right
           # after a push, which would make this job think it is already in sync.
-          curl -fsSL --retry 3 --retry-delay 5 --max-time 120 \
+          raw=https://raw.githubusercontent.com/sourabh7300/aura/main
+          fetch() { curl -fsSL --retry 3 --retry-delay 5 --max-time 120 \
             -H "Authorization: Bearer ${AURA_SYNC_TOKEN}" \
             -H "Cache-Control: no-cache" -H "Pragma: no-cache" \
-            -o fetched.html \
-            "https://raw.githubusercontent.com/sourabh7300/aura/main/aura.html?cb=$(date -u +%s%N)"
+            -o "$1" "$raw/$2?cb=$(date -u +%s%N)"; }
+          fetch fetched.html aura.html
+          # the page loads these RELATIVELY, so they must sit next to it in /aura/
+          fetch fetched-sw.js sw.js
+          fetch fetched-manifest.webmanifest manifest.webmanifest
 
           size=$(wc -c < fetched.html)
           echo "fetched ${size} bytes"
@@ -71,6 +75,8 @@ jobs:
           for target in aura.html aura/aura.html aura/index.html; do
             if ! cmp -s fetched.html "$target"; then cp fetched.html "$target"; changed=true; fi
           done
+          if ! cmp -s fetched-sw.js aura/sw.js; then cp fetched-sw.js aura/sw.js; changed=true; fi
+          if ! cmp -s fetched-manifest.webmanifest aura/manifest.webmanifest; then cp fetched-manifest.webmanifest aura/manifest.webmanifest; changed=true; fi
           if [ "$changed" = "false" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "root site already serves the latest AURA build"
@@ -78,7 +84,7 @@ jobs:
           fi
           git config user.name "aura-mirror[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add aura.html aura/aura.html aura/index.html
+          git add aura.html aura/aura.html aura/index.html aura/sw.js aura/manifest.webmanifest
           git commit -m "Mirror AURA build: auto-sync $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push
           echo "changed=true" >> "$GITHUB_OUTPUT"
@@ -107,23 +113,40 @@ jobs:
 
       - name: Published AURA pages must be complete documents
         run: |
-          set -euo pipefail
-          fail=0
-          for url in \
-            "https://sourabh7300.github.io/aura.html" \
-            "https://sourabh7300.github.io/aura/aura.html" \
-            "https://sourabh7300.github.io/aura/"; do
-            body=$(mktemp)
-            code=$(curl -sSL --retry 2 --max-time 60 -o "$body" -w '%{http_code}' "$url?verify=$(date -u +%s)" || echo 000)
-            size=$(wc -c < "$body")
-            echo "$url → HTTP $code · $size bytes"
-            [ "$code" = "200" ] || { echo "::error::$url returned $code"; fail=1; }
-            [ "$size" -gt 900000 ] || { echo "::error::$url is only $size bytes"; fail=1; }
-            grep -qi '<title>AURA' "$body" || { echo "::error::$url is not the AURA app"; fail=1; }
-            tail -c 4096 "$body" | grep -qi '</html>' || { echo "::error::$url is truncated"; fail=1; }
-            rm -f "$body"
+          set -uo pipefail
+          # Pages needs a minute after a push, so retry the whole set instead of
+          # failing red on the first 404 that is only a propagation delay.
+          for attempt in 1 2 3 4 5 6; do
+            fail=0
+            for url in \
+              "https://sourabh7300.github.io/aura.html" \
+              "https://sourabh7300.github.io/aura/aura.html" \
+              "https://sourabh7300.github.io/aura/" \
+              "https://sourabh7300.github.io/aura/sw.js" \
+              "https://sourabh7300.github.io/aura/manifest.webmanifest"; do
+              body=$(mktemp)
+              code=$(curl -sSL --retry 2 --max-time 60 -o "$body" -w '%{http_code}' "$url?verify=$(date -u +%s)" || echo 000)
+              size=$(wc -c < "$body")
+              echo "[$attempt] $url → HTTP $code · $size bytes"
+              [ "$code" = "200" ] || { echo "  ✗ status"; fail=1; }
+              case "$url" in
+                */aura.html|*/aura/)
+                  [ "$size" -gt 900000 ] || { echo "  ✗ too small"; fail=1; }
+                  grep -qi '<title>AURA' "$body" || { echo "  ✗ not the app"; fail=1; }
+                  tail -c 4096 "$body" | grep -qi '</html>' || { echo "  ✗ truncated"; fail=1; } ;;
+                */sw.js)
+                  grep -qi 'service worker' "$body" || { echo "  ✗ not the service worker"; fail=1; } ;;
+                */manifest.webmanifest)
+                  grep -q '"short_name"' "$body" || { echo "  ✗ not the manifest"; fail=1; } ;;
+              esac
+              rm -f "$body"
+            done
+            if [ "$fail" = "0" ]; then echo "✓ every published AURA path is intact"; exit 0; fi
+            echo "attempt $attempt failed — waiting for Pages…"
+            sleep 20
           done
-          exit $fail
+          echo "::error::published AURA files are missing or broken after 2 minutes"
+          exit 1
 
       - name: Backend API status (informational — keepalive owns the alert)
         continue-on-error: true
