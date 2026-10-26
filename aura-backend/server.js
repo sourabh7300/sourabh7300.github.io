@@ -33,7 +33,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v6";
+const BUILD = process.env.AURA_BUILD || "squad-v7";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -1535,6 +1535,59 @@ app.get("/health", async (req, res) => {
   res.json({ ok: true, build: BUILD, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck(), research: await researchProbe(), brain: brainLast, squad: squadHealth() });
 });
 
+/* ================= GROUNDING + ANTI-FABRICATION (27 Oct 2026) =================
+   Owner report: “bmic ki teams puchi, isne BMSD ki Team A–H bana di.” Root cause: the
+   stream route never got today’s date or web context, and the persona prompt pushed
+   “never refuse”, so the model filled the gap with placeholders. This block gives every
+   chat route the same live grounding and hard fact rules. */
+const AURA_FACT_RULES =
+  "FACT RULES (owner order): never invent team names, player names, rosters, lineups, schedules, scores, prices, winners or 'confirmed' lists. " +
+  "If the LIVE WEB RESULTS below do not contain the exact list or date asked for, say in one short line that you don't have the verified version yet and offer a live search — never fill the gap with placeholders like 'Team A'. " +
+  "Answer the exact acronym/event the user named: BMIC is not BMSD, BGIS is not BGMS, BMS is not BMPS. If it is ambiguous, ask one short question instead of guessing.";
+
+function lastUserMsg(messages) {
+  const u = [...(messages || [])].reverse().find(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
+  return u ? String(u.content).trim() : "";
+}
+function isSmallTalk(q) {
+  return /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon)|who are you|what('s| is) your name|are you (real|human|an ai))\b/i.test(q || "");
+}
+function fakeRoster(text) {
+  const m = String(text || "").match(/\bTeam\s+[A-H]\b/g);
+  return !!(m && m.length >= 3);
+}
+/* “teams name in it” carries no topic — inherit the previous real question so the
+   search lane looks for BMIC 2026, not for the words “teams name in it”. */
+function followUpQuery(messages, q) {
+  const users = (messages || []).filter(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim()).map(m => String(m.content).trim());
+  const prev = users.length > 1 ? users[users.length - 2] : "";
+  const short = q.split(/\s+/).length <= 5 || /^(teams?|team names?|names?|list|lineup|roster|schedule|dates?|usme|uska|uski|unka|in it|more|aur|kab|kaun|kon)\b/i.test(q);
+  return short && prev ? (prev + " " + q).slice(0, 300) : q;
+}
+async function groundChat(messages) {
+  try {
+    const q0 = lastUserMsg(messages);
+    if (!q0 || isSmallTalk(q0)) return messages;
+    const already = (messages || []).some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
+    if (already) return messages;
+    const q = followUpQuery(messages, q0);
+    const now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    let web = "";
+    try {
+      const hits = await toolSearch(q.replace(/\s+/g, " "));
+      if (hits && hits.length) {
+        const top = hits.slice(0, 2);
+        const reads = await Promise.all(top.map(h => toolFetch(h.url).catch(() => null)));
+        web = top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String((reads[i] && reads[i].length > 80) ? reads[i] : (h.title || "")).slice(0, 1600)).join("\n\n");
+      }
+    } catch (e) { /* search down → date + rules still apply */ }
+    return messages.concat([{ role: "system", content:
+      "CURRENT DATE & TIME: " + now + " (anchor 'today/now/latest' to THIS moment).\n" +
+      (web ? "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; the live results WIN over your memory of past events, dates, scores or records):\n" + web + "\n" : "No live results were found for this question.\n") +
+      AURA_FACT_RULES }]);
+  } catch (e) { return messages; }
+}
+
 /* THE PROXY — key stays server-side forever */
 app.post("/v1/chat/completions", async (req, res) => {
   const body = req.body || {};
@@ -1576,7 +1629,7 @@ app.post("/v1/chat/completions", async (req, res) => {
      untouched; empty search costs nothing (fail-open). */
   try {
     const _lastUser = [...messages].reverse().find(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
-    const _q = _lastUser ? _lastUser.content.trim().slice(0, 300) : "";
+    const _q = _lastUser ? followUpQuery(messages, _lastUser.content.trim()).slice(0, 300) : "";
     const _small = /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon)|who are you|what('s| is) your name|are you (real|human|an ai))\b/i.test(_q);
     const _alreadyArmed = messages.some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
     if (_q && !_small && !_alreadyArmed) {
@@ -1593,6 +1646,11 @@ app.post("/v1/chat/completions", async (req, res) => {
       messages = messages.concat([{ role: "system", content: "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value.") }]);
     }
   } catch (e) { /* amplification is best-effort — never block the answer */ }
+  /* the fact rules apply even to already-grounded / cached / small-talk requests */
+  try {
+    if (!messages.some(m => m && m.role === "system" && String(m.content || "").includes("FACT RULES (owner order)")))
+      messages = messages.concat([{ role: "system", content: AURA_FACT_RULES }]);
+  } catch (e) {}
 
   let sawLimit = false; // at least one key hit a rate/limit error
   /* KEY LANE — the CODE forge tags its requests with lane:"code" so they burn
@@ -1970,10 +2028,13 @@ app.post("/v1/agent", async (req, res) => {
    If every key is drained: data: {"outOfTokens":true} before [DONE]. */
 app.post("/v1/chat/stream", async (req, res) => {
   const body = req.body || {};
-  const messages = body.messages;
+  let messages = body.messages;
   if (!Array.isArray(messages) || !messages.length) {
     return res.status(400).json({ error: "messages[] required" });
   }
+  /* same grounding as /v1/chat/completions: today’s date + live web results + fact rules.
+     Without this the stream lane answered tournaments/schedules from frozen memory. */
+  messages = await groundChat(messages);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");

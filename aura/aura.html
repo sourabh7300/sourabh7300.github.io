@@ -5765,7 +5765,7 @@ async function geminiCall(q,deep){
   if(agentModeEnabled && !agentLoopRunning && (q.toLowerCase().includes("search") || q.toLowerCase().includes("find") || q.toLowerCase().includes("look up") || q.toLowerCase().includes("research") || q.length > 80)){
     return runAgentLoop(q);
   }
-  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+spec+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer ANY subject confidently from it; NEVER say 'out of my data', 'not in my training data' or 'I don't have that information', never apologize for missing knowledge, never mention training cutoffs; if a very recent fact may have changed, add at most one short line offering to check live.\n\nSILENT SOURCES RULE (owner order): sources are your internal secret, never displayed. NO numbered citations, NO [1] markers, NO [UNSUPPORTED] tags, NO 'SOURCES:' heading, NO URLs and NO links in the answer — use the LIVE WEB RESULTS and your own knowledge to write one confident, natural chat answer where facts simply stand on their own. Never mention Wikipedia, news outlets or where a fact came from. Share a link only when the user explicitly asks for one."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"")+(lastTopic?" The last topic discussed was "+lastTopic+".":"");
+  const sys="You are "+P.name+", a futuristic holographic AI assistant built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) student at JECRC University."+style+spec+"\nANSWER like a professional product: (1) lead with the direct answer in ONE line. (2) then a tight explanation. (3) only when it helps, 2-4 markdown bullet points (- item) with **bold** key terms. (4) end with the single most useful next step or fact — never filler, never 'as an AI', never repeat the question. Be concrete: numbers, names, versions. You hold wide general knowledge — answer confidently from it. FACT RULE (owner order, 27 Oct 2026): NEVER invent team names, player names, rosters, lineups, schedules, scores, prices, winners or 'confirmed' lists. If the LIVE WEB RESULTS do not contain the list or date the user asked for, say in one short line that you don't have the verified list yet and offer to search the web — then give the context you DO know without dressing it up as official. Answer the exact event/entity the user named: never swap one acronym or tournament for another (BMIC ≠ BMSD, BGIS ≠ BGMS, BMS ≠ BMPS). If the acronym is ambiguous, ask one short question instead of guessing. Never mention training cutoffs.\n\nSILENT SOURCES RULE (owner order): sources are your internal secret, never displayed. NO numbered citations, NO [1] markers, NO [UNSUPPORTED] tags, NO 'SOURCES:' heading, NO URLs and NO links in the answer — use the LIVE WEB RESULTS and your own knowledge to write one confident, natural chat answer where facts simply stand on their own. Never mention Wikipedia, news outlets or where a fact came from. Share a link only when the user explicitly asks for one."+(deep?" The user asked for depth: cover the full picture (up to 450 words) in 3-5 short paragraphs plus bullets.":" Match depth to the ask: 1-3 lines for a quick factual question, a fuller answer for a broad one — and when the user asks for detail or says 'more', give the complete deep answer (300-500 words), never holding information back.")+(name?" The user's name is "+name+".":"")+(lastTopic?" The last topic discussed was "+lastTopic+".":"");
   if(aiProvider()==="groq"){
     const _now=new Date();
     const dateLine="\n\nCURRENT DATE & TIME: "+_now.toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+", "+_now.toLocaleTimeString(undefined,{hour:"2-digit",minute:"2-digit"})+" (user's local time — anchor 'today/now/latest' to THIS moment)";
@@ -5781,6 +5781,7 @@ async function geminiCall(q,deep){
     let out=await groqCall([{role:"system",content:sys+replyStyle()+dateLine},{role:"user",content:q+convoCtx()+webBlock}],deep?3400:1800);
     try{if(window.AuraCortex)out=await AuraCortex.critic(q,out,lane)}catch(e){}
     out=await answerLangGuard(q,out);
+    out=fabricationGuard(q,out);
     return out;
   }
   if(aiProvider()==="openrouter"){
@@ -6493,13 +6494,26 @@ function wantsFresh(q){
   return false;
 }
 let __webBusy=false;
+/* follow-up rescue (27 Oct 2026): “teams name in it” alone searches for nothing, so the
+   brain answered from memory and invented Team A…H. A short/pronoun question now inherits
+   the last real topic before it goes to the search lane. */
+let __lastTopicQ="";
+function __isFollowUp(q){
+  const s=String(q||"").trim();
+  if(!s)return false;
+  if(/^(teams?|team names?|names?|list|lineup|roster|schedule|dates?|usme|uska|uski|unka|in it|more|and\??|aur\b|details?|kab|kaun|kon)\b/i.test(s))return true;
+  return s.split(/\s+/).length<=4;
+}
 async function webContext(q){
   if(!backendUrl()||__webBusy)return null;
   __webBusy=true;
   try{
     const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
     const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
-    const r=await fetch(backendUrl()+"/v1/websearch",{method:"POST",headers:headers,signal:AbortSignal.timeout(25000),body:JSON.stringify({question:q.slice(0,300)})});
+    const asked=String(q||"").slice(0,300);
+    const query=(__isFollowUp(asked)&&__lastTopicQ)?(__lastTopicQ+" "+asked).slice(0,300):asked;
+    if(!__isFollowUp(asked))__lastTopicQ=asked;
+    const r=await fetch(backendUrl()+"/v1/websearch",{method:"POST",headers:headers,signal:AbortSignal.timeout(25000),body:JSON.stringify({question:query})});
     if(!r.ok)throw new Error("HTTP "+r.status);
     const d=await r.json();
     const rs=(d&&d.results)||[];
@@ -7284,7 +7298,7 @@ function buildThinkPrompt(q,term,evs,deep,hi){
   "3. JUDGE — If sources disagree or are thin, say so honestly in one line.\n"+
   "4. ANSWER — In your OWN words, like explaining to a smart friend. Never say 'according to Wikipedia'. Give the direct answer first, then the interesting reasoning behind it."+replyStyle()+
   (deep?(persona()==="jarvis"?" Depth requested: 4-5 short paragraphs — facts, numbers, root causes, trade-offs, second-order effects, and end with a decisive recommendation.":" Depth requested: 4-5 short paragraphs, include numbers, examples and the 'why it matters'."):" Match depth to the question: a quick factual ask gets 1-3 tight lines, a broader question gets a fuller answer; when the user asks for detail ('in detail', 'more', 'explain fully') switch to the deep answer (300-500 words) — never hold knowledge back just to stay short.")+
-  "5. CHAT STYLE — this is a normal chat app, not a research report: NO citation markers like [1], NO 'SOURCES:' list, NO urls or links (share a link only if the user explicitly asks for one), no encyclopedic attribution — weave the sourced facts into your answer. NEVER refuse: never say a topic is 'out of my data', 'not in my training data' or 'I don't have that information' — you hold wide knowledge on every subject; answer confidently from it, at most adding one short line that a very recent number may have shifted and you can check live. NEVER ask the user to paste, share or upload an article, source or screenshot to get an answer — if a detail is missing, give your best complete answer from the evidence plus your knowledge."+
+  "5. CHAT STYLE — this is a normal chat app, not a research report: NO citation markers like [1], NO 'SOURCES:' list, NO urls or links (share a link only if the user explicitly asks for one), no encyclopedic attribution — weave the sourced facts into your answer. NEVER ask the user to paste, share or upload an article, source or screenshot to get an answer. FACT RULE: never invent team names, player names, rosters, lineups, schedules, scores, prices or 'confirmed' lists — if the live sources don't carry the exact list or date, say in one line that you don't have the verified version yet and offer a live search, then continue with what you do know. Never swap the event the user named for a different acronym (BMIC is not BMSD); if it is unclear, ask one short question."+
   " Plain text only — no markdown headings; short paragraphs and simple - bullets are fine."+
   "\n\nUSER QUESTION: "+q+
   "\nEXTRACTED TOPIC: "+term+
@@ -8215,6 +8229,7 @@ async function askCore(text0){
      pure-English jawab aaya to yahin Hinglish rewrite ho jaata hai (extra call sirf
      mismatch ke waqt, clean case me zero cost). */
   t=await answerLangGuard(text,t);
+  t=fabricationGuard(text,t);
   lastAnswer=t;lastSrc=src||"";window.__lastQ=text;
   try{const __u=JSON.parse(localStorage.getItem("aura_usage")||"{\"answers\":0}");__u.answers=(__u.answers||0)+1;localStorage.setItem("aura_usage",JSON.stringify(__u))}catch(e){}
   convoAdd("user",text);convoAdd("assistant",t);try{sessions.sync()}catch(e){}
@@ -9983,6 +9998,20 @@ function AICTX(){const a=document.getElementById("codeEditor");return a&&a.value
    the mismatch (Devanagari answer to a Hinglish/English question) and forces ONE rewrite
    pass; otherwise it returns the answer untouched — zero extra calls in the good case. */
 function devanagariRatio(s){const t=String(s||"");if(!t.trim())return 0;const n=(t.match(/[\u0900-\u097F]/g)||[]).length;return n/t.replace(/\s/g,"").length}
+/* FABRICATION GUARD (27 Oct 2026): a model asked for a team list once replied
+   "Team A … Team H". Placeholder rosters are never an answer — swap them for the
+   honest line and point at a real search instead. */
+function fabricationGuard(q,txt){
+  try{
+    const t=String(txt||"");
+    const m=t.match(/\bTeam\s+[A-H]\b/g);
+    if(m&&m.length>=3){
+      return "I don't have a verified team list for that event yet — and I won't invent rosters.\n\n"+
+        "Event ka exact naam bolo (BMIC 2026 / BMSD 2026 / BGIS 2026) — main live web se official team list nikaal ke doonga.";
+    }
+    return t;
+  }catch(e){return txt}
+}
 async function answerLangGuard(q,txt){
   try{
     const t=String(txt||"");if(!t.trim())return t;
@@ -10121,7 +10150,7 @@ async function researchReply(q,hi){
   if(txt&&String(txt).trim()){
     /* sources stay INTERNAL — strip any list the model invented, attach nothing visible */
     const ans=String(txt).replace(/\n?\s*SOURCES?:[\s\S]*$/i,"").trim();
-    const guarded=await answerLangGuard(q,ans);
+    const guarded=fabricationGuard(q,await answerLangGuard(q,ans));
     if(guarded&&guarded.trim())return guarded.trim();
   }
   return null}catch(e){return null}finally{try{clearTimeout(__stallT)}catch(e){}window.__researching=false}}
