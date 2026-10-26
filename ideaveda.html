@@ -795,7 +795,7 @@ function startReveals(){
           <div class="mmeta">${esc(i.costRange)} investment · ${i.successRate}% success rate · ${esc(i.difficulty)}</div>
           <div class="mbar"><i style="width:${s}%"></i></div>
           <div class="mfacts"><span>Launch <b>${esc(i.launch)}</b></span><span>${esc(city)} demand <b>${cf ? cf + '/100' : '—'}</b></span><span>Budget <b>${i.costTotal <= budget ? 'fits' : 'stretch'}</b></span></div>
-          <a class="mlink" href="${APP}" target="_blank" rel="noreferrer">App me poora breakdown →</a>
+          <a class="mlink" href="${APP}?idea=${encodeURIComponent(i.id)}" target="_blank" rel="noreferrer" data-idea="${esc(i.id)}">App me poora breakdown →</a>
         </article>`;
       })
       .join('');
