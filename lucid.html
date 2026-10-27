@@ -325,7 +325,7 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 <textarea class="txi" id="aip" rows="2" placeholder="e.g. isko cinematic bana do · rate my photo · dono compare karo"></textarea>
 <button class="b pr" id="aigo" style="width:100%;padding:12px">Ask AI ✨</button>
 <label class="aiopt"><input type="checkbox" id="aiauto" checked> Auto-apply the edit (ek hi baar me lag jaye)</label>
-<p class="hint" id="aistat">Key sirf is browser me rehti hai. Photo/video seedha tumhare device se AI ko jata hai — Lucid ke paas koi server nahi.</p></div>
+<p class="hint" id="aistat">AI studio ke apne server se chal raha hai — tumhe koi key nahi chahiye. Chaho to apni free Gemini key bhi daal sakte ho (🔑 Set key).</p></div>
 <div class="tab" id="t4"><h4 style="margin-top:0">Telemetry</h4><div class="tm"><div><span>Frame</span><b id="tr">—</b></div><div><span>FPS</span><b id="tf">—</b></div><div><span>Pixels</span><b id="tp">—</b></div><div><span>Resolution</span><b id="ts">—</b></div><div><span>Active edits</span><b id="ta">0</b></div><div><span>Uptime</span><b id="tu">0:00</b></div></div><canvas id="spk" width="600" height="120"></canvas>
 <h4>GPU</h4><p id="gpu" style="color:var(--dim);line-height:1.55;font:12px var(--mono)">—</p><h4>About</h4><p style="color:var(--dim);line-height:1.55">Lucid, an AI pro photo studio by Sourabh Singh. Every edit runs on your GPU; photos are never uploaded.</p></div>
 </div></aside>
@@ -828,11 +828,18 @@ const AI=(function(){
    +'2) a question when the intent is unclear: {"kind":"ask","said":"one short question in the user\'s language","options":["option 1","option 2","option 3"]} '
    +'3) a rating or comparison: {"kind":"rate","said":"2-4 line verdict in the user\'s language","items":[{"name":"photo 1","overall":0,"composition":0,"light":0,"colour":0,"note":"one line"}],"suggest":{"title":"...","said":"...","params":{}}} '
    +'Numbers are 0-10 for scores. Edit params are -100..100 (0 = untouched); tonal keys (exp,con,hi,sh,wh,bk,clar,dh,lexp,lcon,lsat,ltmp,lclar) allow negatives, lens keys (bl,vig,lblur) stay >=0, hue keys (stH,htH) are 0-360 and tints (stS,htS) 0-100. Keep the total edit tasteful and photographic — a pleasing grade, never crushed blacks or blown highlights. Add a "curve" only for real tonal work and "hue" only when the photo needs a colour move. If the user attached a reference photo and says make it like that, match its mood, contrast and colour. Always answer in the language the user wrote (Hinglish stays Hinglish).';
+  /* ---- EVERYONE PATH -------------------------------------------------------
+     A visitor should not need to own a Gemini key just to edit a photo, so the
+     studio asks the owner's own server (AURA backend) to run the vision brain:
+     the key stays on the server and nobody pastes anything. If that server is
+     asleep or has no key wired yet, the code below falls back to a personal key
+     from 🔑 Set key — either way the studio never dead-ends. */
+  if(!window.LUCID_AI_PROXY)window.LUCID_AI_PROXY='https://aura-backend-jomj.onrender.com/v1/lucid/edit';
   let att=[];
   const el=id=>document.getElementById(id);
   const logEl=()=>el('ailog');
   const key=()=>{try{return localStorage.getItem(LSK)||''}catch(e){return ''}};
-  function keyUI(){const k=key(),e=el('aik');if(!e)return;e.textContent=k?'key ready 🔒':'key not set';e.classList.toggle('on',!!k)}
+  function keyUI(){const k=key(),e=el('aik');if(!e)return;const sv=!!window.LUCID_AI_PROXY;e.textContent=k?'key ready 🔒':(sv?'AI ready ✦':'key not set');e.classList.toggle('on',!!(k||sv))}
   function bub(kind,tag,text){const w=document.createElement('div');w.className='aiw '+kind;w.innerHTML=(tag?'<b class="t">'+esc(tag)+'</b>':'')+esc(text||'');logEl().append(w);logEl().scrollTop=logEl().scrollHeight;return w}
   function bars(w,items){items.forEach(it=>{const row=document.createElement('div');row.className='aibar';row.innerHTML='<span style="width:74px">'+esc(it.name||'')+'</span><i><s style="width:'+Math.max(0,Math.min(10,+it.v||0))*10+'%"></s></i><span>'+(it.v!=null?it.v:'')+'/10</span>';w.append(row)})}
   /* ---- attachments: images straight in, videos by sampled frames ---- */
@@ -840,20 +847,25 @@ const AI=(function(){
   function imgCv(f){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(toCv(im,im.naturalWidth,im.naturalHeight,1100));im.onerror=rej;im.src=URL.createObjectURL(f)})}
   function vidFrames(f,n){return new Promise((res,rej)=>{const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.onerror=()=>rej(new Error('video read failed'));v.onloadeddata=async()=>{try{const d=v.duration||1,cuts=[.08,.5,.85].slice(0,n),out=[];for(const t of cuts){v.currentTime=Math.max(.02,Math.min(d-.05,d*t));await new Promise(r=>{v.onseeked=r;setTimeout(r,900)});out.push({cv:toCv(v,v.videoWidth,v.videoHeight,1000)})}res(out)}catch(e){rej(e)}finally{v.src=''}};v.src=URL.createObjectURL(f)})}
   async function addFiles(files){for(const f of files){if(att.length>=4){toast('Max 4 attachments — extra skip kar diye');break}try{if(/^image\//.test(f.type)){const cv=await imgCv(f);att.push({name:f.name,kind:'image',frames:[{cv}]})}else if(/^video\//.test(f.type)){const fr=await vidFrames(f,3);att.push({name:f.name,kind:'video',frames:fr});toast('Video · '+fr.length+' frames ready')}else{toast('Sirf photo/video chalega')}}catch(e){toast('Could not read '+f.name)}}thumbUI()}
-  function thumbUI(){const host=el('aithumbs');host.innerHTML='';att.forEach((a,ai)=>{a.frames.forEach((fr,fi)=>{const fig=document.createElement('figure');fig.title='Canvas par bhejo';const c=mc(66,50);c.getContext('2d').drawImage(fr.cv,0,0,66,50);fig.append(c);const b=document.createElement('b');b.textContent=(a.kind==='video'?'🎬 ':'')+a.name.slice(0,10)+(a.frames.length>1?' ·'+(fi+1):'');fig.append(b);const x=document.createElement('button');x.textContent='✕';x.title='Remove';x.onclick=ev=>{ev.stopPropagation();att.splice(ai,1);thumbUI()};fig.append(x);fig.onclick=()=>{setSrc(fr.cv,a.name+(a.frames.length>1?' · frame '+(fi+1):''));$('#tabs [data-t=t1]').click();toast('Canvas par load ho gaya')};host.append(fig)})});const s=el('aistat');if(s)s.textContent=att.length?(att.map(a=>a.name.split('.')[0]+' ×'+a.frames.length).join(', ')+' · AI ko '+Math.min(4,att.reduce((p,a)=>p+a.frames.length,0))+' image jayengi'):'Key sirf is browser me rehti hai. Photo/video seedha tumhare device se AI ko jata hai — Lucid ke paas koi server nahi.'}
+  function thumbUI(){const host=el('aithumbs');host.innerHTML='';att.forEach((a,ai)=>{a.frames.forEach((fr,fi)=>{const fig=document.createElement('figure');fig.title='Canvas par bhejo';const c=mc(66,50);c.getContext('2d').drawImage(fr.cv,0,0,66,50);fig.append(c);const b=document.createElement('b');b.textContent=(a.kind==='video'?'🎬 ':'')+a.name.slice(0,10)+(a.frames.length>1?' ·'+(fi+1):'');fig.append(b);const x=document.createElement('button');x.textContent='✕';x.title='Remove';x.onclick=ev=>{ev.stopPropagation();att.splice(ai,1);thumbUI()};fig.append(x);fig.onclick=()=>{setSrc(fr.cv,a.name+(a.frames.length>1?' · frame '+(fi+1):''));$('#tabs [data-t=t1]').click();toast('Canvas par load ho gaya')};host.append(fig)})});const s=el('aistat');if(s)s.textContent=att.length?(att.map(a=>a.name.split('.')[0]+' ×'+a.frames.length).join(', ')+' · AI ko '+Math.min(4,att.reduce((p,a)=>p+a.frames.length,0))+' image jayengi'):(key()?'Key tumhare browser me hai — photo seedha tumhare device se AI ko jati hai.':(window.LUCID_AI_PROXY?'AI studio ke apne server se chal raha hai — tumhe koi key nahi chahiye, aur photo kahin save nahi hoti.':'🔑 Set key se free Gemini key daalo (aistudio.google.com/apikey) — phir AI editing chalu.'))}
   /* ---- the call ---- */
   async function callAI(prompt){
     const imgs=[];for(const a of att)for(const fr of a.frames){if(imgs.length<4)imgs.push(fr.cv.toDataURL('image/jpeg',.85).split(',')[1])}
     const parts=[{text:SYS+'\n\nUSER REQUEST: '+(prompt||'(no text — look at the attached media, decide the best edit and do it)')}].concat(imgs.map(b=>({inline_data:{mime_type:'image/jpeg',data:b}})));
     const body={contents:[{role:'user',parts}],generationConfig:{temperature:.45,maxOutputTokens:1800,responseMimeType:'application/json'}};
     const proxy=(typeof window!=='undefined'&&window.LUCID_AI_PROXY)||'';
+    /* rungs: the shared studio server first (nobody needs a key), then the visitor's
+       own key if the server is asleep, drained or not wired yet — never a dead end */
+    const urls=[];
+    if(proxy)urls.push(proxy);
+    if(key())for(const m of MODELS)urls.push('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+encodeURIComponent(key()));
+    if(!urls.length)throw new Error('Koi AI brain reachable nahi — 🔑 Set key se apni free Gemini key daal do (aistudio.google.com/apikey).');
     let last='';
-    for(const m of MODELS){
-      const url=proxy||('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+encodeURIComponent(key()));
-      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    for(const url of urls){
+      let r;try{r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}catch(e){last=e.message||String(e);continue}
       if(r.ok){const j=await r.json();const t=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(x=>x.text||'').join('');return parseJSON(t)}
       last=await r.text().catch(()=>'');
-      if(r.status!==404)break;
+      if(r.status!==404&&r.status!==429&&r.status!==501&&r.status!==502)break; /* shared server hiccup → next rung */
     }
     let msg='AI ne error diya';try{const j=JSON.parse(last);msg=(j.error&&j.error.message)||msg}catch(e){msg=(last||msg).slice(0,220)}
     throw new Error(msg);
@@ -899,7 +911,7 @@ const AI=(function(){
     box.value='';
     const think=bub('a','AI','soch raha hoon…');think.classList.add('aithink');
     try{const d=await callAI(p);think.remove();render(d)}
-    catch(e){think.remove();bub('err','AI unavailable',String(e.message||e)+'\n\n(Tip: 🔑 Set key me apni Gemini API key daalo — aistudio.google.com/apikey se free milti hai.)')}
+    catch(e){think.remove();bub('err','AI unavailable',String(e.message||e)+(key()?'\n\n(Tip: key reject ho gayi ya limit khatm — 🔑 Set key se nayi key daal do.)':'\n\n(Tip: 🔑 Set key me apni free Gemini key daalo — aistudio.google.com/apikey — ya thodi der baad phir try karo.)'))}
   }
   function askKey(){
     const k=prompt('Paste your Gemini API key — sirf is browser me save hogi:\n(free key: aistudio.google.com/apikey)',key()||'');
