@@ -232,6 +232,7 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 .aibar{display:flex;align-items:center;gap:7px;margin-top:5px;font:10.5px var(--mono);color:#d9cdb6}.aibar i{flex:1;height:4px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}.aibar i s{display:block;height:100%;background:linear-gradient(90deg,var(--amb),#ff6b6b)}
 .aitags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}.aitags button{padding:6px 10px;border-radius:99px;border:1px solid rgba(255,179,71,.4);background:rgba(255,179,71,.1);color:#ffe0b0;font:600 11px "Bricolage Grotesque",system-ui}
 .aithink{color:var(--dim);font:11px var(--mono)}
+.aiopt{display:flex;gap:8px;align-items:center;color:#cfc3ac;font-size:12px;margin:9px 0 2px;cursor:pointer}
 .gd{position:absolute;inset:0;z-index:70;display:none;align-items:center;justify-content:center;padding:4vh 16px;background:rgba(4,5,9,.74);backdrop-filter:blur(10px)}.gd.on{display:flex}
 .gdc{width:min(780px,95vw);max-height:88vh;overflow:auto;padding:24px;border-radius:24px}.gdc h3{margin:0 0 6px;font-size:23px;font-weight:800}.gdc p.sub{color:var(--dim);margin-bottom:16px;font-size:13.5px}
 .gdi{display:flex;gap:12px;padding:11px;border-radius:14px;background:rgba(255,255,255,.04);margin-bottom:9px;align-items:flex-start}.gdi b.n{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(255,179,71,.16);color:var(--amb);font:700 12px var(--mono)}
@@ -323,6 +324,7 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 <div class="ailog" id="ailog"></div>
 <textarea class="txi" id="aip" rows="2" placeholder="e.g. isko cinematic bana do · rate my photo · dono compare karo"></textarea>
 <button class="b pr" id="aigo" style="width:100%;padding:12px">Ask AI ✨</button>
+<label class="aiopt"><input type="checkbox" id="aiauto" checked> Auto-apply the edit (ek hi baar me lag jaye)</label>
 <p class="hint" id="aistat">Key sirf is browser me rehti hai. Photo/video seedha tumhare device se AI ko jata hai — Lucid ke paas koi server nahi.</p></div>
 <div class="tab" id="t4"><h4 style="margin-top:0">Telemetry</h4><div class="tm"><div><span>Frame</span><b id="tr">—</b></div><div><span>FPS</span><b id="tf">—</b></div><div><span>Pixels</span><b id="tp">—</b></div><div><span>Resolution</span><b id="ts">—</b></div><div><span>Active edits</span><b id="ta">0</b></div><div><span>Uptime</span><b id="tu">0:00</b></div></div><canvas id="spk" width="600" height="120"></canvas>
 <h4>GPU</h4><p id="gpu" style="color:var(--dim);line-height:1.55;font:12px var(--mono)">—</p><h4>About</h4><p style="color:var(--dim);line-height:1.55">Lucid, an AI pro photo studio by Sourabh Singh. Every edit runs on your GPU; photos are never uploaded.</p></div>
@@ -876,12 +878,16 @@ const AI=(function(){
     toast('AI edit applied · '+(ed.title||''));click(.06,.4,1600);
   }
   function applyBtn(host,ed,label){const b=document.createElement('button');b.className='b pr';b.textContent=label||'Apply to canvas ✨';b.onclick=()=>{applyEdit(ed)};host.append(b);return b}
+  /* one-shot by default: the owner asked for “ek hi baar main banao kar de”, so an
+     edit answer lands on the canvas immediately — Undo/History still has the old state */
+  function autoOn(){const c=el('aiauto');return !c||c.checked}
+  function oneShot(host,d,ed){const conf=(typeof d.confidence==='number')?d.confidence:(typeof ed.confidence==='number'?ed.confidence:null);if(autoOn()&&(conf===null||conf>=.45)){applyEdit(d);const n=document.createElement('div');n.className='aithink';n.textContent='⚡ Auto-applied — Z se undo, ya History se wapas.';host.append(n);return true}applyBtn(host,d);return false}
   /* ---- rendering an answer ---- */
   function render(d){
     const ed=(d&&d.params)?d:(d&&d.edit)||null;
     if(d&&d.kind==='ask'){const w=bub('a','AI','❓ '+String(d.said||'Ek chhoti si baat clear kar do'));const t=document.createElement('div');t.className='aitags';(d.options||[]).forEach(o=>{const b=document.createElement('button');b.textContent=o;b.onclick=()=>{el('aip').value=o;send()};t.append(b)});w.append(t);return}
     if(d&&d.kind==='rate'){const w=bub('a','AI · rating',String(d.said||''));(d.items||[]).forEach(it=>{const p=document.createElement('div');p.innerHTML='<b class="t">'+esc(it.name||'')+'</b>';bars(p,[['Composition',it.composition],['Light',it.light],['Colour',it.colour],['Overall',it.overall]].map(([n,v])=>({name:n,v})));if(it.note){const n=document.createElement('div');n.className='aithink';n.textContent=it.note;p.append(n)}w.append(p)});if(d.suggest)applyBtn(w,d.suggest,'Apply suggested fix ✨');return}
-    if(ed||d.kind==='edit'){const w=bub('a','AI · '+(d.title||ed&&ed.title||'edit'),String(d.said||ed&&ed.said||'Ready hai — apply karo.'));if(typeof (d.confidence||ed&&ed.confidence)==='number'){const c=document.createElement('div');c.className='aithink';c.textContent='confidence '+Math.round((d.confidence||ed.confidence)*100)+'%';w.append(c)}applyBtn(w,d);return}
+    if(ed||d.kind==='edit'){const w=bub('a','AI · '+(d.title||ed&&ed.title||'edit'),String(d.said||ed&&ed.said||'Ready hai — apply karo.'));if(typeof (d.confidence||ed&&ed.confidence)==='number'){const c=document.createElement('div');c.className='aithink';c.textContent='confidence '+Math.round((d.confidence||ed.confidence)*100)+'%';w.append(c)}oneShot(w,d,ed);return}
     bub('a','AI',JSON.stringify(d).slice(0,600));
   }
   async function send(){
@@ -940,6 +946,11 @@ const AI=(function(){
     el('aip').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
     el('aip').addEventListener('paste',e=>{const fs=[...(e.clipboardData&&e.clipboardData.files)||[]];if(fs.length){e.preventDefault();addFiles(fs)}});
     el('aik').onclick=askKey;
+    const au=el('aiauto');if(au){try{const v=localStorage.getItem('lucid.ai.auto');if(v!==null)au.checked=v==='1'}catch(e){}au.onchange=()=>{try{localStorage.setItem('lucid.ai.auto',au.checked?'1':'0')}catch(e){}toast(au.checked?'Auto-apply on — AI khud edit laga dega':'Auto-apply off — Apply button use karo')}}
+    /* Escape must close the GUIDE first — the studio's own Escape handler lives on the
+       same node (window), so plain stopPropagation is not enough: only
+       stopImmediatePropagation keeps the studio from closing behind the guide. */
+    addEventListener('keydown',e=>{const g=el('gd');if(e.key==='Escape'&&g&&g.classList.contains('on')){e.stopImmediatePropagation();e.preventDefault();guide(false)}},true);
     el('t6').addEventListener('dragover',e=>e.preventDefault());
     el('t6').addEventListener('drop',e=>{e.preventDefault();const fs=[...(e.dataTransfer&&e.dataTransfer.files)||[]];if(fs.length)addFiles(fs)});
   }
