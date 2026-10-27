@@ -220,6 +220,23 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 #cml{margin-top:10px;max-height:46vh;overflow:auto}.cmr{padding:11px 14px;border-radius:11px;color:#cfc8ba;cursor:pointer;display:flex;justify-content:space-between;font-size:14.5px}.cmr.on{background:rgba(255,179,71,.16);color:#fff}.cmr small{color:var(--dim);font:11px var(--mono)}
 .lpe{position:fixed;z-index:55;display:none;pointer-events:none;width:132px;text-align:center}.lpe canvas{width:120px;height:120px;border-radius:50%;border:3px solid #fff;box-shadow:0 10px 40px rgba(0,0,0,.7);background:#000;display:block;margin:0 auto;image-rendering:pixelated}
 .lpe::before{content:"";position:absolute;left:50%;top:60px;width:12px;height:12px;margin:-6px;border:1.5px solid #fff;mix-blend-mode:difference}.lpe b{display:inline-block;margin-top:6px;padding:4px 10px;border-radius:99px;background:#000;font:12px var(--mono)}
+/* ===== AI STUDIO + GUIDE (27 Oct 2026) ===== */
+#t6 .airow{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px}#t6 .airow .b{flex:1;min-width:92px;text-align:center}
+.aikey{float:right;font:11px var(--mono);padding:3px 9px;border-radius:99px;background:rgba(255,255,255,.08);color:var(--dim)}.aikey.on{background:rgba(92,240,168,.16);color:#5cf0a8}
+.aichips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}.aichips button{padding:7px 11px;border-radius:99px;background:rgba(255,255,255,.06);color:#e2d7c2;border:1px solid rgba(255,255,255,.08);font:600 11.5px "Bricolage Grotesque",system-ui}.aichips button:hover{background:rgba(255,179,71,.18);border-color:rgba(255,179,71,.5)}
+.aithumbs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px}.aithumbs figure{position:relative;width:66px;border-radius:10px;overflow:hidden;background:#000;border:1px solid rgba(255,255,255,.12);cursor:pointer}.aithumbs canvas{width:66px;height:50px;object-fit:cover;display:block}.aithumbs b{position:absolute;left:0;right:0;bottom:0;font:9px var(--mono);background:rgba(0,0,0,.62);text-align:center;padding:1px 0;color:#ffd9a0;overflow:hidden;white-space:nowrap}
+.aithumbs figure>button{position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:rgba(0,0,0,.7);color:#fff;font-size:11px;line-height:1;padding:0}
+.ailog{max-height:34vh;overflow:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.aiw{max-width:97%;padding:9px 11px;border-radius:13px;font-size:12.5px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}.aiw.u{align-self:flex-end;background:rgba(255,179,71,.16);color:#fff2dc}.aiw.a{align-self:flex-start;background:rgba(255,255,255,.06)}.aiw.err{align-self:stretch;background:rgba(255,90,90,.14);color:#ffd3d3}
+.aiw b.t{display:block;color:var(--amb);font:600 10.5px var(--mono);letter-spacing:.12em;margin-bottom:4px}
+.aibar{display:flex;align-items:center;gap:7px;margin-top:5px;font:10.5px var(--mono);color:#d9cdb6}.aibar i{flex:1;height:4px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}.aibar i s{display:block;height:100%;background:linear-gradient(90deg,var(--amb),#ff6b6b)}
+.aitags{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}.aitags button{padding:6px 10px;border-radius:99px;border:1px solid rgba(255,179,71,.4);background:rgba(255,179,71,.1);color:#ffe0b0;font:600 11px "Bricolage Grotesque",system-ui}
+.aithink{color:var(--dim);font:11px var(--mono)}
+.gd{position:absolute;inset:0;z-index:70;display:none;align-items:center;justify-content:center;padding:4vh 16px;background:rgba(4,5,9,.74);backdrop-filter:blur(10px)}.gd.on{display:flex}
+.gdc{width:min(780px,95vw);max-height:88vh;overflow:auto;padding:24px;border-radius:24px}.gdc h3{margin:0 0 6px;font-size:23px;font-weight:800}.gdc p.sub{color:var(--dim);margin-bottom:16px;font-size:13.5px}
+.gdi{display:flex;gap:12px;padding:11px;border-radius:14px;background:rgba(255,255,255,.04);margin-bottom:9px;align-items:flex-start}.gdi b.n{flex:none;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(255,179,71,.16);color:var(--amb);font:700 12px var(--mono)}
+.gdi h4{margin:2px 0 3px;font-size:14px}.gdi p{margin:0;color:#cfc3ac;font-size:12.5px;line-height:1.5}.gdi button{margin-left:auto;flex:none;align-self:center;padding:7px 12px;border-radius:99px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05);color:#e8dcc4;font:600 11.5px "Bricolage Grotesque",system-ui}
+.gdf{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}.gdf label{display:flex;gap:7px;align-items:center;color:var(--dim);font-size:12px}
 </style></head><body>
 <div class="cur" id="cur"></div>
 <canvas id="fx"></canvas>
@@ -272,12 +289,12 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 <div id="st" aria-label="Lucid studio">
 <div id="boot"><pre id="bt"></pre></div>
 <div class="top"><button class="ib" id="bk" title="Back">←</button><span class="ir"></span><b>Lucid</b><span class="dim">AI Pro Photo Studio</span><span class="fn" id="nm">Golden hour.jpg</span><span class="dim" id="dm"></span><span class="sp"></span><span class="gp"><i></i>GPU</span>
-<button class="b" id="ck">⌘K</button><button class="b" id="cam">📷 Sense</button><label class="b">Open photo<input type="file" id="fi" accept="image/*" hidden></label><div class="exw"><button class="b pr" id="ex">Export ▾</button><div class="exm" id="exm"><button data-f="png">PNG · lossless</button><button data-f="jpg">JPEG · quality 92</button><button data-f="webp">WebP · quality 92</button></div></div></div>
+<button class="b" id="ck">⌘K</button><button class="b" id="gh">? Guide</button><button class="b" id="cam">📷 Sense</button><label class="b">Open photo<input type="file" id="fi" accept="image/*" hidden></label><div class="exw"><button class="b pr" id="ex">Export ▾</button><div class="exm" id="exm"><button data-f="png">PNG · lossless</button><button data-f="jpg">JPEG · quality 92</button><button data-f="webp">WebP · quality 92</button></div></div></div>
 <div class="main">
 <canvas id="amb"></canvas>
 <div class="cvw" id="cvw"><div class="fr" id="fr"><canvas id="cv"></canvas><canvas id="cvb"></canvas><div class="gridov"></div><div class="sph" id="sph"></div><b class="sweep"></b></div></div>
 <aside class="lkp glass"><h4>Looks</h4><div id="lks"></div><button class="lksave" id="lks2">+ Save current look</button></aside>
-<aside class="pn glass"><div class="tabs" id="tabs"><button class="on" data-t="t1">Edit</button><button data-t="t2">Layers</button><button data-t="t5">Export</button><button data-t="t3">Batch</button><button data-t="t4">System</button></div>
+<aside class="pn glass"><div class="tabs" id="tabs"><button class="on" data-t="t1">Edit</button><button data-t="t6">AI ✨</button><button data-t="t2">Layers</button><button data-t="t5">Export</button><button data-t="t3">Batch</button><button data-t="t4">System</button></div>
 <div class="pb">
 <div class="tab on" id="t1"><canvas id="hg" width="640" height="208"></canvas>
 <div class="an"><div id="ant">—</div><div class="pal" id="pal"></div></div>
@@ -298,6 +315,15 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 <div class="tab" id="t3"><h4 style="margin-top:0">Batch pipeline</h4><p style="color:var(--dim);line-height:1.55;margin-bottom:12px">Applies your current look, crop and adjustments to every photo. Uses the Export tab settings (format, size, watermark).</p>
 <label class="b pr" style="display:block;text-align:center;padding:12px">Choose photos<input type="file" id="bf" accept="image/*" multiple hidden></label><div class="q" id="bq"></div><div class="pbar"><i id="bp"></i></div>
 <button class="b" id="bgo" style="width:100%;padding:12px" disabled>Process all → ZIP</button><p id="bs" style="color:var(--dim);margin-top:12px;font:12px var(--mono)"></p></div>
+<div class="tab" id="t6"><h4 style="margin-top:0">AI Studio <span class="aikey" id="aik">key not set</span></h4>
+<p class="hint" style="margin-top:0">Type what you want, or attach a photo/video — the AI reads it and applies the edit itself. “Is jaisa banao”, “rate my photo”, “dono compare karo” — sab chalega.</p>
+<div class="airow"><label class="b">📎 Attach<input type="file" id="aif" accept="image/*,video/*" multiple hidden></label><button class="b" id="aiset">🔑 Set key</button><button class="b" id="aig">📘 How to use</button></div>
+<div class="aichips" id="aichips"></div>
+<div class="aithumbs" id="aithumbs"></div>
+<div class="ailog" id="ailog"></div>
+<textarea class="txi" id="aip" rows="2" placeholder="e.g. isko cinematic bana do · rate my photo · dono compare karo"></textarea>
+<button class="b pr" id="aigo" style="width:100%;padding:12px">Ask AI ✨</button>
+<p class="hint" id="aistat">Key sirf is browser me rehti hai. Photo/video seedha tumhare device se AI ko jata hai — Lucid ke paas koi server nahi.</p></div>
 <div class="tab" id="t4"><h4 style="margin-top:0">Telemetry</h4><div class="tm"><div><span>Frame</span><b id="tr">—</b></div><div><span>FPS</span><b id="tf">—</b></div><div><span>Pixels</span><b id="tp">—</b></div><div><span>Resolution</span><b id="ts">—</b></div><div><span>Active edits</span><b id="ta">0</b></div><div><span>Uptime</span><b id="tu">0:00</b></div></div><canvas id="spk" width="600" height="120"></canvas>
 <h4>GPU</h4><p id="gpu" style="color:var(--dim);line-height:1.55;font:12px var(--mono)">—</p><h4>About</h4><p style="color:var(--dim);line-height:1.55">Lucid, an AI pro photo studio by Sourabh Singh. Every edit runs on your GPU; photos are never uploaded.</p></div>
 </div></aside>
@@ -312,7 +338,10 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 <button id="zi" data-tip="Zoom in"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M8 11h6M11 8v6M20 20l-4-4"/></svg></button>
 <button id="ft" data-tip="Fit"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button><i></i>
 <button id="lpb" data-tip="Loupe / eyedropper (I)"><svg viewBox="0 0 24 24"><path d="M20 4l-3 3 1.5 1.5-8.5 8.5-3 1 1-3 8.5-8.5L18 8l3-3z"/><path d="M4 20l2-2"/></svg></button><button id="au" data-tip="Auto enhance"><svg viewBox="0 0 24 24"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/></svg></button></div>
-<div class="lpe" id="lpe"><canvas id="lpc" width="120" height="120"></canvas><b id="lph">#000000</b></div><div class="toast" id="toast"></div><div class="cmdk" id="cmdk"><div class="cmdb glass"><input id="cmi" placeholder="Type a command: apply Noir, crop 1:1, export, add text…" autocomplete="off"><div id="cml"></div></div></div><div class="drop" id="drop">Drop a photo to edit</div>
+<div class="lpe" id="lpe"><canvas id="lpc" width="120" height="120"></canvas><b id="lph">#000000</b></div><div class="toast" id="toast"></div><div class="cmdk" id="cmdk"><div class="cmdb glass"><input id="cmi" placeholder="Type a command: apply Noir, crop 1:1, export, add text…" autocomplete="off"><div id="cml"></div></div></div><div class="gd" id="gd"><div class="gdc glass"><h3>Lucid — 60-second guide</h3><p class="sub">Studio ke saare features ek jagah. Har step ka “Show me” dabao — wahi panel khul jayega.</p>
+<div id="gdl"></div>
+<div class="gdf"><button class="b pr" id="gda">Open AI Studio ✨</button><button class="b" id="gdx">Close</button><label><input type="checkbox" id="gdn"> Don't show again</label></div></div></div>
+<div class="drop" id="drop">Drop a photo to edit</div>
 <div class="cam" id="camw"><div class="camc glass"><video id="camv" autoplay playsinline muted></video><p id="cams">Starting camera…</p><div class="camr"><button class="b pr" id="cs1">Capture → new photo</button><button class="b" id="cs2">Capture → as layer</button><button class="b" id="cs3">Close</button></div></div></div>
 </div></div>
 
@@ -694,7 +723,7 @@ function matchRef(ref){if(dirty){pipe.setSrc(compose());dirty=false}const keep=P
 const a=cdf(pipe.cv),b=cdf(ref),pts=[[],[],[]];for(let k=0;k<3;k++){const inv=x=>{let lo=0;while(lo<255&&b[k][lo]<x)lo++;return lo/255};for(let i=0;i<=8;i++){const x=i/8,y=i==0?0:i==8?1:inv(a[k][Math.round(x*255)]);pts[k].push([x,y])}}
 P.cur.r=pts[0];P.cur.g=pts[1];P.cur.b=pts[2];P.look='';sync();draw();commit('Match colours');mark();toast('Colours matched to the reference')}
 const CMDS=()=>{const c=[],A=(n,f)=>c.push([n,f]);Object.keys({...LK,...LKX}).forEach(n=>A('Apply look · '+n,()=>applyLook(n)));[['Auto enhance','#au'],['Split compare','#sp'],['Toggle grid','#gd'],['Fit to screen','#ft'],['Undo','#un'],['Redo','#re'],['Open Sense camera','#cam'],['Toggle loupe','#lpb']].forEach(([n,q])=>A(n,()=>$(q).click()));
-[['Edit','t1'],['Layers','t2'],['Export','t5'],['Batch','t3'],['System','t4']].forEach(([n,t])=>A('Go to · '+n,()=>$('#tabs [data-t='+t+']').click()));[['Light','s1'],['Colour','s2'],['Curves','s3'],['Mix','s4'],['Detail','s5'],['Lens','s7'],['Creative','s8'],['Geo','s6'],['Local masks','s9']].forEach(([n,q])=>A('Panel · '+n,()=>{$('#tabs [data-t=t1]').click();$('#seg [data-s='+q+']').click()}));
+[['Edit','t1'],['AI','t6'],['Layers','t2'],['Export','t5'],['Batch','t3'],['System','t4']].forEach(([n,t])=>A('Go to · '+n,()=>$('#tabs [data-t='+t+']').click()));A('AI · rate my photo',()=>{$('#tabs [data-t=t6]').click();AI.chip('rate')});A('AI · compare photos',()=>{$('#tabs [data-t=t6]').click();AI.chip('compare')});[['Light','s1'],['Colour','s2'],['Curves','s3'],['Mix','s4'],['Detail','s5'],['Lens','s7'],['Creative','s8'],['Geo','s6'],['Local masks','s9']].forEach(([n,q])=>A('Panel · '+n,()=>{$('#tabs [data-t=t1]').click();$('#seg [data-s='+q+']').click()}));
 [['1:1',1],['4:5',.8],['3:2',1.5],['16:9',1.7778],['9:16',.5625],['Original',0]].forEach(([n,v])=>A('Crop · '+n,()=>{P.ar=v;sync();draw();commit('Crop '+n)}));A('Add text layer',()=>$('#lt2').click());A('Type tool — click to place text',()=>$('#tt').click());Object.keys(TYPE_PRESETS).forEach(k=>A('Add type preset · '+k,()=>addTextLayer(0,0,'Your headline',k)));Object.keys(OVL).forEach(n=>A('Add overlay · '+n,()=>addOvl(n)));
 ['png','jpg','webp'].forEach(f=>A('Export · '+f.toUpperCase(),()=>{XS.fmt=f;syncX();doExport()}));[['Rotate left','#rl'],['Rotate right','#rr'],['Flip horizontal','#fh'],['Flip vertical','#fv'],['Show / hide mask','#mks'],['Clear mask','#mkc']].forEach(([n,q])=>A(n,()=>$(q).click()));A('Reset all edits',()=>{P=clone(Z);sync();draw();commit('Reset all');mark()});return c};
 let cmSel=0,cmL=[];function cmRender(){const q=$('#cmi').value.toLowerCase();cmL=CMDS().filter(x=>x[0].toLowerCase().includes(q));cmSel=Math.min(cmSel,Math.max(0,cmL.length-1));$('#cml').innerHTML=cmL.slice(0,40).map((x,i)=>`<div class="cmr ${i==cmSel?'on':''}" data-i="${i}">${esc(x[0])}<small>↵</small></div>`).join('')||'<div class="cmr">No match</div>';document.querySelectorAll('.cmr[data-i]').forEach(r=>r.onclick=()=>{cmRun(+r.dataset.i)})}
@@ -769,7 +798,7 @@ function load(f,Wd,cb){if(!f)return;const im=new Image();im.onload=()=>{const s=
 function dl(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click()}
 function ready(){$('#st').classList.add('ready')}
 function boot(){const g=pipe&&!pipe.bad;const L=['LUCID ENGINE 4.0 · GPU',g?'▸ webgl context ........... OK':'▸ webgl context ........... FAILED','▸ curves · colour mix ..... OK','▸ lens · bokeh · halation . OK','▸ layers · blend modes ... OK','▸ batch · zip pipeline .... OK','▸ sense camera bridge ..... OK','▸ local masks · match ...... OK','▸ local only, no uploads','READY'],bt=$('#bt');bt.textContent='';let i=0;(function n(){if($('#st').classList.contains('ready'))return;if(i>=L.length){setTimeout(ready,350);return}bt.textContent+=L[i++]+'\n';click(.03,.2,3000);setTimeout(n,170)})()}
-function open2(){B.classList.add('in');if(!built){build();$('#boot').onclick=ready;boot()}draw()}
+function open2(){B.classList.add('in');if(!built){build();$('#boot').onclick=ready;boot()}draw();try{AI.guideOnce()}catch(e){}}
 document.querySelectorAll('[data-open]').forEach(b=>b.onclick=open2);$('#bk').onclick=()=>B.classList.remove('in');
 /* deep links — the portfolio/AURA ecosystem opens Lucid with a hash:
    #studio · #batch (batch processor) · #aura=open · #aura=batch · #preset=<look>
@@ -780,6 +809,145 @@ open2();
 if(h=='batch'||h=='aura=batch'){try{document.querySelector('#tabs [data-t="t3"]').click()}catch(e){}}
 const m=h.match(/^(?:preset|look)=(.+)$/);
 if(m){try{applyLook(decodeURIComponent(m[1]))}catch(e){}}})();
+/* ================= AI STUDIO (27 Oct 2026) =================
+   Owner's ask: “user type kare ya photo/video attach kare aur AI wahi bana kar de” —
+   plus ratings, comparisons and a first-visit guide.
+
+   KEY POLICY: no key ships in this file. The visitor's own Gemini key is kept in
+   this browser (localStorage) and the image bytes go straight from the device to
+   Google — Lucid has no server, so there is nothing to leak it from. */
+const AI=(function(){
+  const LSK='lucid.ai.key', LSG='lucid.guided';
+  const MODELS=['gemini-3.6-flash','gemini-2.5-flash'];
+  const PARAM_RANGE={stH:[0,360],stS:[0,100],htH:[0,360],htS:[0,100],lexp:[-100,100],lcon:[-100,100],lsat:[-100,100],ltmp:[-100,100],lblur:[0,100],lclar:[-100,100],lcx:[0,100],lcy:[0,100],lcr:[0,100]};
+  const SYS='You are Lucid\'s editing brain inside a browser photo studio (WebGL, real sliders). The user writes Hinglish or English and may attach photos or video frames. Read the image(s), then reply ONLY with one JSON object — no markdown, no prose outside it. '
+   +'Forms: '
+   +'1) an edit that can be applied right now: {"kind":"edit","title":"short name","said":"1-3 short lines in the USER\'S language saying what you did and why","look":"Golden|Noir|Cool|Fade|Punch|Dream|Cinema|Film|Cyber|(empty)","params":{"exp":0,"con":0,"hi":0,"sh":0,"wh":0,"bk":0,"tmp":0,"tint":0,"vib":0,"sat":0,"clar":0,"shp":0,"bl":0,"vig":0,"gr":0,"ca":0,"dh":0,"stH":0,"stS":0,"htH":0,"htS":0},"curve":[[0,0],[0.25,0.22],[1,1]],"confidence":0.0} '
+   +'2) a question when the intent is unclear: {"kind":"ask","said":"one short question in the user\'s language","options":["option 1","option 2","option 3"]} '
+   +'3) a rating or comparison: {"kind":"rate","said":"2-4 line verdict in the user\'s language","items":[{"name":"photo 1","overall":0,"composition":0,"light":0,"colour":0,"note":"one line"}],"suggest":{"title":"...","said":"...","params":{}}} '
+   +'Numbers are 0-10 for scores. Edit params are -100..100 (0 = untouched); tonal keys (exp,con,hi,sh,wh,bk,clar,dh,lexp,lcon,lsat,ltmp,lclar) allow negatives, lens keys (bl,vig,lblur) stay >=0, hue keys (stH,htH) are 0-360 and tints (stS,htS) 0-100. Keep the total edit tasteful and photographic — a pleasing grade, never crushed blacks or blown highlights. Add a "curve" only for real tonal work and "hue" only when the photo needs a colour move. If the user attached a reference photo and says make it like that, match its mood, contrast and colour. Always answer in the language the user wrote (Hinglish stays Hinglish).';
+  let att=[];
+  const el=id=>document.getElementById(id);
+  const logEl=()=>el('ailog');
+  const key=()=>{try{return localStorage.getItem(LSK)||''}catch(e){return ''}};
+  function keyUI(){const k=key(),e=el('aik');if(!e)return;e.textContent=k?'key ready 🔒':'key not set';e.classList.toggle('on',!!k)}
+  function bub(kind,tag,text){const w=document.createElement('div');w.className='aiw '+kind;w.innerHTML=(tag?'<b class="t">'+esc(tag)+'</b>':'')+esc(text||'');logEl().append(w);logEl().scrollTop=logEl().scrollHeight;return w}
+  function bars(w,items){items.forEach(it=>{const row=document.createElement('div');row.className='aibar';row.innerHTML='<span style="width:74px">'+esc(it.name||'')+'</span><i><s style="width:'+Math.max(0,Math.min(10,+it.v||0))*10+'%"></s></i><span>'+(it.v!=null?it.v:'')+'/10</span>';w.append(row)})}
+  /* ---- attachments: images straight in, videos by sampled frames ---- */
+  function toCv(img,w,h,max){const s=Math.min(1,max/Math.max(w,h)),c=mc(Math.max(2,Math.round(w*s)),Math.max(2,Math.round(h*s)));c.getContext('2d').drawImage(img,0,0,c.width,c.height);return c}
+  function imgCv(f){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(toCv(im,im.naturalWidth,im.naturalHeight,1100));im.onerror=rej;im.src=URL.createObjectURL(f)})}
+  function vidFrames(f,n){return new Promise((res,rej)=>{const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.onerror=()=>rej(new Error('video read failed'));v.onloadeddata=async()=>{try{const d=v.duration||1,cuts=[.08,.5,.85].slice(0,n),out=[];for(const t of cuts){v.currentTime=Math.max(.02,Math.min(d-.05,d*t));await new Promise(r=>{v.onseeked=r;setTimeout(r,900)});out.push({cv:toCv(v,v.videoWidth,v.videoHeight,1000)})}res(out)}catch(e){rej(e)}finally{v.src=''}};v.src=URL.createObjectURL(f)})}
+  async function addFiles(files){for(const f of files){if(att.length>=4){toast('Max 4 attachments — extra skip kar diye');break}try{if(/^image\//.test(f.type)){const cv=await imgCv(f);att.push({name:f.name,kind:'image',frames:[{cv}]})}else if(/^video\//.test(f.type)){const fr=await vidFrames(f,3);att.push({name:f.name,kind:'video',frames:fr});toast('Video · '+fr.length+' frames ready')}else{toast('Sirf photo/video chalega')}}catch(e){toast('Could not read '+f.name)}}thumbUI()}
+  function thumbUI(){const host=el('aithumbs');host.innerHTML='';att.forEach((a,ai)=>{a.frames.forEach((fr,fi)=>{const fig=document.createElement('figure');fig.title='Canvas par bhejo';const c=mc(66,50);c.getContext('2d').drawImage(fr.cv,0,0,66,50);fig.append(c);const b=document.createElement('b');b.textContent=(a.kind==='video'?'🎬 ':'')+a.name.slice(0,10)+(a.frames.length>1?' ·'+(fi+1):'');fig.append(b);const x=document.createElement('button');x.textContent='✕';x.title='Remove';x.onclick=ev=>{ev.stopPropagation();att.splice(ai,1);thumbUI()};fig.append(x);fig.onclick=()=>{setSrc(fr.cv,a.name+(a.frames.length>1?' · frame '+(fi+1):''));$('#tabs [data-t=t1]').click();toast('Canvas par load ho gaya')};host.append(fig)})});const s=el('aistat');if(s)s.textContent=att.length?(att.map(a=>a.name.split('.')[0]+' ×'+a.frames.length).join(', ')+' · AI ko '+Math.min(4,att.reduce((p,a)=>p+a.frames.length,0))+' image jayengi'):'Key sirf is browser me rehti hai. Photo/video seedha tumhare device se AI ko jata hai — Lucid ke paas koi server nahi.'}
+  /* ---- the call ---- */
+  async function callAI(prompt){
+    const imgs=[];for(const a of att)for(const fr of a.frames){if(imgs.length<4)imgs.push(fr.cv.toDataURL('image/jpeg',.85).split(',')[1])}
+    const parts=[{text:SYS+'\n\nUSER REQUEST: '+(prompt||'(no text — look at the attached media, decide the best edit and do it)')}].concat(imgs.map(b=>({inline_data:{mime_type:'image/jpeg',data:b}})));
+    const body={contents:[{role:'user',parts}],generationConfig:{temperature:.45,maxOutputTokens:1800,responseMimeType:'application/json'}};
+    const proxy=(typeof window!=='undefined'&&window.LUCID_AI_PROXY)||'';
+    let last='';
+    for(const m of MODELS){
+      const url=proxy||('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+encodeURIComponent(key()));
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(r.ok){const j=await r.json();const t=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(x=>x.text||'').join('');return parseJSON(t)}
+      last=await r.text().catch(()=>'');
+      if(r.status!==404)break;
+    }
+    let msg='AI ne error diya';try{const j=JSON.parse(last);msg=(j.error&&j.error.message)||msg}catch(e){msg=(last||msg).slice(0,220)}
+    throw new Error(msg);
+  }
+  function parseJSON(t){const s=String(t||'').trim();try{return JSON.parse(s)}catch(e){}const m=s.match(/\{[\s\S]*\}/);if(m){try{return JSON.parse(m[0])}catch(e){}}throw new Error('AI ka jawab JSON me nahi tha: '+s.slice(0,180))}
+  /* ---- applying an AI edit to the real engine ---- */
+  function applyEdit(d){
+    const ed=(d&&(d.edit||d.params||d.look))?d:(d&&d.edit)||d;
+    if(!ed||(!ed.params&&!ed.look)){toast('Is jawab me koi edit nahi tha');return}
+    const keep={ar:P.ar||0,rot:P.rot||0,r90:P.r90||0,fx:P.fx||0,fy:P.fy||0};
+    const local={lexp:P.lexp,lcon:P.lcon,lsat:P.lsat,ltmp:P.ltmp,lblur:P.lblur,lclar:P.lclar};
+    P=Object.assign(ed.look&&LK[ed.look]?withLook(ed.look):clone(Z),keep,local);
+    if(ed.look&&!LK[ed.look])ed.look='';
+    const cl=(v,a,b)=>Math.max(a,Math.min(b,Math.round(+v||0)));
+    if(ed.params)for(const k in ed.params){const rg=PARAM_RANGE[k]||[-100,100];if(KEYS.includes(k)||k in rg)P[k]=cl(ed.params[k],rg[0],rg[1])}
+    ['stH','stS','htH','htS'].forEach(k=>{if(ed.params&&ed.params[k]!=null){const rg=PARAM_RANGE[k];P[k]=cl(ed.params[k],rg[0],rg[1])}});
+    if(ed.params&&ed.params.sat!=null&&!ed.params.hsl){/* plain saturation already in KEYS */}
+    if(Array.isArray(ed.hsl)&&ed.hsl.length>=24)P.hsl=ed.hsl.slice(0,24).map(v=>cl(v,-100,100));
+    if(Array.isArray(ed.curve)&&ed.curve.length>1){const pts=ed.curve.filter(p=>Array.isArray(p)&&p.length===2).map(p=>[cl01(+p[0]),cl01(+p[1])]).sort((a,b)=>a[0]-b[0]);if(pts.length>1&&pts[0][0]<=.001&&pts[pts.length-1][0]>=.999)P.cur.m=pts}
+    P.amt=100;P.look=(ed.look&&LK[ed.look])?ed.look:'';
+    sync();draw();commit('AI · '+(ed.title||'edit'));mark();
+    toast('AI edit applied · '+(ed.title||''));click(.06,.4,1600);
+  }
+  function applyBtn(host,ed,label){const b=document.createElement('button');b.className='b pr';b.textContent=label||'Apply to canvas ✨';b.onclick=()=>{applyEdit(ed)};host.append(b);return b}
+  /* ---- rendering an answer ---- */
+  function render(d){
+    const ed=(d&&d.params)?d:(d&&d.edit)||null;
+    if(d&&d.kind==='ask'){const w=bub('a','AI','❓ '+String(d.said||'Ek chhoti si baat clear kar do'));const t=document.createElement('div');t.className='aitags';(d.options||[]).forEach(o=>{const b=document.createElement('button');b.textContent=o;b.onclick=()=>{el('aip').value=o;send()};t.append(b)});w.append(t);return}
+    if(d&&d.kind==='rate'){const w=bub('a','AI · rating',String(d.said||''));(d.items||[]).forEach(it=>{const p=document.createElement('div');p.innerHTML='<b class="t">'+esc(it.name||'')+'</b>';bars(p,[['Composition',it.composition],['Light',it.light],['Colour',it.colour],['Overall',it.overall]].map(([n,v])=>({name:n,v})));if(it.note){const n=document.createElement('div');n.className='aithink';n.textContent=it.note;p.append(n)}w.append(p)});if(d.suggest)applyBtn(w,d.suggest,'Apply suggested fix ✨');return}
+    if(ed||d.kind==='edit'){const w=bub('a','AI · '+(d.title||ed&&ed.title||'edit'),String(d.said||ed&&ed.said||'Ready hai — apply karo.'));if(typeof (d.confidence||ed&&ed.confidence)==='number'){const c=document.createElement('div');c.className='aithink';c.textContent='confidence '+Math.round((d.confidence||ed.confidence)*100)+'%';w.append(c)}applyBtn(w,d);return}
+    bub('a','AI',JSON.stringify(d).slice(0,600));
+  }
+  async function send(){
+    const box=el('aip'),p=(box.value||'').trim();
+    if(!p&&!att.length){toast('Kuch likho ya photo/video attach karo');return}
+    if(!key()&&!window.LUCID_AI_PROXY){askKey();return}
+    const names=att.map(a=>a.name).join(', ');
+    bub('u','You',p+(names?'\n📎 '+names:''));
+    box.value='';
+    const think=bub('a','AI','soch raha hoon…');think.classList.add('aithink');
+    try{const d=await callAI(p);think.remove();render(d)}
+    catch(e){think.remove();bub('err','AI unavailable',String(e.message||e)+'\n\n(Tip: 🔑 Set key me apni Gemini API key daalo — aistudio.google.com/apikey se free milti hai.)')}
+  }
+  function askKey(){
+    const k=prompt('Paste your Gemini API key — sirf is browser me save hogi:\n(free key: aistudio.google.com/apikey)',key()||'');
+    if(k===null)return;const t=k.trim();
+    try{t?localStorage.setItem(LSK,t):localStorage.removeItem(LSK)}catch(e){toast('Browser ne save nahi kiya')}
+    keyUI();toast(t?'AI key saved 🔒':'Key hata di');
+  }
+  const CHIPS=[
+    ['✨ Cinematic look',()=>run('isko cinematic moody look do — teal shadows, warm highlights, thoda bloom')],
+    ['🌅 Golden hour',()=>run('golden hour warmth do, soft highlights, skin-friendly colours')],
+    ['🧼 Clean & bright',()=>run('clean bright commercial look do — whites up, clarity, halka vignette')],
+    ['🎞 Film',()=>run('film look do — halka fade, grain, muted greens')],
+    ['⭐ Rate my photo',()=>run('rate this photo out of 10 — composition, light, colour — aur batao top 3 fixes')],
+    ['⚖️ Compare & pick',()=>run('compare these photos, rate each one, aur batao kaunsi best hai aur kyun')],
+    ['🤔 Kya editing chahiye?',()=>run('look at this photo and suggest the 3 edits that would help most, then apply the best one')],
+    ['🪞 Is jaisa banao',()=>run('make photo 1 look like photo 2 — same mood, contrast and colours')],
+    ['🎬 Video best frame',()=>run('in video frames me se best frame batao aur uska edit do')]
+  ];
+  function chips(){const h=el('aichips');h.innerHTML='';CHIPS.forEach(([n,f])=>{const b=document.createElement('button');b.textContent=n;b.onclick=f;h.append(b)})}
+  function chip(which){const map={rate:4,compare:5,edit:0};const i=map[which];if(i!=null&&CHIPS[i])CHIPS[i][1]();else el('aip').focus()}
+  async function run(text){el('aip').value=text;if(el('t6').classList.contains('on'))send();else{$('#tabs [data-t=t6]').click();setTimeout(send,60)}}
+  /* ---- guide ---- */
+  const STEPS=[
+    ['1','Looks','9 ready looks — ek click me poora mood. Left panel me “Looks”, hover se preview.','looks'],
+    ['2','Edit sliders','Light aur Colour tabs me exposure, contrast, temperature, vibrance — sab live GPU par.','t1'],
+    ['3','Curves','RGB curve drag karo — click se point, double-click se remove.','t1'],
+    ['4','Layers + Type','Logo, text, overlays; blend mode aur opacity ke saath. Type tool: “T” dabao, photo par click karo.','t2'],
+    ['5','Local masks','Brush se paint karo — light sirf wahan badlegi jahan paint kiya.','t1'],
+    ['6','AI Studio','Photo/video attach karo ya type karo — AI khud edit laga dega. Ratings aur compare bhi yahin.','t6'],
+    ['7','Batch + Export','Poori folder par look lagao, watermark + resize, ek ZIP. PNG/JPEG/WebP.','t3']
+  ];
+  function guide(open){const g=el('gd');if(open){const h=el('gdl');if(!h.childElementCount)STEPS.forEach(([n,t,d,go])=>{const r=document.createElement('div');r.className='gdi';r.innerHTML='<b class="n">'+n+'</b><div><h4>'+esc(t)+'</h4><p>'+esc(d)+'</p></div>';const b=document.createElement('button');b.textContent='Show me';b.onclick=()=>{g.classList.remove('on');if(go==='looks'){toast('Left panel · Looks');document.querySelectorAll('.lk')[0]&&document.querySelectorAll('.lk')[0].focus()}else $('#tabs [data-t='+go+']').click()};r.append(b);h.append(r)});g.classList.add('on')}else{try{if(el('gdn').checked)localStorage.setItem(LSG,'1')}catch(e){}g.classList.remove('on')}}
+  function guideOnce(){try{if(localStorage.getItem(LSG)==='1')return}catch(e){}setTimeout(()=>{if(B.classList.contains('in')&&!el('gd').classList.contains('on'))guide(true)},900)}
+  /* ---- wiring ---- */
+  function init(){
+    keyUI();chips();
+    el('aigo').onclick=send;
+    el('aiset').onclick=askKey;
+    el('aig').onclick=()=>guide(true);
+    el('gh').onclick=()=>guide(true);
+    el('gda').onclick=()=>{try{if(el('gdn').checked)localStorage.setItem(LSG,'1')}catch(e){}guide(false);$('#tabs [data-t=t6]').click();el('aip').focus()};
+    el('gdx').onclick=()=>guide(false);
+    el('aif').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
+    el('aip').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
+    el('aip').addEventListener('paste',e=>{const fs=[...(e.clipboardData&&e.clipboardData.files)||[]];if(fs.length){e.preventDefault();addFiles(fs)}});
+    el('aik').onclick=askKey;
+    el('t6').addEventListener('dragover',e=>e.preventDefault());
+    el('t6').addEventListener('drop',e=>{e.preventDefault();const fs=[...(e.dataTransfer&&e.dataTransfer.files)||[]];if(fs.length)addFiles(fs)});
+  }
+  return{init,guide,guideOnce,send,applyEdit,chip,run,
+    _state:()=>({att:att.length,frames:att.reduce((p,a)=>p+a.frames.length,0),key:!!key()})};
+})();
+AI.init();
+try{window.LucidAI=AI}catch(e){}   /* tooling/extension hook — same brain the AI tab uses */
 const T0=Date.now();setInterval(()=>{const u=(Date.now()-T0)/1000|0;$('#tu').textContent=(u/60|0)+':'+String(u%60).padStart(2,'0')},1000);
 if(matchMedia('(prefers-reduced-motion:reduce)').matches)skip();else play();
 </script></body></html>
