@@ -1,15 +1,20 @@
-/* AURA service worker — v3: OFFLINE APP SHELL + keep-warm.
+/* AURA service worker — v4: OFFLINE APP SHELL + keep-warm.
+   v4 FIX (27 Oct 2026, owner order: "join changes live bhi jaane chahiye"):
+      v3 served NAVIGATIONS cache-first, so every returning visitor kept getting the
+      PREVIOUS build no matter how many times we deployed — invisible upgrades. The
+      shell is now NETWORK-FIRST with the cache as the offline fallback: online you
+      always get the build we just shipped, and with no network AURA still boots from
+      cache exactly as before.
    1. OFFLINE SHELL (owner order, 17 Oct 2026: "work krtee rahee offline bhi"):
-      precaches aura.html + the offline overlay, serves cache-first for navigations
-      and same-origin GETs, and warms noscript for refreshes — so AURA BOOTS FROM
-      CACHE with zero network (flight mode, tunnel, backend down: everything).
+      precaches aura.html + the offline overlay, and warms noscript for refreshes —
+      so AURA BOOTS FROM CACHE with zero network (flight mode, tunnel, backend down).
    2. RUNTIME CACHE: successful same-origin GET responses are stored as they
       happen, so fonts/assets keep working on flaky connections.
    3. CROSS-ORIGIN (backend, fonts, CDNs): network-first with cache fallback —
       fresh when online, last-known-good when the uplink is dark.
    4. KEEP-WARM (unchanged): pings /v1/ping every 4 min so the backend never sleeps. */
 
-const CACHE = 'aura-shell-v3';
+const CACHE = 'aura-shell-v4';
 const BRAIN = 'https://aura-backend-jomj.onrender.com';
 const SHELL_ASSETS = ['./', './aura.html'];
 
@@ -37,23 +42,23 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;               // POSTs go to the network as-is
   const url = new URL(req.url);
 
-  /* NAVIGATION — cache-first: offline boots instantly, and we refresh the copy in
-     the background so the next online visit is current (stale-while-revalidate). */
+  /* NAVIGATION — NETWORK-FIRST (v4): the live build wins whenever we are online, and
+     the cached shell takes over the moment the network is gone, so offline booting is
+     untouched while a fresh deploy shows up on the very next load. */
   if (isShell(req)) {
     e.respondWith((async () => {
       const c = await caches.open(CACHE);
-      const hit = await c.match('aura.html', { ignoreSearch: true }) || await c.match('./', { ignoreSearch: true });
-      if (hit && !url.origin.startsWith('chrome-extension')) {
-        fetch('./aura.html', { cache: 'reload' }).then(r => { if (r && r.ok) return c.put(new Request('./aura.html'), r.clone()); }).catch(() => {});
-        return hit;
-      }
+      const offline = async () => {
+        const hit = await c.match('aura.html', { ignoreSearch: true }) || await c.match('./', { ignoreSearch: true });
+        return hit || new Response('<h1 style="font-family:monospace">AURA offline — shell not cached yet. Reconnect once and reload.</h1>', { status: 503, headers: { 'Content-Type': 'text/html' } });
+      };
+      if (url.origin.startsWith('chrome-extension')) return offline();
       try {
         const r = await fetch(req);
-        if (r && r.ok) { const put = r.clone(); caches.open(CACHE).then(c2 => c2.put(new Request('./aura.html'), put)); }
-        return r;
+        if (r && r.ok) { c.put(new Request('./aura.html'), r.clone()).catch(() => {}); return r; }
+        return await offline();
       } catch (err) {
-        const last = await c.match('aura.html', { ignoreSearch: true });
-        return last || new Response('<h1 style="font-family:monospace">AURA offline — shell not cached yet. Reconnect once and reload.</h1>', { status: 503, headers: { 'Content-Type': 'text/html' } });
+        return await offline();
       }
     })());
     return;
