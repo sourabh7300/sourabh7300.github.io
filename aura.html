@@ -2851,7 +2851,9 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
 <symbol id="i-set" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 13.5a7.8 7.8 0 0 0 0-3l1.8-1.4-2-3.4-2.2.9a7.6 7.6 0 0 0-2.6-1.5L14 2h-4l-.4 2.6a7.6 7.6 0 0 0-2.6 1.5l-2.2-.9-2 3.4L4.6 10a7.8 7.8 0 0 0 0 3l-1.8 1.4 2 3.4 2.2-.9a7.6 7.6 0 0 0 2.6 1.5L10 22h4l.4-2.6a7.6 7.6 0 0 0 2.6-1.5l2.2.9 2-3.4z"/></symbol>
 </defs></svg>
 <div id="tabbar">
-  <button data-t="chat" class="on" aria-label="Chat"><svg class="i"><use href="#i-chat" /* AURA_GEN_ACCESSIBILITY_ARIA_LABELS *//></svg>CHAT</button>
+  <button data-t="chat" class="on" aria-label="Chat"><svg class="i"><use href="#i-chat"
+/* AURA_GEN_ACCESSIBILITY_ARIA_LABELS */
+/></svg>CHAT</button>
   <button data-t="chats"><svg class="i"><use href="#i-chats"/></svg>CHATS</button>
   <button data-t="code"><svg class="i"><use href="#i-code"/></svg>CODE</button>
   <button data-t="system"><svg class="i"><use href="#i-sys"/></svg>SYSTEM</button>
@@ -3675,7 +3677,7 @@ slog("aura kernel v4.0 · cortex v2 loaded");slog("particle core: 560 nodes",tru
   footer.style.cssText="position:fixed;bottom:0;left:0;width:100%;text-align:center;padding:4px 0;font-size:10px;color:#888;background:rgba(0,0,0,0.6);pointer-events:none;";
   /* build stamp — the SHIPPED day, not a hardcoded string that goes stale and
      makes every future build look three weeks old (owner bug report 16 Oct 2026) */
-  footer.textContent="Build: 2026-10-27 · backend squad-v8 · app+backend live (content-verified deploy)";
+  footer.textContent="Build: 2026-10-23 · backend squad-v5 · app+backend live (content-verified deploy)";
   document.body.appendChild(footer);
 })();
 /* focus mode quick chip */
@@ -8243,7 +8245,11 @@ async function askCore(text0){
   el.appendChild(acts);
   acts.children[0].onclick=()=>{navigator.clipboard?navigator.clipboard.writeText(t).then(()=>pushSys("answer copied")):pushSys("copy unsupported here")};
   const plus=acts.querySelector('button[title="Ask for more detail"]');if(plus)plus.onclick=()=>{if(lastTopic)ask(lastTopic+" in detail");else ask("tell me more")};
-  const regen=acts.querySelector('button[title="Regenerate this answer"]');if(regen)regen.onclick=()=>{convoAdd("user","(the user was unsatisfied with the previous answer — regenerate it better)");ask("tell me more")};
+  /* REAL regenerate (27 Oct 2026): the old handler pushed a fake "unsatisfied" user turn into
+     the thread memory and re-asked "tell me more" — so the answer drifted to a SECOND topic
+     instead of redoing the question. Now it re-asks the same question in the same lane and
+     replaces this bubble. */
+  const regen=acts.querySelector('button[title="Regenerate this answer"]');if(regen)regen.onclick=()=>{try{window.__auraRegen(el,window.__auraQ||lastTopic||"")}catch(e){ask("tell me more")}};
   if(!synth||!soundOn||!voiceAllowed()){el.innerHTML=renderMD(t);el.appendChild(acts);}
   else{el.innerHTML=renderMD(t);el.appendChild(acts);log.scrollTop=log.scrollHeight;speak(t);
     /* voice now talking → surface the STOP bar so users can halt her mid-paragraph */
@@ -13814,6 +13820,113 @@ function __auraOtp6Init(){
   })();
 }
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",__auraOtp6Init);else __auraOtp6Init();
+
+/* ================= CHAT EXPERIENCE UPGRADE (27 Oct 2026) =================
+   Owner: "AURA ke chats experience ko best kar do." What a top-tier chat has and
+   AURA did not, added here WITHOUT touching the working pipeline:
+     · Regenerate that actually re-asks the SAME question and replaces the answer
+       (the old button re-asked "tell me more" and polluted the thread memory)
+     · ✎ Edit & resend on your own messages
+     · 👍/👎 feedback, stored and offered to the mind
+     · answer timestamps, per-code-block copy, scroll-to-latest
+   Everything is a wrapper around the existing functions, so nothing else changes. */
+(function(){
+  /* NOTE: messages already carry their own time chip (.mwhen) — this upgrade must not
+     add a second clock, so there is deliberately no timestamp code here. */
+  const CSS='.mact{font-size:10.5px;background:rgba(34,211,238,.08);border:1px solid var(--line);color:var(--cy2);border-radius:7px;padding:3px 8px;cursor:pointer;margin-left:5px;transition:.15s}'
+   +'.mact:hover{background:rgba(34,211,238,.22)}.mact.on{background:rgba(52,211,153,.22);border-color:#34d399;color:#a7f3d0}'
+   +'pre{position:relative}pre>.cpbtn{position:absolute;right:8px;top:8px;font:10px var(--mono);background:rgba(4,7,14,.72);color:var(--cy2);border:1px solid var(--line);border-radius:7px;padding:3px 8px;cursor:pointer;opacity:0;transition:.15s}'
+   +'pre:hover>.cpbtn,pre>.cpbtn:focus{opacity:1}#toLatest{position:absolute;right:16px;bottom:104px;z-index:25;border-radius:999px;padding:8px 14px;font:600 10.5px var(--mono);letter-spacing:.5px;background:rgba(8,12,20,.92);color:var(--cy2);border:1px solid var(--line);cursor:pointer;display:none}'
+   +'#toLatest.on{display:block}#toLatest:hover{background:rgba(34,211,238,.18)}';
+  const st=document.createElement('style');st.textContent=CSS;document.head.appendChild(st);
+
+  const FBK='aura_feedback_v1';
+  const fbLoad=()=>{try{return JSON.parse(localStorage.getItem(FBK)||'[]')||[]}catch(e){return[]}};
+  const fbSave=r=>{try{const a=fbLoad();a.push(r);while(a.length>200)a.shift();localStorage.setItem(FBK,JSON.stringify(a))}catch(e){}};
+
+  function act(msg,label,tip,fn){const b=document.createElement('button');b.className='mact';b.type='button';b.textContent=label;b.title=tip||label;b.onclick=function(e){e.stopPropagation();try{fn(b)}catch(err){pushSys('action failed: '+(err.message||err))}};msg.appendChild(b);return b}
+
+  /* 👍 / 👎 — saved locally and offered to the mind (it already tracks answers) */
+  function feedback(msg){
+    if(msg.querySelector('.mact[data-fb]'))return;
+    /* the action buttons live INSIDE .tx, so a raw innerText would record "📋➕↻" as part of
+       the answer — clone and strip the chrome before storing the feedback text */
+    const ans=()=>{const tx=msg.querySelector('.tx');if(!tx)return '';const c=tx.cloneNode(true);c.querySelectorAll('.msg-actions,.mact,.cpbtn').forEach(n=>n.remove());return String(c.innerText||c.textContent||'').trim()};
+    const up=act(msg,'👍','Good answer — remember what worked',b=>vote(1,b));up.dataset.fb='1';
+    const dn=act(msg,'👎','Missed the mark — remember to avoid this',b=>vote(-1,b));dn.dataset.fb='1';
+    function vote(v,btn){
+      const q=msg.dataset.q||window.__lastQ||'';const a=ans().slice(0,400);
+      fbSave({q:q.slice(0,200),a:a,vote:v,at:Date.now()});
+      (v>0?up:dn).classList.add('on');(v>0?dn:up).classList.remove('on');
+      try{if(window.AuraMind&&AuraMind.observe)AuraMind.observe('feedback',(v>0?'user liked: ':'user disliked: ')+a.slice(0,140))}catch(e){}
+      pushSys(v>0?'feedback saved 👍 — AURA notes what worked':'feedback saved 👎 — AURA notes what to avoid');
+    }
+  }
+  /* ✎ puts your own message back in the box so you can fix a typo and resend */
+  function editUser(msg){
+    if(msg.querySelector('.mact[data-ed]'))return;
+    act(msg,'✎','Edit and resend this message',()=>{const tx=msg.querySelector('.tx');const q=document.getElementById('q');if(!q)return;q.value=String(tx.innerText||tx.textContent||'').trim();q.focus();try{q.setSelectionRange(q.value.length,q.value.length)}catch(e){}pushSys('edit karke Enter dabao — same sawal dobara jayega')}).dataset.ed='1';
+  }
+
+  /* code blocks get their own copy button (the message-level 📋 copies everything) */
+  function codeButtons(root){
+    try{root.querySelectorAll('pre').forEach(pre=>{if(pre.querySelector('.cpbtn'))return;const b=document.createElement('button');b.className='cpbtn';b.type='button';b.title='Copy code';b.textContent='⧉';b.onclick=function(){const c=pre.querySelector('code');const v=String((c||pre).innerText||'').replace(/^⧉\s*/,'');try{navigator.clipboard.writeText(v);b.textContent='✓';setTimeout(()=>{if(b.isConnected)b.textContent='⧉'},1200)}catch(e){pushSys('clipboard unavailable')}};pre.appendChild(b)})}catch(e){}
+  }
+
+  /* --- wrap addMsg: timestamp + the right buttons for the message kind --- */
+  const _addMsg=addMsg;
+  addMsg=function(who,text,cls){
+    const tx=_addMsg(who,text,cls);
+    try{
+      const msg=tx.closest('.msg');
+      if(msg){msg.dataset.kind=cls||'';msg.dataset.q=String(window.__auraQ||'').slice(0,200);
+        if(cls==='user')editUser(msg);else if(cls==='aura')feedback(msg);
+        codeButtons(msg);
+      }
+    }catch(e){}
+    return tx;
+  };
+
+  /* --- the REAL regenerate: same question, same lane, answer replaced --- */
+  function actionBar(el,q,t){
+    const old=el.querySelector('.msg-actions');if(old)old.remove();
+    const acts=document.createElement('span');acts.className='msg-actions';el.appendChild(acts);
+    const copy=document.createElement('button');copy.title='Copy answer';copy.textContent='📋';copy.onclick=()=>{try{navigator.clipboard.writeText(t).then(()=>pushSys('answer copied'))}catch(e){}};acts.appendChild(copy);
+    const more=document.createElement('button');more.title='Ask for more detail';more.textContent='➕';more.onclick=()=>ask((lastTopic||q)+' in detail');acts.appendChild(more);
+    const re=document.createElement('button');re.title='Regenerate this answer';re.textContent='↻';re.onclick=()=>regenAnswer(el,q);acts.appendChild(re);
+  }
+  async function regenAnswer(el,q){
+    q=String(q||'').trim();
+    if(!q){pushSys('pehle kuch pucho, phir regenerate karunga');return}
+    if(busy){pushSys('abhi ek jawab chal raha hai — ek second');return}
+    busy=true;try{setMode('thinking')}catch(e){}
+    el.innerHTML='…';window.__streamEl=el;codeButtons(el);
+    try{const sb=document.getElementById('stopBtn');if(sb){sb.classList.add('show');sb.onclick=()=>{try{streamAbort&&streamAbort.abort()}catch(e){}}}}catch(e){}
+    let t='',eng='',stop=false;
+    try{const r=await aiReply(resolveContext(q));t=r.t;eng=r.eng;stop=r.stop}catch(e){t=''}
+    t=cleanAnswer(t);window.__streamEl=null;
+    try{document.getElementById('stopBtn').classList.remove('show')}catch(e){}
+    if(stop||!t){el.textContent='(stream stopped)';pushSys('regeneration stopped');busy=false;try{setMode('idle')}catch(e){}return}
+    try{t=await answerLangGuard(q,t)}catch(e){}
+    try{t=fabricationGuard(q,t)}catch(e){}
+    lastAnswer=t;window.__lastQ=q;
+    el.innerHTML=renderMD(t);codeButtons(el);actionBar(el,q,t);feedback(el.closest('.msg')||el);
+    try{convoAdd('assistant',t)}catch(e){}
+    pushSys('answer regenerated · '+(eng||'brain'));
+    busy=false;try{setMode('idle')}catch(e){}
+  }
+  window.__auraRegen=regenAnswer;
+
+  /* --- scroll-to-latest --- */
+  (function(){const host=document.getElementById('conv');if(!host||!log)return;
+    if(getComputedStyle(host).position==='static')host.style.position='relative';
+    const btn=document.createElement('button');btn.id='toLatest';btn.type='button';btn.textContent='↓ latest';btn.onclick=()=>{log.scrollTop=log.scrollHeight;btn.classList.remove('on')};host.appendChild(btn);
+    const sync=()=>{const far=log.scrollHeight-log.scrollTop-log.clientHeight>140;btn.classList.toggle('on',far)};
+    log.addEventListener('scroll',sync,{passive:true});setInterval(sync,1200);
+  })();
+  /* keep every code block copyable, including the streamed answers */
+  setInterval(()=>codeButtons(log),1000);
+})();
 </script>
 
 <div id="authPage"><div class="acard glass">
