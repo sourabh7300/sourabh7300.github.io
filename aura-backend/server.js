@@ -10,6 +10,10 @@ require("dotenv").config();
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+/* Liquipedia facts lane (liquipedia.js) — the only source that carries real esports
+   rosters, schedules and results, so a team question never gets an invented list. */
+let LIQUI = null;
+try { LIQUI = require("./liquipedia"); } catch (e) { LIQUI = null; }
 const app = express();
 /* Behind Render's load balancer every socket looks like the same internal IP.
    Trusting the ONE proxy hop gives us the REAL visitor IP (rightmost entry —
@@ -33,7 +37,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v7";
+const BUILD = process.env.AURA_BUILD || "squad-v8";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -1556,6 +1560,63 @@ function fakeRoster(text) {
   const m = String(text || "").match(/\bTeam\s+[A-H]\b/g);
   return !!(m && m.length >= 3);
 }
+/* Pull the verified facts out of the system blocks that were injected above. */
+function evidenceFacts(messages) {
+  const sys = (messages || []).filter(m => m && m.role === "system").map(m => String(m.content || "")).join("\n");
+  const teams = (sys.match(/TEAMS\s*\((\d+)\):\s*([^\n]+)/) || []);
+  const when = sys.match(/DATES:\s*(\d{4}-\d{2}-\d{2})\s*→\s*(\d{4}-\d{2}-\d{2})/);
+  const where = (sys.match(/LOCATION:\s*([^\n]+)/) || [])[1] || "";
+  const venue = (sys.match(/VENUE:\s*([^\n]+)/) || [])[1] || "";
+  const prize = (sys.match(/PRIZE POOL:\s*([^\n]+)/) || [])[1] || "";
+  const page = (sys.match(/Liquipedia page:\s*([^\n]+)/) || [])[1] || "";
+  const format = (sys.match(/FORMAT:\s*([^\n]+)/) || [])[1] || "";
+  return {
+    count: teams[1] ? Number(teams[1]) : 0,
+    list: teams[2] ? teams[2].split(",").map(s => s.trim()).filter(Boolean) : [],
+    start: when ? when[1] : "",
+    end: when ? when[2] : "",
+    where, venue, prize, page, format,
+  };
+}
+/* “₹10,000,000 INR (≃ $105,056 USD )” → “₹10,000,000” — the raw infobox render
+   reads like machine output in a chat answer. */
+function tidyPrize(p) {
+  return String(p || "").replace(/\s*\((?:≃|~|≈)[^)]*\)/g, " ").replace(/\s+INR\b/i, "").replace(/\s{2,}/g, " ").trim();
+}
+function tidyFormat(f) {
+  let s = String(f || "").replace(/\s+/g, " ").trim();
+  /* the page sentence tails into table-of-contents numbering (“… PMJL P2 18 .”) — a
+     chat answer must never look like a scrape of someone else's page */
+  s = s.replace(/\s+\d{1,3}\s*\.?\s*$/, "").replace(/\s*[·.,;:—-]\s*$/, "").trim();
+  return s;
+}
+/* long page sentences are useful but must not run past a line: cut on a word edge */
+function clipWords(s, n) {
+  const t = String(s || "").trim();
+  return t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, "") + "…";
+}
+function prettyDate(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || "")) return iso || "";
+  const d = new Date(iso + "T00:00:00Z");
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+/* A placeholder roster never reaches the user. If verified teams are on hand, answer
+   from them deterministically; otherwise say plainly that the list is not verified. */
+async function rosterGuard(t, messages) {
+  const txt = String(t || "");
+  if (!fakeRoster(txt)) return txt;
+  const f = evidenceFacts(messages);
+  const when = f.start ? (prettyDate(f.start) + (f.end && f.end !== f.start ? " – " + prettyDate(f.end) : "")) : "";
+  if (f.list.length >= 3) {
+    const head = (f.page || "the official page") + (when ? " · " + when : "") + (f.where ? " · " + f.where : "");
+    return "Verified team list (" + head + "):\n\n" +
+      f.list.map((n, i) => (i + 1) + ". " + n).join("\n") +
+      "\n\nTeams: " + f.list.length + (f.prize ? " · Prize pool " + tidyPrize(f.prize) : "") +
+      "\nYe live hi hain — koi placeholder nahi. Detail chahiye to bolo, main format, points system ya schedule bhi nikaal dunga.";
+  }
+  return "I don't have a verified team list for that event yet — and I won't invent rosters.\n\n" +
+    "Event ka exact naam bolo (BMIC 2026 / BMSD 2026 / BGIS 2026) — main live data se official team list nikaal ke doonga.";
+}
 /* “teams name in it” carries no topic — inherit the previous real question so the
    search lane looks for BMIC 2026, not for the words “teams name in it”. */
 function followUpQuery(messages, q) {
@@ -1564,26 +1625,106 @@ function followUpQuery(messages, q) {
   const short = q.split(/\s+/).length <= 5 || /^(teams?|team names?|names?|list|lineup|roster|schedule|dates?|usme|uska|uski|unka|in it|more|aur|kab|kaun|kon)\b/i.test(q);
   return short && prev ? (prev + " " + q).slice(0, 300) : q;
 }
+/* A reader-proxy bot wall ("Verify you are human") is not evidence — several sites hand
+   one back instead of the article, and pasting that into the prompt used to wipe out the
+   real facts. Keeping the source's own extract is what preserves the verified list. */
+function cleanRead(t) {
+  const s = String(t || "");
+  if (s.length < 80) return "";
+  if (/verify you are human|are you a robot|just a moment|enable javascript|captcha|unusual traffic|access denied|temporarily blocked|excessive or invalid requests|not permitted to access|rate limit|too many requests/i.test(s.slice(0, 400))) return "";
+  return s;
+}
+/* ROSTER QUESTIONS ARE ANSWERED FROM THE EVIDENCE — never improvised. Owner report 27 Oct
+   2026: asked “bmic ki teams”, got another tournament's invented “Team A … Team H”. With a
+   verified list in hand that becomes impossible: the list IS the answer, so no model ever
+   gets the chance to swap events. Non-roster asks (dates, venue, format, one team's own
+   lineup) still go to the model with the same evidence + rosterGuard behind it. */
+function isRosterAsk(q) {
+  const s = String(q || "");
+  /* a list-ish noun is mandatory: a bare “kaun” is a winner/captain question, not a
+     roster question, and must not pull the full team table into the answer */
+  if (/\b(teams?|team\s*names?|names?|list|lineup|line-?up|roster|participants|squad)\b/i.test(s)) return true;
+  return /\bkaun\s*-?\s*kaun\b|\bkon\s*-?\s*kon\b|\bkaunse\b|\bkon\s*se\b|\bkitni\s+teams?\b/i.test(s);
+}
+function esportsFastAnswer(messages, mergedQ, rawQ) {
+  if (!LIQUI || !LIQUI.isEsportsQuery(mergedQ || "")) return "";
+  const f = evidenceFacts(messages);
+  if (!f.list || f.list.length < 3) return "";
+  const cur = currentAsk(rawQ) || String(rawQ || "");
+  if (!(isRosterAsk(cur) || isRosterAsk(mergedQ))) return "";
+  /* a question about ONE team ("Team SouL ka roster kya hai?") is not a list question */
+  const low = cur.toLowerCase();
+  if (f.list.some(n => n.length > 3 && low.includes(n.toLowerCase()))) return "";
+  const when = f.start ? (prettyDate(f.start) + (f.end && f.end !== f.start ? " – " + prettyDate(f.end) : "")) : "";
+  const head = (f.page ? f.page.replace(/\//g, " ") : "That event") + (when ? " · " + when : "") + (f.where ? " · " + f.where : "") + (f.venue ? " (" + f.venue + ")" : "");
+  return "Verified team list — " + head + " (" + f.list.length + " teams):\n\n" +
+    f.list.map((n, i) => (i + 1) + ". " + n).join("\n") +
+    (f.prize ? "\n\nPrize pool " + tidyPrize(f.prize) : "") +
+    (f.format ? "\nFormat: " + clipWords(tidyFormat(f.format), 220) + "." : "") +
+    "\n\nYe live official data se hai — koi placeholder nahi. Kis din kaun khel raha hai ya points system chahiye to bolo.";
+}
+/* The browser sends the whole thread as ONE user message: the current question first,
+   then an “ONGOING CONVERSATION …” transcript (and sometimes its own LIVE WEB block).
+   Only that head is what the user actually just asked — matching roster/history words
+   against the whole blob is how “venue kya hai” once pulled a team list. */
+function currentAsk(raw) {
+  return String(raw || "")
+    .split(/\n\s*ONGOING CONVERSATION\b/i)[0]
+    .split(/\n?LIVE WEB RESULTS \x28/i)[0]
+    .trim();
+}
+/* “teams name in it” has no topic of its own — the thread does. Pull the event acronym
+   (BMIC / BMSD / BGIS …) out of the transcript so the search keeps its subject. */
+function topicHint(raw) {
+  const m = String(raw || "").match(/\b(bmic|bmsd|bgis|bgms|bmps|pmgc|pmgo|pmps|pmjl|kel)\b/i);
+  return m ? m[1].toLowerCase() : "";
+}
+/* one place that decides what to search for: the honest current question, plus its
+   topic when the question itself doesn't name it. */
+function searchQuery(messages) {
+  const raw = lastUserMsg(messages);
+  let q = followUpQuery(messages, raw);
+  const cur = currentAsk(raw);
+  if (cur && cur !== raw) q = cur;
+  const hint = topicHint(raw);
+  if (hint && !new RegExp("\\b" + hint + "\\b", "i").test(q)) q = hint + " " + q;
+  return q.replace(/\s+/g, " ").trim().slice(0, 300);
+}
 async function groundChat(messages) {
   try {
     const q0 = lastUserMsg(messages);
-    if (!q0 || isSmallTalk(q0)) return messages;
-    const already = (messages || []).some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
-    if (already) return messages;
-    const q = followUpQuery(messages, q0);
+    const ask = currentAsk(q0) || q0;
+    if (!ask || isSmallTalk(ask)) return messages;
+    /* The browser usually arrives already armed with its own date line + LIVE WEB block.
+       That is evidence ONLY when it actually carries the facts this ask needs. Owner
+       report 27 Oct 2026 (round 2): “teams name in it” was searched WORD-FOR-WORD by the
+       client — no topic attached — the search came back empty, and the brain then swapped
+       BMIC for BMSD and invented “Team A … Team H”. So an ESPORTS ask with no verified
+       facts in hand is searched again right here, with the topic-aware query. Other
+       questions keep the client's own block (no double search, no added latency). */
+    const armed = (messages || []).some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
+    const f0 = evidenceFacts(messages);
+    const esp = !!(LIQUI && (LIQUI.isEsportsQuery(ask) || LIQUI.isEsportsQuery(q0)));
+    if (armed && (!esp || f0.list.length >= 3 || !!f0.start)) return messages;
+    const q = searchQuery(messages);
     const now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     let web = "";
     try {
       const hits = await toolSearch(q.replace(/\s+/g, " "));
       if (hits && hits.length) {
         const top = hits.slice(0, 2);
-        const reads = await Promise.all(top.map(h => toolFetch(h.url).catch(() => null)));
-        web = top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String((reads[i] && reads[i].length > 80) ? reads[i] : (h.title || "")).slice(0, 1600)).join("\n\n");
+        /* a Liquipedia hit already IS the facts block — re-reading the page through the
+           text proxy costs seconds and returns the bot wall, never more facts */
+        const reads = await Promise.all(top.map(h => (h.extract && /DATES:|TEAMS\s*\(/.test(h.extract)) ? Promise.resolve(null) : toolFetch(h.url).catch(() => null)));
+        web = top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(cleanRead(reads[i]) || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
       }
     } catch (e) { /* search down → date + rules still apply */ }
+    const head = esp
+      ? "AUTHORITATIVE ESPORTS FACTS (Liquipedia — fetched seconds ago, REAL and CURRENT; these WIN over every other source in this thread. If any earlier web block names a DIFFERENT tournament, or shows placeholder teams like 'Team A', it is WRONG — answer only the event named here):\n"
+      : "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; the live results WIN over your memory of past events, dates, scores or records):\n";
     return messages.concat([{ role: "system", content:
       "CURRENT DATE & TIME: " + now + " (anchor 'today/now/latest' to THIS moment).\n" +
-      (web ? "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; the live results WIN over your memory of past events, dates, scores or records):\n" + web + "\n" : "No live results were found for this question.\n") +
+      (web ? head + web + "\n" : "No live results were found for this question.\n") +
       AURA_FACT_RULES }]);
   } catch (e) { return messages; }
 }
@@ -1629,7 +1770,7 @@ app.post("/v1/chat/completions", async (req, res) => {
      untouched; empty search costs nothing (fail-open). */
   try {
     const _lastUser = [...messages].reverse().find(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
-    const _q = _lastUser ? followUpQuery(messages, _lastUser.content.trim()).slice(0, 300) : "";
+    const _q = _lastUser ? searchQuery(messages) : "";
     const _small = /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon)|who are you|what('s| is) your name|are you (real|human|an ai))\b/i.test(_q);
     const _alreadyArmed = messages.some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
     if (_q && !_small && !_alreadyArmed) {
@@ -1640,7 +1781,7 @@ app.post("/v1/chat/completions", async (req, res) => {
         if (_hits && _hits.length) {
           const _top = _hits.slice(0, 2);
           const _reads = await Promise.all(_top.map(h => toolFetch(h.url).catch(() => null)));
-          _web = _top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String((_reads[i] && _reads[i].length > 80) ? _reads[i] : (h.title || "")).slice(0, 1600)).join("\n\n");
+          _web = _top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(cleanRead(_reads[i]) || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
         }
       } catch (e) { /* search down → date-only block still fixes the cutoff */ }
       messages = messages.concat([{ role: "system", content: "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value.") }]);
@@ -1650,6 +1791,12 @@ app.post("/v1/chat/completions", async (req, res) => {
   try {
     if (!messages.some(m => m && m.role === "system" && String(m.content || "").includes("FACT RULES (owner order)")))
       messages = messages.concat([{ role: "system", content: AURA_FACT_RULES }]);
+  } catch (e) {}
+  /* roster-exact answers never touch a model (see esportsFastAnswer) */
+  try {
+    const _rawU = lastUserMsg(messages);
+    const _fastA = esportsFastAnswer(messages, searchQuery(messages), _rawU);
+    if (_fastA) return res.json({ choices: [{ message: { content: _fastA } }], model: "live esports data" });
   } catch (e) {}
 
   let sawLimit = false; // at least one key hit a rate/limit error
@@ -1687,7 +1834,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       if (!r.ok) return res.status(r.status).json({ error: "Upstream HTTP " + r.status });
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-      if (t && t.trim()) { recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); if (!makerHere) { cachePut(messages, t.trim(), model); countAnswer(req); } return res.json({ choices: [{ message: { content: t.trim() } }], model }); }
+      if (t && t.trim()) { t = await rosterGuard(t, messages); recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); if (!makerHere) { cachePut(messages, t.trim(), model); countAnswer(req); } return res.json({ choices: [{ message: { content: t.trim() } }], model }); }
     } catch (e) { /* network hiccup → try next model */ }
   }
   if (sawLimit) {
@@ -1708,13 +1855,13 @@ app.post("/v1/chat/completions", async (req, res) => {
           if (!r.ok) continue;
           const d = await r.json();
           const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
-          if (t && t.trim()) return res.json({ choices: [{ message: { content: t.trim() } }], model: model + " (nvidia-nim)" });
+          if (t && t.trim()) return res.json({ choices: [{ message: { content: await rosterGuard(t, messages) } }], model: model + " (nvidia-nim)" });
         } catch (e) { /* next NIM model */ }
       }
     }
     /* then the reserve brain before giving up */
     const mt = await reserveCall(messages, Math.min(body.max_tokens || 1400, 4000), body.temperature, req);
-    if (mt) return res.json({ choices: [{ message: { content: mt } }], model: RESERVE_MODEL + " (reserve)" });
+    if (mt) return res.json({ choices: [{ message: { content: await rosterGuard(mt, messages) } }], model: RESERVE_MODEL + " (reserve)" });
     /* nothing left — AURA turns this into a friendly notice */
     return res.status(429).json({ error: "out_of_tokens", outOfTokens: true,
       message: "Today's free AI allowance is used up. Full power returns tomorrow — meanwhile the offline core still answers." });
@@ -1763,9 +1910,22 @@ function extractJson(text) {
 const WEB_JUNK = /unusual traffic|not a robot|why did this happen|captcha|enable javascript|just a moment|access denied|are you a human/i;
 async function toolSearch(q) {
   /* live web search — ordered by cloud-IP reliability:
+     0) Liquipedia API (esports only — the only source that actually carries rosters,
+        schedules and results; news feeds never do, which is why AURA once invented
+        "Team A … Team H" for a BMIC question)
      1) Google News RSS (machine feed, no bot walls, always fresh)
-     2) jina → Google News HTML   3) DuckDuckGo html   4) Wikipedia search (never blocked) */
+     2) jina → Google News HTML   3) DuckDuckGo lite/html   4) Wikipedia search (never blocked) */
   const out = [];
+  if (LIQUI && LIQUI.isEsportsQuery(q)) {
+    try {
+      const lp = await LIQUI.liquipediaSearch(q, 2);
+      for (const h of lp) if (!out.some(x => x.url === h.url)) out.push(h);
+    } catch (e) {}
+    /* an official tournament page beats a generic news feed for rosters/dates, so it
+       is the whole evidence set — irrelevant headlines were what nudged the model
+       into mixing events up in the first place */
+    if (out.length) return out.slice(0, 2);
+  }
   try {
     const r = await fetch("https://news.google.com/rss/search?q=" + encodeURIComponent(q) + "&hl=en-IN&gl=IN&ceid=IN:en", { signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "Mozilla/5.0 (compatible; AURA-backend/1.0)" } });
     if (r.ok) {
@@ -1808,6 +1968,27 @@ async function toolSearch(q) {
           const title = m2[2].replace(/<[^>]+>/g, "").trim();
           if (WEB_JUNK.test(title)) continue;
           out.push({ title, url: u });
+        }
+      }
+    } catch (e) {}
+  }
+  /* DDG LITE (27 Oct 2026): the html endpoint is blocked from many cloud IPs and the
+     news feed only indexes headlines, so “bmic 2026” came back empty and the brain
+     improvised. lite.duckduckgo.com returns real result pages for these queries. */
+  if (out.length < 3) {
+    try {
+      const rl = await fetch("https://lite.duckduckgo.com/lite/?q=" + encodeURIComponent(q), { signal: AbortSignal.timeout(12_000), headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36" } });
+      if (rl.ok) {
+        const tl = await rl.text();
+        const rel = /<a[^>]+class="result-link"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+        let ml;
+        while ((ml = rel.exec(tl)) && out.length < 6) {
+          let u = ml[1];
+          const du = u.match(/uddg=([^&]+)/); if (du) u = decodeURIComponent(du[1]);
+          if (u.startsWith("//")) u = "https:" + u;
+          const title = ml[2].replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+          if (!title || WEB_JUNK.test(title)) continue;
+          if (!out.some(x => x.url === u)) out.push({ title, url: u });
         }
       }
     } catch (e) {}
@@ -1868,7 +2049,7 @@ app.post("/v1/websearch", async (req, res) => {
       k: "web",
       title: h.title,
       url: h.url,
-      extract: (reads[i] && reads[i].length > 80 ? reads[i].slice(0, 1800) : h.title || "")
+      extract: String(cleanRead(reads[i]) || h.extract || h.title || "").slice(0, 1800)
     }));
     res.json({ results, took: Date.now() - started });
   } catch (e) {
@@ -2035,6 +2216,15 @@ app.post("/v1/chat/stream", async (req, res) => {
   /* same grounding as /v1/chat/completions: today’s date + live web results + fact rules.
      Without this the stream lane answered tournaments/schedules from frozen memory. */
   messages = await groundChat(messages);
+  /* ESPORTS QUESTIONS ARE BUFFERED, NOT STREAMED (27 Oct 2026): a wrong team name
+     cannot be un-sent once it is on screen. Tournaments are rare, so holding this
+     one class of answer for a single validated delta costs nothing and guarantees
+     the roster the user reads is the one Liquipedia published. */
+  const __q = lastUserMsg(messages);
+  /* follow-ups ("teams name in it") carry no topic of their own — the merged query is
+     what keeps the event context, so the buffer decision must not look at __q alone */
+  const __merged = followUpQuery(messages, __q);
+  const __buffer = !!(LIQUI && (LIQUI.isEsportsQuery(__q) || LIQUI.isEsportsQuery(__merged)));
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -2042,6 +2232,9 @@ app.post("/v1/chat/stream", async (req, res) => {
   if (typeof res.flushHeaders === "function") res.flushHeaders();
   const send = obj => { try { res.write("data: " + JSON.stringify(obj) + "\n\n"); } catch (e) {} };
   const finish = () => { try { res.write("data: [DONE]\n\n"); res.end(); } catch (e) {} };
+  /* roster-exact answers never touch a model (see esportsFastAnswer) */
+  const __fast = esportsFastAnswer(messages, __merged, __q);
+  if (__fast) { send({ model: "live esports data" }); send({ delta: __fast }); finish(); return; }
   const makerHere = req.__role === "maker" || req.__role === "ceo";
   const requestedModel = makerHere ? (body.model || MODELS[0]).trim() : "";
   const modelList = makerHere ? MODELS : PUBLIC_MODELS;
@@ -2102,15 +2295,26 @@ app.post("/v1/chat/stream", async (req, res) => {
           for (const ln of lines) {
             const s = ln.replace(/^data:\s*/, "").trim();
             if (!s) continue;
-            if (s === "[DONE]") { if (!makerHere && full.trim()) { cachePut(messages, full.trim(), model); countAnswer(req); } finish(); return; }
+            if (s === "[DONE]") {
+              if (full.trim()) {
+                const safe = await rosterGuard(full, messages);
+                if (__buffer || safe !== full) send({ delta: safe });
+                if (!makerHere) { cachePut(messages, safe, model); countAnswer(req); }
+              }
+              finish(); return;
+            }
             try {
               const j = JSON.parse(s);
               const delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
-              if (delta) { full += delta; send({ delta }); }
+              if (delta) { full += delta; if (!__buffer) send({ delta }); }
             } catch (e) {}
           }
         }
-        if (!makerHere && full.trim()) { cachePut(messages, full.trim(), model); countAnswer(req); }
+        if (full.trim()) {
+          const safe = await rosterGuard(full, messages);
+          if (__buffer || safe !== full) send({ delta: safe });
+          if (!makerHere) { cachePut(messages, safe, model); countAnswer(req); }
+        }
         finish();
         return;
       } catch (e) { /* network hiccup → try next key */ }
@@ -2119,7 +2323,7 @@ app.post("/v1/chat/stream", async (req, res) => {
   if (!served) {
     if (sawLimit) {
       const mt = await reserveCall(messages, Math.min(body.max_tokens || 1600, 4000), body.temperature);
-      if (mt) { send({ model: RESERVE_MODEL + " (reserve)" }); send({ delta: mt }); finish(); return; }
+      if (mt) { send({ model: RESERVE_MODEL + " (reserve)" }); send({ delta: await rosterGuard(mt, messages) }); finish(); return; }
       send({ outOfTokens: true });
     }
     else send({ error: "All models exhausted or rate-limited. Try again shortly." });
@@ -2240,7 +2444,10 @@ app.post("/v1/tts", async (req, res) => {
   return res.send(out.buf);
 });
 
-app.listen(PORT, () => {
+/* The listener starts only when this file is RUN (`node server.js`). Requiring it
+   from the test scripts returns the evidence pipeline below instead of opening a
+   port — that is how the BMIC roster/date path is regression-tested for real. */
+if (require.main === module) app.listen(PORT, () => {
   console.log("AURA secure backend live on :" + PORT);
   /* KRATOS AUTOPILOT — the squad's own clock. The daily cycle budget inside the
      engine decides whether a tick actually works, so this timer is cheap. */
@@ -2253,3 +2460,10 @@ app.listen(PORT, () => {
     setTimeout(() => { autopilot.tick({ trigger: "boot" }).catch(e => console.log("[squad autopilot] boot cycle failed: " + (e.message || e))); }, 20000);
   } else console.log("[squad autopilot] disabled (SQUAD_AUTOPILOT=0)");
 });
+
+module.exports = {
+  app,
+  groundChat, toolSearch, toolFetch, searchQuery, currentAsk, topicHint, followUpQuery,
+  evidenceFacts, esportsFastAnswer, rosterGuard, cleanRead, isRosterAsk, fakeRoster,
+  prettyDate, lastUserMsg,
+};
