@@ -705,7 +705,10 @@ app.post("/v1/dev/commit", async (req, res) => {
     const put = await fetch(`${GH_API}/repos/${GH_REPO}/contents/${GH_FILE}`, { method: "PUT", headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json", "Content-Type": "application/json" }, body: JSON.stringify({ message, content: Buffer.from(src).toString("base64"), sha: meta.sha, branch: GH_BRANCH }), signal: AbortSignal.timeout(60000) });
     const pj = await put.json().catch(() => ({}));
     if (!put.ok) return res.status(502).json({ error: "GitHub commit failed: " + (pj && pj.message || "HTTP " + put.status) });
-    res.json({ ok: true, commit: (pj.commit && pj.commit.sha || "").slice(0, 7), edits: applied.length, url: pj.content && pj.content.html_url, liveIn: "~60 seconds (GitHub Pages rebuild)" });
+    /* this answer promises the change is live in ~60s — that is only true when the
+       public repo receives the same bytes (same missing last mile as the publish lane) */
+    try { await ghMirrorLive(src, message); } catch (e) {}
+    res.json({ ok: true, commit: (pj.commit && pj.commit.sha || "").slice(0, 7), edits: applied.length, url: pj.content && pj.content.html_url, liveMirror: ghMirrorLast.note, liveIn: "~60 seconds (GitHub Pages rebuild)" });
   } catch (e) { res.status(502).json({ error: e.message || String(e) }); }
 });
 
