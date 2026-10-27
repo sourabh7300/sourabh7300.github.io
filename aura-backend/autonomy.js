@@ -234,6 +234,10 @@ const DEFAULTS = {
   maxWipCycles: parseInt(process.env.SQUAD_MAX_WIP_CYCLES || "4", 10),
   /* failed cycles a mission gets before it is parked (no quota burn) */
   maxAttempts: parseInt(process.env.SQUAD_MISSION_ATTEMPTS || "3", 10),
+  /* a failed LIVE check is not a failed feature: the same mission waits this long
+     before another publish attempt (a broken publish lane must never be re-tested in
+     a tight loop), and three of them block it honestly until the next day */
+  liveRetryMinutes: parseInt(process.env.SQUAD_LIVE_RETRY_MIN || "30", 10),
   /* a batch that refuses to complete is parked for the DAY, not for life
      (see the daily second-chance reset in tick) */
   /* max size drift a single publish may introduce */
@@ -372,7 +376,7 @@ function addedLines(before, after) {
 /* ---------------------------------------------------------------- missions */
 function missionState(state, id) {
   const m = (state.missions && state.missions[id]) || {};
-  return { attempts: m.attempts || 0, cycles: m.cycles || 0, done: !!m.done, parked: !!m.parked, note: m.note || "", sha: m.sha || null, when: m.when || 0 };
+  return { attempts: m.attempts || 0, cycles: m.cycles || 0, done: !!m.done, parked: !!m.parked, liveFails: m.liveFails || 0, liveBlocked: !!m.liveBlocked, retryAfter: m.retryAfter || 0, note: m.note || "", sha: m.sha || null, when: m.when || 0 };
 }
 /* ROADMAP AGENT (owner's order, 14 Oct 2026): "AI agents banao… jo barabar kaam
    karte rahe aur AURA ko next level banate rahe." The static roadmap can end;
@@ -483,7 +487,9 @@ function pendingByImportance(state) {
   list.sort((a, b) => (PRIOrity(a.m.prio) - PRIOrity(b.m.prio)) || (a.i - b.i));
   return list.filter(e => {
     const st = missionState(state, e.m.id);
-    return !st.done && !st.parked && st.attempts < DEFAULTS.maxAttempts;
+    /* live-lane gate: a mission whose LIVE check keeps failing is not retried in a
+       loop — it waits out its retry window and is skipped once it is blocked. */
+    return !st.done && !st.parked && !st.liveBlocked && st.retryAfter < Date.now() && st.attempts < DEFAULTS.maxAttempts;
   }).map(e => e.m);
 }
 function pickMission(state, source) {
@@ -708,7 +714,7 @@ function createAutopilot(deps) {
       let woken = 0;
       for (const id of Object.keys(state.missions || {})) {
         const m = state.missions[id];
-        if (m.parked && !m.done) { m.parked = false; m.attempts = 0; woken++; }
+        if ((m.parked || m.liveBlocked) && !m.done) { m.parked = false; m.liveBlocked = false; m.retryAfter = 0; m.attempts = 0; woken++; }
       }
       log(state, "kratos", woken ? ("new day — " + woken + " parked mission(s) get a fresh attempt budget (daily second chance)") : "new day — cycles reset");
     }
@@ -750,7 +756,9 @@ function createAutopilot(deps) {
           /* in nonstop mode, unpark any parked missions to give continuous attempts */
           for (const id of Object.keys(state.missions || {})) {
             const stm = state.missions[id];
-            if (stm.parked && !stm.done) { stm.parked = false; stm.attempts = 0; }
+            /* live-blocked missions stay blocked even in nonstop mode: re-publishing
+               into a broken live lane is not work, it is churn */
+            if (stm.parked && !stm.done && !stm.liveBlocked) { stm.parked = false; stm.attempts = 0; }
           }
           const retryPick = pickMission(state, src);
           if (retryPick && !retryPick.already) mission = retryPick.mission;
@@ -781,7 +789,17 @@ function createAutopilot(deps) {
           cycle.publish = out.publish || null; cycle.fail = out.fail || null; cycle.queued = out.queued || null;
           if (out.publish) { st.done = !!out.done; st.sha = out.publish; st.when = Date.now(); st.note = out.note || ""; }
           else if (out.queued) { st.note = out.note || "queued for the admin's publish"; }
-          else if (out.fail) { st.attempts = (st.attempts || 0) + 1; st.note = out.fail; if (st.attempts >= cfg.maxAttempts) { st.parked = true; clearWip(state, "mission parked: " + mission.id); log(state, "arthur", "mission parked after " + st.attempts + " failed cycle(s) — reason: " + out.fail); } }
+          else if (out.fail) {
+            st.attempts = (st.attempts || 0) + 1;
+            /* a live-lane block carries its own explanation — overwriting it with the
+               generic fail line is how the owner ended up staring at the same
+               "live verification failed" note for days with no idea what to fix */
+            if (st.liveBlocked) { /* keep the block note */ }
+            else {
+              st.note = out.fail;
+              if (st.attempts >= cfg.maxAttempts) { st.parked = true; clearWip(state, "mission parked: " + mission.id); log(state, "arthur", "mission parked after " + st.attempts + " failed cycle(s) — reason: " + out.fail); }
+            }
+          }
           else if (out.building) { st.note = out.building; }
         }
       } else {
@@ -1107,11 +1125,29 @@ function createAutopilot(deps) {
     let live = null;
     try { if (d.verifyLive) live = await d.verifyLive(candidate.length, mission.done.source); } catch (e) { live = null; }
     if (live && live.ok === false) {
+      /* LIVE-LANE BOOKKEEPING (27 Oct 2026): the commit log held dozens of
+         "apply → live check failed → auto-revert" pairs for the SAME mission. The
+         cause was the publish lane never reaching the live page — which no amount of
+         re-publishing can fix — so the same mission is not retried immediately, and
+         after three failed live checks it is blocked (honestly) until the next day
+         instead of burning commits forever. */
+      const mst = state.missions[mission.id] || (state.missions[mission.id] = {});
+      mst.liveFails = (mst.liveFails || 0) + 1;
+      mst.retryAfter = Date.now() + Math.max(0, cfg.liveRetryMinutes) * 60000;
+      if (mst.liveFails >= 3) {
+        mst.liveBlocked = true;
+        mst.note = "blocked: live page never served this build (" + mst.liveFails + " publishes) — the publish lane is not reaching the live page; fix that lane, then unblock";
+        log(state, "kratos", "⛔ " + mission.id + " " + mst.note);
+      } else {
+        log(state, "kratos", "⏸ " + mission.id + " live check failed (" + mst.liveFails + "/3) — next attempt in " + cfg.liveRetryMinutes + " min, not in a loop");
+      }
       let rolled = false;
       try { if (d.commit) { await d.commit(baseSrc, "AURA autopilot: auto-revert " + mission.id + " (live check failed)"); rolled = true; } } catch (e) {}
       if (rolled && state.ships.length && state.ships[state.ships.length - 1].sha === sha) state.ships.pop();
       const r = "live verification failed after publish (" + (live.reason || "not served") + ")" + (rolled ? " — auto-reverted to the previous source" : " — auto-revert could not run");
-      st.note = r; st.sha = null; state.fails.push({ mission: mission.id, reason: r, when: Date.now() });
+      /* when the live lane itself is the fault, the mission keeps the block wording
+         (the admin panel shows THIS note) while the raw reason still lands in fails */
+      st.note = mst.liveBlocked ? mst.note : r; st.sha = null; state.fails.push({ mission: mission.id, reason: r, when: Date.now() });
       log(state, "kratos", "✗ " + r);
       return { fail: r };
     }

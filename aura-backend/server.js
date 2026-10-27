@@ -961,6 +961,51 @@ async function ghPutFile(content, message, file) {
   if (!put.ok) throw new Error("GitHub commit failed: " + ((j && j.message) || ("HTTP " + put.status)));
   return { sha: (j.commit && j.commit.sha) || "", file: path };
 }
+/* ==================== THE MISSING LAST MILE — the live mirror ==================
+   The autopilot's post-publish check reads LIVE_PAGE_URL (the PUBLIC site), but this
+   publish lane only ever wrote to the PRIVATE source repo. The published page
+   therefore never changed, every publish "failed" its own live verification and got
+   auto-reverted, and the next cycle started the SAME mission again — the endless
+   "apply → live check failed → auto-revert" churn in the commit log (27 Oct 2026).
+   Publishing now mirrors the exact committed bytes into the public repo's published
+   paths, so the page the verifier reads is the page we just shipped. */
+const GH_LIVE_REPO = process.env.GH_LIVE_REPO || "sourabh7300/sourabh7300.github.io";
+const GH_LIVE_PATHS = (process.env.GH_LIVE_PATHS || "aura.html,aura/aura.html,aura/index.html").split(",").map(s => s.trim()).filter(Boolean);
+const ghMirrorLast = { at: 0, ok: null, note: "never" };
+async function ghPutToRepo(repo, path, content, message) {
+  const hdr = { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-autopilot", "Accept": "application/vnd.github+json" };
+  let sha = null;
+  try {
+    const meta = await (await fetch(`${GH_API}/repos/${repo}/contents/${path}?ref=${GH_BRANCH}`, { headers: hdr, signal: AbortSignal.timeout(30000) })).json();
+    if (meta && meta.sha) sha = meta.sha;
+  } catch (e) {}
+  const body = { message: String(message || "AURA live mirror").slice(0, 200), content: Buffer.from(String(content), "utf8").toString("base64"), branch: GH_BRANCH };
+  if (sha) body.sha = sha;
+  const put = await fetch(`${GH_API}/repos/${repo}/contents/${path}`, {
+    method: "PUT",
+    headers: Object.assign({ "Content-Type": "application/json" }, hdr),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(60000)
+  });
+  if (!put.ok) {
+    const j = await put.json().catch(() => ({}));
+    throw new Error(repo + "/" + path + " → " + ((j && j.message) || ("HTTP " + put.status)));
+  }
+  return true;
+}
+async function ghMirrorLive(content, message) {
+  const out = [];
+  for (const p of GH_LIVE_PATHS) {
+    try { await ghPutToRepo(GH_LIVE_REPO, p, content, message + " [mirror " + p + "]"); out.push(p + ":ok"); }
+    catch (e) { out.push(p + ": " + (e.message || e)); }
+  }
+  ghMirrorLast.at = Date.now();
+  ghMirrorLast.ok = out.every(x => /:ok$/.test(x));
+  ghMirrorLast.note = out.join(" · ").slice(0, 400);
+  if (!ghMirrorLast.ok) console.warn("[live mirror] " + ghMirrorLast.note);
+  return ghMirrorLast;
+}
+
 /* the squad's unsupervised brain — the maker's reserved admin lane first, then
    every key in the bank, then the reserve. Never the public key lane.
 
@@ -1129,8 +1174,11 @@ async function squadWorldWatch() {
    does, the engine puts the exact previous source back. */
 async function squadVerifyLive(expectBytes, sentinel) {
   let last = "";
-  for (let i = 0; i < 6; i++) {
-    await new Promise(r => setTimeout(r, i === 0 ? 8000 : 12000));
+  /* 10 tries over ~2 minutes: GitHub Pages needs ~30-60s to rebuild, and a mirror
+     commit lands right before this check — 6 tries proved too tight and produced
+     false "stale" verdicts that auto-reverted good features */
+  for (let i = 0; i < 10; i++) {
+    await new Promise(r => setTimeout(r, i === 0 ? 6000 : 12000));
     try {
       const r = await fetch(LIVE_PAGE_URL + "?cb=" + Date.now(), { cache: "no-store", headers: { "User-Agent": "aura-autopilot" }, signal: AbortSignal.timeout(20000) });
       if (r.status !== 200) { last = "HTTP " + r.status; continue; }
@@ -1217,7 +1265,11 @@ async function squadGuardedPut(content, message, file, expectedBase) {
     if (cur && cur.length > 1000 && cur !== expectedBase)
       throw new Error("CHANGE-OVERWRITE GUARD: live source moved since this batch's base (" + Buffer.byteLength(expectedBase) + " → " + Buffer.byteLength(cur) + " bytes) — refused to overwrite another writer's commit; next cycle rebases on the fresh source");
   }
-  return ghPutFile(content, message, file);
+  const put = await ghPutFile(content, message, file);
+  /* every publish lands on the LIVE repo too (best-effort: a mirror that is refused
+     is reported in /health instead of silently breaking the live check) */
+  try { await ghMirrorLive(content, message); } catch (e) {}
+  return put;
 }
 /* RESEARCH — the squad's own librarian: live search + read, no keys, real sources */
 async function squadResearch(mission) {
@@ -1617,7 +1669,7 @@ app.get("/health", async (req, res) => {
   const now = Date.now();
   fbInit(); /* eager init so the diagnostic tells the truth immediately */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", githubCheck: await ghCheck(), research: await researchProbe(), brain: brainLast, squad: squadHealth() });
+  res.json({ ok: true, build: BUILD, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, githubCheck: await ghCheck(), research: await researchProbe(), brain: brainLast, squad: squadHealth() });
 });
 
 /* ================= GROUNDING + ANTI-FABRICATION (27 Oct 2026) =================
