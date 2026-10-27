@@ -37,7 +37,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v8";
+const BUILD = process.env.AURA_BUILD || "squad-v9";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -341,7 +341,20 @@ app.use(express.json({ limit: "8mb" })); /* room for base64 photos (vision) */
    from the visitor's browser), but it serves ONLY its own sites: browsers identify
    themselves with the Origin header, and the owner's tools with X-AURA-Key.
    curl / scrapers / strangers get a 403. /health stays open for uptime monitors. */
-const ALLOW_ORIGINS = (process.env.ALLOW_ORIGINS || "https://sourabh7300.github.io").split(",").map(s => s.trim());
+/* Sites allowed to call this backend from a browser. The owner's own projects are
+   ALWAYS allowed (Lucid lives on its Firebase host, AURA + IdeaVeda on theirs, and
+   the portfolio on GitHub Pages), then the dashboard's ALLOW_ORIGINS list adds
+   whatever else is needed. Without this, adding one origin in the dashboard would
+   silently lock the other projects out. */
+const OWN_SITES = [
+  "https://sourabh7300.github.io",
+  "https://aura-live-81185.web.app", "https://aura-live-81185.firebaseapp.com",
+  "https://lucid-app-preview.web.app", "https://lucid-app-preview.firebaseapp.com",
+  "https://ideaveda-live-app.web.app", "https://ideaveda-live-app.firebaseapp.com",
+];
+const ALLOW_ORIGINS = [...new Set(OWN_SITES.concat(
+  (process.env.ALLOW_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean)
+))];
 const OWNER_SECRET = process.env.SECRET || "";
 app.use((req, res, next) => {
   const origin = req.headers.origin || "";
@@ -1529,6 +1542,74 @@ async function researchProbe() {
   }
   return researchProbeCache;
 }
+
+/* ==================== LUCID AI STUDIO — the photo brain, key kept here ==========
+   Lucid is a single-file photo studio anyone can open. Asking every visitor to
+   paste their own Gemini key is a dead end, so the studio asks THIS server instead.
+   The client posts the exact Gemini body it would send (contents [+ inline images]
+   and generationConfig) and gets Gemini's own reply back untouched, so the studio's
+   JSON parser and auto-apply keep working with zero client changes.
+   Falls back to a personal key on the client only if this route is unavailable. */
+const LUCID_DAILY = parseInt(process.env.LUCID_DAILY_CAP || "60", 10); /* edits/visitor/day */
+const lucidCap = new Map(); /* uid-or-IP → { day, n } */
+function lucidOverCap(req) {
+  if (!LUCID_DAILY) return false;
+  const rec = lucidCap.get(req.__uid || req.ip || "anon");
+  return !!(rec && rec.day === new Date().toISOString().slice(0, 10) && rec.n >= LUCID_DAILY);
+}
+function lucidCount(req) {
+  const id = req.__uid || req.ip || "anon", day = new Date().toISOString().slice(0, 10);
+  const rec = lucidCap.get(id);
+  if (rec && rec.day === day) rec.n++;
+  else lucidCap.set(id, { day, n: 1 });
+  if (lucidCap.size > 3000) for (const [k, v] of lucidCap) if (v.day !== day) lucidCap.delete(k);
+}
+/* honest, non-alarming message a visitor can act on */
+const LUCID_NO_KEY = "The studio's AI key is not wired on this server yet. Add your own free Gemini key in Lucid (🔑 Set key) — aistudio.google.com/apikey";
+app.post("/v1/lucid/edit", async (req, res) => {
+  if (!GEMINI_API_KEY) return res.status(501).json({ error: { code: 501, message: LUCID_NO_KEY } });
+  if (lucidOverCap(req)) return res.status(429).json({ error: { code: 429, message: "Aaj ki AI editing limit poori ho gayi — kal phir try karo." } });
+  const body = req.body || {};
+  const contents = Array.isArray(body.contents) ? body.contents.slice(-2) : null;
+  if (!contents || !contents.length) return res.status(400).json({ error: { code: 400, message: "contents missing" } });
+  const parts = [];
+  for (const c of contents) {
+    for (const p of (Array.isArray(c && c.parts) ? c.parts : [])) {
+      if (!p) continue;
+      if (typeof p.text === "string" && p.text.trim()) parts.push({ text: p.text.slice(0, 6000) });
+      const inl = p.inline_data || p.inlineData;
+      if (inl && inl.data && parts.filter(x => x.inlineData).length < 4) {
+        const mt = String(inl.mime_type || inl.mimeType || "");
+        parts.push({ inlineData: { mimeType: /^image\//.test(mt) ? mt : "image/jpeg", data: String(inl.data) } });
+      }
+    }
+  }
+  if (!parts.length) return res.status(400).json({ error: { code: 400, message: "empty payload" } });
+  const gc = body.generationConfig || {};
+  const gen = {
+    temperature: typeof gc.temperature === "number" ? Math.max(0, Math.min(1, gc.temperature)) : 0.45,
+    maxOutputTokens: Math.min(2048, Math.max(256, parseInt(gc.maxOutputTokens, 10) || 1800)),
+  };
+  if (gc.responseMimeType === "application/json") gen.responseMimeType = "application/json";
+  try {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + VISION_MODEL + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: gen }),
+      signal: AbortSignal.timeout(60_000)
+    });
+    const j = await r.json().catch(() => null);
+    if (!r.ok) {
+      const msg = (j && j.error && j.error.message) || ("vision upstream HTTP " + r.status);
+      return res.status(r.status === 429 ? 429 : 502).json({ error: { code: r.status, message: msg } });
+    }
+    lucidCount(req);
+    recordUse(req, "vision", (j && j.usageMetadata && j.usageMetadata.totalTokenCount) || 0);
+    return res.json(j); /* Gemini shape → Lucid reads candidates[0].content.parts */
+  } catch (e) {
+    return res.status(502).json({ error: { code: 502, message: e.message || "vision call failed" } });
+  }
+});
 
 /* health + root */
 app.get("/", (req, res) => res.json({ ok: true, service: "aura-secure-backend", time: new Date().toISOString() }));

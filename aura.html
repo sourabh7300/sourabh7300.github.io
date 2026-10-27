@@ -25,6 +25,12 @@
 <!-- AURA_THEME_SYNC: early theme apply (runs before first paint) -->
 <script>
   (function(){
+    /* AURA_GEN_EARLY_LOG_FIX — this early block (theme apply + parse guards) reports
+       through pushSys, but pushSys is only DECLARED by a much later script, so a cold
+       load threw "ReferenceError: pushSys is not defined" before the theme was applied
+       and the console showed a red error on the live site. A no-op stub here is replaced
+       by the real pushSys as soon as its own script runs. */
+    if (typeof window.pushSys !== "function") window.pushSys = function(){};
     // AURA_GEN_CHAT_SEARCH_PARSE_FIX — safe JSON parse with context, used by chat-search & all consumers
     // AURA_GEN_CHAT_SEARCH_FIX — hardened parser prevents chat-search crashes on malformed responses
     window.safeJSONParse = function(str, fallback, ctx){
