@@ -22,6 +22,22 @@ const app = express();
    (the "daily limit vanished" bug). */
 app.set("trust proxy", 1);
 
+/* ================== NEVER DIE SILENTLY (27 Oct 2026) =========================
+   Render reported "Application exited early" and nothing else. Node kills the
+   whole process on an unhandled rejection or uncaught exception, so ONE bad async
+   path (boot cycle, Firestore init, a floating fetch) takes the entire API down and
+   the dashboard only says "exited early". The service must stay up AND say why. */
+const bootCrashes = [];
+function noteCrash(kind, err) {
+  const msg = String((err && (err.stack || err.message)) || err || "unknown").slice(0, 600);
+  bootCrashes.push({ at: new Date().toISOString(), kind: kind, msg: msg });
+  if (bootCrashes.length > 5) bootCrashes.shift();
+  console.error("[" + kind + "] " + msg);
+}
+process.on("unhandledRejection", e => noteCrash("unhandledRejection", e));
+process.on("uncaughtException", e => noteCrash("uncaughtException", e));
+console.log("[boot] node " + process.version + " · " + (process.env.AURA_BUILD || "squad-v9") + " · rss " + Math.round(process.memoryUsage().rss / 1048576) + "MB");
+
 /* Env vars use neutral names in this repo (AI_KEY_PRIMARY / AI_KEY_BACKUP /
    AI_KEY_RESERVE / AI_KEY_VISION); the legacy specific names are honored too so
    existing deployments keep working with zero changes. Values live only in the
@@ -1668,12 +1684,28 @@ app.post("/v1/lucid/edit", async (req, res) => {
 
 /* health + root */
 app.get("/", (req, res) => res.json({ ok: true, service: "aura-secure-backend", time: new Date().toISOString() }));
-app.get("/health", async (req, res) => {
+/* ============ HEALTH MUST BE INSTANT (27 Oct 2026 Render deploy failure) =======
+   render.yaml sets healthCheckPath: /health, and the old handler AWAITED a GitHub
+   API call AND a live web search. On a cold cache — exactly the moment Render runs
+   its first health check after a deploy — that could take tens of seconds, so the
+   platform declared the deploy dead: "Application exited early" + an instance
+   restart loop, with no error in the app log because nothing had crashed.
+   /health is now synchronous (last-known values only) and a background warmer keeps
+   those values fresh, so a deploy comes up instantly and still tells the truth. */
+function warmHealth() {
+  try { fbInit(); } catch (e) { noteCrash("fb-init", e); }
+  try { ghCheck().catch(() => {}); } catch (e) {}
+  try { researchProbe().catch(() => {}); } catch (e) {}
+}
+app.get("/health", (req, res) => {
   const now = Date.now();
-  fbInit(); /* eager init so the diagnostic tells the truth immediately */
+  try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, githubCheck: await ghCheck(), research: await researchProbe(), brain: brainLast, squad: squadHealth() });
+  res.json({ ok: true, build: BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, brain: brainLast, squad: squadHealth(), warmers: "background" });
 });
+/* keep the last-known values fresh without ever blocking the endpoint */
+setTimeout(warmHealth, 1500);
+setInterval(warmHealth, 4 * 60_000);
 
 /* ================= GROUNDING + ANTI-FABRICATION (27 Oct 2026) =================
    Owner report: “bmic ki teams puchi, isne BMSD ki Team A–H bana di.” Root cause: the
@@ -2583,19 +2615,23 @@ app.post("/v1/tts", async (req, res) => {
 /* The listener starts only when this file is RUN (`node server.js`). Requiring it
    from the test scripts returns the evidence pipeline below instead of opening a
    port — that is how the BMIC roster/date path is regression-tested for real. */
-if (require.main === module) app.listen(PORT, () => {
-  console.log("AURA secure backend live on :" + PORT);
+if (require.main === module) {
+  const srv = app.listen(PORT, () => {
+  console.log("AURA secure backend live on :" + PORT + " · build " + BUILD + " · rss " + Math.round(process.memoryUsage().rss / 1048576) + "MB");
   /* KRATOS AUTOPILOT — the squad's own clock. The daily cycle budget inside the
      engine decides whether a tick actually works, so this timer is cheap. */
   if (process.env.SQUAD_AUTOPILOT !== "0") {
-    const t = autopilot.boot();
+    /* a throwing boot must never take the API down with it */
+    let t = null; try { t = autopilot.boot(); } catch (e) { noteCrash("autopilot-boot", e); }
     squadClock.running = !!t;
     console.log("[squad autopilot] armed — tick every " + (autopilotLib.DEFAULTS.tickMinutes) + " min, " + autopilotLib.DEFAULTS.maxCyclesPerDay + " cycle(s)/day, auto-ship " + (autopilotLib.DEFAULTS.autoShip ? "ON" : "OFF") + (t ? "" : " (timer not started — cadence too short)"));
     /* a fresh deploy starts work immediately instead of waiting a full tick —
        the engine's own daily budget decides whether anything real happens */
     setTimeout(() => { autopilot.tick({ trigger: "boot" }).catch(e => console.log("[squad autopilot] boot cycle failed: " + (e.message || e))); }, 20000);
   } else console.log("[squad autopilot] disabled (SQUAD_AUTOPILOT=0)");
-});
+  });
+  srv.on("error", e => noteCrash("listen", e));
+}
 
 module.exports = {
   app,
