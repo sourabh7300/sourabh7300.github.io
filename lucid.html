@@ -140,6 +140,35 @@ textarea.txi:focus{border-color:var(--amb)}
 .dock{position:fixed;left:0;right:0;bottom:10px;max-width:96vw;overflow-x:auto}.dock button{width:38px;height:38px}.fn,.dim,.gp{display:none}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important;animation-delay:0s!important}}
 
+/* ===== TEMPLATE LIBRARY (28 Oct 2026) ===== */
+.tplx{position:absolute;inset:0;z-index:68;display:none;background:rgba(4,5,9,.74);backdrop-filter:blur(12px);padding:3vh 16px}
+.tplx.on{display:flex;align-items:center;justify-content:center}
+.tplc{width:min(1180px,96vw);height:min(88vh,900px);display:flex;flex-direction:column;padding:18px 18px 12px;border-radius:24px;overflow:hidden}
+.tplh{display:flex;gap:14px;align-items:center;flex-wrap:wrap;flex:none}
+.tplh h3{font-size:22px;font-weight:800;margin:0}
+.tplh p{margin:3px 0 0;color:var(--dim);font-size:12.5px}
+.tplh input{flex:1;min-width:210px;background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.12);color:var(--cr);border-radius:12px;padding:12px 14px;font:500 14px "Bricolage Grotesque",system-ui;outline:none}
+.tplh input:focus{border-color:var(--amb)}
+.tplcat{display:flex;gap:7px;overflow-x:auto;padding:13px 0 11px;flex:none}
+.tplcat::-webkit-scrollbar{height:0}
+.tplcat button{white-space:nowrap;padding:8px 14px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);color:#d8d2c4;font:600 12.5px "Bricolage Grotesque",system-ui;transition:.2s}
+.tplcat button:hover{background:rgba(255,255,255,.12);color:#fff}
+.tplcat button.on{background:var(--amb);color:#1c1200;border-color:transparent}
+.tplg{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:12px;padding:2px 4px 12px;align-content:start}
+.tplg::-webkit-scrollbar{width:8px}.tplg::-webkit-scrollbar-thumb{background:#2b2d38;border-radius:8px}
+.tc{position:relative;aspect-ratio:3/2;border-radius:14px;overflow:hidden;background:#0d0e13;border:1px solid rgba(255,255,255,.09);cursor:pointer;transition:transform .22s,border-color .22s,box-shadow .22s}
+.tc:hover{transform:translateY(-4px);border-color:rgba(255,179,71,.6);box-shadow:0 18px 40px rgba(0,0,0,.55)}
+.tc canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tc .m{position:absolute;left:0;right:0;bottom:0;padding:24px 10px 9px;background:linear-gradient(transparent,rgba(0,0,0,.9));pointer-events:none}
+.tc .m b{display:block;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc .m span{font:10px var(--mono);color:#c9bda5;letter-spacing:.06em}
+.tc .try{position:absolute;top:8px;right:8px;padding:5px 10px;border-radius:99px;background:var(--amb);color:#1c1200;font:700 11px "Bricolage Grotesque",system-ui;opacity:0;transform:translateY(-4px);transition:.2s;pointer-events:none}
+.tc:hover .try{opacity:1;transform:none}
+.tc .hot{position:absolute;top:8px;left:8px;padding:4px 8px;border-radius:99px;background:rgba(0,0,0,.62);backdrop-filter:blur(6px);font:700 10px var(--mono);color:#ffd9a0}
+.tplf{display:flex;gap:12px;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);flex:none;flex-wrap:wrap}
+.tplf .hint{margin:0}
+@media(max-width:700px){.tplg{grid-template-columns:repeat(auto-fill,minmax(138px,1fr))}.tplh h3{font-size:18px}.tplc{padding:14px 12px 10px}}
+
 /* ===== LANDING (scroll experience) ===== */
 #out{overflow-y:auto;overflow-x:hidden;background:#06070b;scroll-behavior:smooth;transform-origin:50% 30%}#out::-webkit-scrollbar{width:0}
 .hero{position:relative;height:100vh;min-height:640px;overflow:hidden}
@@ -290,7 +319,7 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 <div id="st" aria-label="Lucid studio">
 <div id="boot"><pre id="bt"></pre></div>
 <div class="top"><button class="ib" id="bk" title="Back">←</button><span class="ir"></span><b>Lucid</b><span class="dim">AI Pro Photo Studio</span><span class="fn" id="nm">Golden hour.jpg</span><span class="dim" id="dm"></span><span class="sp"></span><span class="gp"><i></i>GPU</span>
-<button class="b" id="ck">⌘K</button><button class="b" id="gh">? Guide</button><button class="b" id="cam">📷 Sense</button><label class="b">Open photo<input type="file" id="fi" accept="image/*" hidden></label><div class="exw"><button class="b pr" id="ex">Export ▾</button><div class="exm" id="exm"><button data-f="png">PNG · lossless</button><button data-f="jpg">JPEG · quality 92</button><button data-f="webp">WebP · quality 92</button></div></div></div>
+<button class="b" id="ck">⌘K</button><button class="b" id="tpl">🎨 Templates</button><button class="b" id="gh">? Guide</button><button class="b" id="cam">📷 Sense</button><label class="b">Open photo<input type="file" id="fi" accept="image/*" hidden></label><div class="exw"><button class="b pr" id="ex">Export ▾</button><div class="exm" id="exm"><button data-f="png">PNG · lossless</button><button data-f="jpg">JPEG · quality 92</button><button data-f="webp">WebP · quality 92</button></div></div></div>
 <div class="main">
 <canvas id="amb"></canvas>
 <div class="cvw" id="cvw"><div class="fr" id="fr"><canvas id="cv"></canvas><canvas id="cvb"></canvas><div class="gridov"></div><div class="sph" id="sph"></div><b class="sweep"></b></div></div>
@@ -316,16 +345,16 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 <div class="tab" id="t3"><h4 style="margin-top:0">Batch pipeline</h4><p style="color:var(--dim);line-height:1.55;margin-bottom:12px">Applies your current look, crop and adjustments to every photo. Uses the Export tab settings (format, size, watermark).</p>
 <label class="b pr" style="display:block;text-align:center;padding:12px">Choose photos<input type="file" id="bf" accept="image/*" multiple hidden></label><div class="q" id="bq"></div><div class="pbar"><i id="bp"></i></div>
 <button class="b" id="bgo" style="width:100%;padding:12px" disabled>Process all → ZIP</button><p id="bs" style="color:var(--dim);margin-top:12px;font:12px var(--mono)"></p></div>
-<div class="tab" id="t6"><h4 style="margin-top:0">AI Studio <span class="aikey" id="aik">key not set</span></h4>
+<div class="tab" id="t6"><h4 style="margin-top:0">AI Studio <span class="aikey on" id="aik">AI ready ✦</span></h4>
 <p class="hint" style="margin-top:0">Type what you want, or attach a photo/video — the AI reads it and applies the edit itself. “Is jaisa banao”, “rate my photo”, “dono compare karo” — sab chalega.</p>
-<div class="airow"><label class="b">📎 Attach<input type="file" id="aif" accept="image/*,video/*" multiple hidden></label><button class="b" id="aiset">🔑 Set key</button><button class="b" id="aig">📘 How to use</button></div>
+<div class="airow"><label class="b">📎 Attach<input type="file" id="aif" accept="image/*,video/*" multiple hidden></label><button class="b" id="aig">📘 How to use</button></div>
 <div class="aichips" id="aichips"></div>
 <div class="aithumbs" id="aithumbs"></div>
 <div class="ailog" id="ailog"></div>
 <textarea class="txi" id="aip" rows="2" placeholder="e.g. isko cinematic bana do · rate my photo · dono compare karo"></textarea>
 <button class="b pr" id="aigo" style="width:100%;padding:12px">Ask AI ✨</button>
 <label class="aiopt"><input type="checkbox" id="aiauto" checked> Auto-apply the edit (ek hi baar me lag jaye)</label>
-<p class="hint" id="aistat">AI studio ke apne server se chal raha hai — tumhe koi key nahi chahiye. Chaho to apni free Gemini key bhi daal sakte ho (🔑 Set key).</p></div>
+<p class="hint" id="aistat">AI studio apne server se chalta hai — tumhe koi key nahi chahiye, aur photo kahin save nahi hoti.</p></div>
 <div class="tab" id="t4"><h4 style="margin-top:0">Telemetry</h4><div class="tm"><div><span>Frame</span><b id="tr">—</b></div><div><span>FPS</span><b id="tf">—</b></div><div><span>Pixels</span><b id="tp">—</b></div><div><span>Resolution</span><b id="ts">—</b></div><div><span>Active edits</span><b id="ta">0</b></div><div><span>Uptime</span><b id="tu">0:00</b></div></div><canvas id="spk" width="600" height="120"></canvas>
 <h4>GPU</h4><p id="gpu" style="color:var(--dim);line-height:1.55;font:12px var(--mono)">—</p><h4>About</h4><p style="color:var(--dim);line-height:1.55">Lucid, an AI pro photo studio by Sourabh Singh. Every edit runs on your GPU; photos are never uploaded.</p></div>
 </div></aside>
@@ -344,6 +373,12 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 <div id="gdl"></div>
 <div class="gdf"><button class="b pr" id="gda">Open AI Studio ✨</button><button class="b" id="gdx">Close</button><label><input type="checkbox" id="gdn"> Don't show again</label></div></div></div>
 <div class="drop" id="drop">Drop a photo to edit</div>
+<div class="tplx" id="tplx"><div class="tplc glass">
+<div class="tplh"><div><h3>Template library</h3><p id="tplsub">—</p></div><input id="tplq" placeholder="Search — golden hour, noir, food, reels…" autocomplete="off"><button class="ib" id="tplz" title="Close">✕</button></div>
+<div class="tplcat" id="tplcat"></div>
+<div class="tplg" id="tplg"></div>
+<div class="tplf"><p class="hint" id="tplstat"></p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b" id="tpldemo">🎭 Demo photo</button><button class="b pr" id="tplload">Load my photo</button></div></div>
+</div></div>
 <div class="cam" id="camw"><div class="camc glass"><video id="camv" autoplay playsinline muted></video><p id="cams">Starting camera…</p><div class="camr"><button class="b pr" id="cs1">Capture → new photo</button><button class="b" id="cs2">Capture → as layer</button><button class="b" id="cs3">Close</button></div></div></div>
 </div></div>
 
@@ -811,16 +846,139 @@ open2();
 if(h=='batch'||h=='aura=batch'){try{document.querySelector('#tabs [data-t="t3"]').click()}catch(e){}}
 const m=h.match(/^(?:preset|look)=(.+)$/);
 if(m){try{applyLook(decodeURIComponent(m[1]))}catch(e){}}})();
+/* ================= TEMPLATE LIBRARY (28 Oct 2026) =================
+   Owner’s ask: “templates daal de — demo photos, compare se hi khudki generate ho
+   jaye, search aur trending bhi”. Every template here is a pure RECIPE (base look +
+   a handful of slider values) — nothing is a baked image. So each card previews the
+   visitor’s OWN photo live through the same GPU pipeline as the Looks rail, and one
+   tap applies it for real (with the before/after slider already open). */
+const TPL_CATS=['Portrait','Cinematic','Film','B&W','Product','Food','Travel','Reels'];
+const TPL=[
+['golden-hour','Golden Hour','Portrait','warm sunset glow skin',{exp:8,con:12,hi:-16,sh:20,tmp:16,sat:14,vib:18,vig:16,gr:3},'',1],
+['clean-beauty','Clean Beauty','Portrait','soft bright commercial skin cleanser',{exp:12,con:6,hi:-8,sh:14,tmp:4,sat:6,vib:10,clar:8,vig:8}],
+['moody-portrait','Moody Portrait','Portrait','dark rim light dramatic mood',{exp:-6,con:26,hi:-24,sh:-8,sat:-8,tmp:-6,vig:38,gr:8},'',1],
+['editorial','Editorial','Portrait','magazine fashion punch',{con:30,hi:-22,sh:12,sat:-10,clar:18,vig:20,shp:20}],
+['soft-glam','Soft Glam','Portrait','dreamy bridal glow',{exp:14,con:-6,hi:-10,sh:18,tmp:8,sat:8,bl:22,vig:16,gr:2}],
+['natural-skin','Natural Skin','Portrait','true tone no filter',{exp:4,con:8,hi:-6,sh:10,tmp:2,tint:-3,sat:2,clar:6}],
+['warm-indoor','Warm Indoor','Portrait','tungsten cozy home',{exp:6,con:14,hi:-12,sh:16,tmp:22,tint:6,sat:10,vig:22,gr:6}],
+['teal-orange','Teal & Orange','Cinematic','blockbuster grade',{con:24,hi:-20,sh:10,sat:4,stH:196,stS:46,htH:36,htS:34,vig:32,gr:8},'',1],
+['midnight-blue','Midnight Blue','Cinematic','night cold thriller',{exp:-8,con:20,hi:-18,sh:-10,tmp:-22,sat:-6,stH:220,stS:40,htH:205,htS:18,vig:38,gr:6}],
+['neon-city','Neon City','Cinematic','cyberpunk magenta cyan',{con:26,sat:22,tint:26,stH:282,stS:58,htH:186,htS:40,ca:26,bl:26,vig:30},'Cyber',1],
+['desert-dune','Desert Dune','Cinematic','sandy heat haze',{exp:6,con:16,hi:-16,tmp:24,sat:8,htH:36,htS:30,stH:28,stS:18,vig:24,gr:10}],
+['thriller-green','Thriller Green','Cinematic','sickly green tension',{exp:-4,con:28,hi:-22,sh:-6,tmp:-8,tint:12,stH:120,stS:26,htH:90,htS:12,vig:34,gr:12}],
+['cold-noir','Cold Noir','Cinematic','monochrome cold crime',{con:32,hi:-14,sh:8,tmp:-18,sat:-60,vig:42,gr:16},'Noir'],
+['anamorphic-night','Anamorphic Night','Cinematic','blue flare streak',{exp:-10,con:22,hi:-16,bl:34,ca:22,hal:26,vig:40,stH:210,stS:34,gr:10}],
+['kodak-warm','Kodak Warm','Film','golden analog stock',{exp:4,con:6,hi:-12,sh:18,tmp:12,sat:6,gr:28,vig:18,htH:40,htS:22},'Film'],
+['portra-soft','Portra Soft','Film','pastel skin tones',{exp:8,con:-4,hi:-14,sh:22,tmp:8,sat:-4,gr:20,vig:14,htS:16},'',1],
+['fuji-green','Fuji Green','Film','cool green shadows',{exp:2,con:10,hi:-10,sh:14,tmp:-4,tint:8,stH:140,stS:16,htH:70,htS:14,sat:-8,gr:24}],
+['expired-fade','Expired Fade','Film','washed old roll',{exp:8,con:-14,hi:-18,sh:30,sat:-22,tmp:6,gr:30,vig:12,bk:20},'Fade'],
+['cinestill-halation','Cinestill Halation','Film','red halation night',{exp:2,con:12,hi:-16,sh:12,tmp:6,hal:34,bl:18,gr:22,htH:30,htS:26,vig:20},'',1],
+['polaroid','Polaroid','Film','instant square memory',{exp:10,con:-8,hi:-10,sh:24,tmp:8,sat:-12,bl:16,gr:20,vig:26}],
+['classic-bw','Classic B&W','B&W','timeless mono',{con:24,hi:-10,sh:12,sat:-100,gr:14,vig:26},'Noir'],
+['contrast-bw','High Contrast B&W','B&W','hard light mono',{con:46,hi:-30,sh:-14,sat:-100,clar:26,vig:34,gr:10}],
+['silver-gelatin','Silver Gelatin','B&W','darkroom print',{exp:4,con:20,hi:-14,sh:10,sat:-100,gr:34,vig:20}],
+['matte-bw','Matte B&W','B&W','lifted blacks mono',{con:-6,hi:-16,sh:28,sat:-100,bk:26,gr:18,vig:14},'',1],
+['sepia-vintage','Sepia Vintage','B&W','old paper tone',{exp:2,con:8,hi:-12,sh:18,sat:-70,tmp:26,tint:10,gr:30,vig:30,htH:36,htS:24}],
+['studio-white','Studio White','Product','seamless ecommerce',{exp:14,con:8,hi:-6,sh:16,tmp:2,sat:-2,clar:12,vig:6}],
+['dark-luxe','Dark Luxe','Product','black backdrop luxury',{exp:-10,con:30,hi:-20,sh:-12,sat:-8,vig:44,gr:8},'',1],
+['soft-pastel','Soft Pastel','Product','gentle catalogue',{exp:12,con:-8,hi:-10,sh:20,tmp:6,tint:8,sat:-6,bl:14,vig:10}],
+['tech-metallic','Tech Metallic','Product','gadget cool steel',{exp:2,con:24,hi:-14,sh:8,tmp:-12,sat:-14,clar:20,shp:24,stH:210,stS:14,vig:18}],
+['jewel-tone','Jewel Tone','Product','rich saturated colour',{exp:-4,con:22,hi:-18,sh:6,sat:26,vib:20,vig:30,gr:6}],
+['cosmetics-glow','Cosmetics Glow','Product','beauty serum sheen',{exp:12,con:4,hi:-8,sh:14,tmp:8,sat:10,bl:18,vig:12}],
+['food-warm','Food Warm','Food','appetising curry warmth',{exp:8,con:16,hi:-14,sh:14,tmp:18,sat:18,vib:16,vig:22,gr:4},'',1],
+['cafe-moody','Cafe Moody','Food','dark table restaurant',{exp:-6,con:24,hi:-18,sh:-8,tmp:10,sat:6,vig:36,gr:10}],
+['fresh-bright','Fresh Bright','Food','salad daylight',{exp:14,con:8,hi:-8,sh:18,tmp:2,sat:14,clar:10,vig:10}],
+['rustic-film','Rustic Film','Food','farmhouse analog',{exp:4,con:10,hi:-12,sh:16,tmp:14,sat:6,gr:32,vig:24},'Film'],
+['dessert-dream','Dessert Dream','Food','soft sweet pastel',{exp:14,con:-4,hi:-10,sh:20,tmp:10,tint:10,sat:8,bl:20,vig:12}],
+['street-food','Street Food','Food','night market punch',{exp:2,con:26,hi:-20,sh:6,tmp:16,sat:22,vig:30,gr:14}],
+['golden-landscape','Golden Landscape','Travel','sunset vista',{exp:6,con:16,hi:-18,sh:18,tmp:14,sat:14,vib:18,vig:20,gr:6},'Golden',1],
+['alpine-crisp','Alpine Crisp','Travel','clean mountain air',{exp:6,con:22,hi:-18,sh:12,tmp:-8,sat:10,clar:22,shp:18,vig:18}],
+['tropical-pop','Tropical Pop','Travel','beach saturated',{exp:8,con:18,hi:-16,sh:14,sat:32,vib:24,stH:190,stS:20,htH:170,htS:10,vig:16}],
+['desert-fade','Desert Fade','Travel','matte sand journey',{exp:10,con:-6,hi:-14,sh:24,tmp:20,sat:-10,gr:16,vig:14,bk:18}],
+['blue-hour','Blue Hour','Travel','dusk city glow',{exp:-10,con:18,hi:-14,sh:-6,tmp:-26,tint:8,stH:225,stS:34,htH:200,htS:16,vig:30,gr:8},'',1],
+['monsoon-mood','Monsoon Mood','Travel','rain grey green',{exp:-6,con:12,hi:-16,sh:4,tmp:-10,tint:6,sat:-16,stH:160,stS:18,vig:26,gr:20}],
+['reel-viral','Reel Viral','Reels','scroll stopping punch',{exp:6,con:34,hi:-26,sh:16,sat:26,vib:24,clar:16,shp:18,vig:22},'',1],
+['reel-cinematic','Reel Cinematic','Reels','movie trailer grade',{con:26,hi:-20,stH:196,stS:44,htH:34,htS:38,vig:34,gr:8,bl:12},'Cinema'],
+['reel-vlog','Reel Vlog','Reels','bright talking head',{exp:16,con:12,hi:-10,sh:22,tmp:6,sat:16,vib:18,clar:14,vig:8}],
+['reel-night','Reel Night','Reels','low light city clip',{exp:-12,con:28,hi:-18,bl:30,ca:16,hal:18,vig:38,stH:215,stS:30,gr:14}],
+['reel-vintage','Reel Vintage','Reels','retro home video',{exp:6,con:8,hi:-14,sh:20,tmp:12,sat:-10,gr:36,vig:26,bk:14,hal:14},'Film']
+].map(a=>({id:a[0],n:a[1],c:a[2],t:a[3],p:a[4],k:a[5]||'',hot:!!a[6]}));
+let tplCat='All',tplQ='';
+function tplParams(t){
+  const out=t.k&&LK[t.k]?withLook(t.k):clone(Z);
+  for(const k in (t.p||{})){const rg=(k==='stH'||k==='htH')?[0,360]:(k==='stS'||k==='htS')?[0,100]:[-100,100];out[k]=Math.max(rg[0],Math.min(rg[1],Math.round(+t.p[k]||0)))}
+  return out;
+}
+function tplMatch(t){
+  if(tplCat==='Trending'&&!t.hot)return false;
+  if(tplCat!=='All'&&tplCat!=='Trending'&&t.c!==tplCat)return false;
+  if(!tplQ)return true;
+  const s=(t.n+' '+t.c+' '+t.t+' '+(t.k||'')).toLowerCase();
+  return tplQ.toLowerCase().split(/\s+/).filter(Boolean).every(w=>s.indexOf(w)>=0);
+}
+function tplCats(){
+  const cats=['All','Trending'].concat(TPL_CATS);
+  $('#tplcat').innerHTML=cats.map(c=>'<button data-c="'+c+'" class="'+(c===tplCat?'on':'')+'">'+(c==='Trending'?'🔥 Trending':c)+'</button>').join('');
+  document.querySelectorAll('#tplcat button').forEach(b=>b.onclick=()=>{tplCat=b.dataset.c;document.querySelectorAll('#tplcat button').forEach(x=>x.classList.toggle('on',x===b));tplBuild()});
+}
+function tplBuild(){
+  $('#tplg').innerHTML=TPL.map(t=>'<div class="tc" data-id="'+t.id+'" style="display:'+(tplMatch(t)?'':'none')+'"><canvas></canvas><span class="try">Try this ✨</span>'+(t.hot?'<span class="hot">🔥 TRENDING</span>':'')+'<div class="m"><b>'+esc(t.n)+'</b><span>'+esc(t.c)+(t.k?' · '+esc(t.k)+' base':' · custom grade')+'</span></div></div>').join('');
+  document.querySelectorAll('#tplg .tc').forEach(c=>c.onclick=()=>tplApply(TPL.find(t=>t.id===c.dataset.id)));
+  tplPaint();tplCount();
+}
+function tplCount(){
+  const n=document.querySelectorAll('#tplg .tc:not([style*="none"])').length;
+  const hot=TPL.filter(t=>t.hot).length;
+  $('#tplstat').textContent=n+' template'+(n===1?'':'s')+' · preview tumhari photo par · Try dabao, before/after slider khud khul jayega';
+  $('#tplsub').textContent=TPL.length+' ready-made grades · '+hot+' trending · koi upload nahi, sab GPU par';
+}
+function tplPaint(){
+  if(!LAY||!LAY[0]||!tp)return;
+  const bs=LAY[0].img,W=360,H=Math.max(2,Math.round(W*bs.height/bs.width));
+  const sm=mc(W,H);sm.getContext('2d').drawImage(bs,0,0,W,H);
+  tp.setSrc(sm);tp.setLUT(lutData(Z.cur));
+  document.querySelectorAll('#tplg .tc').forEach(card=>{
+    if(card.style.display==='none')return;
+    const t=TPL.find(x=>x.id===card.dataset.id),c=card.querySelector('canvas');
+    if(!t||!c)return;
+    c.width=W;c.height=H;tp.draw(tplParams(t));c.getContext('2d').drawImage(tp.cv,0,0);
+  });
+}
+function tplApply(t){
+  if(!t)return;
+  const keep={ar:P.ar||0,rot:P.rot||0,r90:P.r90||0,fx:P.fx||0,fy:P.fy||0};
+  const local={lexp:P.lexp,lcon:P.lcon,lsat:P.lsat,ltmp:P.ltmp,lblur:P.lblur,lclar:P.lclar};
+  base=clone(P);
+  P=Object.assign(tplParams(t),keep,local);
+  P.amt=100;P.look=(t.k&&LK[t.k])?t.k:'';
+  sync();draw();commit('Template · '+t.n);mark();
+  tplClose();
+  toast('✓ '+t.n+' applied — slider se pehle/jaisa compare karo');
+  click(.06,.4,1600);
+  setTimeout(()=>{try{if(!fr.classList.contains('split'))$('#sp').click()}catch(e){}},240);
+}
+function tplOpen(){
+  if(!LAY||!LAY[0]){toast('Pehle koi photo kholo');return}
+  tplCat='All';tplQ='';$('#tplq').value='';tplCats();tplBuild();$('#tplx').classList.add('on');
+}
+function tplClose(){$('#tplx').classList.remove('on')}
+$('#tpl').onclick=tplOpen;
+$('#tplz').onclick=tplClose;
+$('#tplq').oninput=e=>{tplQ=e.target.value.trim();tplBuild()};
+$('#tpldemo').onclick=()=>{setSrc(SRC,'Golden hour.jpg');tplBuild();toast('Demo photo load ho gayi — koi bhi template try karo')};
+$('#tplload').onclick=()=>{tplClose();$('#fi').click()};
+addEventListener('keydown',e=>{const g=$('#tplx');if(e.key==='Escape'&&g&&g.classList.contains('on')){e.stopImmediatePropagation();e.preventDefault();tplClose()}},true);
+
 /* ================= AI STUDIO (27 Oct 2026) =================
    Owner's ask: “user type kare ya photo/video attach kare aur AI wahi bana kar de” —
    plus ratings, comparisons and a first-visit guide.
 
-   KEY POLICY: no key ships in this file. The visitor's own Gemini key is kept in
-   this browser (localStorage) and the image bytes go straight from the device to
-   Google — Lucid has no server, so there is nothing to leak it from. */
+   KEY POLICY (owner order, 28 Oct 2026): visitors never paste a key. The studio has
+   ONE brain — the AURA backend proxy, which holds the key server-side. The old
+   “🔑 Set key” option is gone from the UI and from this code, so there is no dead
+   end, no half-configured state and no key sitting in a browser. */
 const AI=(function(){
-  const LSK='lucid.ai.key', LSG='lucid.guided';
-  const MODELS=['gemini-3.6-flash','gemini-2.5-flash'];
+  const LSG='lucid.guided';
   const PARAM_RANGE={stH:[0,360],stS:[0,100],htH:[0,360],htS:[0,100],lexp:[-100,100],lcon:[-100,100],lsat:[-100,100],ltmp:[-100,100],lblur:[0,100],lclar:[-100,100],lcx:[0,100],lcy:[0,100],lcr:[0,100]};
   const SYS='You are Lucid\'s editing brain inside a browser photo studio (WebGL, real sliders). The user writes Hinglish or English and may attach photos or video frames. Read the image(s), then reply ONLY with one JSON object — no markdown, no prose outside it. '
    +'Forms: '
@@ -828,18 +986,16 @@ const AI=(function(){
    +'2) a question when the intent is unclear: {"kind":"ask","said":"one short question in the user\'s language","options":["option 1","option 2","option 3"]} '
    +'3) a rating or comparison: {"kind":"rate","said":"2-4 line verdict in the user\'s language","items":[{"name":"photo 1","overall":0,"composition":0,"light":0,"colour":0,"note":"one line"}],"suggest":{"title":"...","said":"...","params":{}}} '
    +'Numbers are 0-10 for scores. Edit params are -100..100 (0 = untouched); tonal keys (exp,con,hi,sh,wh,bk,clar,dh,lexp,lcon,lsat,ltmp,lclar) allow negatives, lens keys (bl,vig,lblur) stay >=0, hue keys (stH,htH) are 0-360 and tints (stS,htS) 0-100. Keep the total edit tasteful and photographic — a pleasing grade, never crushed blacks or blown highlights. Add a "curve" only for real tonal work and "hue" only when the photo needs a colour move. If the user attached a reference photo and says make it like that, match its mood, contrast and colour. Always answer in the language the user wrote (Hinglish stays Hinglish).';
-  /* ---- EVERYONE PATH -------------------------------------------------------
-     A visitor should not need to own a Gemini key just to edit a photo, so the
-     studio asks the owner's own server (AURA backend) to run the vision brain:
-     the key stays on the server and nobody pastes anything. If that server is
-     asleep or has no key wired yet, the code below falls back to a personal key
-     from 🔑 Set key — either way the studio never dead-ends. */
+  /* ---- ONE PATH: the studio's own server ----------------------------------
+     Every visitor (phone or laptop) edits with the studio's key, which lives only
+     in the backend's private env. The browser posts the same Gemini body it always
+     did and gets Gemini's reply back, so the parser and auto-apply are unchanged. */
   if(!window.LUCID_AI_PROXY)window.LUCID_AI_PROXY='https://aura-backend-jomj.onrender.com/v1/lucid/edit';
   let att=[];
   const el=id=>document.getElementById(id);
   const logEl=()=>el('ailog');
-  const key=()=>{try{return localStorage.getItem(LSK)||''}catch(e){return ''}};
-  function keyUI(){const k=key(),e=el('aik');if(!e)return;const sv=!!window.LUCID_AI_PROXY;e.textContent=k?'key ready 🔒':(sv?'AI ready ✦':'key not set');e.classList.toggle('on',!!(k||sv))}
+  const wait=ms=>new Promise(r=>setTimeout(r,ms));
+  function keyUI(){const e=el('aik');if(e){e.textContent='AI ready ✦';e.classList.add('on')}}
   function bub(kind,tag,text){const w=document.createElement('div');w.className='aiw '+kind;w.innerHTML=(tag?'<b class="t">'+esc(tag)+'</b>':'')+esc(text||'');logEl().append(w);logEl().scrollTop=logEl().scrollHeight;return w}
   function bars(w,items){items.forEach(it=>{const row=document.createElement('div');row.className='aibar';row.innerHTML='<span style="width:74px">'+esc(it.name||'')+'</span><i><s style="width:'+Math.max(0,Math.min(10,+it.v||0))*10+'%"></s></i><span>'+(it.v!=null?it.v:'')+'/10</span>';w.append(row)})}
   /* ---- attachments: images straight in, videos by sampled frames ---- */
@@ -847,28 +1003,36 @@ const AI=(function(){
   function imgCv(f){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(toCv(im,im.naturalWidth,im.naturalHeight,1100));im.onerror=rej;im.src=URL.createObjectURL(f)})}
   function vidFrames(f,n){return new Promise((res,rej)=>{const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.onerror=()=>rej(new Error('video read failed'));v.onloadeddata=async()=>{try{const d=v.duration||1,cuts=[.08,.5,.85].slice(0,n),out=[];for(const t of cuts){v.currentTime=Math.max(.02,Math.min(d-.05,d*t));await new Promise(r=>{v.onseeked=r;setTimeout(r,900)});out.push({cv:toCv(v,v.videoWidth,v.videoHeight,1000)})}res(out)}catch(e){rej(e)}finally{v.src=''}};v.src=URL.createObjectURL(f)})}
   async function addFiles(files){for(const f of files){if(att.length>=4){toast('Max 4 attachments — extra skip kar diye');break}try{if(/^image\//.test(f.type)){const cv=await imgCv(f);att.push({name:f.name,kind:'image',frames:[{cv}]})}else if(/^video\//.test(f.type)){const fr=await vidFrames(f,3);att.push({name:f.name,kind:'video',frames:fr});toast('Video · '+fr.length+' frames ready')}else{toast('Sirf photo/video chalega')}}catch(e){toast('Could not read '+f.name)}}thumbUI()}
-  function thumbUI(){const host=el('aithumbs');host.innerHTML='';att.forEach((a,ai)=>{a.frames.forEach((fr,fi)=>{const fig=document.createElement('figure');fig.title='Canvas par bhejo';const c=mc(66,50);c.getContext('2d').drawImage(fr.cv,0,0,66,50);fig.append(c);const b=document.createElement('b');b.textContent=(a.kind==='video'?'🎬 ':'')+a.name.slice(0,10)+(a.frames.length>1?' ·'+(fi+1):'');fig.append(b);const x=document.createElement('button');x.textContent='✕';x.title='Remove';x.onclick=ev=>{ev.stopPropagation();att.splice(ai,1);thumbUI()};fig.append(x);fig.onclick=()=>{setSrc(fr.cv,a.name+(a.frames.length>1?' · frame '+(fi+1):''));$('#tabs [data-t=t1]').click();toast('Canvas par load ho gaya')};host.append(fig)})});const s=el('aistat');if(s)s.textContent=att.length?(att.map(a=>a.name.split('.')[0]+' ×'+a.frames.length).join(', ')+' · AI ko '+Math.min(4,att.reduce((p,a)=>p+a.frames.length,0))+' image jayengi'):(key()?'Key tumhare browser me hai — photo seedha tumhare device se AI ko jati hai.':(window.LUCID_AI_PROXY?'AI studio ke apne server se chal raha hai — tumhe koi key nahi chahiye, aur photo kahin save nahi hoti.':'🔑 Set key se free Gemini key daalo (aistudio.google.com/apikey) — phir AI editing chalu.'))}
+  function thumbUI(){const host=el('aithumbs');host.innerHTML='';att.forEach((a,ai)=>{a.frames.forEach((fr,fi)=>{const fig=document.createElement('figure');fig.title='Canvas par bhejo';const c=mc(66,50);c.getContext('2d').drawImage(fr.cv,0,0,66,50);fig.append(c);const b=document.createElement('b');b.textContent=(a.kind==='video'?'🎬 ':'')+a.name.slice(0,10)+(a.frames.length>1?' ·'+(fi+1):'');fig.append(b);const x=document.createElement('button');x.textContent='✕';x.title='Remove';x.onclick=ev=>{ev.stopPropagation();att.splice(ai,1);thumbUI()};fig.append(x);fig.onclick=()=>{setSrc(fr.cv,a.name+(a.frames.length>1?' · frame '+(fi+1):''));$('#tabs [data-t=t1]').click();toast('Canvas par load ho gaya')};host.append(fig)})});const s=el('aistat');if(s)s.textContent=att.length?(att.map(a=>a.name.split('.')[0]+' ×'+a.frames.length).join(', ')+' · AI ko '+Math.min(4,att.reduce((p,a)=>p+a.frames.length,0))+' image jayengi'):'AI studio apne server se chalta hai — koi key nahi chahiye, aur photo kahin save nahi hoti.'}
   /* ---- the call ---- */
   async function callAI(prompt){
     const imgs=[];for(const a of att)for(const fr of a.frames){if(imgs.length<4)imgs.push(fr.cv.toDataURL('image/jpeg',.85).split(',')[1])}
     const parts=[{text:SYS+'\n\nUSER REQUEST: '+(prompt||'(no text — look at the attached media, decide the best edit and do it)')}].concat(imgs.map(b=>({inline_data:{mime_type:'image/jpeg',data:b}})));
     const body={contents:[{role:'user',parts}],generationConfig:{temperature:.45,maxOutputTokens:1800,responseMimeType:'application/json'}};
     const proxy=(typeof window!=='undefined'&&window.LUCID_AI_PROXY)||'';
-    /* rungs: the shared studio server first (nobody needs a key), then the visitor's
-       own key if the server is asleep, drained or not wired yet — never a dead end */
-    const urls=[];
-    if(proxy)urls.push(proxy);
-    if(key())for(const m of MODELS)urls.push('https://generativelanguage.googleapis.com/v1beta/models/'+m+':generateContent?key='+encodeURIComponent(key()));
-    if(!urls.length)throw new Error('Koi AI brain reachable nahi — 🔑 Set key se apni free Gemini key daal do (aistudio.google.com/apikey).');
+    if(!proxy)throw new Error('AI studio abhi offline hai — thodi der baad try karo.');
     let last='';
-    for(const url of urls){
-      let r;try{r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}catch(e){last=e.message||String(e);continue}
-      if(r.ok){const j=await r.json();const t=((j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(x=>x.text||'').join('');return parseJSON(t)}
-      last=await r.text().catch(()=>'');
-      if(r.status!==404&&r.status!==429&&r.status!==501&&r.status!==502)break; /* shared server hiccup → next rung */
+    /* the backend already walks five Gemini models twice; one extra client retry
+       covers a cold Render instance / a dropped connection. A 429 (daily cap) is
+       final — retrying would just burn the visitor's time. */
+    for(let attempt=0;attempt<2;attempt++){
+      let r=null;
+      try{r=await fetch(proxy,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
+      catch(e){last='AI server tak nahi pahunch paya — internet check karke phir try karo.';await wait(900);continue}
+      if(r.ok){
+        const j=await r.json().catch(()=>null);
+        const t=((j&&j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[]).map(x=>x.text||'').join('');
+        if(t)return parseJSON(t);
+        last='AI ne khaali jawab diya — ek baar phir try karo.';continue;
+      }
+      const raw=await r.text().catch(()=>'');
+      let msg='';try{msg=((JSON.parse(raw).error)||{}).message||''}catch(e){}
+      last=msg||('AI server busy ('+r.status+')');
+      if(r.status===429){const e=new Error(last);e.cap=true;throw e}
+      if(r.status>=500){await wait(1200);continue}
+      throw new Error(last||'AI ne request reject kar di');
     }
-    let msg='AI ne error diya';try{const j=JSON.parse(last);msg=(j.error&&j.error.message)||msg}catch(e){msg=(last||msg).slice(0,220)}
-    throw new Error(msg);
+    throw new Error(last||'AI abhi busy hai — 10–15 second baad phir try karo.');
   }
   function parseJSON(t){const s=String(t||'').trim();try{return JSON.parse(s)}catch(e){}const m=s.match(/\{[\s\S]*\}/);if(m){try{return JSON.parse(m[0])}catch(e){}}throw new Error('AI ka jawab JSON me nahi tha: '+s.slice(0,180))}
   /* ---- applying an AI edit to the real engine ---- */
@@ -905,19 +1069,12 @@ const AI=(function(){
   async function send(){
     const box=el('aip'),p=(box.value||'').trim();
     if(!p&&!att.length){toast('Kuch likho ya photo/video attach karo');return}
-    if(!key()&&!window.LUCID_AI_PROXY){askKey();return}
     const names=att.map(a=>a.name).join(', ');
     bub('u','You',p+(names?'\n📎 '+names:''));
     box.value='';
     const think=bub('a','AI','soch raha hoon…');think.classList.add('aithink');
     try{const d=await callAI(p);think.remove();render(d)}
-    catch(e){think.remove();bub('err','AI unavailable',String(e.message||e)+(key()?'\n\n(Tip: key reject ho gayi ya limit khatm — 🔑 Set key se nayi key daal do.)':'\n\n(Tip: 🔑 Set key me apni free Gemini key daalo — aistudio.google.com/apikey — ya thodi der baad phir try karo.)'))}
-  }
-  function askKey(){
-    const k=prompt('Paste your Gemini API key — sirf is browser me save hogi:\n(free key: aistudio.google.com/apikey)',key()||'');
-    if(k===null)return;const t=k.trim();
-    try{t?localStorage.setItem(LSK,t):localStorage.removeItem(LSK)}catch(e){toast('Browser ne save nahi kiya')}
-    keyUI();toast(t?'AI key saved 🔒':'Key hata di');
+    catch(e){think.remove();const raw=String(e.message||e);const clean=/no longer available|not found|\b404\b/i.test(raw)?'AI model update ho raha hai server par — 1 minute baad phir try karo.' : raw;bub('err','AI abhi nahi chala',clean+(e.cap?'':'\n\nTip: 10–15 second baad “Ask AI” phir dabao — koi key nahi chahiye.'))}
   }
   const CHIPS=[
     ['✨ Cinematic look',()=>run('isko cinematic moody look do — teal shadows, warm highlights, thoda bloom')],
@@ -935,21 +1092,21 @@ const AI=(function(){
   async function run(text){el('aip').value=text;if(el('t6').classList.contains('on'))send();else{$('#tabs [data-t=t6]').click();setTimeout(send,60)}}
   /* ---- guide ---- */
   const STEPS=[
-    ['1','Looks','9 ready looks — ek click me poora mood. Left panel me “Looks”, hover se preview.','looks'],
-    ['2','Edit sliders','Light aur Colour tabs me exposure, contrast, temperature, vibrance — sab live GPU par.','t1'],
-    ['3','Curves','RGB curve drag karo — click se point, double-click se remove.','t1'],
-    ['4','Layers + Type','Logo, text, overlays; blend mode aur opacity ke saath. Type tool: “T” dabao, photo par click karo.','t2'],
-    ['5','Local masks','Brush se paint karo — light sirf wahan badlegi jahan paint kiya.','t1'],
-    ['6','AI Studio','Photo/video attach karo ya type karo — AI khud edit laga dega. Ratings aur compare bhi yahin.','t6'],
-    ['7','Batch + Export','Poori folder par look lagao, watermark + resize, ek ZIP. PNG/JPEG/WebP.','t3']
+    ['1','Template library','Top bar me “🎨 Templates” — 48 ready grades, category + search ke saath. Kisi bhi card par click: tumhari photo par lag jayega aur before/after slider khud khul jayega.','tpl'],
+    ['2','Looks','9 ready looks — ek click me poora mood. Left panel me “Looks”, hover se preview.','looks'],
+    ['3','Edit sliders','Light aur Colour tabs me exposure, contrast, temperature, vibrance — sab live GPU par.','t1'],
+    ['4','Curves','RGB curve drag karo — click se point, double-click se remove.','t1'],
+    ['5','Layers + Type','Logo, text, overlays; blend mode aur opacity ke saath. Type tool: “T” dabao, photo par click karo.','t2'],
+    ['6','Local masks','Brush se paint karo — light sirf wahan badlegi jahan paint kiya.','t1'],
+    ['7','AI Studio','Photo/video attach karo ya type karo — AI khud edit laga dega. Ratings aur compare bhi yahin.','t6'],
+    ['8','Batch + Export','Poori folder par look lagao, watermark + resize, ek ZIP. PNG/JPEG/WebP.','t3']
   ];
-  function guide(open){const g=el('gd');if(open){const h=el('gdl');if(!h.childElementCount)STEPS.forEach(([n,t,d,go])=>{const r=document.createElement('div');r.className='gdi';r.innerHTML='<b class="n">'+n+'</b><div><h4>'+esc(t)+'</h4><p>'+esc(d)+'</p></div>';const b=document.createElement('button');b.textContent='Show me';b.onclick=()=>{g.classList.remove('on');if(go==='looks'){toast('Left panel · Looks');document.querySelectorAll('.lk')[0]&&document.querySelectorAll('.lk')[0].focus()}else $('#tabs [data-t='+go+']').click()};r.append(b);h.append(r)});g.classList.add('on')}else{try{if(el('gdn').checked)localStorage.setItem(LSG,'1')}catch(e){}g.classList.remove('on')}}
+  function guide(open){const g=el('gd');if(open){const h=el('gdl');if(!h.childElementCount)STEPS.forEach(([n,t,d,go])=>{const r=document.createElement('div');r.className='gdi';r.innerHTML='<b class="n">'+n+'</b><div><h4>'+esc(t)+'</h4><p>'+esc(d)+'</p></div>';const b=document.createElement('button');b.textContent='Show me';b.onclick=()=>{g.classList.remove('on');if(go==='looks'){toast('Left panel · Looks');document.querySelectorAll('.lk')[0]&&document.querySelectorAll('.lk')[0].focus()}else if(go==='tpl'){tplOpen()}else $('#tabs [data-t='+go+']').click()};r.append(b);h.append(r)});g.classList.add('on')}else{try{if(el('gdn').checked)localStorage.setItem(LSG,'1')}catch(e){}g.classList.remove('on')}}
   function guideOnce(){try{if(localStorage.getItem(LSG)==='1')return}catch(e){}setTimeout(()=>{if(B.classList.contains('in')&&!el('gd').classList.contains('on'))guide(true)},900)}
   /* ---- wiring ---- */
   function init(){
     keyUI();chips();
     el('aigo').onclick=send;
-    el('aiset').onclick=askKey;
     el('aig').onclick=()=>guide(true);
     el('gh').onclick=()=>guide(true);
     el('gda').onclick=()=>{try{if(el('gdn').checked)localStorage.setItem(LSG,'1')}catch(e){}guide(false);$('#tabs [data-t=t6]').click();el('aip').focus()};
@@ -957,7 +1114,6 @@ const AI=(function(){
     el('aif').onchange=e=>{addFiles([...e.target.files]);e.target.value=''};
     el('aip').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}};
     el('aip').addEventListener('paste',e=>{const fs=[...(e.clipboardData&&e.clipboardData.files)||[]];if(fs.length){e.preventDefault();addFiles(fs)}});
-    el('aik').onclick=askKey;
     const au=el('aiauto');if(au){try{const v=localStorage.getItem('lucid.ai.auto');if(v!==null)au.checked=v==='1'}catch(e){}au.onchange=()=>{try{localStorage.setItem('lucid.ai.auto',au.checked?'1':'0')}catch(e){}toast(au.checked?'Auto-apply on — AI khud edit laga dega':'Auto-apply off — Apply button use karo')}}
     /* Escape must close the GUIDE first — the studio's own Escape handler lives on the
        same node (window), so plain stopPropagation is not enough: only
@@ -967,7 +1123,7 @@ const AI=(function(){
     el('t6').addEventListener('drop',e=>{e.preventDefault();const fs=[...(e.dataTransfer&&e.dataTransfer.files)||[]];if(fs.length)addFiles(fs)});
   }
   return{init,guide,guideOnce,send,applyEdit,chip,run,
-    _state:()=>({att:att.length,frames:att.reduce((p,a)=>p+a.frames.length,0),key:!!key()})};
+    _state:()=>({att:att.length,frames:att.reduce((p,a)=>p+a.frames.length,0),proxy:!!window.LUCID_AI_PROXY})};
 })();
 AI.init();
 try{window.LucidAI=AI}catch(e){}   /* tooling/extension hook — same brain the AI tab uses */
