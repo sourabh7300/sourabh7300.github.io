@@ -6943,6 +6943,10 @@ function personaName(){try{return (PERSONAS[persona()]||PERSONAS.aura).name}catc
 /* TIME_PROTO — one hard anti-cutoff rule shipped with EVERY system prompt (main brain, thinkAnswer,
    researchReply lanes): the model never claims a training cutoff or out-dated knowledge. */
 const TIME_PROTO=" KNOWLEDGE & TIME PROTOCOL: this context carries the user's real CURRENT DATE & TIME - trust it over any internal guess. You are wired to a LIVE web lane that feeds same-day sources for anything time-sensitive, so your working knowledge is current-day. HARD RULE: never say or imply you are outdated, frozen, 'two years out of date', or limited by a training cutoff; NEVER mention training data, model freeze dates or cutoff years in any answer. If a current fact is missing from the provided context, answer from your own knowledge WITHOUT cutoff disclaimers and offer to pull live web sources. Questions like 'what year is it' are answered confidently with the context date.";
+/* continuity even when the on-screen transcript is short (new session, restored
+   chat, or a trimmed CONVO): the backend lane gets the same "last topic" hint the
+   direct-Groq lane already had */
+function topicLine(){try{return lastTopic?" The last topic discussed was \""+lastTopic+"\" — continue that thread unless the user clearly starts a new one.":""}catch(e){return ""}}
 function replyStyle(){
   const lang=(function(){
     /* LANGUAGE MIRROR PROTOCOL (owner: "yeh catch kre user kiss language main bol rha hai") —
@@ -7595,7 +7599,7 @@ async function aiReply(q){
     /* rescue rung: geminiCall short-circuits to groqCall (backend first) — a single
        transient backend/model blip used to dead-end here and dump raw Wikipedia as the
        final answer. Retry the backend ONCE before giving up on the brain. */
-    if(geminiKey()||backendUrl()){try{let t;try{t=await geminiCall(q,deep)}catch(e1){if(!e1.outOfTokens&&aiProvider()==="groq"&&!keyPool().length&&backendUrl()){await new Promise(r=>setTimeout(r,1200));t=await backendCall([{role:"system",content:replyStyle()},{role:"user",content:q+convoCtx()+((await webContext(q))||"")}],deep?2600:900)}else throw e1}t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
+    if(geminiKey()||backendUrl()){try{let t;try{t=await geminiCall(q,deep)}catch(e1){if(!e1.outOfTokens&&aiProvider()==="groq"&&!keyPool().length&&backendUrl()){await new Promise(r=>setTimeout(r,1200));t=await backendCall([{role:"system",content:replyStyle()+topicLine()},{role:"user",content:q+convoCtx()+((await webContext(q))||"")}],deep?2600:900)}else throw e1}t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
     const d2=await ddgAnswer(q);if(d2)return d2;
