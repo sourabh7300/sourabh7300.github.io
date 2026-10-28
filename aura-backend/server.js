@@ -76,6 +76,9 @@ const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 const SQUAD_TICK_SECRET = envv("SQUAD_TICK_SECRET", "SQUAD_SECRET");
 const GEMINI_API_KEY = envv("AI_KEY_VISION", "GEMINI_API_KEY");            // gives AURA EYES (vision)
 const VISION_MODEL = process.env.VISION_MODEL || atob("Z2VtaW5pLTMuNi1mbGFzaA==");
+/* one Gemini model having a demand spike must not blind the studio or AURA: try the
+   configured model first, then the other flash models, before reporting failure */
+const VISION_MODELS = [VISION_MODEL, "gemini-2.5-flash", "gemini-2.0-flash"].filter((m, i, a) => m && a.indexOf(m) === i);
 
 /* RESERVE BRAIN — fires only when the primary key bank has drained (or died),
    so users keep getting real AI answers instead of the out-of-tokens notice.
@@ -124,20 +127,25 @@ async function visionCall(messages, maxTok, temperature, req) {
         }).filter(x => x.text !== "" || x.inlineData)
       : [{ text: String(m.content) }]
   }));
-  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + VISION_MODEL + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(Object.assign(
-      { contents, generationConfig: { maxOutputTokens: maxTok, temperature: temperature != null ? temperature : 0.6 } },
-      sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
-    )),
-    signal: AbortSignal.timeout(60_000)
-  });
-  if (!r.ok) return null;
-  const d = await r.json();
-  const t = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || []).map(p => p.text || "").join("").trim();
-  if (t) recordUse(req, "vision", 0);
-  return t || null;
+  const vbody = JSON.stringify(Object.assign(
+    { contents, generationConfig: { maxOutputTokens: maxTok, temperature: temperature != null ? temperature : 0.6 } },
+    sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
+  ));
+  for (const vmodel of VISION_MODELS) {
+    try {
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: vbody,
+        signal: AbortSignal.timeout(60_000)
+      });
+      if (!r.ok) continue; /* busy/overloaded model → next one */
+      const d = await r.json();
+      const t = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || []).map(p => p.text || "").join("").trim();
+      if (t) { recordUse(req, "vision", 0); return t; }
+    } catch (e) { /* next model */ }
+  }
+  return null;
 }
 /* Render injects PORT (its default is 10000). Falling back to 3000 on a host means
    the platform scans and scans and never sees an open port — "No open ports
@@ -1725,24 +1733,31 @@ app.post("/v1/lucid/edit", async (req, res) => {
     maxOutputTokens: Math.min(2048, Math.max(256, parseInt(gc.maxOutputTokens, 10) || 1800)),
   };
   if (gc.responseMimeType === "application/json") gen.responseMimeType = "application/json";
-  try {
-    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + VISION_MODEL + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: gen }),
-      signal: AbortSignal.timeout(60_000)
-    });
-    const j = await r.json().catch(() => null);
-    if (!r.ok) {
-      const msg = (j && j.error && j.error.message) || ("vision upstream HTTP " + r.status);
-      return res.status(r.status === 429 ? 429 : 502).json({ error: { code: r.status, message: msg } });
-    }
-    lucidCount(req);
-    recordUse(req, "vision", (j && j.usageMetadata && j.usageMetadata.totalTokenCount) || 0);
-    return res.json(j); /* Gemini shape → Lucid reads candidates[0].content.parts */
-  } catch (e) {
-    return res.status(502).json({ error: { code: 502, message: e.message || "vision call failed" } });
+  /* a demand spike on one Gemini model (503 "high demand") must not break editing:
+     walk the model list and serve the first that answers */
+  const lbody = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: gen });
+  let lastStatus = 502, lastMsg = "vision call failed";
+  for (const vmodel of VISION_MODELS) {
+    try {
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: lbody,
+        signal: AbortSignal.timeout(60_000)
+      });
+      const j = await r.json().catch(() => null);
+      if (!r.ok) {
+        lastStatus = r.status;
+        lastMsg = (j && j.error && j.error.message) || ("vision upstream HTTP " + r.status + " (" + vmodel + ")");
+        if (r.status === 503 || r.status === 429 || r.status >= 500) continue; /* busy → next model */
+        break; /* a real request error: other models would say the same */
+      }
+      lucidCount(req);
+      recordUse(req, "vision", (j && j.usageMetadata && j.usageMetadata.totalTokenCount) || 0);
+      return res.json(j); /* Gemini shape → Lucid reads candidates[0].content.parts */
+    } catch (e) { lastStatus = 502; lastMsg = e.message || "vision call failed"; }
   }
+  return res.status(lastStatus === 429 ? 429 : 502).json({ error: { code: lastStatus, message: lastMsg } });
 });
 
 /* health + root */
