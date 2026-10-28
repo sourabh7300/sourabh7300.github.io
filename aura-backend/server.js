@@ -58,12 +58,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v10";
+const BUILD = process.env.AURA_BUILD || "squad-v11";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v10";
+const SRC_BUILD = "squad-v11";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -135,7 +135,11 @@ async function visionCall(messages, maxTok, temperature, req) {
   if (t) recordUse(req, "vision", 0);
   return t || null;
 }
-const PORT = parseInt(process.env.PORT, 10) || 3000;
+/* Render injects PORT (its default is 10000). Falling back to 3000 on a host means
+   the platform scans and scans and never sees an open port — "No open ports
+   detected" — so the fallback must match the platform's own default. */
+const ON_HOST = !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL);
+const PORT = parseInt(process.env.PORT, 10) || (ON_HOST ? 10000 : 3000);
 
 /* ===================== THE PORT OPENS BEFORE THE REST OF THIS FILE ============
    Render rejected every deploy of the new build with "Application exited early"
@@ -148,7 +152,19 @@ const PORT = parseInt(process.env.PORT, 10) || 3000;
    early" and no rollback), and if any later line throws, /health still answers
    JSON naming the stage that died (stage/err/bootCrashes) instead of the deploy
    silently vanishing. */
-const IS_MAIN = require.main === module;
+/* ENTRY DETECTION MUST NEVER DECIDE WHETHER WE SERVE (28 Oct 2026)
+   Render's log: "Running 'node server.js'" → boot line → "No open ports detected".
+   The process was alive but never bound: on the deployed runtime require.main is not
+   a reliable "am I the entry?" signal (newer Node versions and supervisor wrappers
+   can leave it unset/foreign), and a false answer here silently skips listen().
+   A service host that started this process wants a server, so on a host we always
+   serve; local requires (the test suites) still never open a port. */
+const IS_MAIN = ON_HOST
+  ? true
+  : (() => {
+      try { if (require.main) return require.main === module; } catch (e) {}
+      try { const p = require("path").resolve(process.argv[1] || ""); return !!p && p === __filename; } catch (e) { return false; }
+    })();
 let bootSrv = null;
 if (IS_MAIN) {
   bootSrv = require("http").createServer((req, res) => {
@@ -161,7 +177,10 @@ if (IS_MAIN) {
     res.end(req.method === "HEAD" ? undefined : body);
   });
   bootSrv.on("error", e => noteCrash("listen", e));
+  console.log("[boot] binding port " + PORT + " (PORT env=" + (process.env.PORT || "unset") + " · main=" + IS_MAIN + " · requireMain=" + (require.main ? "set" : "unset") + ")");
   bootSrv.listen(PORT, () => console.log("[boot] port " + PORT + " bound in " + (Date.now() - BOOT.at) + "ms · bootstrap responder serving · build " + BUILD));
+  /* if the port is still closed 8s later, say so loudly instead of dying silently */
+  setTimeout(() => { if (!bootSrv.listening) noteCrash("listen", new Error("port " + PORT + " still not bound after 8s (PORT env=" + (process.env.PORT || "unset") + ")")); }, 8000);
 }
 const MODELS = (process.env.MODELS || "openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.8-27b,meta-llama/llama-4-scout-17b-16e-instruct").split(",").map(s => s.trim()).filter(Boolean);
 
