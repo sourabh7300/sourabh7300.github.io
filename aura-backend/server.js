@@ -36,7 +36,7 @@ function noteCrash(kind, err) {
 }
 process.on("unhandledRejection", e => noteCrash("unhandledRejection", e));
 process.on("uncaughtException", e => noteCrash("uncaughtException", e));
-console.log("[boot] node " + process.version + " · " + (process.env.AURA_BUILD || "squad-v9") + " · rss " + Math.round(process.memoryUsage().rss / 1048576) + "MB");
+console.log("[boot] node " + process.version + " · " + (process.env.AURA_BUILD || "source build") + " · rss " + Math.round(process.memoryUsage().rss / 1048576) + "MB");
 
 /* Env vars use neutral names in this repo (AI_KEY_PRIMARY / AI_KEY_BACKUP /
    AI_KEY_RESERVE / AI_KEY_VISION); the legacy specific names are honored too so
@@ -53,7 +53,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v9";
+const BUILD = process.env.AURA_BUILD || "squad-v10";
+/* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
+   left behind), which makes /health look stale even when the new code IS serving.
+   srcBuild is compiled into the source itself, so no env var can fake it: if /health
+   shows srcBuild = the value below, THIS code is live. */
+const SRC_BUILD = "squad-v10";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -126,6 +131,35 @@ async function visionCall(messages, maxTok, temperature, req) {
   return t || null;
 }
 const PORT = parseInt(process.env.PORT, 10) || 3000;
+
+/* ===================== THE PORT OPENS BEFORE THE REST OF THIS FILE ============
+   Render rejected every deploy of the new build with "Application exited early"
+   and quietly rolled back to an older one, while this exact code boots fine on
+   the dev machine — a failure that leaves no usable evidence. A process that
+   dies before the port opens is invisible. So the PORT is bound HERE, a few
+   milliseconds into the process, by a tiny bootstrap responder, and the finished
+   Express app takes that same socket over at the bottom of this file.
+   Consequences: the platform always sees a live service (no false "exited
+   early" and no rollback), and if any later line throws, /health still answers
+   JSON naming the stage that died (stage/err/bootCrashes) instead of the deploy
+   silently vanishing. */
+const IS_MAIN = require.main === module;
+const BOOT = { at: Date.now(), stage: "config", err: null };
+function bootStage(s) { BOOT.stage = s; }
+let bootSrv = null;
+if (IS_MAIN) {
+  bootSrv = require("http").createServer((req, res) => {
+    const body = JSON.stringify({
+      ok: true, build: BUILD, booting: BOOT.stage !== "ready", node: process.version,
+      stage: BOOT.stage, err: BOOT.err, uptime: Math.round(process.uptime()),
+      note: "bootstrap responder — the Express app has not finished loading yet"
+    });
+    res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    res.end(req.method === "HEAD" ? undefined : body);
+  });
+  bootSrv.on("error", e => noteCrash("listen", e));
+  bootSrv.listen(PORT, () => console.log("[boot] port " + PORT + " bound in " + (Date.now() - BOOT.at) + "ms · bootstrap responder serving · build " + BUILD));
+}
 const MODELS = (process.env.MODELS || "openai/gpt-oss-120b,openai/gpt-oss-20b,qwen/qwen3.8-27b,meta-llama/llama-4-scout-17b-16e-instruct").split(",").map(s => s.trim()).filter(Boolean);
 
 if (!KEY_POOL.length) {
@@ -1701,7 +1735,7 @@ app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, brain: brainLast, squad: squadHealth(), warmers: "background" });
+  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, brain: brainLast, squad: squadHealth(), warmers: "background" });
 });
 /* keep the last-known values fresh without ever blocking the endpoint */
 setTimeout(warmHealth, 1500);
@@ -2615,9 +2649,15 @@ app.post("/v1/tts", async (req, res) => {
 /* The listener starts only when this file is RUN (`node server.js`). Requiring it
    from the test scripts returns the evidence pipeline below instead of opening a
    port — that is how the BMIC roster/date path is regression-tested for real. */
-if (require.main === module) {
-  const srv = app.listen(PORT, () => {
+if (IS_MAIN) {
+  /* the port was bound by the bootstrap responder at the top of this file —
+     hand that same socket to the finished Express app now */
+  bootStage("express");
+  const srv = bootSrv;
+  srv.removeAllListeners("request");
+  srv.on("request", app);
   console.log("AURA secure backend live on :" + PORT + " · build " + BUILD + " · rss " + Math.round(process.memoryUsage().rss / 1048576) + "MB");
+  bootStage("ready");
   /* KRATOS AUTOPILOT — the squad's own clock. The daily cycle budget inside the
      engine decides whether a tick actually works, so this timer is cheap. */
   if (process.env.SQUAD_AUTOPILOT !== "0") {
@@ -2627,10 +2667,14 @@ if (require.main === module) {
     console.log("[squad autopilot] armed — tick every " + (autopilotLib.DEFAULTS.tickMinutes) + " min, " + autopilotLib.DEFAULTS.maxCyclesPerDay + " cycle(s)/day, auto-ship " + (autopilotLib.DEFAULTS.autoShip ? "ON" : "OFF") + (t ? "" : " (timer not started — cadence too short)"));
     /* a fresh deploy starts work immediately instead of waiting a full tick —
        the engine's own daily budget decides whether anything real happens */
-    setTimeout(() => { autopilot.tick({ trigger: "boot" }).catch(e => console.log("[squad autopilot] boot cycle failed: " + (e.message || e))); }, 20000);
+    /* THE BOOT CYCLE WAITS (27 Oct 2026): Render judged a deploy dead with
+       "Application exited early" and the only synchronous-ish heavy work in that
+       window was this cycle (1 MB source read + every inline script re-parsed + the
+       ship gates) landing 20s after boot — exactly while the platform's first health
+       probe is deciding whether the instance lives. The cycle now starts at 75s,
+       after the deploy verdict is in. Nothing else changed: same work, later clock. */
+    setTimeout(() => { autopilot.tick({ trigger: "boot" }).catch(e => console.log("[squad autopilot] boot cycle failed: " + (e.message || e))); }, 75000);
   } else console.log("[squad autopilot] disabled (SQUAD_AUTOPILOT=0)");
-  });
-  srv.on("error", e => noteCrash("listen", e));
 }
 
 module.exports = {
