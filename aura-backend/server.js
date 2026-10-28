@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v12";
+const BUILD = process.env.AURA_BUILD || "squad-v13";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v12";
+const SRC_BUILD = "squad-v13";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -1097,6 +1097,7 @@ async function ghMirrorLive(content, message) {
    after cycle did no work and said nothing. Now: a thin budget, a shrink-and-retry
    ladder, a cooldown only when the KEY is really at fault, and the real upstream
    reason kept in `brainLast` for /health (never the key itself). */
+const chatLast = { at: 0, err: "" }; /* why the public chat lane last failed — shown in /health */
 const brainLast = { at: 0, ok: null, via: "", model: "", status: 0, note: "" };
 const SQUAD_MODELS = (process.env.SQUAD_MODELS || "openai/gpt-oss-120b,openai/gpt-oss-20b").split(",").map(s => s.trim()).filter(Boolean);async function squadBrain(messages, maxTok) {
   const want = Math.max(600, Math.min(maxTok || 3000, 8000));
@@ -1763,7 +1764,7 @@ app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, brain: brainLast, squad: squadHealth(), warmers: "background" });
+  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
 });
 /* keep the last-known values fresh without ever blocking the endpoint */
 setTimeout(warmHealth, 1500);
@@ -2030,6 +2031,8 @@ app.post("/v1/chat/completions", async (req, res) => {
   } catch (e) {}
 
   let sawLimit = false; // at least one key hit a rate/limit error
+  let lastChatErr = ""; // every upstream reason, surfaced in the 502 instead of a guess
+  const pushErr = s => { lastChatErr = (lastChatErr ? lastChatErr + " | " : "") + s; if (lastChatErr.length > 420) lastChatErr = "…" + lastChatErr.slice(-410); };
   /* KEY LANE — the CODE forge tags its requests with lane:"code" so they burn
      the dedicated code key (fallback: shared bank) and never starve chat quota */
   const __lane = body.lane === "code" ? "code" : "";
@@ -2058,19 +2061,26 @@ app.post("/v1/chat/completions", async (req, res) => {
         }),
         signal: AbortSignal.timeout(45_000)
       });
-      if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); sawLimit = true; continue; }
-      if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); sawLimit = true; continue; } // dead key → reserve will cover
-      if (r.status === 404 || r.status === 400) continue;                            // retired/invalid model → next model
-      if (!r.ok) return res.status(r.status).json({ error: "Upstream HTTP " + r.status });
+      if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); sawLimit = true; pushErr(model + " 429"); continue; }
+      if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); sawLimit = true; pushErr("key " + r.status); continue; } // dead key → reserve will cover
+      if (r.status === 404 || r.status === 400) {
+        /* keep the upstream sentence, not just the code: "model_not_found" and
+           "request too large (TPM)" both arrive as 400 and need opposite fixes */
+        let em = ""; try { const eb = await r.json(); em = (eb && eb.error && eb.error.message) || ""; } catch (e) {}
+        pushErr(model + " " + r.status + (em ? ": " + String(em).slice(0, 110) : ""));
+        continue; // retired/invalid model → next model
+      }
+      if (!r.ok) { pushErr(model + " HTTP " + r.status); return res.status(r.status).json({ error: "Upstream HTTP " + r.status }); }
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
       if (t && t.trim()) { t = await rosterGuard(t, messages); recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); if (!makerHere) { cachePut(messages, t.trim(), model); countAnswer(req); } return res.json({ choices: [{ message: { content: t.trim() } }], model }); }
     } catch (e) { /* network hiccup → try next model */ }
   }
-  if (sawLimit) {
-    /* the key bank is drained — the maker's NIM Nemotron covers the CODE lane first
-       (SWE-Bench: Nemotron-3-Super 60.47 vs gpt-oss-120b 41.9 — the strongest coding
-       fallback in the bank), then the Mistral reserve. */
+  /* NIM + reserve run whatever Groq said (28 Oct 2026): a retired model id makes
+     every Groq call 400/404 — that is NOT a rate limit — so the old `if (sawLimit)`
+     gate skipped the maker's NIM lane entirely and public chat fell straight through
+     to 502 while the squad's own NIM calls were answering 200 on the same host. */
+  {
     const NIM_KEY = process.env.NVIDIA_NIM_KEY || "";
     if (NIM_KEY) {
       for (const model of ["nvidia/nemotron-3-ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b"]) {
@@ -2092,11 +2102,12 @@ app.post("/v1/chat/completions", async (req, res) => {
     /* then the reserve brain before giving up */
     const mt = await reserveCall(messages, Math.min(body.max_tokens || 1400, 4000), body.temperature, req);
     if (mt) return res.json({ choices: [{ message: { content: await rosterGuard(mt, messages) } }], model: RESERVE_MODEL + " (reserve)" });
-    /* nothing left — AURA turns this into a friendly notice */
-    return res.status(429).json({ error: "out_of_tokens", outOfTokens: true,
+    /* nothing left — a drained bank gets the friendly notice, anything else the reason */
+    if (sawLimit) return res.status(429).json({ error: "out_of_tokens", outOfTokens: true,
       message: "Today's free AI allowance is used up. Full power returns tomorrow — meanwhile the offline core still answers." });
   }
-  res.status(502).json({ error: "All models exhausted or rate-limited. Try again shortly." });
+  chatLast.at = Date.now(); chatLast.err = lastChatErr || "";
+  res.status(502).json({ error: "All models exhausted or rate-limited. Try again shortly." + (lastChatErr ? " (" + lastChatErr + ")" : "") });
 });
 
 /* ============ AGENT LOOP — she stops answering and starts DOING ============
@@ -2478,7 +2489,8 @@ app.post("/v1/chat/stream", async (req, res) => {
     send({ error: "The vision model could not read that image — try a clearer photo." }); finish(); return;
   }
 
-  let sawLimit = false, served = false;
+  let sawLimit = false, served = false, lastChatErr = "";
+  const pushErr = s => { lastChatErr = (lastChatErr ? lastChatErr + " | " : "") + s; if (lastChatErr.length > 420) lastChatErr = "…" + lastChatErr.slice(-410); };
   if (body.lane === "code") {
     /* CODE LANE over stream — Mistral/Codestral first, shared bank on any miss */
     const __lr = await streamLane({ laneName: "code", apiKey: CODE_KEY, mistralModels: MISTRAL_CODE_MODELS, messages, maxTok: Math.min(body.max_tokens || 4000, 8000), temperature: body.temperature, send, isClosed: () => false, req });
@@ -2506,10 +2518,14 @@ app.post("/v1/chat/stream", async (req, res) => {
           }),
           signal: AbortSignal.timeout(120_000)
         });
-        if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); sawLimit = true; continue; }
-        if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); sawLimit = true; continue; }
-        if (r.status === 404 || r.status === 400) break; /* retired/invalid model → next model */
-        if (!r.ok || !r.body) break;
+        if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); sawLimit = true; pushErr(model + " 429"); continue; }
+        if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); sawLimit = true; pushErr("key " + r.status); continue; }
+        if (r.status === 404 || r.status === 400) {
+          let em = ""; try { const eb = await r.json(); em = (eb && eb.error && eb.error.message) || ""; } catch (e) {}
+          pushErr(model + " " + r.status + (em ? ": " + String(em).slice(0, 110) : ""));
+          break; /* retired/invalid model → next model */
+        }
+        if (!r.ok || !r.body) { pushErr(model + " HTTP " + r.status); break; }
         send({ model });
         served = true;
         let full = ""; /* accumulated for the answer cache */
@@ -2551,12 +2567,39 @@ app.post("/v1/chat/stream", async (req, res) => {
     }
   }
   if (!served) {
+    /* the maker's NIM lane answers even when nothing looked rate-limited: a retired
+       Groq model id returns 400/404, which the old gate read as "not a limit" and
+       skipped the only lane still working (28 Oct 2026 — public chat was 502 while
+       the squad's NIM calls on this same host returned 200) */
+    const NIM_KEY = process.env.NVIDIA_NIM_KEY || "";
+    if (NIM_KEY) {
+      for (const nimModel of ["nvidia/nemotron-3-ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b"]) {
+        try {
+          const nr = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": "Bearer " + NIM_KEY, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: nimModel, messages, max_tokens: Math.min(body.max_tokens || 1600, 4000), temperature: body.temperature != null ? body.temperature : 0.6 }),
+            signal: AbortSignal.timeout(120_000)
+          });
+          if (!nr.ok) continue;
+          const nd = await nr.json();
+          const nt = nd.choices && nd.choices[0] && nd.choices[0].message && nd.choices[0].message.content;
+          if (nt && nt.trim()) {
+            const safe = await rosterGuard(nt, messages);
+            send({ model: nimModel + " (nvidia-nim)" });
+            send({ delta: safe });
+            if (!makerHere) { cachePut(messages, safe, nimModel); countAnswer(req); }
+            finish(); return;
+          }
+        } catch (e) { /* next NIM model */ }
+      }
+    }
     if (sawLimit) {
       const mt = await reserveCall(messages, Math.min(body.max_tokens || 1600, 4000), body.temperature);
       if (mt) { send({ model: RESERVE_MODEL + " (reserve)" }); send({ delta: await rosterGuard(mt, messages) }); finish(); return; }
       send({ outOfTokens: true });
     }
-    else send({ error: "All models exhausted or rate-limited. Try again shortly." });
+    else { chatLast.at = Date.now(); chatLast.err = lastChatErr || ""; send({ error: "All models exhausted or rate-limited. Try again shortly." + (lastChatErr ? " (" + lastChatErr + ")" : "") }); }
   }
   finish();
 });
