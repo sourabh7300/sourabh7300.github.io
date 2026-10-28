@@ -156,7 +156,7 @@ textarea.txi:focus{border-color:var(--amb)}
 .tplcat button.on{background:var(--amb);color:#1c1200;border-color:transparent}
 .tplg{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:12px;padding:2px 4px 12px;align-content:start}
 .tplg::-webkit-scrollbar{width:8px}.tplg::-webkit-scrollbar-thumb{background:#2b2d38;border-radius:8px}
-.tc{position:relative;aspect-ratio:3/2;border-radius:14px;overflow:hidden;background:#0d0e13;border:1px solid rgba(255,255,255,.09);cursor:pointer;transition:transform .22s,border-color .22s,box-shadow .22s}
+.tc{position:relative;aspect-ratio:3/2;border-radius:14px;overflow:hidden;background:#0d0e13;border:1px solid rgba(255,255,255,.09);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .22s,border-color .22s,box-shadow .22s}
 .tc:hover{transform:translateY(-4px);border-color:rgba(255,179,71,.6);box-shadow:0 18px 40px rgba(0,0,0,.55)}
 .tc canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .tc .m{position:absolute;left:0;right:0;bottom:0;padding:24px 10px 9px;background:linear-gradient(transparent,rgba(0,0,0,.9));pointer-events:none}
@@ -168,6 +168,20 @@ textarea.txi:focus{border-color:var(--amb)}
 .tplf{display:flex;gap:12px;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);flex:none;flex-wrap:wrap}
 .tplf .hint{margin:0}
 @media(max-width:700px){.tplg{grid-template-columns:repeat(auto-fill,minmax(138px,1fr))}.tplh h3{font-size:18px}.tplc{padding:14px 12px 10px}}
+@media(max-width:900px){.tplx{padding:8px}.tplc{height:94vh;width:100%;padding:12px 10px 8px;border-radius:18px}.tplh input{min-width:0;width:100%;flex:1 1 100%}.tplg{grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:8px}.tplf .hint{font-size:11px}}
+/* PHONE TOOLBAR (28 Oct 2026) — at 360 px the bar measured 734 px wide, so Guide,
+   Sense, Open photo and Export sat OUTSIDE the viewport: the top of the studio
+   looked dead on a phone. It now shrinks and scrolls instead of overflowing, and
+   the keyboard-only shortcut is dropped on touch. */
+@media(max-width:760px){
+  #st>.top{gap:8px;padding:0 10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+  #st>.top::-webkit-scrollbar{display:none}
+  #st>.top>*{flex:0 0 auto}
+  #ck{display:none}
+  #st>.top .exw{position:sticky;right:-2px;padding-left:6px;background:rgba(10,11,15,.94);box-shadow:-14px 0 18px rgba(0,0,0,.55)}
+  #st>.top .b{padding:8px 11px;font-size:11.5px}
+  #st>.top .ib{width:34px;height:34px}
+}
 
 /* ===== LANDING (scroll experience) ===== */
 #out{overflow-y:auto;overflow-x:hidden;background:#06070b;scroll-behavior:smooth;transform-origin:50% 30%}#out::-webkit-scrollbar{width:0}
@@ -356,7 +370,7 @@ select,.txi{width:100%;background:rgba(0,0,0,.4);color:var(--cr);border:1px soli
 <label class="aiopt"><input type="checkbox" id="aiauto" checked> Auto-apply the edit (ek hi baar me lag jaye)</label>
 <p class="hint" id="aistat">AI studio apne server se chalta hai — tumhe koi key nahi chahiye, aur photo kahin save nahi hoti.</p></div>
 <div class="tab" id="t4"><h4 style="margin-top:0">Telemetry</h4><div class="tm"><div><span>Frame</span><b id="tr">—</b></div><div><span>FPS</span><b id="tf">—</b></div><div><span>Pixels</span><b id="tp">—</b></div><div><span>Resolution</span><b id="ts">—</b></div><div><span>Active edits</span><b id="ta">0</b></div><div><span>Uptime</span><b id="tu">0:00</b></div></div><canvas id="spk" width="600" height="120"></canvas>
-<h4>GPU</h4><p id="gpu" style="color:var(--dim);line-height:1.55;font:12px var(--mono)">—</p><h4>About</h4><p style="color:var(--dim);line-height:1.55">Lucid, an AI pro photo studio by Sourabh Singh. Every edit runs on your GPU; photos are never uploaded.</p></div>
+<h4>GPU</h4><p id="gpu" style="color:var(--dim);line-height:1.55;font:12px var(--mono)">—</p><h4>About</h4><p style="color:var(--dim);line-height:1.55">Lucid, an AI pro photo studio by Sourabh Singh. Every edit runs on your GPU; photos are never uploaded.</p><p id="lbuild" style="color:var(--dim);line-height:1.55;font:11px var(--mono);margin-top:8px">build —</p></div>
 </div></aside>
 <div class="dock glass" id="dock">
 <button id="un" data-tip="Undo (Z)" disabled><svg viewBox="0 0 24 24"><path d="M9 7H4v5"/><path d="M4 12a8 8 0 1 1 3 6"/></svg></button>
@@ -922,26 +936,49 @@ function tplCats(){
   document.querySelectorAll('#tplcat button').forEach(b=>b.onclick=()=>{tplCat=b.dataset.c;document.querySelectorAll('#tplcat button').forEach(x=>x.classList.toggle('on',x===b));tplBuild()});
 }
 function tplBuild(){
-  $('#tplg').innerHTML=TPL.map(t=>'<div class="tc" data-id="'+t.id+'" style="display:'+(tplMatch(t)?'':'none')+'"><canvas></canvas><span class="try">Try this ✨</span>'+(t.hot?'<span class="hot">🔥 TRENDING</span>':'')+'<div class="m"><b>'+esc(t.n)+'</b><span>'+esc(t.c)+(t.k?' · '+esc(t.k)+' base':' · custom grade')+'</span></div></div>').join('');
-  document.querySelectorAll('#tplg .tc').forEach(c=>c.onclick=()=>tplApply(TPL.find(t=>t.id===c.dataset.id)));
+  const grid=$('#tplg');if(!grid)return;
+  grid.innerHTML=TPL.map(t=>'<div class="tc" data-id="'+t.id+'" style="display:'+(tplMatch(t)?'':'none')+'"><canvas></canvas><span class="try">Try this ✨</span>'+(t.hot?'<span class="hot">🔥 TRENDING</span>':'')+'<div class="m"><b>'+esc(t.n)+'</b><span>'+esc(t.c)+(t.k?' · '+esc(t.k)+' base':' · custom grade')+'</span></div></div>').join('');
+  grid.querySelectorAll('.tc').forEach(c=>c.onclick=()=>tplApply(TPL.find(t=>t.id===c.dataset.id)));
   tplPaint();tplCount();
 }
 function tplCount(){
   const n=document.querySelectorAll('#tplg .tc:not([style*="none"])').length;
   const hot=TPL.filter(t=>t.hot).length;
-  $('#tplstat').textContent=n+' template'+(n===1?'':'s')+' · preview tumhari photo par · Try dabao, before/after slider khud khul jayega';
-  $('#tplsub').textContent=TPL.length+' ready-made grades · '+hot+' trending · koi upload nahi, sab GPU par';
+  if($('#tplstat'))$('#tplstat').textContent=n+' template'+(n===1?'':'s')+' · preview tumhari photo par · Try dabao, before/after slider khud khul jayega';
+  if($('#tplsub'))$('#tplsub').textContent=TPL.length+' ready-made grades · '+hot+' trending · koi upload nahi, sab GPU par';
+}
+/* A rough CSS grade for the preview — used only when the WebGL thumbnail lane is
+   unavailable (old GPU, blocked WebGL, canvas limit). Without it the gallery
+   threw mid-way and never opened, which is exactly the “touch karta hoon, kuch
+   load nahi hota” report. */
+function tplCss(t){
+  const p=t.p||{};
+  const bright=1+(+p.exp||0)/220, con=1+(+p.con||0)/160;
+  const sat=Math.max(0,1+((+p.sat||0)+(+p.vib||0)*.5)/140);
+  const sep=Math.max(0,+p.tmp||0)/260, hue=(+p.tint||0)*1.2;
+  const parts=['brightness('+bright.toFixed(2)+')','contrast('+con.toFixed(2)+')','saturate('+sat.toFixed(2)+')'];
+  if(sep>0)parts.push('sepia('+Math.min(.7,sep).toFixed(2)+')');
+  if(hue)parts.push('hue-rotate('+hue.toFixed(0)+'deg)');
+  if(p.sat!=null&&p.sat<=-80)parts.push('grayscale(1)');
+  return parts.join(' ');
 }
 function tplPaint(){
-  if(!LAY||!LAY[0]||!tp)return;
+  if(!LAY||!LAY[0])return;
   const bs=LAY[0].img,W=360,H=Math.max(2,Math.round(W*bs.height/bs.width));
   const sm=mc(W,H);sm.getContext('2d').drawImage(bs,0,0,W,H);
-  tp.setSrc(sm);tp.setLUT(lutData(Z.cur));
+  let gpu=false;
+  try{if(tp&&!tp.bad){tp.setSrc(sm);tp.setLUT(lutData(Z.cur));gpu=true}}catch(e){gpu=false}
   document.querySelectorAll('#tplg .tc').forEach(card=>{
     if(card.style.display==='none')return;
     const t=TPL.find(x=>x.id===card.dataset.id),c=card.querySelector('canvas');
     if(!t||!c)return;
-    c.width=W;c.height=H;tp.draw(tplParams(t));c.getContext('2d').drawImage(tp.cv,0,0);
+    c.width=W;c.height=H;
+    const x=c.getContext('2d');
+    if(gpu){
+      try{tp.draw(tplParams(t));x.drawImage(tp.cv,0,0);c.style.filter='';return}catch(e){gpu=false}
+    }
+    x.drawImage(sm,0,0);
+    c.style.filter=tplCss(t);
   });
 }
 function tplApply(t){
@@ -958,16 +995,30 @@ function tplApply(t){
   setTimeout(()=>{try{if(!fr.classList.contains('split'))$('#sp').click()}catch(e){}},240);
 }
 function tplOpen(){
-  if(!LAY||!LAY[0]){toast('Pehle koi photo kholo');return}
-  tplCat='All';tplQ='';$('#tplq').value='';tplCats();tplBuild();$('#tplx').classList.add('on');
+  const g=$('#tplx');if(!g)return;
+  /* open FIRST: even if a preview cannot render on this device, the library still
+     has to appear — a blank tap is worse than a rough thumbnail */
+  g.classList.add('on');
+  try{
+    if(!LAY||!LAY[0]){g.classList.remove('on');toast('Pehle koi photo kholo');return}
+    tplCat='All';tplQ='';const q=$('#tplq');if(q)q.value='';
+    tplCats();tplBuild();
+  }catch(e){
+    console.error('[lucid templates]',e);
+    if($('#tplg'))$('#tplg').innerHTML='<p class="hint" style="padding:18px">Templates load nahi ho paye — page refresh karke phir try karo.<br><span style="opacity:.6">'+esc(String(e&&e.message||e))+'</span></p>';
+  }
 }
-function tplClose(){$('#tplx').classList.remove('on')}
-$('#tpl').onclick=tplOpen;
-$('#tplz').onclick=tplClose;
-$('#tplq').oninput=e=>{tplQ=e.target.value.trim();tplBuild()};
-$('#tpldemo').onclick=()=>{setSrc(SRC,'Golden hour.jpg');tplBuild();toast('Demo photo load ho gayi — koi bhi template try karo')};
-$('#tplload').onclick=()=>{tplClose();$('#fi').click()};
-addEventListener('keydown',e=>{const g=$('#tplx');if(e.key==='Escape'&&g&&g.classList.contains('on')){e.stopImmediatePropagation();e.preventDefault();tplClose()}},true);
+function tplClose(){const g=$('#tplx');if(g)g.classList.remove('on')}
+/* wiring can never take the rest of the studio down (AI + landing animations live
+   below this line); a missing node is skipped instead of throwing */
+try{
+  if($('#tpl'))$('#tpl').onclick=tplOpen;
+  if($('#tplz'))$('#tplz').onclick=tplClose;
+  if($('#tplq'))$('#tplq').oninput=e=>{tplQ=e.target.value.trim();tplBuild()};
+  if($('#tpldemo'))$('#tpldemo').onclick=()=>{setSrc(SRC,'Golden hour.jpg');tplBuild();toast('Demo photo load ho gayi — koi bhi template try karo')};
+  if($('#tplload'))$('#tplload').onclick=()=>{tplClose();$('#fi').click()};
+  addEventListener('keydown',e=>{const g=$('#tplx');if(e.key==='Escape'&&g&&g.classList.contains('on')){e.stopImmediatePropagation();e.preventDefault();tplClose()}},true);
+}catch(e){console.error('[lucid templates] wiring',e)}
 
 /* ================= AI STUDIO (27 Oct 2026) =================
    Owner's ask: “user type kare ya photo/video attach kare aur AI wahi bana kar de” —
@@ -1127,6 +1178,9 @@ const AI=(function(){
 })();
 AI.init();
 try{window.LucidAI=AI}catch(e){}   /* tooling/extension hook — same brain the AI tab uses */
+/* build stamp — “which file am I actually running?” was unanswerable from a
+   screenshot, and a stale cache looks exactly like a bug. System tab now says it. */
+try{window.__lucidBuild='2026-10-28 · templates-v1';const lb=$('#lbuild');if(lb)lb.textContent='build '+window.__lucidBuild+' · '+(pipe&&pipe.bad?'2D fallback (WebGL off)':'GPU');}catch(e){}
 const T0=Date.now();setInterval(()=>{const u=(Date.now()-T0)/1000|0;$('#tu').textContent=(u/60|0)+':'+String(u%60).padStart(2,'0')},1000);
 if(matchMedia('(prefers-reduced-motion:reduce)').matches)skip();else play();
 </script></body></html>
