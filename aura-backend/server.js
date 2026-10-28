@@ -42,6 +42,10 @@ function noteCrash(kind, err) {
 process.on("unhandledRejection", e => noteCrash("unhandledRejection", e));
 process.on("uncaughtException", e => noteCrash("uncaughtException", e));
 console.log("[boot] node " + process.version + " · " + (process.env.AURA_BUILD || "source build") + " · rss " + Math.round(process.memoryUsage().rss / 1048576) + "MB");
+/* the host's own view, printed before anything can fail: which port it gave us, what
+   kind of host it says it is, and how it started this file — so a deploy log is
+   self-explanatory instead of a guessing game */
+console.log("[boot] host: PORT=" + (process.env.PORT || "unset") + " RENDER=" + (process.env.RENDER || "-") + " SERVICE_ID=" + (process.env.RENDER_SERVICE_ID || "-") + " argv1=" + (process.argv[1] || "-") + " requireMain=" + (require.main ? "set" : "unset"));
 
 /* Env vars use neutral names in this repo (AI_KEY_PRIMARY / AI_KEY_BACKUP /
    AI_KEY_RESERVE / AI_KEY_VISION); the legacy specific names are honored too so
@@ -58,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v11";
+const BUILD = process.env.AURA_BUILD || "squad-v12";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v11";
+const SRC_BUILD = "squad-v12";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -138,8 +142,9 @@ async function visionCall(messages, maxTok, temperature, req) {
 /* Render injects PORT (its default is 10000). Falling back to 3000 on a host means
    the platform scans and scans and never sees an open port — "No open ports
    detected" — so the fallback must match the platform's own default. */
-const ON_HOST = !!(process.env.RENDER || process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL);
-const PORT = parseInt(process.env.PORT, 10) || (ON_HOST ? 10000 : 3000);
+/* the platform's own default port; an unset PORT must never land on a port the
+   platform does not scan (that alone reads as "No open ports detected") */
+const PORT = parseInt(process.env.PORT, 10) || 10000;
 
 /* ===================== THE PORT OPENS BEFORE THE REST OF THIS FILE ============
    Render rejected every deploy of the new build with "Application exited early"
@@ -152,19 +157,14 @@ const PORT = parseInt(process.env.PORT, 10) || (ON_HOST ? 10000 : 3000);
    early" and no rollback), and if any later line throws, /health still answers
    JSON naming the stage that died (stage/err/bootCrashes) instead of the deploy
    silently vanishing. */
-/* ENTRY DETECTION MUST NEVER DECIDE WHETHER WE SERVE (28 Oct 2026)
-   Render's log: "Running 'node server.js'" → boot line → "No open ports detected".
-   The process was alive but never bound: on the deployed runtime require.main is not
-   a reliable "am I the entry?" signal (newer Node versions and supervisor wrappers
-   can leave it unset/foreign), and a false answer here silently skips listen().
-   A service host that started this process wants a server, so on a host we always
-   serve; local requires (the test suites) still never open a port. */
-const IS_MAIN = ON_HOST
-  ? true
-  : (() => {
-      try { if (require.main) return require.main === module; } catch (e) {}
-      try { const p = require("path").resolve(process.argv[1] || ""); return !!p && p === __filename; } catch (e) { return false; }
-    })();
+/* SERVING IS THE DEFAULT (28 Oct 2026)
+   Two deploys in a row died with "No open ports detected": the process was alive
+   (boot line + Firebase init printed) but listen() never ran, because an “am I the
+   entry file?” guess decided it — and on the deployed runtime that guess is wrong
+   (newer Node leaves require.main unset, and a wrapper/require-based starter makes
+   it point elsewhere). A server process exists to serve, so binding is now the
+   default and the test suite opts out explicitly with AURA_NO_LISTEN=1. */
+const IS_MAIN = process.env.AURA_NO_LISTEN !== "1";
 let bootSrv = null;
 if (IS_MAIN) {
   bootSrv = require("http").createServer((req, res) => {
@@ -177,8 +177,14 @@ if (IS_MAIN) {
     res.end(req.method === "HEAD" ? undefined : body);
   });
   bootSrv.on("error", e => noteCrash("listen", e));
-  console.log("[boot] binding port " + PORT + " (PORT env=" + (process.env.PORT || "unset") + " · main=" + IS_MAIN + " · requireMain=" + (require.main ? "set" : "unset") + ")");
-  bootSrv.listen(PORT, () => console.log("[boot] port " + PORT + " bound in " + (Date.now() - BOOT.at) + "ms · bootstrap responder serving · build " + BUILD));
+  console.log("[boot] binding 0.0.0.0:" + PORT + " (PORT env=" + (process.env.PORT || "unset") + " · main=" + IS_MAIN + " · requireMain=" + (require.main ? "set" : "unset") + " · render=" + (process.env.RENDER || process.env.RENDER_SERVICE_ID || "-") + ")");
+  /* every interface, never loopback: a loopback-only bind is invisible to the port scan */
+  bootSrv.listen(PORT, "0.0.0.0", () => console.log("[boot] port " + PORT + " bound in " + (Date.now() - BOOT.at) + "ms · bootstrap responder serving · build " + BUILD));
+  bootSrv.once("error", e => {
+    noteCrash("listen", e);
+    /* last resort: the platform always scans 10000 */
+    if (PORT !== 10000) setTimeout(() => { try { bootSrv.listen(10000, "0.0.0.0", () => console.log("[boot] fallback port 10000 bound")); } catch (e2) { noteCrash("listen-fallback", e2); } }, 500);
+  });
   /* if the port is still closed 8s later, say so loudly instead of dying silently */
   setTimeout(() => { if (!bootSrv.listening) noteCrash("listen", new Error("port " + PORT + " still not bound after 8s (PORT env=" + (process.env.PORT || "unset") + ")")); }, 8000);
 }
