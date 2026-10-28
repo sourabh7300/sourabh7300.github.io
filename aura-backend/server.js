@@ -28,10 +28,15 @@ app.set("trust proxy", 1);
    path (boot cycle, Firestore init, a floating fetch) takes the entire API down and
    the dashboard only says "exited early". The service must stay up AND say why. */
 const bootCrashes = [];
+/* boot stages are tracked from the first line on, so /health can always name the
+   step that died — declared here because noteCrash (below) writes into it */
+const BOOT = { at: Date.now(), stage: "config", err: null };
+function bootStage(s) { BOOT.stage = s; }
 function noteCrash(kind, err) {
   const msg = String((err && (err.stack || err.message)) || err || "unknown").slice(0, 600);
   bootCrashes.push({ at: new Date().toISOString(), kind: kind, msg: msg });
   if (bootCrashes.length > 5) bootCrashes.shift();
+  if (BOOT.stage !== "ready") BOOT.err = kind + ": " + msg.slice(0, 300);
   console.error("[" + kind + "] " + msg);
 }
 process.on("unhandledRejection", e => noteCrash("unhandledRejection", e));
@@ -144,8 +149,6 @@ const PORT = parseInt(process.env.PORT, 10) || 3000;
    JSON naming the stage that died (stage/err/bootCrashes) instead of the deploy
    silently vanishing. */
 const IS_MAIN = require.main === module;
-const BOOT = { at: Date.now(), stage: "config", err: null };
-function bootStage(s) { BOOT.stage = s; }
 let bootSrv = null;
 if (IS_MAIN) {
   bootSrv = require("http").createServer((req, res) => {
