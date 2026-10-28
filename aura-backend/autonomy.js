@@ -722,6 +722,14 @@ function createAutopilot(deps) {
       if (!state.enabled && !o.force && !state.nonstop) return { ok: true, skipped: "autopilot is off" };
       if (!o.force && !state.nonstop && state.paused) return { ok: true, skipped: "paused: " + state.paused };
       if (!o.force && !state.nonstop && (state.cyclesToday || 0) >= (state.maxCyclesPerDay || cfg.maxCyclesPerDay)) return { ok: true, skipped: "daily cycle budget reached (" + state.cyclesToday + ")" };
+      /* NONSTOP IS NOT A BUDGET BYPASS (28 Oct 2026): nonstop ticks carry force:true,
+         so they skipped the budget above and ran the engine every 15s — 91 cycles in
+         one day, dozens of apply→revert commits, and a host that redeploys on every
+         push never finished a single deploy. Nonstop still works, it now respects the
+         day's budget; a new day resets it. */
+      if (o.trigger === "nonstop" && (state.cyclesToday || 0) >= (state.maxCyclesPerDay || cfg.maxCyclesPerDay)) {
+        return { ok: true, skipped: "nonstop: daily cycle budget reached (" + state.cyclesToday + "/" + (state.maxCyclesPerDay || cfg.maxCyclesPerDay) + ")" };
+      }
 
       const cycle = { at: Date.now(), trigger: o.trigger, sweep: null, mission: null, publish: null, fail: null, world: null, stage: "sweep" };
       log(state, "kratos", "▶ cycle started (" + o.trigger + (o.dryRun ? ", dry-run" : "") + (state.nonstop ? ", nonstop" : "") + ")");
@@ -837,11 +845,14 @@ function createAutopilot(deps) {
       if (state.reports.length > 40) state.reports = state.reports.slice(-40);
       log(state, "kratos", "✓ cycle complete — report signed");
       if (d.onReport) { try { await d.onReport(state.reports[state.reports.length - 1], state); } catch (e) {} }
-      if (state.nonstop && state.enabled) {
+      /* 90s apart, not 15s: a cycle that ships a commit needs the host time to build
+         and deploy it before the next one lands, otherwise deploys supersede each
+         other forever (that is the “deploy takes ages and never finishes” report). */
+      if (state.nonstop && state.enabled && (state.cyclesToday || 0) < (state.maxCyclesPerDay || cfg.maxCyclesPerDay)) {
         if (memory.nonstopTimer) clearTimeout(memory.nonstopTimer);
         memory.nonstopTimer = setTimeout(() => {
           tick({ trigger: "nonstop", force: true }).catch(e => console.log("[squad nonstop] cycle error:", (e && e.message) || e));
-        }, 15000);
+        }, 90000);
       }
       await persist(state);
       return { ok: true, cycle: cycle, report: state.reports[state.reports.length - 1], state: state };
