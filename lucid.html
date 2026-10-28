@@ -156,7 +156,10 @@ textarea.txi:focus{border-color:var(--amb)}
 .tplcat button.on{background:var(--amb);color:#1c1200;border-color:transparent}
 .tplg{flex:1;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:12px;padding:2px 4px 12px;align-content:start}
 .tplg::-webkit-scrollbar{width:8px}.tplg::-webkit-scrollbar-thumb{background:#2b2d38;border-radius:8px}
-.tc{position:relative;aspect-ratio:3/2;border-radius:14px;overflow:hidden;background:#0d0e13;border:1px solid rgba(255,255,255,.09);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .22s,border-color .22s,box-shadow .22s}
+/* height comes from the padding box, not aspect-ratio: inside this flex/grid stack
+   aspect-ratio resolved to ~10px on the first layout pass, which painted the whole
+   library as thin strips. A padding box is computed in the same pass as the width. */
+.tc{position:relative;height:0;padding-bottom:66.667%;border-radius:14px;overflow:hidden;background:#0d0e13;border:1px solid rgba(255,255,255,.09);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:transform .22s,border-color .22s,box-shadow .22s}
 .tc:hover{transform:translateY(-4px);border-color:rgba(255,179,71,.6);box-shadow:0 18px 40px rgba(0,0,0,.55)}
 .tc canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .tc .m{position:absolute;left:0;right:0;bottom:0;padding:24px 10px 9px;background:linear-gradient(transparent,rgba(0,0,0,.9));pointer-events:none}
@@ -177,9 +180,13 @@ textarea.txi:focus{border-color:var(--amb)}
   #st>.top{gap:8px;padding:0 10px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
   #st>.top::-webkit-scrollbar{display:none}
   #st>.top>*{flex:0 0 auto}
-  #ck{display:none}
+  #ck,#gh{display:none}
   #st>.top .exw{position:sticky;right:-2px;padding-left:6px;background:rgba(10,11,15,.94);box-shadow:-14px 0 18px rgba(0,0,0,.55)}
   #st>.top .b{padding:8px 11px;font-size:11.5px}
+  .tplh{display:grid;grid-template-columns:1fr auto;gap:8px}
+  .tplh>div:first-child{grid-column:1/-1}
+  .tplh input{grid-column:1;width:100%}
+  .tplh #tplz{grid-column:2;justify-self:end}
   #st>.top .ib{width:34px;height:34px}
 }
 
@@ -1002,7 +1009,7 @@ function tplOpen(){
   try{
     if(!LAY||!LAY[0]){g.classList.remove('on');toast('Pehle koi photo kholo');return}
     tplCat='All';tplQ='';const q=$('#tplq');if(q)q.value='';
-    tplCats();tplBuild();
+    tplCats();if($('#tplcat'))$('#tplcat').scrollLeft=0;tplBuild();
   }catch(e){
     console.error('[lucid templates]',e);
     if($('#tplg'))$('#tplg').innerHTML='<p class="hint" style="padding:18px">Templates load nahi ho paye — page refresh karke phir try karo.<br><span style="opacity:.6">'+esc(String(e&&e.message||e))+'</span></p>';
