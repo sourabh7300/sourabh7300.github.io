@@ -1120,7 +1120,10 @@ function createAutopilot(deps) {
       /* baseSrc rides along (22 Oct 2026): the commit guard on the backend compares
          the LIVE GitHub source against THIS batch's base before the PUT — so a fresh
          deploy landing mid-cycle can never be silently erased by a stale candidate. */
-      commit = await d.commit(candidate, "AURA autopilot: " + mission.id + " — " + mission.title + "\n\n" + mission.goal + "\n" + batchNote + ((wip.findings || []).length ? "\nresearch: " + clampText(wip.findings[0], 180) : ""), baseSrc);
+      /* [skip ci] on every squad commit: these land mid-cycle and a failing CI run per
+         commit flooded the owner's inbox with "Run failed" mails. Human/agent commits
+         still run CI normally. */
+      commit = await d.commit(candidate, "AURA autopilot: " + mission.id + " — " + mission.title + "\n\n" + mission.goal + "\n" + batchNote + ((wip.findings || []).length ? "\nresearch: " + clampText(wip.findings[0], 180) : "") + "\n\n[skip ci] squad commit", baseSrc);
     } catch (e) { const r = "publish failed: " + (e.message || e); st.note = r; state.fails.push({ mission: mission.id, reason: r, when: Date.now() }); return { fail: r }; }
     const sha = (commit && commit.sha || "").slice(0, 7);
     /* verify field feeds the admin panel's push-history timeline (owner order 20 Oct 2026):
@@ -1153,7 +1156,7 @@ function createAutopilot(deps) {
         log(state, "kratos", "⏸ " + mission.id + " live check failed (" + mst.liveFails + "/3) — next attempt in " + cfg.liveRetryMinutes + " min, not in a loop");
       }
       let rolled = false;
-      try { if (d.commit) { await d.commit(baseSrc, "AURA autopilot: auto-revert " + mission.id + " (live check failed)"); rolled = true; } } catch (e) {}
+      try { if (d.commit) { await d.commit(baseSrc, "AURA autopilot: auto-revert " + mission.id + " (live check failed) [skip ci]"); rolled = true; } } catch (e) {}
       if (rolled && state.ships.length && state.ships[state.ships.length - 1].sha === sha) state.ships.pop();
       const r = "live verification failed after publish (" + (live.reason || "not served") + ")" + (rolled ? " — auto-reverted to the previous source" : " — auto-revert could not run");
       /* when the live lane itself is the fault, the mission keeps the block wording
@@ -1202,7 +1205,7 @@ function createAutopilot(deps) {
       if (!gate.ok) { retryRefuse(item, gate.failed.join("; ")); continue; }
       if (!mission.done.test(cand.src)) { retryRefuse(item, "sentinel " + mission.done.source + " missing"); continue; }
       try {
-        const c = await d.commit(cand.src, "AURA autopilot: " + mission.id + " — " + mission.title + "\n\n" + mission.goal + "\n" + (item.note || "") + "\npublished on the admin's word");
+        const c = await d.commit(cand.src, "AURA autopilot: " + mission.id + " — " + mission.title + "\n\n" + mission.goal + "\n" + (item.note || "") + "\npublished on the admin's word\n\n[skip ci] squad commit");
         pushed.push({ mission: mission.id, sha: (c && c.sha || "").slice(0, 7) });
         state.ships.push({ sha: (c && c.sha || "").slice(0, 7), mission: mission.id, when: nowIso(), edits: (item.edits || []).length, batch: item.note || "", byAdmin: true, verify: "drain-pushed (no live check in the drain lane)" });
         const mst = state.missions[mission.id] || (state.missions[mission.id] = {});

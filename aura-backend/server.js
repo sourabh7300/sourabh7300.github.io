@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v13";
+const BUILD = process.env.AURA_BUILD || "squad-v14";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v13";
+const SRC_BUILD = "squad-v14";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -1331,7 +1331,9 @@ async function squadSaveState(state) {
   } else storeVerdict("note", FB_PROJECT ? ("firestore not initialised" + (fbDbErr ? " — " + fbDbErr : "")) : "FB_PROJECT / FB_EMAIL / FB_PRIVATE_KEY not set");
   if (GH_TOKEN) {
     try {
-      await ghPutFile(JSON.stringify(state, null, 1), "AURA autopilot: state " + (state.day || "") + " (" + (state.cyclesToday || 0) + " cycle(s))", SQUAD_STATE_FILE);
+      /* [skip ci]: the squad writes state every cycle, and a CI run — and a mail — per
+         cycle is pure noise for the owner. Real code still gets CI on its own commits. */
+      await ghPutFile(JSON.stringify(state, null, 1), "AURA autopilot: state " + (state.day || "") + " (" + (state.cyclesToday || 0) + " cycle(s)) [skip ci]", SQUAD_STATE_FILE);
       storeVerdict("save", "repo file (fallback)");
       return;
     } catch (e) { storeVerdict("note", "repo write: " + String(e.message || e).slice(0, 140)); }
@@ -1865,6 +1867,35 @@ async function rosterGuard(t, messages) {
 }
 /* “teams name in it” carries no topic — inherit the previous real question so the
    search lane looks for BMIC 2026, not for the words “teams name in it”. */
+/* "teams in it" has no subject of its own — the thread does. Owner report 28 Oct 2026:
+   asked "when will the bmic start", then "teams in it", and got a definition of
+   Microsoft Teams. The search lane already merged the two turns, but the MODEL never
+   saw the merged question. This resolves a bare fragment against the previous turn and
+   hands every model an explicit instruction, so the answer stays on the same event. */
+function resolveFragment(messages) {
+  const users = (messages || []).filter(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
+  if (users.length < 2) return null;
+  const q = String(users[users.length - 1].content).trim();
+  const prev = String(users[users.length - 2].content).trim();
+  if (!prev || prev.length < 8) return null;
+  const words = q.split(/\s+/).filter(Boolean);
+  const bareNoun = /^(teams?|team\s*names?|names?|list|lineup|line-?up|roster|participants|squad|dates?|schedule|venue|location|prize|format|winner|winners|who|kaun|kon|kab|kahan|kitne?|more|aur|details?)\b/i.test(q);
+  /* a genuinely short continuation ("teams in it"), or a short list-word ask
+     ("team names in it"). A LONG question that merely contains "it" has its own
+     subject — rewriting that would be the bug, not the fix. */
+  if (!(words.length <= 6 || (bareNoun && words.length <= 9))) return null;
+  return { q: q, topic: prev.replace(/\s+/g, " ").slice(0, 240) };
+}
+function injectFollowUp(messages) {
+  const frag = resolveFragment(messages);
+  if (!frag) return messages;
+  const note = "FOLLOW-UP RESOLUTION — the user's last message (\"" + frag.q + "\") is a continuation of the previous question (\"" + frag.topic + "\"). Answer about THAT same subject/event; never switch to a different meaning of the words (for example, a tournament's \"teams\" are its participating squads, NOT Microsoft Teams). Reply in the user's own language, briefly, without restating the question.";
+  const out = messages.slice();
+  const si = out.findIndex(m => m && m.role === "system" && typeof m.content === "string");
+  if (si >= 0) out[si] = { role: "system", content: String(out[si].content) + "\n\n" + note };
+  else out.unshift({ role: "system", content: note });
+  return out;
+}
 function followUpQuery(messages, q) {
   const users = (messages || []).filter(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim()).map(m => String(m.content).trim());
   const prev = users.length > 1 ? users[users.length - 2] : "";
@@ -1982,6 +2013,9 @@ app.post("/v1/chat/completions", async (req, res) => {
   if (!Array.isArray(messages) || !messages.length) {
     return res.status(400).json({ error: "messages[] required" });
   }
+  /* a one-word continuation ("teams in it") is resolved against the previous turn
+     BEFORE any model sees it — that is what stops the topic from drifting */
+  messages = injectFollowUp(messages);
   const makerHere = req.__role === "maker" || req.__role === "ceo";
   /* makers choose any model (flagship first); public requests are served the lighter
      tier regardless of what the browser asks for — that's the quota saver */
@@ -2472,6 +2506,9 @@ app.post("/v1/chat/stream", async (req, res) => {
   /* same grounding as /v1/chat/completions: today’s date + live web results + fact rules.
      Without this the stream lane answered tournaments/schedules from frozen memory. */
   messages = await groundChat(messages);
+  /* resolve a continuation ("teams in it") against the previous turn — the stream lane
+     is what the app actually uses, so the topic guard must live here too */
+  messages = injectFollowUp(messages);
   /* ESPORTS QUESTIONS ARE BUFFERED, NOT STREAMED (27 Oct 2026): a wrong team name
      cannot be un-sent once it is on screen. Tournaments are rare, so holding this
      one class of answer for a single validated delta costs nothing and guarantees
@@ -2767,5 +2804,5 @@ module.exports = {
   app,
   groundChat, toolSearch, toolFetch, searchQuery, currentAsk, topicHint, followUpQuery,
   evidenceFacts, esportsFastAnswer, rosterGuard, cleanRead, isRosterAsk, fakeRoster,
-  prettyDate, lastUserMsg,
+  prettyDate, lastUserMsg, resolveFragment, injectFollowUp,
 };
