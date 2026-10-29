@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v23";
+const BUILD = process.env.AURA_BUILD || "squad-v24";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v23";
+const SRC_BUILD = "squad-v24";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2280,6 +2280,7 @@ app.post("/v1/chat/completions", async (req, res) => {
      live web results (the same toolSearch/toolFetch lanes /v1/websearch uses) injected
      as a system block before the model call. Small talk and already-armed requests are
      untouched; empty search costs nothing (fail-open). */
+  let __live = null; /* real web hits, kept so a failed model still cannot answer from a stale cutoff */
   try {
     const _lastUser = [...messages].reverse().find(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
     const _q = _lastUser ? searchQuery(messages) : "";
@@ -2296,6 +2297,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       try {
         const _hits = await toolSearch(_q.replace(/\s+/g, " "));
         if (_hits && _hits.length) {
+          __live = { now: _now, hits: _hits.slice(0, 3) };
           const _top = _hits.slice(0, 2);
           const _reads = await Promise.all(_top.map(h => toolFetch(h.url).catch(() => null)));
           _web = _top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(cleanRead(_reads[i]) || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
@@ -2327,6 +2329,16 @@ app.post("/v1/chat/completions", async (req, res) => {
         return res.json({ choices: [{ message: { content: gt } }], model: "gemini (text)" });
       }
     } catch (e) { /* fall through to the key bank */ }
+  }
+  /* TRUTH OVER PROSE (29 Oct 2026): Gemini's free quota is intermittent and the NIM
+     fallback answered "latest iPhone" with iPhone 16. When the question is about
+     something current and the live web actually returned results, answer from those
+     headlines and link the source — no model may quietly substitute an old version. */
+  if (!makerHere && __live && __live.hits && __live.hits.length) {
+    const clean = s => String(s || "").replace(/&amp;/g, "&").replace(/<[^>]+>/g, "").trim();
+    const lines = __live.hits.map((h, i) => (i + 1) + ". " + clean(h.title) + (h.date ? " · " + clean(h.date).slice(0, 24) : "")).join("\n");
+    const t = "Live web · " + __live.now + "\n" + lines + "\n\nSource: " + __live.hits[0].url;
+    return res.json({ choices: [{ message: { content: t } }], model: "live web" });
   }
 
   let sawLimit = false; // at least one key hit a rate/limit error
