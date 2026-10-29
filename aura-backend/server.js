@@ -2323,6 +2323,7 @@ app.post("/v1/chat/completions", async (req, res) => {
       try {
         const _sq = cleanAsk(_q) || _q.replace(/\s+/g, " ");
         const _hits = await toolSearch(_sq);
+        if (process.env.AURA_DEBUG) console.log("[chat] live=" + (_hits ? _hits.length : 0) + " q=\"" + _sq + "\"")
         if (_hits && _hits.length) {
           __live = { now: _now, hits: _hits.slice(0, 3) };
           /* ONE page, capped at 5s: two uncapped reads were costing 5–10s before the
@@ -2335,6 +2336,8 @@ app.post("/v1/chat/completions", async (req, res) => {
       messages = messages.concat([{ role: "system", content: "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web + "\nANSWER FROM THE RESULTS FIRST: the specific model, price, date or name the user asked about must be taken from these results. If they do not contain it, say plainly that you could not verify today's value — never present an older model, price or version as the current one. Your first sentence must answer, not describe your reasoning." : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value.") }]);
     }
   } catch (e) { /* amplification is best-effort — never block the answer */ }
+  /* visible to the owner on any response: did this answer get live evidence, and how much */
+  try { res.setHeader("X-Aura-Live", String(__live && __live.hits ? __live.hits.length : 0)); } catch (e) {}
   /* the fact rules apply even to already-grounded / cached / small-talk requests */
   try {
     if (!messages.some(m => m && m.role === "system" && String(m.content || "").includes("FACT RULES (owner order)")))
