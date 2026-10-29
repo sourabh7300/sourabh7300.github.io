@@ -2118,6 +2118,17 @@ const PRODUCT_FACTS = [
   "Live URLs: lucid-app-preview.web.app · aura-live-81185.web.app · ideaveda-live-app.web.app · portfolio sourabh7300.github.io",
   "LANGUAGE: answer in the language the user wrote — Hinglish in, Hinglish out; Hindi in, Hindi out; English in, English out."
 ].join("\n");
+/* A system block appended AFTER the user's question is easy for small models to skim
+   past — live evidence kept getting ignored and "latest iPhone" came back as iPhone 16.
+   Grounding belongs in front of the ask, where every model reads it first. */
+function withSystemBeforeAsk(messages, content) {
+  const out = Array.isArray(messages) ? messages.slice() : [];
+  let lastUser = -1;
+  out.forEach((m, i) => { if (m && m.role === "user") lastUser = i; });
+  const sys = { role: "system", content };
+  if (lastUser > 0) out.splice(lastUser, 0, sys); else out.push(sys);
+  return out;
+}
 function withProductFacts(messages) {
   try {
     if (!Array.isArray(messages)) return messages;
@@ -2341,7 +2352,7 @@ app.post("/v1/chat/completions", async (req, res) => {
             "\nOTHER HEADLINES FROM THE SAME SEARCH:\n" + _hits.slice(1, 3).map(h => "• " + (h.title || "") + (h.date ? " (" + String(h.date).slice(0, 24) + ")" : "")).join("\n");
         }
       } catch (e) { /* search down → date-only block still fixes the cutoff */ }
-      messages = messages.concat([{ role: "system", content: "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? _cand + "\n\nLIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web + "\nANSWER FROM THE RESULTS FIRST: the specific model, price, date or name the user asked about must be taken from these results — if the question is about the newest model/version/price/winner and these results name one, that one is the answer even when your memory says otherwise. If they do not contain it, say plainly that you could not verify today's value — never present an older model, price or version as the current one. Your first sentence must answer, not describe your reasoning." : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value.") }]);
+      messages = withSystemBeforeAsk(messages, "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? _cand + "\n\nLIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web + "\nANSWER FROM THE RESULTS FIRST: the specific model, price, date or name the user asked about must be taken from these results — if the question is about the newest model/version/price/winner and these results name one, that one is the answer even when your memory says otherwise. If they do not contain it, say plainly that you could not verify today's value — never present an older model, price or version as the current one. Your first sentence must answer, not describe your reasoning." : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value."));
       /* fresh facts are copied, not composed: a low temperature keeps the model on the
          headline instead of drifting back into its training data */
       if (typeof body.temperature !== "number") body.temperature = 0.25;
@@ -2352,7 +2363,7 @@ app.post("/v1/chat/completions", async (req, res) => {
   /* the fact rules apply even to already-grounded / cached / small-talk requests */
   try {
     if (!messages.some(m => m && m.role === "system" && String(m.content || "").includes("FACT RULES (owner order)")))
-      messages = messages.concat([{ role: "system", content: AURA_FACT_RULES }]);
+      messages = withSystemBeforeAsk(messages, AURA_FACT_RULES);
   } catch (e) {}
   /* roster-exact answers never touch a model (see esportsFastAnswer) */
   try {
