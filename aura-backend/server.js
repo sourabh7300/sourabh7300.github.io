@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v25";
+const BUILD = process.env.AURA_BUILD || "squad-v26";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v25";
+const SRC_BUILD = "squad-v26";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2097,6 +2097,15 @@ function resolveFragment(messages) {
    diagramming tool Lucidchart. The owner's own products have unique names, so when
    one is mentioned the answer must be about THAT app. Same block carries the
    language rule: a Hinglish question gets a Hinglish answer. */
+/* a Hinglish question searches badly: "latest iphone konsa hai abhi" was sent to
+   the news lane verbatim and came back with Rajasthan current affairs. Keep the
+   searchable core, drop the conversational wrapper. */
+function cleanAsk(q) {
+  return String(q || "")
+    .replace(/[?!.,;:"'()]+/g, " ")
+    .replace(/\b(mujhe|humein|please|plz|bhai|yaar|batao|bataiye|bata|batana|jankari|jaankari|chahiye|kya|kaun|kaunsa|konsa|konsi|kaisi|kaisa|kaise|kab|kahan|abhi|aaj|hai|hain|ka|ki|ke|me|mein|se|ko|ek|line|short|answer|please)\b/gi, " ")
+    .replace(/\s+/g, " ").trim().slice(0, 120);
+}
 const PRODUCT_FACTS = [
   "OWNER PRODUCTS (authoritative — these are the only products these names refer to in this chat):",
   "• Lucid — a photo studio that runs entirely in one HTML file, built by Sourabh Singh. Real WebGL editing (exposure, curves, HSL mixer, clarity, bloom, bokeh, grain), layers, brush masks, batch export to ZIP, 48 ready-made templates and an AI studio that applies edits from a typed request or an attached photo/video frame. It is NOT Lucidchart and NOT a diagramming tool.",
@@ -2308,10 +2317,13 @@ app.post("/v1/chat/completions", async (req, res) => {
       const _now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
       let _web = "";
       try {
-        const _hits = await toolSearch(_q.replace(/\s+/g, " "));
+        const _sq = cleanAsk(_q) || _q.replace(/\s+/g, " ");
+        const _hits = await toolSearch(_sq);
         if (_hits && _hits.length) {
           __live = { now: _now, hits: _hits.slice(0, 3) };
-          const _top = _hits.slice(0, 2);
+          /* ONE page, capped at 5s: two uncapped reads were costing 5–10s before the
+             model even started, and the headlines alone already answer "latest X" */
+          const _top = _hits.slice(0, 1);
           const _reads = await Promise.all(_top.map(h => toolFetch(h.url).catch(() => null)));
           _web = _top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(cleanRead(_reads[i]) || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
         }
@@ -2349,8 +2361,9 @@ app.post("/v1/chat/completions", async (req, res) => {
      headlines and link the source — no model may quietly substitute an old version. */
   if (!makerHere && __live && __live.hits && __live.hits.length) {
     const clean = s => String(s || "").replace(/&amp;/g, "&").replace(/<[^>]+>/g, "").trim();
-    const lines = __live.hits.map((h, i) => (i + 1) + ". " + clean(h.title) + (h.date ? " · " + clean(h.date).slice(0, 24) : "")).join("\n");
-    const t = "Live web · " + __live.now + "\n" + lines + "\n\nSource: " + __live.hits[0].url;
+    const lines = __live.hits.map((h, i) => (i + 1) + ". " + clean(h.title).replace(/\s+-\s+[^-]{2,40}$/, "") + (h.date ? " · " + clean(h.date).slice(0, 24) : "")).join("\n");
+    const src = (__live.hits.find(h => /^https?:/.test(String(h.url || "")) && !/news\.google\.com\/?$/.test(String(h.url))) || __live.hits[0]).url;
+    const t = "Live web · " + __live.now + "\n" + lines + "\n\nSource: " + src;
     return res.json({ choices: [{ message: { content: t } }], model: "live web" });
   }
 
