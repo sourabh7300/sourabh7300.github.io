@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v22";
+const BUILD = process.env.AURA_BUILD || "squad-v23";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v22";
+const SRC_BUILD = "squad-v23";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -168,6 +168,42 @@ const NVIDIA_NIM_KEY = envv("NVIDIA_NIM_KEY", "NVIDIA_API_KEY", "NIM_API_KEY", "
    No vision key → an honest 501 — never a text model pretending it saw the photo. */
 function msgHasImage(messages) {
   return messages.some(m => Array.isArray(m.content) && m.content.some(p => p && p.type === "image_url"));
+}
+/* TEXT CHAT ON GEMINI — same request shape as visionCall, but with a hard total
+   budget and the known-good model first. 29 Oct 2026: a discovered model accepted
+   the call and never answered, and visionCall's per-model 60s timeout let one bad
+   model hold a chat request for a minute (the connection was reset before a reply). */
+async function geminiChat(messages, maxTok, temperature, req) {
+  if (!GEMINI_API_KEY) return null;
+  const sys = messages.filter(m => m.role === "system").map(m => typeof m.content === "string" ? m.content : "").join("\n").trim();
+  const contents = messages.filter(m => m.role !== "system").map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: String(typeof m.content === "string" ? m.content : "") }]
+  })).filter(c => c.parts[0].text);
+  if (!contents.length) return null;
+  const body = JSON.stringify(Object.assign(
+    { contents, generationConfig: { maxOutputTokens: Math.min(maxTok || 1400, 3000), temperature: temperature != null ? temperature : 0.6 } },
+    sys ? { systemInstruction: { parts: [{ text: sys.slice(0, 12000) }] } } : {}
+  ));
+  const chain = [...new Set([VISION_MODEL, ...VISION_MODELS])].slice(0, 3);
+  const deadline = Date.now() + 20_000;
+  for (const vmodel of chain) {
+    const left = deadline - Date.now();
+    if (left < 2500) break;
+    try {
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(Math.min(14_000, left))
+      });
+      if (!r.ok) continue; /* busy / retired model → next one */
+      const d = await r.json();
+      const t = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || []).map(p => p.text || "").join("").trim();
+      if (t) { recordUse(req, "vision", 0); return t; }
+    } catch (e) { /* timeout or network → next model */ }
+  }
+  return null;
 }
 async function visionCall(messages, maxTok, temperature, req) {
   if (!GEMINI_API_KEY) return null;
@@ -400,8 +436,12 @@ function normQ(messages) {
   const last = [...messages].reverse().find(m => m.role === "user" && typeof m.content === "string");
   return last ? last.content.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 300) : "";
 }
+/* a cache must never answer a question whose whole point is being current —
+   "latest iPhone" was served a wrong 1-hour-old answer from here */
+const FRESH_Q = /(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|match|tournament|election|weather|stock|ipo|launch|release|update|trending|kitna)/i;
 function cacheGet(messages) {
   const k = normQ(messages); if (!k) return null;
+  if (FRESH_Q.test(k)) return null;
   const hit = answerCache.get(k);
   if (hit && Date.now() - hit.t < ANSWER_CACHE_TTL) return hit;
   if (hit) answerCache.delete(k);
@@ -409,6 +449,7 @@ function cacheGet(messages) {
 }
 function cachePut(messages, answer, model) {
   const k = normQ(messages); if (!k || !answer) return;
+  if (FRESH_Q.test(k)) return;
   if (answerCache.size > 400) answerCache.clear(); /* tiny footprint, self-healing */
   answerCache.set(k, { answer, model, t: Date.now() });
 }
@@ -2280,7 +2321,7 @@ app.post("/v1/chat/completions", async (req, res) => {
      fast; the key bank below stays as the fallback. */
   if (GEMINI_API_KEY) {
     try {
-      const gt = await visionCall(messages, Math.min(body.max_tokens || 1400, 3000), body.temperature, req);
+      const gt = await geminiChat(messages, Math.min(body.max_tokens || 1400, 3000), body.temperature, req);
       if (gt) {
         if (!makerHere) { cachePut(messages, gt, "gemini"); countAnswer(req); }
         return res.json({ choices: [{ message: { content: gt } }], model: "gemini (text)" });
