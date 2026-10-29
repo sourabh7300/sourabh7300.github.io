@@ -1132,15 +1132,27 @@ const AI=(function(){
     if(ed||d.kind==='edit'){const w=bub('a','AI · '+(d.title||ed&&ed.title||'edit'),String(d.said||ed&&ed.said||'Ready hai — apply karo.'));if(typeof (d.confidence||ed&&ed.confidence)==='number'){const c=document.createElement('div');c.className='aithink';c.textContent='confidence '+Math.round((d.confidence||ed.confidence)*100)+'%';w.append(c)}oneShot(w,d,ed);return}
     bub('a','AI',JSON.stringify(d).slice(0,600));
   }
-  async function send(){
-    const box=el('aip'),p=(box.value||'').trim();
+  /* one-tap retry: a busy model used to mean retyping the whole request. The
+     prompt (and any attachments still on the tray) is remembered so the error
+     bubble can simply run it again. */
+  let lastAsk='';
+  async function send(again){
+    const box=el('aip');
+    const p=(typeof again==='string'?again:(box.value||'')).trim();
     if(!p&&!att.length){toast('Kuch likho ya photo/video attach karo');return}
+    lastAsk=p;
     const names=att.map(a=>a.name).join(', ');
     bub('u','You',p+(names?'\n📎 '+names:''));
     box.value='';
     const think=bub('a','AI','soch raha hoon…');think.classList.add('aithink');
     try{const d=await callAI(p);think.remove();render(d)}
-    catch(e){think.remove();const raw=String(e.message||e);const clean=/no longer available|not found|\b404\b/i.test(raw)?'AI model update ho raha hai server par — 1 minute baad phir try karo.' : raw;bub('err','AI abhi nahi chala',clean+(e.cap?'':'\n\nTip: 10–15 second baad “Ask AI” phir dabao — koi key nahi chahiye.'))}
+    catch(e){
+      think.remove();
+      const raw=String(e.message||e);
+      const clean=/no longer available|not found|\b404\b/i.test(raw)?'AI model update ho raha hai server par — 1 minute baad phir try karo.' : raw;
+      const w=bub('err','AI abhi nahi chala',clean+(e.cap?'':'\n\nYe temporary hota hai — neeche “↻ Try again” dabao, koi key nahi chahiye.'));
+      if(!e.cap&&p){const b=document.createElement('button');b.className='b';b.textContent='↻ Try again';b.onclick=()=>{w.remove();send(p)};w.append(b)}
+    }
   }
   const CHIPS=[
     ['✨ Cinematic look',()=>run('isko cinematic moody look do — teal shadows, warm highlights, thoda bloom')],
@@ -1195,7 +1207,7 @@ AI.init();
 try{window.LucidAI=AI}catch(e){}   /* tooling/extension hook — same brain the AI tab uses */
 /* build stamp — “which file am I actually running?” was unanswerable from a
    screenshot, and a stale cache looks exactly like a bug. System tab now says it. */
-try{window.__lucidBuild='2026-10-29 · templates-v2 · demo previews';const lb=$('#lbuild');if(lb)lb.textContent='build '+window.__lucidBuild+' · '+(pipe&&pipe.bad?'2D fallback (WebGL off)':'GPU');}catch(e){}
+try{window.__lucidBuild='2026-10-29 · templates-v3 · demo previews + retry';const lb=$('#lbuild');if(lb)lb.textContent='build '+window.__lucidBuild+' · '+(pipe&&pipe.bad?'2D fallback (WebGL off)':'GPU');}catch(e){}
 const T0=Date.now();setInterval(()=>{const u=(Date.now()-T0)/1000|0;$('#tu').textContent=(u/60|0)+':'+String(u%60).padStart(2,'0')},1000);
 if(matchMedia('(prefers-reduced-motion:reduce)').matches)skip();else play();
 </script></body></html>
