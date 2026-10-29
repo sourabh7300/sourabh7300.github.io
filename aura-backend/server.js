@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v18";
+const BUILD = process.env.AURA_BUILD || "squad-v19";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v18";
+const SRC_BUILD = "squad-v19";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -125,7 +125,11 @@ async function groqModels() {
     if (r.ok) {
       const j = await r.json();
       const ids = (j.data || []).map(m => String(m.id || ""))
-        .filter(id => id && !/whisper|tts|embed|guard|moderation|safety/i.test(id));
+        .filter(id => id && !/whisper|tts|embed|guard|moderation|safety|orpheus|playai|voice|audio/i.test(id));
+      /* chat models first: an account lists speech and guard models too, and a TTS id
+         answers 400 ("requires terms acceptance") where a chat model just works */
+      const chatty = /llama|gpt-oss|qwen|mixtral|gemma|deepseek|kimi|scout|maverick|versatile|instant/i;
+      ids.sort((a, b) => (chatty.test(b) ? 1 : 0) - (chatty.test(a) ? 1 : 0));
       if (ids.length) groqCache = { at: Date.now(), ids };
     }
   } catch (e) { /* keep whatever we had */ }
