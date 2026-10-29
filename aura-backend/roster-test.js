@@ -11,6 +11,9 @@
    Run:  node roster-test.js      (network needed for the Liquipedia lane)
    ============================================================ */
 process.env.SQUAD_AUTOPILOT = "0";
+/* this script REQUIRES the server for its pipeline, it is not the server: keep the
+   listener off (binding is the default now, see the PORT block in server.js) */
+process.env.AURA_NO_LISTEN = "1";
 const S = require("./server.js");
 
 const DATELINE = "\n\nCURRENT DATE & TIME: Tuesday, October 27, 2026, 07:34 PM (user's local time — anchor 'today/now/latest' to THIS moment)";

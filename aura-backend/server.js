@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v14";
+const BUILD = process.env.AURA_BUILD || "squad-v15";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v14";
+const SRC_BUILD = "squad-v15";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -78,7 +78,34 @@ const GEMINI_API_KEY = envv("AI_KEY_VISION", "GEMINI_API_KEY");            // gi
 const VISION_MODEL = process.env.VISION_MODEL || atob("Z2VtaW5pLTMuNi1mbGFzaA==");
 /* one Gemini model having a demand spike must not blind the studio or AURA: try the
    configured model first, then the other flash models, before reporting failure */
-const VISION_MODELS = [VISION_MODEL, "gemini-2.5-flash", "gemini-2.0-flash"].filter((m, i, a) => m && a.indexOf(m) === i);
+/* 28 Oct 2026 — Google retired gemini-2.5-flash for new keys (“no longer available
+   to new users … use models/gemini-3.8-flash”). Hard-coded model names rot, which
+   is exactly why Lucid kept saying “high demand”. So the list below is only a
+   SEED: geminiModels() asks the API which models this key can actually use and
+   caches that answer, and the studio walks the discovered list first. */
+const VISION_MODELS = ["gemini-3.8-flash", VISION_MODEL, "gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"].filter((m, i, a) => m && a.indexOf(m) === i);
+let visionModelCache = { at: 0, names: [] };
+function modelScore(n) {
+  const v = (n.match(/(\d+(?:\.\d+)?)/) || [])[1];
+  const num = v ? parseFloat(v) : 0;
+  return num * 10 + (/flash/.test(n) ? 5 : 0) - (/lite|thinking|image|tts|audio|embed/.test(n) ? 20 : 0);
+}
+async function geminiModels() {
+  if (!GEMINI_API_KEY) return [];
+  if (visionModelCache.names.length && Date.now() - visionModelCache.at < 3600_000) return visionModelCache.names;
+  try {
+    const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(GEMINI_API_KEY), { signal: AbortSignal.timeout(15_000) });
+    if (!r.ok) return visionModelCache.names;
+    const j = await r.json();
+    const names = (j.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).indexOf("generateContent") >= 0)
+      .map(m => String(m.name || "").replace(/^models\//, ""))
+      .filter(n => /^gemini-/.test(n) && /flash|pro/.test(n));
+    names.sort((a, b) => modelScore(b) - modelScore(a));
+    if (names.length) visionModelCache = { at: Date.now(), names: names.slice(0, 6) };
+  } catch (e) { /* keep the seeds */ }
+  return visionModelCache.names;
+}
 
 /* RESERVE BRAIN — fires only when the primary key bank has drained (or died),
    so users keep getting real AI answers instead of the out-of-tokens notice.
@@ -1708,8 +1735,11 @@ function lucidCount(req) {
   else lucidCap.set(id, { day, n: 1 });
   if (lucidCap.size > 3000) for (const [k, v] of lucidCap) if (v.day !== day) lucidCap.delete(k);
 }
-/* honest, non-alarming message a visitor can act on */
-const LUCID_NO_KEY = "The studio's AI key is not wired on this server yet. Add your own free Gemini key in Lucid (🔑 Set key) — aistudio.google.com/apikey";
+/* honest, non-alarming message a visitor can act on.
+   OWNER ORDER (28 Oct 2026): visitors must never paste their own key — the key is
+   the studio's job. So this never tells anyone to bring a key; if the server has
+   none, we say so plainly and the owner fixes the deployment. */
+const LUCID_NO_KEY = "Studio ka AI server par abhi set nahi hua. Kuch der baad try karo — aapko koi key nahi chahiye.";
 app.post("/v1/lucid/edit", async (req, res) => {
   if (!GEMINI_API_KEY) return res.status(501).json({ error: { code: 501, message: LUCID_NO_KEY } });
   if (lucidOverCap(req)) return res.status(429).json({ error: { code: 429, message: "Aaj ki AI editing limit poori ho gayi — kal phir try karo." } });
@@ -1738,28 +1768,57 @@ app.post("/v1/lucid/edit", async (req, res) => {
   /* a demand spike on one Gemini model (503 "high demand") must not break editing:
      walk the model list and serve the first that answers */
   const lbody = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: gen });
+  /* discovered models first (so a retirement can never 404 the studio), then seeds */
+  const discovered = await geminiModels().catch(() => []);
+  const chain = [...new Set([...discovered, ...VISION_MODELS])].slice(0, 7);
+  /* A demand spike (503 “high demand”) is TEMPORARY, so a single miss must not reach
+     the visitor. Every model is tried twice with a short backoff, and the whole
+     walk is a few seconds at worst. The raw Google sentence (“This model is
+     currently experiencing high demand…”) never leaves this server — the studio
+     gets a short, human line it can show without looking broken. */
   let lastStatus = 502, lastMsg = "vision call failed";
-  for (const vmodel of VISION_MODELS) {
-    try {
-      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: lbody,
-        signal: AbortSignal.timeout(60_000)
-      });
-      const j = await r.json().catch(() => null);
-      if (!r.ok) {
-        lastStatus = r.status;
-        lastMsg = (j && j.error && j.error.message) || ("vision upstream HTTP " + r.status + " (" + vmodel + ")");
-        if (r.status === 503 || r.status === 429 || r.status >= 500) continue; /* busy → next model */
-        break; /* a real request error: other models would say the same */
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  for (const vmodel of chain) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: lbody,
+          signal: AbortSignal.timeout(60_000)
+        });
+        const j = await r.json().catch(() => null);
+        if (!r.ok) {
+          lastStatus = r.status;
+          lastMsg = (j && j.error && j.error.message) || ("vision upstream HTTP " + r.status + " (" + vmodel + ")");
+          /* 404 = this model was RETIRED for this key (“no longer available to new
+             users”) → silently move on; a fresh model may still answer. */
+          if (r.status === 404) break;
+          if (r.status === 503 || r.status === 429 || r.status >= 500) {
+            if (attempt === 0) { await sleep(250 + Math.random() * 250); continue; }
+            break; /* this model is genuinely busy → next one */
+          }
+          return res.status(r.status === 400 ? 400 : 502).json({ error: { code: r.status, message: "AI ne request samajh nahi payi — thoda chhota sawaal try karo." } });
+        }
+        lucidCount(req);
+        recordUse(req, "vision", (j && j.usageMetadata && j.usageMetadata.totalTokenCount) || 0);
+        return res.json(j); /* Gemini shape → Lucid reads candidates[0].content.parts */
+      } catch (e) {
+        lastStatus = 502;
+        lastMsg = e.message || "vision call failed";
+        if (attempt === 0) await sleep(300);
       }
-      lucidCount(req);
-      recordUse(req, "vision", (j && j.usageMetadata && j.usageMetadata.totalTokenCount) || 0);
-      return res.json(j); /* Gemini shape → Lucid reads candidates[0].content.parts */
-    } catch (e) { lastStatus = 502; lastMsg = e.message || "vision call failed"; }
+    }
   }
-  return res.status(lastStatus === 429 ? 429 : 502).json({ error: { code: lastStatus, message: lastMsg } });
+  /* every lane busy: say it in one calm line, never Google's raw 503 text */
+  return res.status(lastStatus === 429 ? 429 : 503).json({
+    error: {
+      code: lastStatus === 429 ? 429 : 503,
+      message: lastStatus === 429
+        ? "Aaj ki AI limit poori ho gayi — kal phir try karo."
+        : "AI abhi thoda busy hai. 10–15 second baad ek baar phir try karo — aapko koi key nahi chahiye."
+    }
+  });
 });
 
 /* health + root */
@@ -1781,7 +1840,7 @@ app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
+  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
 });
 /* keep the last-known values fresh without ever blocking the endpoint */
 setTimeout(warmHealth, 1500);
@@ -1867,40 +1926,95 @@ async function rosterGuard(t, messages) {
 }
 /* “teams name in it” carries no topic — inherit the previous real question so the
    search lane looks for BMIC 2026, not for the words “teams name in it”. */
-/* "teams in it" has no subject of its own — the thread does. Owner report 28 Oct 2026:
-   asked "when will the bmic start", then "teams in it", and got a definition of
-   Microsoft Teams. The search lane already merged the two turns, but the MODEL never
-   saw the merged question. This resolves a bare fragment against the previous turn and
-   hands every model an explicit instruction, so the answer stays on the same event. */
+/* ---------- THREAD READING (28 Oct 2026) ------------------------------------
+   Owner report: “auraa ho ya zeus, yeh catch hi nahi kar pa raha ki kaise kaam
+   karna hai … main nahi chahta koi yeh issue face kare.”
+
+   ROOT CAUSE: the browser does not send messages[] turns — it sends the WHOLE chat
+   inside ONE user message:
+       "<this question>\n\nONGOING CONVERSATION (…):\nUser: …\nYou: …"
+   The old resolver only looked at messages[] entries, so in the real app it needed
+   TWO user entries, found ONE, and never ran. Every follow-up ("teams in it",
+   "uska prize", "aur batao") reached the model with no topic attached.
+   threadTurns() reads BOTH shapes, so the fix works for the app, the API and tests. */
+/* Only words that are meaningless WITHOUT a topic. A question that starts with
+   "how/why/explain/kya" is self-contained and must never be rewritten into the
+   previous topic — that would be a worse bug than the one we are fixing. */
+const FOLLOW_WORD = /^(teams?|team\s*names?|names?|list|lineup|line-?up|roster|participants|squads?|players?|dates?|schedule|venue|location|prize|prize\s*pool|format|winner|winners|scores?|who|whom|kaun|kon|kab|kahan|kitne?|kitni|kaunse|kaunsi|kaun\s*sa|more|aur|details?|usme|uska|uski|unka|inke|iska|iske|isko|wahan|waha|phir)\b/i;
+const PRONOUN = /\b(it|its|this|that|these|those|them|they|same|above|previous|last|usme|usmein|uska|uski|uske|unka|unki|unke|inke|inka|inki|iska|iski|iske|ise|isko|inme|inmein|wahan|waha|pehle|pichle|baaki)\b/i;
+function threadTurns(messages) {
+  const out = [];
+  for (const m of (messages || [])) {
+    if (!m || typeof m.content !== "string") continue;
+    if (m.role !== "user" && m.role !== "assistant") continue;
+    const txt = String(m.content);
+    const at = txt.search(/\n\s*ONGOING CONVERSATION\b/i);
+    const head = (at >= 0 ? txt.slice(0, at) : txt).trim();
+    if (head) out.push({ role: m.role, text: head });
+    if (at < 0) continue;
+    /* only the transcript itself — the date/memory/profile blocks that follow it
+       are not conversation and must never be mistaken for a user turn */
+    const tail = txt.slice(at).split(/\n\s*(?:CURRENT DATE & TIME|LIVE WEB RESULTS|AUTHORITATIVE ESPORTS FACTS|MEMORY|PROFILE|DOCUMENTS)\b/i)[0];
+    const re = /(?:^|\n)[ \t]*(user|you|assistant|aura|ai)\s*:\s*/gi;
+    const marks = [];
+    let mm;
+    while ((mm = re.exec(tail))) {
+      /* the label itself belongs to the NEXT turn, so a turn ends where the next
+         label BEGINS — otherwise every captured line drags "You:" along with it */
+      const labelAt = mm.index + (mm[0].charAt(0) === "\n" ? 1 : 0);
+      marks.push({ role: /^user$/i.test(mm[1]) ? "user" : "assistant", labelAt: labelAt, contentAt: re.lastIndex });
+    }
+    for (let i = 0; i < marks.length; i++) {
+      const end = i + 1 < marks.length ? marks[i + 1].labelAt : tail.length;
+      const text = tail.slice(marks[i].contentAt, end).trim();
+      if (text) out.push({ role: marks[i].role, text: text });
+    }
+  }
+  return out;
+}
+/* A follow-up carries no subject of its own — the thread does. This resolves a bare
+   continuation against the previous REAL question and hands every model an explicit
+   instruction, so "teams in it" can never turn into a Microsoft Teams definition. */
 function resolveFragment(messages) {
-  const users = (messages || []).filter(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
-  if (users.length < 2) return null;
-  const q = String(users[users.length - 1].content).trim();
-  const prev = String(users[users.length - 2].content).trim();
-  if (!prev || prev.length < 8) return null;
+  const raw = lastUserMsg(messages);
+  const q = (currentAsk(raw) || raw || "").trim();
+  if (!q) return null;
+  const turns = threadTurns(messages);
+  const prior = turns.filter(t => t.role === "user" && t.text && (currentAsk(t.text) || t.text).trim() !== q);
+  const prev = prior.length ? prior[prior.length - 1].text : "";
+  if (!prev) return null;
+  const topic = (currentAsk(prev) || prev).replace(/\s+/g, " ").trim();
+  if (!topic || topic.length < 8) return null;
   const words = q.split(/\s+/).filter(Boolean);
-  const bareNoun = /^(teams?|team\s*names?|names?|list|lineup|line-?up|roster|participants|squad|dates?|schedule|venue|location|prize|format|winner|winners|who|kaun|kon|kab|kahan|kitne?|more|aur|details?)\b/i.test(q);
-  /* a genuinely short continuation ("teams in it"), or a short list-word ask
-     ("team names in it"). A LONG question that merely contains "it" has its own
-     subject — rewriting that would be the bug, not the fix. */
-  if (!(words.length <= 6 || (bareNoun && words.length <= 9))) return null;
-  return { q: q, topic: prev.replace(/\s+/g, " ").slice(0, 240) };
+  const bare = FOLLOW_WORD.test(q);
+  const pronoun = PRONOUN.test(q);
+  /* Short AND pointing at something already said. A fresh, self-contained question
+     ("how to start a cloud kitchen") has no pronoun and does not start on a follow-up
+     word, so it is never rewritten into the previous topic. */
+  if (!(bare && words.length <= 10) && !(pronoun && words.length <= 7)) return null;
+  return { q: q, topic: topic.slice(0, 240) };
 }
 function injectFollowUp(messages) {
   const frag = resolveFragment(messages);
   if (!frag) return messages;
-  const note = "FOLLOW-UP RESOLUTION — the user's last message (\"" + frag.q + "\") is a continuation of the previous question (\"" + frag.topic + "\"). Answer about THAT same subject/event; never switch to a different meaning of the words (for example, a tournament's \"teams\" are its participating squads, NOT Microsoft Teams). Reply in the user's own language, briefly, without restating the question.";
+  const note = "CURRENT TOPIC (from this same thread): \"" + frag.topic + "\".\n" +
+    "THE USER'S LAST MESSAGE: \"" + frag.q + "\" — it is a FOLLOW-UP to that topic, not a new subject.\n" +
+    "Rules: (1) resolve every ambiguous word against the topic — in a tournament thread \"teams\" means its participating squads and \"dates\" means that event's dates, NEVER Microsoft Teams or any other product; (2) keep the same entity/acronym the thread was about; " +
+    "(3) if the exact fact is not in the evidence, say so in one line and offer the closest verified fact — never invent rosters, dates or scores; " +
+    "(4) answer in the user's language (Hinglish stays Hinglish), briefly, and do not restate the question.";
   const out = messages.slice();
   const si = out.findIndex(m => m && m.role === "system" && typeof m.content === "string");
   if (si >= 0) out[si] = { role: "system", content: String(out[si].content) + "\n\n" + note };
   else out.unshift({ role: "system", content: note });
   return out;
 }
+/* what the search lane should actually look for: the topic the thread is on plus the
+   words the user just typed. Never the raw flattened blob (transcript included). */
 function followUpQuery(messages, q) {
-  const users = (messages || []).filter(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim()).map(m => String(m.content).trim());
-  const prev = users.length > 1 ? users[users.length - 2] : "";
-  const short = q.split(/\s+/).length <= 5 || /^(teams?|team names?|names?|list|lineup|roster|schedule|dates?|usme|uska|uski|unka|in it|more|aur|kab|kaun|kon)\b/i.test(q);
-  return short && prev ? (prev + " " + q).slice(0, 300) : q;
+  const cur = (currentAsk(q) || String(q || "")).replace(/\s+/g, " ").trim();
+  const frag = resolveFragment(messages);
+  if (!frag) return cur || String(q || "");
+  return (frag.topic + " " + cur).replace(/\s+/g, " ").trim().slice(0, 300);
 }
 /* A reader-proxy bot wall ("Verify you are human") is not evidence — several sites hand
    one back instead of the article, and pasting that into the prompt used to wipe out the
@@ -1960,9 +2074,10 @@ function topicHint(raw) {
    topic when the question itself doesn't name it. */
 function searchQuery(messages) {
   const raw = lastUserMsg(messages);
-  let q = followUpQuery(messages, raw);
-  const cur = currentAsk(raw);
-  if (cur && cur !== raw) q = cur;
+  /* followUpQuery already returns "topic + this ask" for a real follow-up, and
+     just the ask otherwise — overriding it with the bare head (the old bug) threw
+     the topic away and searched for the words “teams in it”. */
+  let q = followUpQuery(messages, raw) || currentAsk(raw) || raw;
   const hint = topicHint(raw);
   if (hint && !new RegExp("\\b" + hint + "\\b", "i").test(q)) q = hint + " " + q;
   return q.replace(/\s+/g, " ").trim().slice(0, 300);
@@ -2802,7 +2917,7 @@ if (IS_MAIN) {
 
 module.exports = {
   app,
-  groundChat, toolSearch, toolFetch, searchQuery, currentAsk, topicHint, followUpQuery,
+  groundChat, toolSearch, toolFetch, searchQuery, currentAsk, topicHint, followUpQuery, threadTurns,
   evidenceFacts, esportsFastAnswer, rosterGuard, cleanRead, isRosterAsk, fakeRoster,
   prettyDate, lastUserMsg, resolveFragment, injectFollowUp,
 };
