@@ -2319,7 +2319,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     const _fresh = /(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|match|tournament|election|weather|stock|ipo|launch|release|update|trending|kitna)/i.test(_q);
     if (_q && _fresh && !_small && !_alreadyArmed) {
       const _now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
-      let _web = "";
+      let _web = "", _cand = "";
       try {
         const _sq = cleanAsk(_q) || _q.replace(/\s+/g, " ");
         const _hits = await toolSearch(_sq);
@@ -2331,9 +2331,20 @@ app.post("/v1/chat/completions", async (req, res) => {
           const _top = _hits.slice(0, 1);
           const _reads = await Promise.all(_top.map(h => toolFetch(h.url, 5_000).catch(() => null)));
           _web = _top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(cleanRead(_reads[i]) || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
+          /* MODEL-PROOF HEADLINE (29 Oct 2026): the lighter NIM model kept answering
+             "latest iPhone" from memory (iPhone 16) even with dated results in front of
+             it. Putting the newest headline first as a one-line fact, plus every other
+             headline as a bullet, makes the current value the easiest thing to copy. */
+          const _h0 = _hits[0];
+          const _snip = String(cleanRead(_reads[0]) || _h0.extract || "").replace(/\s+/g, " ").trim().slice(0, 300);
+          _cand = "LATEST VERIFIED HEADLINE (" + (_h0.date || _now) + "): \"" + (_h0.title || "") + "\"" + (_snip ? " — " + _snip : "") +
+            "\nOTHER HEADLINES FROM THE SAME SEARCH:\n" + _hits.slice(1, 3).map(h => "• " + (h.title || "") + (h.date ? " (" + String(h.date).slice(0, 24) + ")" : "")).join("\n");
         }
       } catch (e) { /* search down → date-only block still fixes the cutoff */ }
-      messages = messages.concat([{ role: "system", content: "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web + "\nANSWER FROM THE RESULTS FIRST: the specific model, price, date or name the user asked about must be taken from these results. If they do not contain it, say plainly that you could not verify today's value — never present an older model, price or version as the current one. Your first sentence must answer, not describe your reasoning." : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value.") }]);
+      messages = messages.concat([{ role: "system", content: "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? _cand + "\n\nLIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web + "\nANSWER FROM THE RESULTS FIRST: the specific model, price, date or name the user asked about must be taken from these results — if the question is about the newest model/version/price/winner and these results name one, that one is the answer even when your memory says otherwise. If they do not contain it, say plainly that you could not verify today's value — never present an older model, price or version as the current one. Your first sentence must answer, not describe your reasoning." : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value.") }]);
+      /* fresh facts are copied, not composed: a low temperature keeps the model on the
+         headline instead of drifting back into its training data */
+      if (typeof body.temperature !== "number") body.temperature = 0.25;
     }
   } catch (e) { /* amplification is best-effort — never block the answer */ }
   /* visible to the owner on any response: did this answer get live evidence, and how much */
