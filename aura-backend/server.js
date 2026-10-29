@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v15";
+const BUILD = process.env.AURA_BUILD || "squad-v16";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v15";
+const SRC_BUILD = "squad-v16";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -1768,9 +1768,14 @@ app.post("/v1/lucid/edit", async (req, res) => {
   /* a demand spike on one Gemini model (503 "high demand") must not break editing:
      walk the model list and serve the first that answers */
   const lbody = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: gen });
-  /* discovered models first (so a retirement can never 404 the studio), then seeds */
+  /* ORDER MATTERS: the configured model is the one this key is known to answer
+     with, so it goes first; the seeds and the discovered names only fill in behind
+     it. 29 Oct 2026: discovery advertised a "gemini-3.8-flash" that accepted the
+     request and then never answered — with it in front, a visitor's edit sat for
+     minutes before the walk timed out. Never let a model that is merely listed
+     cost more than one capped attempt. */
   const discovered = await geminiModels().catch(() => []);
-  const chain = [...new Set([...discovered, ...VISION_MODELS])].slice(0, 7);
+  const chain = [...new Set([VISION_MODEL, ...VISION_MODELS, ...discovered])].slice(0, 6);
   /* A demand spike (503 “high demand”) is TEMPORARY, so a single miss must not reach
      the visitor. Every model is tried twice with a short backoff, and the whole
      walk is a few seconds at worst. The raw Google sentence (“This model is
@@ -1778,14 +1783,21 @@ app.post("/v1/lucid/edit", async (req, res) => {
      gets a short, human line it can show without looking broken. */
   let lastStatus = 502, lastMsg = "vision call failed";
   const sleep = ms => new Promise(r => setTimeout(r, ms));
+  /* ONE hard wall-clock budget for the whole walk. A model that hangs is a model
+     that is down; the visitor gets the calm line in under half a minute, never a
+     spinner that runs for minutes. */
+  const deadline = Date.now() + 28_000;
   for (const vmodel of chain) {
+    if (Date.now() >= deadline - 1200) break;
     for (let attempt = 0; attempt < 2; attempt++) {
+      const left = deadline - Date.now();
+      if (left < 1200) break;
       try {
         const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: lbody,
-          signal: AbortSignal.timeout(60_000)
+          signal: AbortSignal.timeout(Math.min(15_000, left))
         });
         const j = await r.json().catch(() => null);
         if (!r.ok) {
@@ -1806,6 +1818,10 @@ app.post("/v1/lucid/edit", async (req, res) => {
       } catch (e) {
         lastStatus = 502;
         lastMsg = e.message || "vision call failed";
+        /* a timeout is not a blip to re-wait on: that model is not answering,
+           so move on and spend the remaining budget on a different one */
+        const dead = e && (e.name === "TimeoutError" || e.name === "AbortError");
+        if (dead) break;
         if (attempt === 0) await sleep(300);
       }
     }
