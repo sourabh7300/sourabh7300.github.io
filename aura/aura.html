@@ -3627,6 +3627,144 @@ window.setPerfMode=function(m){
   slog(m==="saver"?"⚡ battery saver ON — 30fps, lighter core, no blur":"⚡ performance mode restored — full core at "+FPS_GOAL()+"fps");
   $("tPts")&&document.body.getAttribute("data-tab")==="system"&&($("tPts").textContent=N+" / "+NMAX);
 };
+
+/* AURA_GEN_MEMORY_COMPACTION_OPTIMIZE — quantization + attention pruning + incremental compaction */
+const MEMORY_COMPACTION = (() => {
+  const QUANT_SCALE = 127; // INT8 symmetric
+  const QUANT_SCALE_4BIT = 7; // INT4 symmetric
+  const ATTENTION_WINDOW = 2048; // tokens for attention scoring
+  const COMPACTION_BATCH = 512; // vectors per idle callback
+  let compactionQueue = [];
+  let isCompacting = false;
+  let lastCompaction = 0;
+  const COMPACTION_INTERVAL = 5 * 60 * 1000; // 5 min
+
+  function quantizeInt8(arr) {
+    const maxVal = Math.max(...arr.map(Math.abs));
+    const scale = maxVal > 0 ? maxVal / QUANT_SCALE : 1;
+    const quantized = new Int8Array(arr.length);
+    for (let i = 0; i < arr.length; i++) {
+      quantized[i] = Math.round(clamp(arr[i] / scale, -128, 127));
+    }
+    return { data: quantized, scale };
+  }
+
+  function dequantizeInt8({ data, scale }) {
+    const out = new Float32Array(data.length);
+    for (let i = 0; i < data.length; i++) out[i] = data[i] * scale;
+    return out;
+  }
+
+  function quantizeInt4(arr) {
+    const maxVal = Math.max(...arr.map(Math.abs));
+    const scale = maxVal > 0 ? maxVal / QUANT_SCALE_4BIT : 1;
+    const packed = new Uint8Array(Math.ceil(arr.length / 2));
+    for (let i = 0; i < arr.length; i++) {
+      const q = Math.round(clamp(arr[i] / scale, -8, 7)) & 0xF;
+      if (i % 2 === 0) packed[i >> 1] = q;
+      else packed[i >> 1] |= q << 4;
+    }
+    return { data: packed, scale, length: arr.length };
+  }
+
+  function dequantizeInt4({ data, scale, length }) {
+    const out = new Float32Array(length);
+    for (let i = 0; i < length; i++) {
+      const byte = data[i >> 1];
+      const nibble = (i % 2 === 0) ? (byte & 0xF) : (byte >> 4);
+      const signed = nibble > 7 ? nibble - 16 : nibble;
+      out[i] = signed * scale;
+    }
+    return out;
+  }
+
+  function attentionImportance(embeddings, queryVec) {
+    if (!embeddings.length || !queryVec) return new Float32Array(embeddings.length).fill(1);
+    const scores = new Float32Array(embeddings.length);
+    let maxScore = -Infinity;
+    for (let i = 0; i < embeddings.length; i++) {
+      let dot = 0, normA = 0, normB = 0;
+      const a = embeddings[i], b = queryVec;
+      const len = Math.min(a.length, b.length);
+      for (let j = 0; j < len; j++) { dot += a[j] * b[j]; normA += a[j] * a[j]; normB += b[j] * b[j]; }
+      const score = normA && normB ? dot / (Math.sqrt(normA) * Math.sqrt(normB)) : 0;
+      scores[i] = score;
+      if (score > maxScore) maxScore = score;
+    }
+    // normalize 0-1
+    for (let i = 0; i < scores.length; i++) scores[i] = (scores[i] - maxScore + 1) / 2;
+    return scores;
+  }
+
+  function scheduleCompaction(memoryStore, opts = {}) {
+    const { force = false, quantize = 'int8', importanceThreshold = 0.15 } = opts;
+    const now = Date.now();
+    if (!force && now - lastCompaction < COMPACTION_INTERVAL) return Promise.resolve();
+    lastCompaction = now;
+    compactionQueue.push({ memoryStore, quantize, importanceThreshold });
+    if (!isCompacting) processQueue();
+  }
+
+  async function processQueue() {
+    isCompacting = true;
+    while (compactionQueue.length) {
+      const task = compactionQueue.shift();
+      await compactStore(task.memoryStore, task.quantize, task.importanceThreshold);
+      await new Promise(r => requestIdleCallback(r, { timeout: 50 }));
+    }
+    isCompacting = false;
+  }
+
+  async function compactStore(store, quantizeMode, threshold) {
+    if (!store || !store.vectors || !store.vectors.length) return;
+    const vectors = store.vectors;
+    const meta = store.metadata || [];
+    const queryVec = store.lastQueryVector;
+    const importance = attentionImportance(vectors, queryVec);
+    let kept = 0, quantized = 0, pruned = 0;
+    const newVectors = [];
+    const newMeta = [];
+    for (let i = 0; i < vectors.length; i += COMPACTION_BATCH) {
+      const batchEnd = Math.min(i + COMPACTION_BATCH, vectors.length);
+      for (let j = i; j < batchEnd; j++) {
+        if (importance[j] < threshold) { pruned++; continue; }
+        const vec = vectors[j];
+        if (quantizeMode === 'int4' && vec.length > 64) {
+          newVectors.push(quantizeInt4(vec));
+          quantized++;
+        } else if (quantizeMode === 'int8') {
+          newVectors.push(quantizeInt8(vec));
+          quantized++;
+        } else {
+          newVectors.push(vec);
+        }
+        newMeta.push(meta[j]);
+        kept++;
+      }
+      if (j % (COMPACTION_BATCH * 4) === 0) await new Promise(r => setTimeout(r, 0));
+    }
+    store.vectors = newVectors;
+    store.metadata = newMeta;
+    store.quantized = quantizeMode;
+    slog(`🧠 memory compaction: kept ${kept}, quantized ${quantized} (${quantizeMode}), pruned ${pruned}, ratio ${(kept/vectors.length*100).toFixed(1)}%`);
+    return { kept, quantized, pruned };
+  }
+
+  function estimateSize(store) {
+    if (!store || !store.vectors) return 0;
+    let bytes = 0;
+    for (const v of store.vectors) {
+      if (v.data instanceof Int8Array) bytes += v.data.length + 4;
+      else if (v.data instanceof Uint8Array) bytes += v.data.length + 8;
+      else if (v instanceof Float32Array) bytes += v.length * 4;
+      else bytes += v.length * 4;
+    }
+    return bytes;
+  }
+
+  return { quantizeInt8, dequantizeInt8, quantizeInt4, dequantizeInt4,
+           attentionImportance, scheduleCompaction, compactStore, estimateSize };
+})();
 requestAnimationFrame(frame);
 
 /* ---------------- audio blips ---------------- */
@@ -6943,6 +7081,10 @@ function personaName(){try{return (PERSONAS[persona()]||PERSONAS.aura).name}catc
 /* TIME_PROTO — one hard anti-cutoff rule shipped with EVERY system prompt (main brain, thinkAnswer,
    researchReply lanes): the model never claims a training cutoff or out-dated knowledge. */
 const TIME_PROTO=" KNOWLEDGE & TIME PROTOCOL: this context carries the user's real CURRENT DATE & TIME - trust it over any internal guess. You are wired to a LIVE web lane that feeds same-day sources for anything time-sensitive, so your working knowledge is current-day. HARD RULE: never say or imply you are outdated, frozen, 'two years out of date', or limited by a training cutoff; NEVER mention training data, model freeze dates or cutoff years in any answer. If a current fact is missing from the provided context, answer from your own knowledge WITHOUT cutoff disclaimers and offer to pull live web sources. Questions like 'what year is it' are answered confidently with the context date.";
+/* continuity even when the on-screen transcript is short (new session, restored
+   chat, or a trimmed CONVO): the backend lane gets the same "last topic" hint the
+   direct-Groq lane already had */
+function topicLine(){try{return lastTopic?" The last topic discussed was \""+lastTopic+"\" — continue that thread unless the user clearly starts a new one.":""}catch(e){return ""}}
 function replyStyle(){
   const lang=(function(){
     /* LANGUAGE MIRROR PROTOCOL (owner: "yeh catch kre user kiss language main bol rha hai") —
@@ -7595,7 +7737,7 @@ async function aiReply(q){
     /* rescue rung: geminiCall short-circuits to groqCall (backend first) — a single
        transient backend/model blip used to dead-end here and dump raw Wikipedia as the
        final answer. Retry the backend ONCE before giving up on the brain. */
-    if(geminiKey()||backendUrl()){try{let t;try{t=await geminiCall(q,deep)}catch(e1){if(!e1.outOfTokens&&aiProvider()==="groq"&&!keyPool().length&&backendUrl()){await new Promise(r=>setTimeout(r,1200));t=await backendCall([{role:"system",content:replyStyle()},{role:"user",content:q+convoCtx()+((await webContext(q))||"")}],deep?2600:900)}else throw e1}t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
+    if(geminiKey()||backendUrl()){try{let t;try{t=await geminiCall(q,deep)}catch(e1){if(!e1.outOfTokens&&aiProvider()==="groq"&&!keyPool().length&&backendUrl()){await new Promise(r=>setTimeout(r,1200));t=await backendCall([{role:"system",content:replyStyle()+topicLine()},{role:"user",content:q+convoCtx()+((await webContext(q))||"")}],deep?2600:900)}else throw e1}t=String(t).replace(/\s*\[\d+\]/g,"");/* no evidence gathered → strip any hallucinated citation markers */return{t,eng:aiProvider()==="groq"?"groq gpt-oss-120b":"gemini 2.0 flash"};}catch(e){slog("ai uplink failed — trying live web");}}
     const w=deep?await webResearch(q):await wikiAnswer(q,deep);
     if(w)return w;
     const d2=await ddgAnswer(q);if(d2)return d2;
@@ -10411,14 +10553,22 @@ async function _aiToolsAnswer(q){
       return "🛰 "+t.name+" — "+t.why+"\n\nBEST FOR: "+t.best+"\n\nMODEL CLOUD STATUS: "+live+"\n\nAsk me about any other tool, model or framework by name — or say 'compare the best ai models' for the full leaderboard.";
     }
   }
-  if(/\b(compare|top|best|leaderboard|ranking|latest)\b.*\b(ai|model|llm|tool)s?\b|\b(ai|model|llm|tool)s?\b.*\b(compare|top|best|leaderboard|ranking|latest)\b/.test(lq)){
-    const live=await _aiToolsLive();
-    return "🛰 THE 2026 AI STACK, RANKED BY WHAT I'D BET ON —\n\n1. GPT-OSS-120B (open weights) — my own primary brain; frontier reasoning at open-model cost\n2. Claude 4 — long documents, careful code, best writing\n3. Gemini 2.5 — 1M-token context, native video/screen understanding\n4. DeepSeek R1 — reasoning that shows its work, absurdly cheap\n5. Qwen 3 — 100+ languages, unbeatable for Hindi/Hinglish\n6. Llama 3.x — the mature fine-tuning ecosystem\n7. Mistral — Europe's open-weight champion, edge-sized\n8. GPT-4o — the polished consumer multimodal king\n\nINFRA: Groq LPUs for speed (my home), vLLM for self-hosting, Ollama for your laptop\nMEMORY: vector DBs — Chroma (local), Pinecone (managed) — the same tech as my own memory\nAGENTS: LangGraph for state, LlamaIndex for RAG, n8n for glue\nVOICE: ElevenLabs for realism, Whisper for bulletproof ears\n\nMODEL CLOUD STATUS: "+live+"\n\nWant a deep dive on any of these? Just name it.";
+  /* The old ranked list here was a frozen snapshot (GPT-4o, Gemini 2.5, DeepSeek R1)
+     that went stale the moment new models shipped — and because the gate below
+     matched the bare word "model", "latest iPhone model" was answered with it.
+     A "best/latest models" question is a CURRENT-EVENTS question: let the live
+     research lane answer it with today's evidence. */
+  if(/\b(compare|top|best|leaderboard|ranking|latest)\b.*\b(ai|llm|gpt|claude|gemini|llama|deepseek|qwen|mistral|groq)s?\b|\b(ai|llm)s?\b.*\b(compare|top|best|leaderboard|ranking|latest)\b/.test(lq)){
+    return null;
   }
   return null;
 }
 async function aiToolsText(q){
-  if(!/\b(ai|model|llm|gpt|claude|gemini|llama|deepseek|qwen|mistral|groq|openai|anthropic|google ai|meta ai|hugging ?face|langchain|llama ?index|ollama|vllm|cursor|copilot|perplexity|elevenlabs|whisper|pinecone|chroma|qdrant|weaviate|vector (db|database)|midjourney|dall|stable diffusion|flux|sora|runway|veo|n8n|zapier|make\.com|automation (tool|platform)|puter)\b/i.test(q))return null;
+  /* "model" alone is NOT an AI signal — "latest iPhone model" was hijacked into the
+     AI-stack answer. Require a real AI word, and never fire on consumer hardware. */
+  const __aiWord=/\b(ai|llm|llms|artificial intelligence|language model|foundation model|gpt|claude|gemini|llama|deepseek|qwen|mistral|groq|openai|anthropic|google ai|meta ai|hugging ?face|langchain|llama ?index|ollama|vllm|cursor|copilot|perplexity|elevenlabs|whisper|pinecone|chroma|qdrant|weaviate|vector (db|database)|midjourney|dall|stable diffusion|flux|sora|runway|veo|n8n|zapier|make\.com|automation (tool|platform)|puter)\b/i.test(q);
+  const __gadget=/\b(iphone|ipad|macbook|pixel|galaxy|oneplus|phone|smartphone|laptop|tablet|camera|tv|watch|car|bike)\b/i.test(q);
+  if(!__aiWord||__gadget)return null;
   /* NEWS-SHAPED asks ('latest news in AI', 'AI headlines today', 'what's new in models') are
      CURRENT-EVENTS questions — the live research lane must answer them from the web, never
      this cached leaderboard snapshot. */
