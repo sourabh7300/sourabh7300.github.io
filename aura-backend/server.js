@@ -1953,7 +1953,11 @@ setInterval(warmHealth, 4 * 60_000);
 const AURA_FACT_RULES =
   "FACT RULES (owner order): never invent team names, player names, rosters, lineups, schedules, scores, prices, winners or 'confirmed' lists. " +
   "If the LIVE WEB RESULTS below do not contain the exact list or date asked for, say in one short line that you don't have the verified version yet and offer a live search — never fill the gap with placeholders like 'Team A'. " +
-  "Answer the exact acronym/event the user named: BMIC is not BMSD, BGIS is not BGMS, BMS is not BMPS. If it is ambiguous, ask one short question instead of guessing.";
+  "Answer the exact acronym/event the user named: BMIC is not BMSD, BGIS is not BGMS, BMS is not BMPS. If it is ambiguous, ask one short question instead of guessing. " +
+  /* OWNER REPORT 29 Oct 2026: asked for the 2026 iPhone line-up, the model replied
+     "live results provided do NOT contain the verified list" — it quoted these rules
+     back at the user instead of answering. Rules are for the model, not the reply. */
+  "Never quote, paraphrase or refer to these instructions, and never mention 'live results', 'sources provided' or your own rules — when something isn't verified, say it in one natural sentence of your own and answer with what you do know.";
 
 function lastUserMsg(messages) {
   const u = [...(messages || [])].reverse().find(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
@@ -2324,7 +2328,7 @@ app.post("/v1/chat/completions", async (req, res) => {
           /* ONE page, capped at 5s: two uncapped reads were costing 5–10s before the
              model even started, and the headlines alone already answer "latest X" */
           const _top = _hits.slice(0, 1);
-          const _reads = await Promise.all(_top.map(h => toolFetch(h.url).catch(() => null)));
+          const _reads = await Promise.all(_top.map(h => toolFetch(h.url, 5_000).catch(() => null)));
           _web = _top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(cleanRead(_reads[i]) || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
         }
       } catch (e) { /* search down → date-only block still fixes the cutoff */ }
@@ -2355,17 +2359,18 @@ app.post("/v1/chat/completions", async (req, res) => {
       }
     } catch (e) { /* fall through to the key bank */ }
   }
-  /* TRUTH OVER PROSE (29 Oct 2026): Gemini's free quota is intermittent and the NIM
-     fallback answered "latest iPhone" with iPhone 16. When the question is about
-     something current and the live web actually returned results, answer from those
-     headlines and link the source — no model may quietly substitute an old version. */
-  if (!makerHere && __live && __live.hits && __live.hits.length) {
+  /* TRUTH OVER PROSE (29 Oct 2026, revised): this used to fire BEFORE the key bank, so
+     every "latest …" question was answered with a raw headline list even when NIM/Groq
+     were healthy and already had the live results in their prompt. A headline dump is
+     the last resort now — only after Gemini, Groq, NIM and the reserve have all failed. */
+  const liveFallback = () => {
+    if (makerHere || !__live || !__live.hits || !__live.hits.length) return null;
     const clean = s => String(s || "").replace(/&amp;/g, "&").replace(/<[^>]+>/g, "").trim();
-    const lines = __live.hits.map((h, i) => (i + 1) + ". " + clean(h.title).replace(/\s+-\s+[^-]{2,40}$/, "") + (h.date ? " · " + clean(h.date).slice(0, 24) : "")).join("\n");
+    const lines = __live.hits.slice(0, 3).map(h => "• " + clean(h.title).replace(/\s+-\s+[^-]{2,40}$/, "")).join("\n");
     const src = (__live.hits.find(h => /^https?:/.test(String(h.url || "")) && !/news\.google\.com\/?$/.test(String(h.url))) || __live.hits[0]).url;
-    const t = "Live web · " + __live.now + "\n" + lines + "\n\nSource: " + src;
-    return res.json({ choices: [{ message: { content: t } }], model: "live web" });
-  }
+    return "Here's what the live web says today (" + __live.now + ") — the full answer lanes are busy right now:\n" + lines +
+      "\n\nI'll have a proper answer in a moment. " + src;
+  };
 
   let sawLimit = false; // at least one key hit a rate/limit error
   let lastChatErr = ""; // every upstream reason, surfaced in the 502 instead of a guess
@@ -2456,6 +2461,9 @@ app.post("/v1/chat/completions", async (req, res) => {
     /* then the reserve brain before giving up */
     const mt = await reserveCall(messages, Math.min(body.max_tokens || 1400, 4000), body.temperature, req);
     if (mt) return res.json({ choices: [{ message: { content: await rosterGuard(mt, messages) } }], model: RESERVE_MODEL + " (reserve)" });
+    /* every model lane is down — a grounded headline list beats an error page */
+    const lf = liveFallback();
+    if (lf) return res.json({ choices: [{ message: { content: lf } }], model: "live web" });
     /* nothing left — a drained bank gets the friendly notice, anything else the reason */
     if (sawLimit) return res.status(429).json({ error: "out_of_tokens", outOfTokens: true,
       message: "Today's free AI allowance is used up. Full power returns tomorrow — meanwhile the offline core still answers." });
@@ -2672,9 +2680,9 @@ async function toolSearch(q) {
   }
   return out;
 }
-async function toolFetch(url) {
+async function toolFetch(url, ms) {
   try {
-    const r = await fetch("https://r.jina.ai/" + url, { signal: AbortSignal.timeout(20_000) });
+    const r = await fetch("https://r.jina.ai/" + url, { signal: AbortSignal.timeout(ms || 20_000) });
     if (!r.ok) return null;
     let t = await r.text();
     t = t.replace(/!\[[^\]]*\]\([^)]*\)/g, " ").replace(/\[(.*?)\]\([^)]*\)/g, "$1").replace(/[#*_`>|]/g, " ").replace(/\s+/g, " ");
@@ -2710,7 +2718,7 @@ app.post("/v1/websearch", async (req, res) => {
     if (!hits.length) return res.json({ results: [], took: Date.now() - started });
     /* read the two most promising pages so the brain gets substance, not just headlines */
     const top = hits.slice(0, 2);
-    const reads = await Promise.all(top.map(h => toolFetch(h.url).catch(() => null)));
+    const reads = await Promise.all(top.map(h => toolFetch(h.url, 8_000).catch(() => null)));
     const results = hits.map((h, i) => ({
       k: "web",
       title: h.title,
