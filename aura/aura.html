@@ -7730,7 +7730,19 @@ async function aiReply(q){
     }
     if(CURRENCY_Q.test(q)){const lc=currencyMetaReply((q||"").toLowerCase());if(lc)return{t:lc,eng:"local core · currency & time"};}
     /* TIME-SENSITIVE → live research path first (real-time web + citations) */
-    if(NEED_WEB.test(q)){const rr=await researchReply(q,hiMode);if(rr&&rr.trim())return{t:rr,eng:"live web research · "+personaName()};}
+    if(NEED_WEB.test(q)){
+      /* CURRENT QUESTIONS GO TO THE SECURE BACKEND FIRST (29 Oct 2026): it searches,
+         reads the newest source and answers from it (or returns the live headlines
+         with a link). The in-browser research lane was one generation behind —
+         "latest iPhone" came back as iPhone 17 Pro Max — and it is slower. */
+      if(backendUrl()){
+        try{
+          const bt=await backendCall([{role:"system",content:replyStyle()},{role:"user",content:q}],1000);
+          if(bt&&bt.trim().length>12)return{t:bt.trim(),eng:"live web · secure backend"};
+        }catch(e){slog("backend web answer failed — falling back to in-browser research",true)}
+      }
+      const rr=await researchReply(q,hiMode);if(rr&&rr.trim())return{t:rr,eng:"live web research · "+personaName()};
+    }
     /* THE THINKING BRAIN FIRST — gather live evidence, then reason over it in human fashion */
     const th=await thinkAnswer(q,deep,hiMode);if(th)return th;
     if(hiMode){const hw=await hiWikiAnswer(q,deep);if(hw)return hw;}
