@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AURA · voice + code AI assistant</title>
+<meta name="description" content="A voice you can talk to. A mind that codes. A memory that stays.">
+<meta name="theme-color" content="#05060b"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<meta property="og:title" content="AURA · voice + code AI assistant"><meta property="og:description" content="A voice you can talk to. A mind that codes. A memory that stays."><meta property="og:image" content="og-image.png"><meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="og-image.png">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#05060b;--g:#e9b949;--g2:#ffd98a;--tl:#6fe8d6;--tx:#f3ead6;--f:'Space Grotesk',system-ui,sans-serif}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx)}
+body{font:300 17px/1.5 var(--f);background:radial-gradient(100% 70% at 70% 30%,#15110a,var(--bg) 62%)}
+#gl{position:fixed;inset:0;width:100%;height:100%;z-index:1}
+#dots{position:fixed;inset:0;z-index:0;background:radial-gradient(rgba(233,185,73,.22) 1px,transparent 1.2px) 0 0/34px 34px;-webkit-mask:radial-gradient(70% 60% at 60% 45%,#000,transparent);mask:radial-gradient(70% 60% at 60% 45%,#000,transparent);opacity:.7}
+#hd{position:fixed;left:6vw;top:50%;transform:translateY(-52%);z-index:5;max-width:48vw}
+.ln{overflow:hidden;line-height:.98}.ln span{display:block;transform:translateY(112%);transition:transform 1.5s cubic-bezier(.2,.8,.2,1)}
+#hd.on .ln span{transform:none}#hd.on .big span{transition-delay:.25s}#hd.off .ln span{transform:translateY(-112%);transition-duration:.9s}
+.ln.sm{font:300 clamp(26px,3.6vw,52px) var(--f)}.ln.big{font:300 clamp(70px,13.5vw,214px)/.98 var(--f);letter-spacing:-.055em;padding-bottom:.06em}
+.big span{background:linear-gradient(95deg,#ffd98a,#e9b949 55%,#ffb25a);-webkit-background-clip:text;background-clip:text;color:transparent}
+#sb{margin-top:20px;max-width:24em;color:#cdbf98;font-size:clamp(15px,1.5vw,19px);opacity:0;transition:opacity 1.6s .9s}#hd.on #sb{opacity:1}#hd.off #sb{opacity:0;transition-delay:0s;transition-duration:.6s}
+#stage{position:fixed;inset:0;z-index:4;perspective:1300px;pointer-events:none}
+#cards{position:absolute;right:6vw;top:50%;width:min(430px,38vw);height:560px;margin-top:-280px;transform-style:preserve-3d}
+.gc2{position:absolute;left:0;right:0;height:172px;padding:18px 22px;border-radius:22px;border:1px solid rgba(233,185,73,.4);background:linear-gradient(150deg,rgba(233,185,73,.16),rgba(233,185,73,.04));backdrop-filter:blur(14px);box-shadow:0 0 60px rgba(233,185,73,.15),inset 0 0 40px rgba(255,255,255,.05);display:flex;flex-direction:column;gap:8px;opacity:0;transform:translate3d(180px,0,-520px) rotateY(-28deg);transition:opacity 1.2s,transform 1.5s cubic-bezier(.2,.8,.2,1)}
+#c1{top:0}#c2{top:194px;transition-delay:.18s}#c3{top:388px;transition-delay:.36s}
+.on3 .gc2{opacity:1;transform:translate3d(0,0,var(--z)) rotateY(-6deg)}#c1{--z:50px}#c2{--z:0px}#c3{--z:-50px}
+.on4 .gc2{opacity:0;transform:translate3d(-520px,0,-300px) scale(.5);transition-delay:0s}
+.gc2 b{font:400 11px 'JetBrains Mono',monospace;letter-spacing:.28em;color:var(--g)}.gc2 p{font-size:14px;color:#cdbf98;margin-top:auto}
+.wv{display:flex;gap:4px;align-items:center;height:50px}.wv i{width:4px;border-radius:4px;background:linear-gradient(var(--g2),var(--g));height:10px;animation:wv 1s ease-in-out infinite alternate}@keyframes wv{to{height:46px}}
+.cl u{display:block;height:8px;border-radius:6px;margin:9px 0;background:var(--c,#e9b949);opacity:.8;transform-origin:left;animation:cw 2.2s ease-in-out infinite alternate}.cl u:nth-child(2){animation-delay:.3s}.cl u:nth-child(3){animation-delay:.6s}.cl u:nth-child(4){animation-delay:.9s}@keyframes cw{from{transform:scaleX(.5)}}
+.mm{display:flex;align-items:center;gap:16px}.mm svg{width:56px;height:56px;transform:rotate(-90deg)}.mm .b{fill:none;stroke:rgba(255,255,255,.1);stroke-width:4}.mm .f{fill:none;stroke:var(--g);stroke-width:4;stroke-linecap:round;stroke-dasharray:113;stroke-dashoffset:113;animation:rg 3s ease-out infinite alternate}@keyframes rg{to{stroke-dashoffset:22}}
+.mm span{font-size:13px;color:#e9dcc0;line-height:1.9}.mm span i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--tl);margin-right:8px}
+#lock{position:fixed;left:0;right:0;bottom:20vh;text-align:center;z-index:6;opacity:0;transition:opacity 1.6s;pointer-events:none}.on4 #lock{opacity:1}
+#lock small{display:block;font:300 clamp(26px,3.6vw,48px) var(--f);letter-spacing:.5em;padding-left:.5em;color:#ecdcb2}#lock p{margin-top:12px;color:#cdbf98;font-size:clamp(16px,1.7vw,23px);padding:0 6vw;line-height:1.5}
+#ui{position:fixed;left:0;right:0;bottom:5vh;z-index:30;display:flex;flex-direction:column;align-items:center;gap:14px;opacity:0;pointer-events:none;transition:opacity 1.4s;text-align:center}.fin #ui{opacity:1;pointer-events:auto}
+#enter{border:1px solid var(--g);background:rgba(233,185,73,.08);color:var(--g2);padding:14px 36px;border-radius:99px;font:400 16px var(--f);letter-spacing:.05em;cursor:pointer;transition:.3s;backdrop-filter:blur(8px)}#enter:hover,#enter:focus-visible{background:var(--g);color:#1a1202;box-shadow:0 0 40px rgba(233,185,73,.6);outline:0}
+#ui small{font-size:12px;opacity:.55;padding:0 6vw}#ui a,.lnk{color:var(--g);background:none;border:0;font:inherit;cursor:pointer;text-decoration:underline}
+#skip{position:fixed;right:4vw;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:31;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--tx);border-radius:99px;padding:8px 18px;font:400 13px var(--f);cursor:pointer;opacity:.75}.fin #skip{display:none}
+#flash{position:fixed;inset:0;z-index:50;background:#04060d;opacity:0;pointer-events:none;transition:opacity .5s}
+#msg{position:fixed;left:50%;bottom:22vh;transform:translateX(-50%);z-index:51;background:rgba(10,10,14,.92);border:1px solid var(--g);border-radius:12px;padding:12px 18px;font-size:14px;opacity:0;pointer-events:none;transition:.4s;text-align:center;max-width:90vw}
+#gate{position:fixed;inset:0;z-index:60;background:radial-gradient(90% 60% at 50% 45%,#15110a,#05060b 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;transition:opacity 1s}#gate.gone{opacity:0;pointer-events:none}
+#gate .gd{width:14px;height:14px;border-radius:50%;background:var(--g);box-shadow:0 0 30px 8px rgba(233,185,73,.6);animation:gp 2s ease-in-out infinite}@keyframes gp{50%{transform:scale(1.8);opacity:.6}}
+#gate p{font:300 clamp(18px,2.4vw,28px) var(--f);letter-spacing:.6em;padding-left:.6em;color:#ecdcb2;margin-bottom:8px}
+#gate button{font:400 16px var(--f);cursor:pointer;border-radius:99px;padding:13px 32px;border:1px solid var(--g);background:rgba(233,185,73,.1);color:var(--g2);transition:.3s}#gate button:hover{background:var(--g);color:#1a1202}#gate #gq{border:0;background:none;color:#8d8160;text-decoration:underline;padding:6px}
+#mute{position:fixed;left:4vw;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:31;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--tx);border-radius:99px;padding:8px 16px;font:400 13px var(--f);cursor:pointer;opacity:.75;display:none}.go #mute{display:none}
+/* portfolio card cut: silent, no chrome — this file is only ever shown as a preview frame */
+#skip{display:none}
+.leaving #lock,.leaving #ui,.leaving #hd,.leaving #stage,.leaving #mute,.leaving #skip{opacity:0!important;transition:opacity .6s}
+@media(max-width:768px){#hd{left:6vw;right:6vw;top:auto;bottom:24vh;transform:none;max-width:none}.ln.big{font-size:25vw}#stage{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
+</style></head><body>
+<button id="mute">Sound: on</button>
+<div id="dots"></div><canvas id="gl"></canvas>
+<div id="hd"><div class="ln sm"><span>Meet</span></div><div class="ln big"><span>AURA.</span></div><p id="sb">A voice you can talk to. A mind that codes. A memory that stays.</p></div>
+<div id="stage"><div id="cards">
+<div class="gc2" id="c1"><b>VOICE</b><div class="wv" id="wv"></div><p>Speaks 25 languages. Stops when you cut in.</p></div>
+<div class="gc2" id="c2"><b>CODE</b><div class="cl"><u style="width:70%"></u><u style="width:88%;--c:#6fe8d6"></u><u style="width:52%"></u><u style="width:78%;--c:#6fe8d6"></u></div><p>Writes, runs, fixes and converts.</p></div>
+<div class="gc2" id="c3"><b>MEMORY</b><div class="mm"><svg viewBox="0 0 44 44"><circle class="b" cx="22" cy="22" r="18"/><circle class="f" cx="22" cy="22" r="18"/></svg><span><i></i>Your name<br><i></i>Your projects<br><i></i>Your language</span></div><p>Remembers you on every device.</p></div></div></div>
+<div id="lock"><small>AURA</small><p>A voice you can talk to. A mind that codes. A memory that stays.</p></div>
+<div id="ui"><button id="enter">Enter AURA</button><small>Built by Sourabh Singh, JECRC University · <a href="https://github.com/sourabh7300">github.com/sourabh7300</a> · <button class="lnk" id="replay">Replay</button></small></div>
+<button id="skip">Skip</button><div id="flash"></div><div id="msg">Preview mode: on your live site this opens the AURA app.</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const APP='aura.html',$=s=>document.querySelector(s),B=document.body,sm=x=>{x=Math.max(0,Math.min(1,x));return x*x*(3-2*x)},rnd=(a,b)=>a+Math.random()*(b-a),cl=x=>Math.max(0,Math.min(1,x)),lp=(a,b,t)=>a+(b-a)*t;
+const mob=innerWidth<768,N=mob?12000:22000;let t0=performance.now(),mx=0,my=0,st=0,warp=0,warping=0,ent=0,go=0,sound=0,mute=0,cue=0;
+let VIS=false;/* always the first-time cut for the portfolio card */
+const SP=.55;/* card cut: settles into the hero frame in about eight seconds */
+if(VIS){$('.ln.sm span').textContent='Welcome';$('.ln.big span').textContent='back.';$('#gate p')?($('#gate p').textContent='WELCOME BACK'):0}
+for(let i=0;i<22;i++){const e=document.createElement('i');e.style.animationDelay=(-Math.random()).toFixed(2)+'s';e.style.animationDuration=(.6+Math.random()*.7).toFixed(2)+'s';$('#wv').append(e)}
+function sph(r){const u=Math.random()*2-1,t=Math.random()*6.2832,s=Math.sqrt(1-u*u),k=r*(.93+Math.random()*.14);return[k*s*Math.cos(t),k*u,k*s*Math.sin(t)]}
+const cubes=[];for(let i=0;i<64;i++)cubes.push({c:[rnd(-7,7),rnd(-3.4,3.4),rnd(-5,3)],s:rnd(.22,.8)});
+function cube(){const q=cubes[Math.floor(Math.random()*64)],p=[rnd(-1,1),rnd(-1,1),rnd(-1,1)],a=Math.floor(Math.random()*3);p[(a+1)%3]=Math.random()<.5?-1:1;if(Math.random()<.8)p[(a+2)%3]=Math.random()<.5?-1:1;return[q.c[0]+p[0]*q.s,q.c[1]+p[1]*q.s,q.c[2]+p[2]*q.s]}
+function brain(){const p=sph(1),sg=Math.random()<.5?-1:1,k=1+.09*Math.sin(6*p[1]+4*p[2])+.05*Math.sin(9*p[0]);return[(p[0]*1.3*k+sg*.7)*1.12,p[1]*1.5*k*1.12,p[2]*1.9*k*1.12]}
+const R=new THREE.WebGLRenderer({canvas:$('#gl'),alpha:true});const dpr=Math.min(devicePixelRatio,2);R.setPixelRatio(dpr);
+const S=new THREE.Scene(),C=new THREE.PerspectiveCamera(45,1,.1,100);C.position.z=12;
+const a=[],b=[],c=[],d=[];for(let i=0;i<N;i++){a.push(...cube());b.push(...brain());c.push(...sph(rnd(7,14)));d.push(Math.random())}
+const g=new THREE.BufferGeometry(),F=x=>new THREE.Float32BufferAttribute(x,3);g.setAttribute('position',F(a));g.setAttribute('t1',F(b));g.setAttribute('sc',F(c));g.setAttribute('sd',new THREE.Float32BufferAttribute(d,1));
+const U={m:{value:0},time:{value:0},intro:{value:0},warp:{value:0},uRep:{value:0},uAsp:{value:1},uM:{value:new THREE.Vector2()},px:{value:(mob?26:21)*dpr}};
+const P=new THREE.Points(g,new THREE.ShaderMaterial({uniforms:U,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+vertexShader:`attribute vec3 t1,sc;attribute float sd;uniform float m,time,intro,warp,px,uRep,uAsp;uniform vec2 uM;varying float vY,vD,vS;
+void main(){vec3 p=mix(position,t1,m);p*=1.+.03*sin(time*2.+sd*6.)*m;p+=vec3(sin(time*.5+sd*9.+p.y*2.),cos(time*.4+sd*7.),sin(time*.45+sd*5.))*.045;
+vec3 q=mix(sc,p,intro);float s=(1.-intro)*3.,cs=cos(s),sn=sin(s);q.xz=mat2(cs,-sn,sn,cs)*q.xz;q.z+=warp*16.;
+vec4 mv=modelViewMatrix*vec4(q,1.);vec2 mp=uM*vec2(uAsp,1.)*.41421*(-mv.z);vec2 dd=mv.xy-mp;mv.xy+=normalize(dd+vec2(1e-4))*uRep*smoothstep(1.5,0.,length(dd))*.8;gl_PointSize=px*(1.+step(.96,sd)*1.6)/-mv.z;gl_Position=projectionMatrix*mv;vY=q.y*.3+.5;vD=sd;vS=step(.97,sd);}`,
+fragmentShader:`varying float vY,vD,vS;uniform float intro,m;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;
+vec3 cc=mix(vec3(1.,.72,.22),vec3(.3,.92,.82),step(.62,fract(vD*13.7)));vec3 bc=mix(vec3(1.,.74,.3),vec3(1.,.95,.78),clamp(vY,0.,1.));
+vec3 c=mix(cc,bc,smoothstep(.15,.85,m));c=mix(c,vec3(1.),vS*.8);gl_FragColor=vec4(c,smoothstep(.5,0.,d)*.9*clamp(intro*2.+.1,0.,1.));}`}));
+S.add(P);
+const lp2=[];for(let i=0;i<46;i++){const q=cubes[Math.floor(Math.random()*64)],w=cubes[Math.floor(Math.random()*64)];lp2.push(...q.c,...w.c)}
+const lg=new THREE.BufferGeometry();lg.setAttribute('position',new THREE.Float32BufferAttribute(lp2,3));const LN=new THREE.LineSegments(lg,new THREE.LineBasicMaterial({color:0xe9b949,transparent:true,opacity:0,blending:THREE.AdditiveBlending}));P.add(LN);
+const rs=()=>{R.setSize(innerWidth,innerHeight,false);C.aspect=innerWidth/innerHeight;C.updateProjectionMatrix()};rs();addEventListener('resize',rs);
+addEventListener('pointermove',e=>{mx=e.clientX/innerWidth-.5;my=e.clientY/innerHeight-.5});
+
+let AC=null,master=null;
+function audioInit(){try{AC=new (window.AudioContext||window.webkitAudioContext)();master=AC.createGain();master.gain.value=0;master.connect(AC.destination);master.gain.linearRampToValueAtTime(.5,AC.currentTime+3);
+[55,82.4,110.2].forEach((f,i)=>{const o=AC.createOscillator(),g=AC.createGain(),fl=AC.createBiquadFilter();o.type=i?'sine':'sawtooth';o.frequency.value=f*(1+i*.002);fl.type='lowpass';fl.frequency.value=380;g.gain.value=i?.12:.05;o.connect(fl);fl.connect(g);g.connect(master);o.start()})}catch(e){AC=null}}
+function whoosh(){if(!sndOn())return;const n=AC.createBufferSource(),b=AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;n.buffer=b;const f=AC.createBiquadFilter();f.type='bandpass';f.Q.value=.8;f.frequency.setValueAtTime(300,AC.currentTime);f.frequency.exponentialRampToValueAtTime(5000,AC.currentTime+1.6);const g=AC.createGain();g.gain.setValueAtTime(0,AC.currentTime);g.gain.linearRampToValueAtTime(.35,AC.currentTime+.8);g.gain.linearRampToValueAtTime(0,AC.currentTime+2);n.connect(f);f.connect(g);g.connect(master);n.start()}
+function chime(){if(!sndOn())return;[523.25,659.25,783.99,1046.5].forEach((f,i)=>{const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+i*.12;o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.16,t+.03);g.gain.exponentialRampToValueAtTime(.001,t+2.2);o.connect(g);g.connect(master);o.start(t);o.stop(t+2.3)})}
+function speak(x){try{if(!sound||mute)return;if(!sndOn()){pendingSpeak=x;return}
+if(window.speechSynthesis&&speechSynthesis.speaking)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(x);u.rate=.9;u.pitch=.95;speechSynthesis.speak(u)}catch(e){}}
+function begin(snd){sound=snd;if(snd)audioInit();const g=$('#gate');if(g){g.classList.add('gone');setTimeout(()=>g.remove(),1100)}B.classList.add('go');t0=performance.now();go=1;$('#mute').textContent=snd?'Sound: on':'Sound: off';if(!snd)mute=1}
+/* no permission gate — the intro starts on its own, with sound. The browser still
+   gates audio behind the first gesture, so we unlock it once, silently, and let the
+   one queued line play then. Every cue below fires at most once (cue<n guards). */
+let audioUnlocked=false,pendingSpeak=null;
+/* sound is allowed either after the first gesture, or straight away when the
+   browser already lets the AudioContext run — both count as ready */
+function sndOn(){return !!(AC&&(audioUnlocked||AC.state==='running'))}
+function unlockAudio(){if(audioUnlocked)return;audioUnlocked=true;
+ try{if(AC&&AC.state==='suspended')AC.resume()}catch(e){}
+ try{speechSynthesis.resume()}catch(e){}
+ if(pendingSpeak){const p=pendingSpeak;pendingSpeak=null;setTimeout(()=>speak(p),260)}
+ window.removeEventListener('pointerdown',unlockAudio);window.removeEventListener('keydown',unlockAudio)}
+window.addEventListener('pointerdown',unlockAudio);window.addEventListener('keydown',unlockAudio);
+begin(0);
+$('#mute').onclick=()=>{mute=!mute;if(master)master.gain.value=mute?0:.5;$('#mute').textContent=mute?'Sound: off':'Sound: on';if(mute)try{speechSynthesis.cancel()}catch(e){}};
+
+function finish(){t0=performance.now()-16500*SP}
+$('#enter').onclick=()=>{if(!warping)warping=1};$('#skip').onclick=finish;$('#replay').onclick=()=>location.reload();
+let lastMs=0;
+(function L(ms){requestAnimationFrame(L);if(document.hidden)return;const t=go?(ms-t0)/1000/SP:-1;
+const m=sm((t-3.6)/1.8),a2=sm((t-4.2)/1.6),a3=sm((t-9)/1.6),a4=sm((t-14)/1.5);
+U.intro.value=1-Math.pow(1-cl((t-.2)/2.4),3);U.m.value=m;U.uM.value.set(mx*2,-my*2);U.uAsp.value=C.aspect;U.uRep.value=sm((t-5)/1.5);U.time.value=ms/1000;LN.material.opacity=.22*(1-m)*cl(t/2);
+let x=mob?0:2.6*a2;x=lp(x,mob?0:-2.5,a3);x=lp(x,0,a4);const y=mob?lp(0,1.7,a2):0;
+P.position.set(x,lp(y,.9,a4),0);P.scale.setScalar((mob?.62:1)*lp(1,1.22,a4));
+P.rotation.y=t*.3*(m>.5?1:.3)+mx*.55;P.rotation.x=my*.25;C.position.z=lp(12,9,sm(t/6))+a4*.6;C.position.x=mx*.8;
+$('#cards').style.transform='rotateY('+(-8-mx*16)+'deg) rotateX('+(my*10)+'deg)';
+if(t>3.4&&cue<1){cue=1;whoosh()}if(t>4.6&&cue<2){cue=2;speak(VIS?'Welcome back.':'Hello. I am AURA.')}if(t>5.2&&cue<3){cue=3;chime()}if(t>8.8&&cue<4){cue=4;whoosh()}if(t>14.2&&cue<5){cue=5;chime()}
+if(t>4.4&&st<1){st=1;$('#hd').classList.add('on')}
+if(t>8.6&&st<2){st=2;$('#hd').classList.add('off');B.classList.add('on3')}
+if(t>13.6&&st<3){st=3;B.classList.add('on4')}
+if(t>15.2){B.classList.add('fin');try{localStorage.setItem('auraVisited','1')}catch(e){}}
+if(warping>0){ent=Math.min(1,ent+.017);const e=sm(ent);P.position.x=lp(P.position.x,-4.4,e);P.position.y=lp(P.position.y,3.0,e);P.scale.setScalar(P.scale.x*(1-.9*e));B.classList.add('leaving');if(ent>=1&&warping==1){warping=2;$('#flash').style.opacity=1;setTimeout(()=>{try{sessionStorage.setItem('auraFromIntro','1')}catch(e){}if(location.hostname.endsWith('github.io'))location.href=APP;else{$('#msg').style.opacity=1;setTimeout(()=>{$('#msg').style.opacity=0;$('#flash').style.opacity=0;ent=0;warping=0;B.classList.remove('leaving')},3000)}},500)}}
+U.warp.value=warp*warp;R.render(S,C)})(0);
+</script></body></html>
