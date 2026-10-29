@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v24";
+const BUILD = process.env.AURA_BUILD || "squad-v25";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v24";
+const SRC_BUILD = "squad-v25";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -173,8 +173,17 @@ function msgHasImage(messages) {
    budget and the known-good model first. 29 Oct 2026: a discovered model accepted
    the call and never answered, and visionCall's per-model 60s timeout let one bad
    model hold a chat request for a minute (the connection was reset before a reply). */
+let geminiCool = 0; /* circuit breaker: a rate-limited key must not cost every chat 20s */
+function looksLikeReasoning(t) {
+  const s = String(t || "").trim();
+  if (!s || s.length < 12) return false;
+  if (/^(let me|let's|lets |we need|the user|okay|ok,|first,|i need to|i'll |hmm|sure, let)/i.test(s)) return true;
+  if (/\b(let me check|i should check|we should check|the user is asking)\b/i.test(s) && s.length > 120) return true;
+  return false;
+}
 async function geminiChat(messages, maxTok, temperature, req) {
   if (!GEMINI_API_KEY) return null;
+  if (Date.now() < geminiCool) return null;
   const sys = messages.filter(m => m.role === "system").map(m => typeof m.content === "string" ? m.content : "").join("\n").trim();
   const contents = messages.filter(m => m.role !== "system").map(m => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -185,8 +194,8 @@ async function geminiChat(messages, maxTok, temperature, req) {
     { contents, generationConfig: { maxOutputTokens: Math.min(maxTok || 1400, 3000), temperature: temperature != null ? temperature : 0.6 } },
     sys ? { systemInstruction: { parts: [{ text: sys.slice(0, 12000) }] } } : {}
   ));
-  const chain = [...new Set([VISION_MODEL, ...VISION_MODELS])].slice(0, 3);
-  const deadline = Date.now() + 20_000;
+  const chain = [...new Set([VISION_MODEL, ...VISION_MODELS])].slice(0, 2);
+  const deadline = Date.now() + 12_000;
   for (const vmodel of chain) {
     const left = deadline - Date.now();
     if (left < 2500) break;
@@ -195,14 +204,18 @@ async function geminiChat(messages, maxTok, temperature, req) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
-        signal: AbortSignal.timeout(Math.min(14_000, left))
+        signal: AbortSignal.timeout(Math.min(9_000, left))
       });
       if (!r.ok) continue; /* busy / retired model → next one */
       const d = await r.json();
       const t = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || []).map(p => p.text || "").join("").trim();
-      if (t) { recordUse(req, "vision", 0); return t; }
+      if (t) {
+        if (looksLikeReasoning(t)) { geminiCool = Date.now() + 120_000; continue; }
+        recordUse(req, "vision", 0); return t;
+      }
     } catch (e) { /* timeout or network → next model */ }
   }
+  geminiCool = Date.now() + 300_000; /* 5 min: stop paying the timeout on every question */
   return null;
 }
 async function visionCall(messages, maxTok, temperature, req) {
