@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v21";
+const BUILD = process.env.AURA_BUILD || "squad-v22";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v21";
+const SRC_BUILD = "squad-v22";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2274,6 +2274,19 @@ app.post("/v1/chat/completions", async (req, res) => {
     const _fastA = esportsFastAnswer(messages, searchQuery(messages), _rawU);
     if (_fastA) return res.json({ choices: [{ message: { content: _fastA } }], model: "live esports data" });
   } catch (e) {}
+  /* GEMINI FIRST (29 Oct 2026): the Groq ids on this account are retired and the
+     NIM fallback ignored the injected live results — a "latest iPhone" question got
+     answered from a stale cutoff. Gemini actually follows the evidence block and is
+     fast; the key bank below stays as the fallback. */
+  if (GEMINI_API_KEY) {
+    try {
+      const gt = await visionCall(messages, Math.min(body.max_tokens || 1400, 3000), body.temperature, req);
+      if (gt) {
+        if (!makerHere) { cachePut(messages, gt, "gemini"); countAnswer(req); }
+        return res.json({ choices: [{ message: { content: gt } }], model: "gemini (text)" });
+      }
+    } catch (e) { /* fall through to the key bank */ }
+  }
 
   let sawLimit = false; // at least one key hit a rate/limit error
   let lastChatErr = ""; // every upstream reason, surfaced in the 502 instead of a guess
