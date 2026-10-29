@@ -2536,23 +2536,30 @@ const cleanHit = (title, url, snippet, date) => ({
   date: String(date || ""),
   snippet: String(snippet || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 400)
 });
-async function realSearch(q, n) {
+/* OWNER CHECK 29 Oct 2026: "latest iPhone" was answered with the iPhone 17 because the
+   generic index ranks 2025 buying guides first. A freshness-shaped question now asks
+   Tavily's news index (dated, last 60 days) — "Best iPhone 2026 … including the Duo"
+   instead of "iPhone 17 line-up". Normal questions keep the cheap basic search. */
+const FRESH_RE = /\b(latest|today|tonight|now|current|news|price|rate|score|result|schedule|launch|release|update|trending|winner|won|aaj|abhi|kab)\b|20[2-9][0-9]/i;
+async function realSearch(q, n, fresh) {
   const count = Math.max(3, Math.min(n || 5, 8));
   const provider = searchProvider();
   try {
     if (provider === "tavily") {
-      const r = await fetch("https://api.tavily.com/search", {
+      const tav = (opts) => fetch("https://api.tavily.com/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: SEARCH_KEYS.tavily, query: q, max_results: count, search_depth: "basic", include_answer: false }),
-        signal: AbortSignal.timeout(12_000)
+        body: JSON.stringify(Object.assign({ api_key: SEARCH_KEYS.tavily, query: q, max_results: count, include_answer: false }, opts)),
+        signal: AbortSignal.timeout(fresh ? 20_000 : 12_000)
       });
+      let r = await tav(fresh ? { search_depth: "advanced", topic: "news", days: 60 } : { search_depth: "basic" });
+      if (!r.ok && fresh) r = await tav({ search_depth: "basic" }); /* news index rejected the query → plain */
       if (!r.ok) return null;
       const j = await r.json();
       return (j.results || []).map(x => cleanHit(x.title, x.url, x.content, x.published_date)).filter(h => h.url);
     }
     if (provider === "brave") {
-      const r = await fetch("https://api.search.brave.com/res/v1/web/search?q=" + encodeURIComponent(q) + "&count=" + count + "&safesearch=moderate", {
+      const r = await fetch("https://api.search.brave.com/res/v1/web/search?q=" + encodeURIComponent(q) + "&count=" + count + "&safesearch=moderate" + (fresh ? "&freshness=pm" : ""), {
         headers: { "Accept": "application/json", "X-Subscription-Token": SEARCH_KEYS.brave },
         signal: AbortSignal.timeout(12_000)
       });
@@ -2596,7 +2603,7 @@ async function toolSearch(q) {
      that guarantees fresh, ranked results for "latest …" questions */
   if (searchProvider() !== "free") {
     try {
-      const hits = await realSearch(q, 6);
+      const hits = await realSearch(q, 6, FRESH_RE.test(q));
       if (hits && hits.length) return hits.slice(0, 5);
     } catch (e) { /* fall through to the free lanes */ }
   }
