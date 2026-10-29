@@ -7720,6 +7720,16 @@ async function aiReply(q){
      "what can you do?" / "who are you?" never get routed into Wikipedia research */
   if(!knowledge&&/\?/.test(q)&&!personal.test(q)&&!PERSONAL_Q.test(q))knowledge=true;
   if(knowledge){
+    /* CURRENT QUESTIONS: the secure backend answers them from the live web FIRST.
+       This sits above every in-browser lane on purpose — the local research path
+       returned "iPhone 17 Pro Max" for a question whose live sources already said
+       iPhone 18 / Duo. */
+    if(backendUrl()&&NEED_WEB.test(q)){
+      try{
+        const bt=await backendCall([{role:"system",content:replyStyle()},{role:"user",content:q}],1000);
+        if(bt&&bt.trim().length>12)return{t:bt.trim(),eng:"live web · secure backend"};
+      }catch(e){slog("backend current-answer failed — local lanes continue",true)}
+    }
     /* SELF-CURRENCY questions exit FIRST — localReply answers instantly with the real date;
        never burn a research cycle on 'are you updated' just because it contains 'latest'. */
     /* DAILY BRIEF — digest-shaped news questions answer INSTANTLY from the cached daily pull;
