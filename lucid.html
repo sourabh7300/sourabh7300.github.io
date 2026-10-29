@@ -951,7 +951,8 @@ function tplBuild(){
 function tplCount(){
   const n=document.querySelectorAll('#tplg .tc:not([style*="none"])').length;
   const hot=TPL.filter(t=>t.hot).length;
-  if($('#tplstat'))$('#tplstat').textContent=n+' template'+(n===1?'':'s')+' · preview tumhari photo par · Try dabao, before/after slider khud khul jayega';
+  const onDemo=!(LAY&&LAY[0])||LAY[0].img===SRC;
+  if($('#tplstat'))$('#tplstat').textContent=n+' template'+(n===1?'':'s')+' · preview '+(onDemo?'demo photo':'tumhari photo')+' par · Try dabao, before/after slider khud khul jayega';
   if($('#tplsub'))$('#tplsub').textContent=TPL.length+' ready-made grades · '+hot+' trending · koi upload nahi, sab GPU par';
 }
 /* A rough CSS grade for the preview — used only when the WebGL thumbnail lane is
@@ -969,9 +970,13 @@ function tplCss(t){
   if(p.sat!=null&&p.sat<=-80)parts.push('grayscale(1)');
   return parts.join(' ');
 }
+/* The gallery must show an EXAMPLE even before a visitor opens a photo: the
+   studio ships a built-in demo frame (SRC), so every card is painted on that and
+   nobody stares at 48 empty boxes wondering what a template does. */
 function tplPaint(){
-  if(!LAY||!LAY[0])return;
-  const bs=LAY[0].img,W=360,H=Math.max(2,Math.round(W*bs.height/bs.width));
+  const srcImg=(LAY&&LAY[0]&&LAY[0].img)||SRC;
+  if(!srcImg)return;
+  const bs=srcImg,W=360,H=Math.max(2,Math.round(W*bs.height/bs.width));
   const sm=mc(W,H);sm.getContext('2d').drawImage(bs,0,0,W,H);
   let gpu=false;
   try{if(tp&&!tp.bad){tp.setSrc(sm);tp.setLUT(lutData(Z.cur));gpu=true}}catch(e){gpu=false}
@@ -990,6 +995,9 @@ function tplPaint(){
 }
 function tplApply(t){
   if(!t)return;
+  /* applying without a photo used to change invisible sliders; load the demo frame
+     first so the grade lands on something the visitor can actually see */
+  if(!LAY||!LAY[0])setSrc(SRC,'Lucid demo');
   const keep={ar:P.ar||0,rot:P.rot||0,r90:P.r90||0,fx:P.fx||0,fy:P.fy||0};
   const local={lexp:P.lexp,lcon:P.lcon,lsat:P.lsat,ltmp:P.ltmp,lblur:P.lblur,lclar:P.lclar};
   base=clone(P);
@@ -1007,7 +1015,7 @@ function tplOpen(){
      has to appear — a blank tap is worse than a rough thumbnail */
   g.classList.add('on');
   try{
-    if(!LAY||!LAY[0]){g.classList.remove('on');toast('Pehle koi photo kholo');return}
+    if(!LAY||!LAY[0]){setSrc(SRC,'Lucid demo');toast('Demo photo par preview — “Load my photo” se apni photo kholo')}
     tplCat='All';tplQ='';const q=$('#tplq');if(q)q.value='';
     tplCats();if($('#tplcat'))$('#tplcat').scrollLeft=0;tplBuild();
   }catch(e){
@@ -1187,7 +1195,7 @@ AI.init();
 try{window.LucidAI=AI}catch(e){}   /* tooling/extension hook — same brain the AI tab uses */
 /* build stamp — “which file am I actually running?” was unanswerable from a
    screenshot, and a stale cache looks exactly like a bug. System tab now says it. */
-try{window.__lucidBuild='2026-10-28 · templates-v1';const lb=$('#lbuild');if(lb)lb.textContent='build '+window.__lucidBuild+' · '+(pipe&&pipe.bad?'2D fallback (WebGL off)':'GPU');}catch(e){}
+try{window.__lucidBuild='2026-10-29 · templates-v2 · demo previews';const lb=$('#lbuild');if(lb)lb.textContent='build '+window.__lucidBuild+' · '+(pipe&&pipe.bad?'2D fallback (WebGL off)':'GPU');}catch(e){}
 const T0=Date.now();setInterval(()=>{const u=(Date.now()-T0)/1000|0;$('#tu').textContent=(u/60|0)+':'+String(u%60).padStart(2,'0')},1000);
 if(matchMedia('(prefers-reduced-motion:reduce)').matches)skip();else play();
 </script></body></html>
