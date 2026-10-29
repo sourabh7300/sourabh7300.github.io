@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v16";
+const BUILD = process.env.AURA_BUILD || "squad-v17";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v16";
+const SRC_BUILD = "squad-v17";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -238,7 +238,7 @@ const keyCool = new Map();
 const PUBLIC_KEYS = KEY_POOL.length > 1 ? KEY_POOL.slice(0, KEY_POOL.length - 1) : KEY_POOL;
 /* public chat prefers lighter, higher-quota models; the flagship stays at the
    tail as a last-resort fallback. The maker always gets the full flagship list. */
-const PUBLIC_MODELS = (process.env.PUBLIC_MODELS || "openai/gpt-oss-20b,qwen/qwen3.8-27b,meta-llama/llama-4-scout-17b-16e-instruct,openai/gpt-oss-120b").split(",").map(s => s.trim()).filter(Boolean);
+const PUBLIC_MODELS = (process.env.PUBLIC_MODELS || "meta-llama/llama-4-scout-17b-16e-instruct,openai/gpt-oss-20b,qwen/qwen3.8-27b,openai/gpt-oss-120b").split(",").map(s => s.trim()).filter(Boolean);
 function pickKey(reserve) {
   const now = Date.now();
   const pool = reserve ? KEY_POOL : PUBLIC_KEYS;
@@ -2184,7 +2184,12 @@ app.post("/v1/chat/completions", async (req, res) => {
     const _q = _lastUser ? searchQuery(messages) : "";
     const _small = /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon)|who are you|what('s| is) your name|are you (real|human|an ai))\b/i.test(_q);
     const _alreadyArmed = messages.some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
-    if (_q && !_small && !_alreadyArmed) {
+    /* SPEED (29 Oct 2026): a search plus two page reads BEFORE the model cost every
+       ordinary question seconds — even "what is 2+2". Only questions that can
+       actually have changed recently are worth that wait; math, code, definitions,
+       how-to and small talk answer straight from the brain. */
+    const _fresh = /(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|match|tournament|election|weather|stock|ipo|launch|release|update|trending|kitna)/i.test(_q);
+    if (_q && _fresh && !_small && !_alreadyArmed) {
       const _now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
       let _web = "";
       try {
@@ -2256,6 +2261,9 @@ app.post("/v1/chat/completions", async (req, res) => {
       if (t && t.trim()) { t = await rosterGuard(t, messages); recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); if (!makerHere) { cachePut(messages, t.trim(), model); countAnswer(req); } return res.json({ choices: [{ message: { content: t.trim() } }], model }); }
     } catch (e) { /* network hiccup → try next model */ }
   }
+  /* keep the reason the fast lane failed visible in /health — a silent fall through
+     to a 550B model is exactly how "replies are slow" stayed undiagnosed */
+  chatLast.at = Date.now(); chatLast.err = lastChatErr || "";
   /* NIM + reserve run whatever Groq said (28 Oct 2026): a retired model id makes
      every Groq call 400/404 — that is NOT a rate limit — so the old `if (sawLimit)`
      gate skipped the maker's NIM lane entirely and public chat fell straight through
@@ -2263,7 +2271,9 @@ app.post("/v1/chat/completions", async (req, res) => {
   {
     const NIM_KEY = process.env.NVIDIA_NIM_KEY || "";
     if (NIM_KEY) {
-      for (const model of ["nvidia/nemotron-3-ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b"]) {
+      /* fastest NIM model first: the 550B flagship is a last resort, not the public
+         default — it adds seconds to every answer */
+      for (const model of ["nvidia/nemotron-3.5-lightning-30b-a3b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-ultra-550b-a55b"]) {
         try {
           const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
             method: "POST",
