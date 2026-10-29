@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v20";
+const BUILD = process.env.AURA_BUILD || "squad-v21";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v20";
+const SRC_BUILD = "squad-v21";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2260,7 +2260,7 @@ app.post("/v1/chat/completions", async (req, res) => {
           _web = _top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(cleanRead(_reads[i]) || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
         }
       } catch (e) { /* search down → date-only block still fixes the cutoff */ }
-      messages = messages.concat([{ role: "system", content: "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value.") }]);
+      messages = messages.concat([{ role: "system", content: "CURRENT DATE & TIME: " + _now + " (anchor 'today/now/latest' to THIS moment — never answer from an old training cutoff, never state a stale knowledge date).\n" + (_web ? "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; ground every time-sensitive fact in them; when they conflict with your memory of past events, dates, scores, prices or records, the live results WIN; never invent dates, scores, prices or winners):\n" + _web + "\nANSWER FROM THE RESULTS FIRST: the specific model, price, date or name the user asked about must be taken from these results. If they do not contain it, say plainly that you could not verify today's value — never present an older model, price or version as the current one. Your first sentence must answer, not describe your reasoning." : "No live results — answer with today's date in mind; if the answer may have changed more recently than your training, say today's date and mark the uncertainty instead of guessing a specific recent value.") }]);
     }
   } catch (e) { /* amplification is best-effort — never block the answer */ }
   /* the fact rules apply even to already-grounded / cached / small-talk requests */
@@ -2333,7 +2333,13 @@ app.post("/v1/chat/completions", async (req, res) => {
     if (NIM_KEY) {
       /* fastest NIM model first: the 550B flagship is a last resort, not the public
          default — it adds seconds to every answer */
-      for (const model of ["nvidia/nemotron-3.5-lightning-30b-a3b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-ultra-550b-a55b"]) {
+      /* the 30B model is fast but loses the prompt when the evidence block is long;
+         the 120B one follows it. Lite speed for short chat, 120B whenever the
+         route injected live results (see nimPick below). */
+      const nimPick = /LIVE WEB RESULTS/.test(JSON.stringify(messages))
+        ? ["nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3.5-lightning-30b-a3b", "nvidia/nemotron-3-ultra-550b-a55b"]
+        : ["nvidia/nemotron-3.5-lightning-30b-a3b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-ultra-550b-a55b"];
+      for (const model of nimPick) {
         try {
           const nimBase = { model, messages, max_tokens: Math.min(body.max_tokens || 1400, 4000), temperature: body.temperature != null ? body.temperature : 0.6 };
           const nimAsk = extra => fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
