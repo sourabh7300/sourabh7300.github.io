@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v17";
+const BUILD = process.env.AURA_BUILD || "squad-v18";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v17";
+const SRC_BUILD = "squad-v18";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -105,6 +105,31 @@ async function geminiModels() {
     if (names.length) visionModelCache = { at: Date.now(), names: names.slice(0, 6) };
   } catch (e) { /* keep the seeds */ }
   return visionModelCache.names;
+}
+
+/* GROQ MODEL DISCOVERY (29 Oct 2026) — model ids retire silently.
+   Every id in PUBLIC_MODELS returned 404 ("does not exist or you do not have
+   access"), so every public answer fell through to a 550B NIM model: 14 seconds
+   and a page of reasoning text instead of an answer. Ask the account what it
+   actually has, once an hour, and prefer our fast list inside that set. */
+let groqCache = { at: 0, ids: [] };
+async function groqModels() {
+  if (groqCache.ids.length && Date.now() - groqCache.at < 3600_000) return groqCache.ids;
+  const key = (typeof pickKey === "function" ? pickKey() : null);
+  if (!key) return groqCache.ids;
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/models", {
+      headers: { "Authorization": "Bearer " + key },
+      signal: AbortSignal.timeout(8_000)
+    });
+    if (r.ok) {
+      const j = await r.json();
+      const ids = (j.data || []).map(m => String(m.id || ""))
+        .filter(id => id && !/whisper|tts|embed|guard|moderation|safety/i.test(id));
+      if (ids.length) groqCache = { at: Date.now(), ids };
+    }
+  } catch (e) { /* keep whatever we had */ }
+  return groqCache.ids;
 }
 
 /* RESERVE BRAIN — fires only when the primary key bank has drained (or died),
@@ -2152,7 +2177,17 @@ app.post("/v1/chat/completions", async (req, res) => {
      tier regardless of what the browser asks for — that's the quota saver */
   const requestedModel = makerHere ? (body.model || MODELS[0]).trim() : "";
   const modelList = makerHere ? MODELS : PUBLIC_MODELS;
-  const order = makerHere ? [requestedModel, ...MODELS.filter(m => m !== requestedModel)] : PUBLIC_MODELS.slice();
+  let order = makerHere ? [requestedModel, ...MODELS.filter(m => m !== requestedModel)] : PUBLIC_MODELS.slice();
+  /* swap in the model ids this account really has — a browser asking for a retired
+     id must not turn into a 14-second fallback to a giant reasoning model */
+  try {
+    const avail = await groqModels();
+    if (avail.length) {
+      const pref = order.filter(m => avail.indexOf(m) >= 0);
+      const rest = avail.filter(m => pref.indexOf(m) < 0).slice(0, 2);
+      order = [...new Set([...pref, ...rest])];
+    }
+  } catch (e) { /* discovery is best-effort; the configured order still stands */ }
 
   /* ANSWER CACHE — makers bypass; identical visitor questions cost zero tokens */
   if (!makerHere && !body.stream) {
@@ -2275,12 +2310,18 @@ app.post("/v1/chat/completions", async (req, res) => {
          default — it adds seconds to every answer */
       for (const model of ["nvidia/nemotron-3.5-lightning-30b-a3b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-ultra-550b-a55b"]) {
         try {
-          const r = await fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
+          const nimBase = { model, messages, max_tokens: Math.min(body.max_tokens || 1400, 4000), temperature: body.temperature != null ? body.temperature : 0.6 };
+          const nimAsk = extra => fetch("https://integrate.api.nvidia.com/v1/chat/completions", {
             method: "POST",
             headers: { "Authorization": "Bearer " + NIM_KEY, "Content-Type": "application/json" },
-            body: JSON.stringify({ model, messages, max_tokens: Math.min(body.max_tokens || 1400, 4000), temperature: body.temperature != null ? body.temperature : 0.6 }),
-            signal: AbortSignal.timeout(120_000)
+            body: JSON.stringify(Object.assign({}, nimBase, extra)),
+            signal: AbortSignal.timeout(60_000)
           });
+          /* a reasoning model narrates its thinking inside `content` when thinking is
+             on — the visitor then reads "The user is asking…" instead of an answer.
+             Ask for it off; if this NIM deployment rejects the flag, retry plain. */
+          let r = await nimAsk({ chat_template_kwargs: { thinking: false } });
+          if (r.status === 400) r = await nimAsk({});
           if (r.status === 429) continue;
           if (!r.ok) continue;
           const d = await r.json();
@@ -2672,7 +2713,15 @@ app.post("/v1/chat/stream", async (req, res) => {
   const makerHere = req.__role === "maker" || req.__role === "ceo";
   const requestedModel = makerHere ? (body.model || MODELS[0]).trim() : "";
   const modelList = makerHere ? MODELS : PUBLIC_MODELS;
-  const order = makerHere ? [requestedModel, ...MODELS.filter(m => m !== requestedModel)] : PUBLIC_MODELS.slice();
+  let order = makerHere ? [requestedModel, ...MODELS.filter(m => m !== requestedModel)] : PUBLIC_MODELS.slice();
+  try {
+    const avail = await groqModels();
+    if (avail.length) {
+      const pref = order.filter(m => avail.indexOf(m) >= 0);
+      const rest = avail.filter(m => pref.indexOf(m) < 0).slice(0, 2);
+      order = [...new Set([...pref, ...rest])];
+    }
+  } catch (e) { /* discovery is best-effort */ }
 
   /* VISION over stream: image messages resolve via Gemini, delivered as one delta */
   if (msgHasImage(messages)) {
