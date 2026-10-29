@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v19";
+const BUILD = process.env.AURA_BUILD || "squad-v20";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v19";
+const SRC_BUILD = "squad-v20";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2039,6 +2039,27 @@ function resolveFragment(messages) {
   if (!(bare && words.length <= 10) && !(pronoun && words.length <= 7)) return null;
   return { q: q, topic: topic.slice(0, 240) };
 }
+/* PRODUCT FACTS (29 Oct 2026) — asked "what is Lucid?", a model answered about the
+   diagramming tool Lucidchart. The owner's own products have unique names, so when
+   one is mentioned the answer must be about THAT app. Same block carries the
+   language rule: a Hinglish question gets a Hinglish answer. */
+const PRODUCT_FACTS = [
+  "OWNER PRODUCTS (authoritative — these are the only products these names refer to in this chat):",
+  "• Lucid — a photo studio that runs entirely in one HTML file, built by Sourabh Singh. Real WebGL editing (exposure, curves, HSL mixer, clarity, bloom, bokeh, grain), layers, brush masks, batch export to ZIP, 48 ready-made templates and an AI studio that applies edits from a typed request or an attached photo/video frame. It is NOT Lucidchart and NOT a diagramming tool.",
+  "• AURA — this assistant: a holographic AI with voice in/out, vision, live web, long-term memory and a 24/7 squad.",
+  "• IdeaVeda — a startup decision engine: 40 India business ideas, city-fit scores, unit economics, 14 funding schemes, stress test and plan/pitch generator.",
+  "Live URLs: lucid-app-preview.web.app · aura-live-81185.web.app · ideaveda-live-app.web.app · portfolio sourabh7300.github.io",
+  "LANGUAGE: answer in the language the user wrote — Hinglish in, Hinglish out; Hindi in, Hindi out; English in, English out."
+].join("\n");
+function withProductFacts(messages) {
+  try {
+    if (!Array.isArray(messages)) return messages;
+    if (messages.some(m => m && m.role === "system" && String(m.content || "").includes("OWNER PRODUCTS"))) return messages;
+    const ask = messages.filter(m => m && m.role === "user").map(m => String(m.content || "")).join(" ");
+    if (!/\b(lucid|aura|ideaveda|idea veda)\b/i.test(ask)) return messages;
+    return messages.concat([{ role: "system", content: PRODUCT_FACTS }]);
+  } catch (e) { return messages; }
+}
 function injectFollowUp(messages) {
   const frag = resolveFragment(messages);
   if (!frag) return messages;
@@ -2175,7 +2196,7 @@ app.post("/v1/chat/completions", async (req, res) => {
   }
   /* a one-word continuation ("teams in it") is resolved against the previous turn
      BEFORE any model sees it — that is what stops the topic from drifting */
-  messages = injectFollowUp(messages);
+  messages = withProductFacts(injectFollowUp(messages));
   const makerHere = req.__role === "maker" || req.__role === "ceo";
   /* makers choose any model (flagship first); public requests are served the lighter
      tier regardless of what the browser asks for — that's the quota saver */
@@ -2694,7 +2715,7 @@ app.post("/v1/chat/stream", async (req, res) => {
   messages = await groundChat(messages);
   /* resolve a continuation ("teams in it") against the previous turn — the stream lane
      is what the app actually uses, so the topic guard must live here too */
-  messages = injectFollowUp(messages);
+  messages = withProductFacts(injectFollowUp(messages));
   /* ESPORTS QUESTIONS ARE BUFFERED, NOT STREAMED (27 Oct 2026): a wrong team name
      cannot be un-sent once it is on screen. Tournaments are rare, so holding this
      one class of answer for a single validated delta costs nothing and guarantees
