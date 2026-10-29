@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v26";
+const BUILD = process.env.AURA_BUILD || "squad-v27";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v26";
+const SRC_BUILD = "squad-v27";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -1939,7 +1939,7 @@ app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
+  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
 });
 /* keep the last-known values fresh without ever blocking the endpoint */
 setTimeout(warmHealth, 1500);
@@ -2503,6 +2503,69 @@ function extractJson(text) {
   try { return JSON.parse(m[0]); } catch (e) { return null; }
 }
 const WEB_JUNK = /unusual traffic|not a robot|why did this happen|captcha|enable javascript|just a moment|access denied|are you a human/i;
+/* ============ REAL SEARCH (29 Oct 2026) ============
+   The free lanes (Google News RSS, DDG lite, Wikipedia) are best-effort: on some
+   days they return nothing for a product question and the answer falls back to the
+   model's training cutoff. A real search API fixes that, so this layer supports the
+   three keys an owner is likely to have and uses whichever one is present:
+     TAVILY_API_KEY · BRAVE_SEARCH_API_KEY · EXA_API_KEY
+   Results are normalized to {title,url,date,snippet}; nothing here is exposed to
+   the browser and no key ever leaves the server. */
+const SEARCH_KEYS = {
+  tavily: (process.env.TAVILY_API_KEY || "").trim(),
+  brave: (process.env.BRAVE_SEARCH_API_KEY || process.env.BRAVE_API_KEY || "").trim(),
+  exa: (process.env.EXA_API_KEY || "").trim()
+};
+function searchProvider() {
+  if (SEARCH_KEYS.tavily) return "tavily";
+  if (SEARCH_KEYS.brave) return "brave";
+  if (SEARCH_KEYS.exa) return "exa";
+  return "free";
+}
+const cleanHit = (title, url, snippet, date) => ({
+  title: String(title || "").replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim(),
+  url: String(url || "").trim(),
+  date: String(date || ""),
+  snippet: String(snippet || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 400)
+});
+async function realSearch(q, n) {
+  const count = Math.max(3, Math.min(n || 5, 8));
+  const provider = searchProvider();
+  try {
+    if (provider === "tavily") {
+      const r = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ api_key: SEARCH_KEYS.tavily, query: q, max_results: count, search_depth: "basic", include_answer: false }),
+        signal: AbortSignal.timeout(12_000)
+      });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return (j.results || []).map(x => cleanHit(x.title, x.url, x.content, x.published_date)).filter(h => h.url);
+    }
+    if (provider === "brave") {
+      const r = await fetch("https://api.search.brave.com/res/v1/web/search?q=" + encodeURIComponent(q) + "&count=" + count + "&safesearch=moderate", {
+        headers: { "Accept": "application/json", "X-Subscription-Token": SEARCH_KEYS.brave },
+        signal: AbortSignal.timeout(12_000)
+      });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return ((j.web && j.web.results) || []).map(x => cleanHit(x.title, x.url, x.description, x.age)).filter(h => h.url);
+    }
+    if (provider === "exa") {
+      const r = await fetch("https://api.exa.ai/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": SEARCH_KEYS.exa },
+        body: JSON.stringify({ query: q, numResults: count, type: "auto", contents: { highlights: { numSentences: 2 } } }),
+        signal: AbortSignal.timeout(12_000)
+      });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return (j.results || []).map(x => cleanHit(x.title, x.url, (x.highlights && x.highlights[0]) || x.text, x.publishedDate)).filter(h => h.url);
+    }
+  } catch (e) { /* a bad key or a network blip falls back to the free lanes */ }
+  return null;
+}
 async function toolSearch(q) {
   /* live web search — ordered by cloud-IP reliability:
      0) Liquipedia API (esports only — the only source that actually carries rosters,
@@ -2520,6 +2583,14 @@ async function toolSearch(q) {
        is the whole evidence set — irrelevant headlines were what nudged the model
        into mixing events up in the first place */
     if (out.length) return out.slice(0, 2);
+  }
+  /* a real search API answers first when its key is configured — this is the lane
+     that guarantees fresh, ranked results for "latest …" questions */
+  if (searchProvider() !== "free") {
+    try {
+      const hits = await realSearch(q, 6);
+      if (hits && hits.length) return hits.slice(0, 5);
+    } catch (e) { /* fall through to the free lanes */ }
   }
   try {
     const r = await fetch("https://news.google.com/rss/search?q=" + encodeURIComponent(q) + "&hl=en-IN&gl=IN&ceid=IN:en", { signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "Mozilla/5.0 (compatible; AURA-backend/1.0)" } });
