@@ -3198,7 +3198,7 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
   <button class="ibtn" id="deepThinkBtn" style="display:none" title="DEEP THINK: always engage maximum reasoning">🧠 DEEP</button>
   <button class="ibtn" id="agentBtn" style="display:none" title="AGENT MODE: multi-step research with citations">🤖 AGENT</button>
   <button class="ibtn" id="auraLiveBtn" title="Voice mode — she listens continuously and answers in your language">🎙 VOICE MODE</button>
-  <button class="ibtn" id="wsMicBtn" title="HD mic — raw audio over a live socket, works in every browser (tap to record, tap again to send)">🎧 HD MIC</button>
+  <button class="ibtn" id="wsMicBtn" title="HD mic — tap once and talk; it sends itself after a short silence (tap again to send now)">🎧 HD MIC</button>
   <button class="ibtn" id="remindBtn" style="display:none" title="Reminders">⏰ REMIND</button>
   <button class="ibtn" id="neuralBtn" style="display:none" title="Neural voice — server-rendered speech">🎙 ROBOT VOICE</button>
   </div>
@@ -5008,22 +5008,25 @@ window.AuraLive=(function(){
    SpeechRecognition is Chrome/Edge-only and silently unavailable on Safari, Firefox
    and many mic setups. This lane records PCM16 at 16kHz, streams it to /ws/audio,
    lets the server transcribe with the vision key, and renders the answer as it
-   streams back. Tap once to record, tap again to send; 19s hard cap. */
+   streams back. HANDS-FREE: tap once and just talk — ~1.5s of silence sends the
+   clip by itself (tap again to send immediately); 19s hard cap. No speech at all
+   for 7s cancels the clip instead of uploading room noise. */
 window.AuraVoice=(function(){
   let ws=null,ac=null,stream=null,proc=null,src=null,on=false,opened=false,busy=false;
   let answerEl=null,answerText="",gotAudio=false,capTimer=null;
+  let vad=null; /* {spoken, quietAt, floor, startedAt, sent} — silence detector */
   function endpoint(){
     try{const b=(typeof backendUrl==="function"&&backendUrl())||"";return b?b.replace(/^http/,"ws").replace(/\/+$/,"")+"/ws/audio":""}catch(e){return""}
   }
   function paint(){
     const b=document.getElementById("wsMicBtn");if(!b)return;
-    b.textContent=on?"⏹ SEND VOICE":"🎧 HD MIC";
+    b.textContent=on?"⏹ SEND NOW":"🎧 HD MIC";
     b.style.borderColor=on?"rgba(244,114,182,.9)":"";
     b.style.color=on?"#fbcfe8":"";
     b.style.boxShadow=on?"0 0 0 1px rgba(244,114,182,.5),0 0 18px rgba(244,114,182,.35)":"";
     b.setAttribute("aria-pressed",on?"true":"false");
   }
-  function hint(t){const h=document.getElementById("micHint");if(h)h.textContent=t}
+  function hint(t){const h=document.getElementById("micHint");if(h&&h.textContent!==t)h.textContent=t}
   function resample(f32,from,to){
     if(to>=from)return f32;
     const ratio=from/to,n=Math.floor(f32.length/ratio),out=new Float32Array(n);
@@ -5095,7 +5098,9 @@ window.AuraVoice=(function(){
       if(ac.state==="suspended")await ac.resume();
       ws=new WebSocket(u);
     }catch(e){cleanup();try{pushSys("voice socket could not open: "+String((e&&e.message)||e).slice(0,80))}catch(e2){}return false}
-    opened=false;on=true;paint();hint("🎧 RECORDING — tap ⏹ to send");
+    opened=false;on=true;paint();
+    vad={spoken:0,quietAt:0,floor:0.005,startedAt:Date.now(),sent:false};
+    hint("🎧 SUN RAHA HOON — bolna shuru karo (silence par khud bhej dunga)");
     try{blip(760,.08)}catch(e){}
     ws.onopen=function(){opened=true;try{ws.send(JSON.stringify({type:"start",rate:16000,lang:(window.__auraLang==="hi"?"hi":"en")}))}catch(e){}};
     ws.onmessage=function(ev){let m=null;try{m=JSON.parse(String(ev.data))}catch(e){return}if(m&&m.type)handle(m)};
@@ -5106,11 +5111,34 @@ window.AuraVoice=(function(){
     proc.onaudioprocess=function(ev){
       if(!on||!ws||ws.readyState!==1)return;
       const input=ev.inputBuffer.getChannelData(0);
+      /* ---- SILENCE DETECTION — hands-free send ----
+         Cheap RMS over every 4th sample, an adaptive noise floor, and a 1.5s
+         quiet tail after real speech. A cough alone never sends (needs 200ms of
+         voice); a silent room cancels after 7s instead of uploading nothing. */
+      if(vad){
+        let sum=0,c=0;
+        for(let k=0;k<input.length;k+=4){const s2=input[k];sum+=s2*s2;c++}
+        const rms=Math.sqrt(sum/Math.max(1,c));
+        const gate=Math.max(0.012,vad.floor*2.8);
+        const dur=Math.round((input.length/Math.max(1,ac.sampleRate))*1000);
+        const now=Date.now();
+        if(rms>gate){
+          vad.spoken+=dur;vad.quietAt=0;
+          if(vad.spoken>=350)hint("🗣 bol rahe ho — rukne par khud bhej dunga");
+        }else{
+          vad.floor=vad.floor*0.95+rms*0.05;
+          if(vad.spoken>=200){
+            if(!vad.quietAt)vad.quietAt=now;
+            else if(now-vad.quietAt>1500&&!vad.sent){vad.sent=true;hint("⏳ silence — bhej raha hoon…");finish();return}
+          }
+        }
+        if(!vad.spoken&&now-vad.startedAt>7000){hint("🔇 kuch sunai nahi diya — dobara tap karo");stopAll();return}
+      }
       const down=resample(input,ac.sampleRate,16000);
       try{ws.send(pcm16(down).buffer)}catch(e){}
     };
     src.connect(proc);proc.connect(ac.destination);
-    capTimer=setTimeout(function(){if(on){hint("⏹ 20s limit — sending");finish()}},19000);
+    capTimer=setTimeout(function(){if(on){hint("⏹ time limit — sending");finish()}},19000);
     return true;
   }
   function toggle(){return begin()}
