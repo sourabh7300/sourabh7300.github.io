@@ -1710,16 +1710,20 @@ const meshDevices = new Map(); /* code → Map(nodeId → {name,battery,charging
 const meshCmds = new Map();    /* code|nodeId → [ {id,cmd,arg,ts} ] */
 const meshResults = new Map(); /* code → [ {nodeId,name,cmd,ok,detail,ts} ] */
 const meshSeen = new Map();    /* code|nodeId → last cmd id seen (ack) */
-const meshOwners = new Map();  /* code → maker uid (who claimed this mesh) */
+const meshOwners = new Map();  /* code → owner key (signed-in uid, or a guest's stable id) */
+const meshBorn = new Map();    /* code → first-created ts (public meshes are released after 30 min idle) */
 let meshSeq = 0;               /* monotonic command id — numeric, so ack ordering never drops a cmd */
 const MESH_TTL = 90_000;
 function meshSweep() {
   const now = Date.now();
   for (const [code, devs] of meshDevices) {
     for (const [id, d] of devs) if (now - d.ts > MESH_TTL) devs.delete(id);
-    /* owner-wala mesh kabhi auto-marega nahi — maker PC pe code banake phone uthata
-       hai, usme minutes lag sakte hain. Sirf orphan (owner-less) meshes hi gayab hote hain. */
-    if (!devs.size && !meshOwners.has(code)) { meshDevices.delete(code); meshResults.delete(code); }
+    /* a mesh with no live node is kept for 30 minutes (pairing can take a while), then
+       released — PUBLIC codes must not pile up forever on one free instance */
+    const born = meshBorn.get(code) || 0;
+    if (!devs.size && now - born > 30 * 60_000) {
+      meshDevices.delete(code); meshResults.delete(code); meshOwners.delete(code); meshBorn.delete(code);
+    }
   }
   for (const [k, arr] of meshCmds) { const na = arr.filter(c => now - c.ts < MESH_TTL); if (na.length) meshCmds.set(k, na); else meshCmds.delete(k); }
   for (const [k, v] of meshSeen) { /* noop — refreshed on write */ if (now - v.ts > MESH_TTL * 2) meshSeen.delete(k); }
@@ -1730,21 +1734,28 @@ function meshGuard(req, res) {
   if (req.headers["x-aura-key"] !== SECRET) { res.status(401).json({ error: "Missing or wrong X-AURA-Key." }); return false; }
   return true;
 }
-/* ZEUS (maker) creates/claims a mesh code — reuse an existing one per uid */
+/* PUBLIC MESH (30 Oct 2026, owner order): anyone may claim a code — no admin gate.
+   Sign-in still gives the most stable owner; guests use the browser's X-Aura-Owner. */
 app.post("/v1/mesh/register", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  if (!meshGuard(req, res)) return;
-  const u = await verifyUser(req);
-  if (!u || u.role !== "maker") return res.status(403).json({ error: "ZEUS mesh is reserved for the maker's account." });
+  let u = null;
+  try { u = await verifyUser(req); } catch (e) { u = null; }
+  let owner = u && u.uid ? "uid:" + u.uid : "";
+  if (!owner) {
+    const hdr = String((req.headers && req.headers["x-aura-owner"]) || "").trim();
+    owner = /^[A-Za-z0-9_-]{8,64}$/.test(hdr) ? "guest:" + hdr : "ip:" + String(req.ip || "anon");
+  }
   let code = null;
-  for (const [c, owner] of meshOwners) { if (owner === u.uid && meshDevices.has(c)) { code = c; break; } }
-  if (!code) { code = String(Math.floor(100000 + Math.random() * 900000)); meshDevices.set(code, new Map()); meshOwners.set(code, u.uid); }
-  res.json({ ok: true, code });
+  for (const [c, o] of meshOwners) { if (o === owner && meshDevices.has(c)) { code = c; break; } }
+  if (!code) {
+    do { code = String(Math.floor(100000 + Math.random() * 900000)); } while (meshDevices.has(code));
+    meshDevices.set(code, new Map()); meshOwners.set(code, owner); meshBorn.set(code, Date.now());
+  }
+  res.json({ ok: true, code, owner: owner.slice(0, 12) });
 });
 /* phone node joins with the code */
 app.post("/v1/mesh/join", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  if (!meshGuard(req, res)) return;
   const { code, nodeId, name } = req.body || {};
   if (!code || !/^\d{6}$/.test(String(code)) || !nodeId) return res.status(400).json({ error: "code (6 digits) and nodeId required" });
   const devs = meshDevices.get(String(code));
@@ -1755,7 +1766,6 @@ app.post("/v1/mesh/join", async (req, res) => {
 /* node heartbeat + battery/net + polls for queued commands */
 app.post("/v1/mesh/poll", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  if (!meshGuard(req, res)) return;
   const { code, nodeId, battery, charging, net } = req.body || {};
   const devs = meshDevices.get(String(code));
   if (!devs || !devs.has(String(nodeId))) return res.status(404).json({ error: "not in mesh — rejoin" });
@@ -1771,9 +1781,7 @@ app.post("/v1/mesh/poll", async (req, res) => {
 /* ZEUS pushes a command to one node or all */
 app.post("/v1/mesh/command", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  if (!meshGuard(req, res)) return;
-  const u = await verifyUser(req);
-  if (!u || u.role !== "maker") return res.status(403).json({ error: "ZEUS mesh is reserved for the maker's account." });
+  /* the 6-digit code is the capability now: whoever holds it may command its nodes */
   const { code, nodeId, cmd, arg } = req.body || {};
   const devs = meshDevices.get(String(code));
   if (!devs || !devs.size) return res.status(404).json({ error: "No live nodes in mesh." });
@@ -1791,7 +1799,6 @@ app.post("/v1/mesh/command", async (req, res) => {
 /* nodes post results; ZEUS reads them (and clears) */
 app.post("/v1/mesh/result", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  if (!meshGuard(req, res)) return;
   const { code, nodeId, name, cmd, ok, detail } = req.body || {};
   const devs = meshDevices.get(String(code));
   if (!devs) return res.status(404).json({ error: "No mesh found for that code." });
@@ -1803,9 +1810,6 @@ app.post("/v1/mesh/result", async (req, res) => {
 /* ZEUS reads the mesh: devices + pending results */
 app.get("/v1/mesh/devices", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  if (!meshGuard(req, res)) return;
-  const u = await verifyUser(req);
-  if (!u || u.role !== "maker") return res.status(403).json({ error: "ZEUS mesh is reserved for the maker's account." });
   const code = String((req.query.code || "")).trim();
   const devs = meshDevices.get(code);
   if (!devs) return res.json({ ok: true, devices: [], results: [] });
