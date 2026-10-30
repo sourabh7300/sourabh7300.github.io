@@ -5218,6 +5218,7 @@ window.AuraDocs=(function(){
     const base=(typeof backendUrl==="function"&&backendUrl())||"";
     if(!base)return Promise.reject(new Error("no backend URL"));
     const h={"Content-Type":"application/json"};const t=tok();if(t)h.Authorization="Bearer "+t;
+    if(typeof auraOwnerId==="function"){const g=auraOwnerId();if(g)h["X-Aura-Owner"]=g;}
     return fetch(base+path,{method:method||"POST",headers:h,body:body?JSON.stringify(body):undefined}).then(function(r){
       return r.json().catch(function(){return{}}).then(function(j){if(!r.ok)throw new Error((j&&j.error)||("HTTP "+r.status));return j||{}});
     });
@@ -5901,11 +5902,25 @@ return {total:p.length,live:p.filter(k=>!(__KEY_COOL[k]>now)).length,cooling:p.l
    Can be overridden locally: owner says 'set backend url <url>'. */
 const AURA_DEFAULT_BACKEND="https://aura-backend-jomj.onrender.com";
 function backendUrl(){return (localStorage.getItem("aura_backend_url")||AURA_DEFAULT_BACKEND).trim().replace(/\/+$/,"")}
+/* stable guest identity — documents follow this BROWSER, not the network address
+   (an ISP/edge IP change used to orphan server memory between two requests) */
+const AURA_OWNER_KEY="aura_owner_v1";
+function auraOwnerId(){
+  try{
+    let v=localStorage.getItem(AURA_OWNER_KEY);
+    if(!v||!/^[A-Za-z0-9_-]{8,64}$/.test(v)){
+      v=(window.crypto&&crypto.randomUUID)?crypto.randomUUID().replace(/-/g,""):("g"+Date.now().toString(36)+Math.random().toString(36).slice(2,10));
+      localStorage.setItem(AURA_OWNER_KEY,v);
+    }
+    return v;
+  }catch(e){return""}
+}
+function auraOwnerHeaders(h){const id=auraOwnerId();if(id)h["X-Aura-Owner"]=id;return h}
 async function backendCall(messages,maxTok,modelOverride,lane){
   const base=backendUrl();if(!base)throw new Error("no backend");
   try{if(!window.__backendUp)coldChip()}catch(e){} /* cold-start UX — Render free tier wakes in ~50s */
   const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
-  const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
+  const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;auraOwnerHeaders(headers);
   const r=await fetch(base+"/v1/chat/completions",{
     method:"POST",headers:headers,signal:AbortSignal.timeout(lane==="code"?55000:30000), /* code lane: Render cold start can take ~50s before the first byte */
     body:JSON.stringify({model:modelOverride||"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||1400,temperature:0.6,lane:lane||undefined})});
@@ -7307,7 +7322,7 @@ async function groqStream(messages,maxTok,onChunk){
       if(base){
         try{
           const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
-          const hd={"Content-Type":"application/json"};if(secret)hd["X-AURA-Key"]=secret;
+          const hd={"Content-Type":"application/json"};if(secret)hd["X-AURA-Key"]=secret;auraOwnerHeaders(hd);
           const r=await fetch(base+"/v1/chat/stream",{method:"POST",headers:hd,signal:ac.signal,
             body:JSON.stringify({model:groqModel||GROQ_MODELS[0],messages:messages,max_tokens:maxTok||1600})});
           if(r.ok&&r.body){

@@ -561,7 +561,7 @@ app.use((req, res, next) => {
     /* the app itself saves chats/notes with PUT and wipes them with DELETE —
      omitting those methods made every preflight fail on the live site */
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-AURA-Key, Authorization");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-AURA-Key, X-Aura-Owner, Authorization");
     if (req.method === "OPTIONS") return res.sendStatus(204);
     return next();
   }
@@ -578,7 +578,7 @@ app.use((req, res, next) => {
   /* the app itself saves chats/notes with PUT and wipes them with DELETE —
      omitting those methods made every preflight fail on the live site */
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-AURA-Key, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-AURA-Key, X-Aura-Owner, Authorization");
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
@@ -1149,6 +1149,12 @@ let audioWss = null; /* /ws/audio — attached with the HTTP server inside the b
    client-supplied id — a browser must not be able to read someone else's files. */
 function ragOwner(req) {
   if (req && req.__uid) return String(req.__uid);
+  /* GUEST IDENTITY (30 Oct 2026): keying guests by IP lost their documents when the
+     edge/ISP address changed between requests (live test: 3 owners, 2 files, empty
+     lists). A browser-generated id in X-Aura-Owner is stable and unguessable enough
+     to act as a capability; it is only a fallback when nobody is signed in. */
+  const hdr = String((req && req.headers && req.headers["x-aura-owner"]) || "").trim();
+  if (/^[A-Za-z0-9_-]{8,64}$/.test(hdr)) return "guest:" + hdr;
   const ip = (req && (req.ip || (req.headers && req.headers["x-forwarded-for"]))) || "anon";
   return "ip:" + String(ip).split(",")[0].trim();
 }
