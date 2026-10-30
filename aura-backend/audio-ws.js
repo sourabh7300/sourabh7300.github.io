@@ -25,9 +25,13 @@ function wavFromPcm(pcm, rate) {
   return Buffer.concat([head, pcm]);
 }
 
-async function transcribe(wav, key, lang) {
+async function transcribe(wav, key, lang, modelSource) {
   if (!key) throw new Error("no speech key on the server");
-  const models = ["gemini-2.5-flash", "gemini-2.0-flash"];
+  /* model ids rot (2.5-flash is gone for new keys), so the live vision/model list
+     from the server is tried first and the old ids are only a last resort */
+  let live = [];
+  try { live = typeof modelSource === "function" ? await modelSource() : (modelSource || []); } catch (e) { live = []; }
+  const models = [...new Set([...(Array.isArray(live) ? live : []), "gemini-3.8-flash", "gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"])].filter(Boolean);
   const prompt = "Transcribe this audio exactly as spoken. Reply with the transcript only — no quotes, no notes" +
     (lang === "hi" ? ", in Devanagari if the speech is Hindi (Hinglish stays Roman)." : ".");
   let lastErr = "";
@@ -93,7 +97,7 @@ function attachAudioWs(server, deps) {
       if (pcm.length < 3200) { send({ type: "error", message: "too short — hold the mic a moment longer" }); st.running = false; return; }
       const started = Date.now();
       try {
-        const text = await transcribe(wavFromPcm(pcm, st.rate), d.geminiKey, st.lang);
+        const text = await transcribe(wavFromPcm(pcm, st.rate), d.geminiKey, st.lang, d.models);
         send({ type: "transcript", text, ms: Date.now() - started });
         if (!text) { send({ type: "done" }); st.running = false; return; }
         const answer = await d.answer(text, { lang: st.lang, signal: ws, history: st.history.slice(-6) });

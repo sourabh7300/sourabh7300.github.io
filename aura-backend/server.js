@@ -3307,6 +3307,12 @@ if (IS_MAIN) {
     audioWss = attachAudioWs(srv, {
       geminiKey: GEMINI_API_KEY,
       allowedOrigins: ALLOW_ORIGINS,
+      /* STT rides the same key as vision: use the ids discovered for THIS key instead
+         of hard-coded names that 404 on newer accounts */
+      models: async () => {
+        try { const m = await geminiModels(); return m.length ? m : VISION_MODELS; }
+        catch (e) { return VISION_MODELS; }
+      },
       answer: async (text, ctx) => {
         const hi = ctx && ctx.lang === "hi";
         const now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
