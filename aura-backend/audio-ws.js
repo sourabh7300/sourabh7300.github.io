@@ -42,14 +42,18 @@ async function transcribe(wav, key, lang, modelSource) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ role: "user", parts: [{ text: prompt }, { inlineData: { mimeType: "audio/wav", data: wav.toString("base64") } }] }],
-          generationConfig: { temperature: 0, maxOutputTokens: 500 }
+          /* no thinking: a transcript must be the spoken words, not a reasoning
+             preamble (3.x models otherwise answer with a "thought" part first) */
+          generationConfig: Object.assign({ temperature: 0, maxOutputTokens: 500 }, /^gemini-(3|2\.5)/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {})
         }),
         signal: AbortSignal.timeout(20_000)
       });
       if (!r.ok) { lastErr = "stt " + r.status; continue; }
       const j = await r.json();
       const t = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts || [])
-        .map(p => p.text || "").join("").trim();
+        .filter(p => p && !p.thought)
+        .map(p => p.text || "").join("").trim()
+        .replace(/^thought\s*[:\-]?\s*/i, "");
       if (t) return t.replace(/^["'`]+|["'`]+$/g, "").trim();
       lastErr = "empty transcript";
     } catch (e) { lastErr = String(e.message || e); }

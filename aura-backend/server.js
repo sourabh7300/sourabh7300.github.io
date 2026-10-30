@@ -2590,6 +2590,32 @@ app.post("/v1/chat/completions", async (req, res) => {
    Streams progress as SSE: data:{step:...} → data:{delta:final} → data:[DONE]
    This is the tool-loop that turns a chatbot into an agent (deep-research style). */
 const MAX_STEPS = 8;
+/* FAST TEXT LANE for voice: Gemini answers in a second or two, while the Groq
+   rotation can spend 45s per dead model. Returns null when Gemini is unavailable,
+   so the caller can fall back to llm1. */
+async function geminiText(messages, maxTok) {
+  if (!GEMINI_API_KEY) return null;
+  const sys = messages.filter(m => m && m.role === "system").map(m => String(m.content || "")).join("\n").trim();
+  const contents = messages.filter(m => m && m.role !== "system" && String(m.content || "").trim())
+    .map(m => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: String(m.content) }] }));
+  if (!contents.length) return null;
+  const list = (visionModelCache.names.length ? visionModelCache.names : VISION_MODELS).slice(0, 3);
+  for (const model of list) {
+    try {
+      const body = { contents, generationConfig: { temperature: 0.35, maxOutputTokens: Math.min(maxTok || 600, 2000), thinkingConfig: { thinkingBudget: 0 } } };
+      if (sys) body.systemInstruction = { parts: [{ text: sys.slice(0, 6000) }] };
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(20_000)
+      });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const t = ((j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts) || [])
+        .filter(p => p && !p.thought).map(p => p.text || "").join("").trim();
+      if (t) { brainLast = { at: Date.now(), ok: true, via: "gemini", model, status: 200, note: "voice" }; return t; }
+    } catch (e) {}
+  }
+  return null;
+}
 function llm1(messages, maxTok, req) {
   /* one-shot internal LLM call for the loop — the maker's missions burn the admin lane */
   return (async () => {
@@ -3326,7 +3352,8 @@ if (IS_MAIN) {
         if (/(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|match|tournament|election|weather|stock|launch|release|update|trending|kitna)/i.test(String(text || ""))) {
           try { convo = await groundChat(convo); } catch (e) {}
         }
-        const out = await llm1(convo, 520, null);
+        const fast = await geminiText(convo, 520);
+        const out = fast || await llm1(convo, 520, null);
         return out ? String(out).trim() : "";
       }
     });
