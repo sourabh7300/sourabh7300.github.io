@@ -30,11 +30,18 @@ async function transcribe(wav, key, lang, modelSource) {
   /* model ids rot (2.5-flash is gone for new keys), so the live vision/model list
      from the server is tried first and the old ids are only a last resort */
   let live = [];
-  try { live = typeof modelSource === "function" ? await modelSource() : (modelSource || []); } catch (e) { live = []; }
-  const models = [...new Set([...(Array.isArray(live) ? live : []), "gemini-3.8-flash", "gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"])].filter(Boolean);
+  try {
+    const asked = typeof modelSource === "function"
+      ? await Promise.race([modelSource(), new Promise(r => setTimeout(() => r([]), 4000))])
+      : (modelSource || []);
+    live = Array.isArray(asked) ? asked : [];
+  } catch (e) { live = []; }
+  /* audio input is a flash feature; a pro/thinking id would burn the whole budget */
+  const models = [...new Set([...live.filter(n => /flash/i.test(String(n))), "gemini-3.8-flash", "gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"])].slice(0, 4);
   const prompt = "Transcribe this audio exactly as spoken. Reply with the transcript only — no quotes, no notes" +
     (lang === "hi" ? ", in Devanagari if the speech is Hindi (Hinglish stays Roman)." : ".");
   let lastErr = "";
+  const tried = [];
   for (const model of models) {
     try {
       const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent?key=" + encodeURIComponent(key), {
@@ -46,19 +53,19 @@ async function transcribe(wav, key, lang, modelSource) {
              preamble (3.x models otherwise answer with a "thought" part first) */
           generationConfig: Object.assign({ temperature: 0, maxOutputTokens: 500 }, /^gemini-(3|2\.5)/.test(model) ? { thinkingConfig: { thinkingBudget: 0 } } : {})
         }),
-        signal: AbortSignal.timeout(20_000)
+        signal: AbortSignal.timeout(12_000)
       });
-      if (!r.ok) { lastErr = "stt " + r.status; continue; }
+      if (!r.ok) { lastErr = "stt " + r.status; tried.push(model + ":" + r.status); continue; }
       const j = await r.json();
       const t = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts || [])
         .filter(p => p && !p.thought)
         .map(p => p.text || "").join("").trim()
         .replace(/^thought\s*[:\-]?\s*/i, "");
       if (t) return t.replace(/^["'`]+|["'`]+$/g, "").trim();
-      lastErr = "empty transcript";
-    } catch (e) { lastErr = String(e.message || e); }
+      lastErr = "empty transcript"; tried.push(model + ":empty");
+    } catch (e) { lastErr = String((e && e.message) || e); tried.push(model + ":" + lastErr.slice(0, 24)); }
   }
-  throw new Error(lastErr || "speech unavailable");
+  throw new Error("speech failed (" + (tried.join(", ") || lastErr || "no model") + ")");
 }
 
 function attachAudioWs(server, deps) {

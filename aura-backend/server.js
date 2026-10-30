@@ -2330,6 +2330,24 @@ app.post("/v1/rag/remove", async (req, res) => {
   if (id === "*") return res.json({ ok: true, cleared: await RAG.removeAll(ragOwner(req)) });
   res.json({ ok: true, removed: await RAG.removeFile(ragOwner(req), id) });
 });
+/* DIAGNOSTIC: the exact speech path /ws/audio uses, callable with a WAV so a model
+   id that 404s (or a thinking preamble) can be seen without opening a socket. */
+app.post("/v1/stt", async (req, res) => {
+  const body = req.body || {};
+  const raw = String(body.audio || "");
+  if (!raw) return res.status(400).json({ error: "audio (base64 WAV/PCM) required" });
+  const buf = Buffer.from(raw, "base64");
+  if (!buf.length) return res.status(400).json({ error: "audio decoded to zero bytes" });
+  if (buf.length > 6_000_000) return res.status(413).json({ error: "audio too large (6MB max)" });
+  try {
+    const { transcribe } = require("./audio-ws");
+    const started = Date.now();
+    const text = await transcribe(buf, GEMINI_API_KEY, body.lang === "hi" ? "hi" : "en", async () => {
+      const m = await geminiModels(); return m.length ? m : VISION_MODELS;
+    });
+    res.json({ ok: true, text, ms: Date.now() - started });
+  } catch (e) { res.status(502).json({ ok: false, error: String((e && e.message) || e).slice(0, 400) }); }
+});
 app.post("/v1/rag/query", async (req, res) => {
   const body = req.body || {};
   const q = String(body.question || body.q || "").trim();
