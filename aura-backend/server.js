@@ -3392,7 +3392,10 @@ if (IS_MAIN) {
   bootStage("ready");
   /* warm the model catalogue after the deploy verdict — the first chat and the first
      spoken question should not pay a 2–15s model-discovery round trip */
-  setTimeout(() => { geminiModels().catch(() => {}); }, 2500);
+  setTimeout(() => {
+    geminiModels().catch(() => {});
+    try { Promise.resolve(groqModels()).catch(() => {}); } catch (e) {}
+  }, 2500);
   /* KRATOS AUTOPILOT — the squad's own clock. The daily cycle budget inside the
      engine decides whether a tick actually works, so this timer is cheap. */
   if (process.env.SQUAD_AUTOPILOT !== "0") {
