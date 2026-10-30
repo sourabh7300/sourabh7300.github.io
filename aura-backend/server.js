@@ -191,10 +191,14 @@ async function geminiChat(messages, maxTok, temperature, req) {
   })).filter(c => c.parts[0].text);
   if (!contents.length) return null;
   const body = JSON.stringify(Object.assign(
-    { contents, generationConfig: { maxOutputTokens: Math.min(maxTok || 1400, 3000), temperature: temperature != null ? temperature : 0.6 } },
+    { contents, generationConfig: { maxOutputTokens: Math.min(maxTok || 1400, 3000), temperature: temperature != null ? temperature : 0.6, thinkingConfig: { thinkingBudget: 0 } } },
     sys ? { systemInstruction: { parts: [{ text: sys.slice(0, 12000) }] } } : {}
   ));
-  const chain = [...new Set([VISION_MODEL, ...VISION_MODELS])].slice(0, 2);
+  /* the seeded ids can be retired for this key (2.5-flash is, on newer accounts), so
+     ask the API what it actually serves before giving up — that list is cached hourly */
+  let chain = [VISION_MODEL, ...VISION_MODELS];
+  try { const live = await geminiModels(); if (live && live.length) chain = [...live, ...chain]; } catch (e) {}
+  chain = [...new Set(chain.filter(Boolean))].slice(0, 3);
   const deadline = Date.now() + 12_000;
   for (const vmodel of chain) {
     const left = deadline - Date.now();
@@ -208,14 +212,16 @@ async function geminiChat(messages, maxTok, temperature, req) {
       });
       if (!r.ok) continue; /* busy / retired model → next one */
       const d = await r.json();
-      const t = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || []).map(p => p.text || "").join("").trim();
+      const t = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [])
+        .filter(p => p && !p.thought).map(p => p.text || "").join("").trim()
+        .replace(/^thought\s*[:\-]?\s*/i, "");
       if (t) {
         if (looksLikeReasoning(t)) { geminiCool = Date.now() + 120_000; continue; }
         recordUse(req, "vision", 0); return t;
       }
     } catch (e) { /* timeout or network → next model */ }
   }
-  geminiCool = Date.now() + 300_000; /* 5 min: stop paying the timeout on every question */
+  geminiCool = Date.now() + 60_000; /* 1 min: a retired id must not freeze the fast lane */
   return null;
 }
 async function visionCall(messages, maxTok, temperature, req) {
@@ -3370,7 +3376,7 @@ if (IS_MAIN) {
         if (/(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|match|tournament|election|weather|stock|launch|release|update|trending|kitna)/i.test(String(text || ""))) {
           try { convo = await groundChat(convo); } catch (e) {}
         }
-        const fast = await geminiText(convo, 520);
+        const fast = await geminiChat(convo, 520, 0.4, null);
         const out = fast || await llm1(convo, 520, null);
         return out ? String(out).trim() : "";
       }
@@ -3378,6 +3384,9 @@ if (IS_MAIN) {
   } catch (e) { console.log("[ws] audio lane not armed: " + (e.message || e)); }
   console.log("AURA secure backend live on :" + PORT + " · build " + BUILD + " · rss " + Math.round(process.memoryUsage().rss / 1048576) + "MB");
   bootStage("ready");
+  /* warm the model catalogue after the deploy verdict — the first chat and the first
+     spoken question should not pay a 2–15s model-discovery round trip */
+  setTimeout(() => { geminiModels().catch(() => {}); }, 2500);
   /* KRATOS AUTOPILOT — the squad's own clock. The daily cycle budget inside the
      engine decides whether a tick actually works, so this timer is cheap. */
   if (process.env.SQUAD_AUTOPILOT !== "0") {
