@@ -199,16 +199,18 @@ async function geminiChat(messages, maxTok, temperature, req) {
   let chain = [VISION_MODEL, ...VISION_MODELS];
   try { const live = await geminiModels(); if (live && live.length) chain = [...live, ...chain]; } catch (e) {}
   chain = [...new Set(chain.filter(Boolean))].slice(0, 3);
-  const deadline = Date.now() + 12_000;
+  /* 6s, not 12: when Gemini is slow the NIM lane answers in ~2s, and waiting 12s
+     only to fall back is what made ordinary questions feel stuck */
+  const deadline = Date.now() + 6_000;
   for (const vmodel of chain) {
     const left = deadline - Date.now();
-    if (left < 2500) break;
+    if (left < 1500) break;
     try {
       const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body,
-        signal: AbortSignal.timeout(Math.min(9_000, left))
+        signal: AbortSignal.timeout(Math.min(5_000, left))
       });
       if (!r.ok) continue; /* busy / retired model → next one */
       const d = await r.json();
@@ -3376,8 +3378,12 @@ if (IS_MAIN) {
         if (/(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|match|tournament|election|weather|stock|launch|release|update|trending|kitna)/i.test(String(text || ""))) {
           try { convo = await groundChat(convo); } catch (e) {}
         }
-        const fast = await geminiChat(convo, 520, 0.4, null);
-        const out = fast || await llm1(convo, 520, null);
+        /* RACE the fast Gemini lane against the Groq/NIM bank: voice should answer
+           from whichever brain is healthy now, not wait out the other one's timeout */
+        const out = await Promise.any([
+          geminiChat(convo, 520, 0.4, null).then(t => t || Promise.reject(new Error("empty"))),
+          llm1(convo, 520, null).then(t => t || Promise.reject(new Error("empty")))
+        ]).catch(() => "");
         return out ? String(out).trim() : "";
       }
     });
