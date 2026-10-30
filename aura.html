@@ -3233,6 +3233,15 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
     </div>
 
     <div class="set-sec">
+      <div class="set-h">🎙 HD MIC — SENSITIVITY<small>noisy room? lower it. quiet voice? raise it.</small></div>
+      <label class="set-row" style="display:flex;align-items:center;gap:10px">
+        <input type="range" id="micSens" min="0" max="100" step="5" value="50" style="flex:1;accent-color:var(--g);touch-action:pan-x">
+        <span id="micSensVal" style="min-width:38px;text-align:right;font-family:var(--mono);font-size:11px">50</span>
+      </label>
+      <div class="set-note" id="micSensNote">Balanced — normal room, normal voice.</div>
+    </div>
+
+    <div class="set-sec">
       <div class="set-h">🔔 SOUND — UI EFFECTS<small>button ticks, blips & alert sounds</small></div>
       <label class="set-row"><input type="checkbox" id="uiSoundChk"> UI sounds on (ticks & blips)</label>
       <div class="set-note">VOICE: OFF = total silence — tab ye bhi chup ho jaate hain.</div>
@@ -5015,6 +5024,11 @@ window.AuraVoice=(function(){
   let ws=null,ac=null,stream=null,proc=null,src=null,on=false,opened=false,busy=false;
   let answerEl=null,answerText="",gotAudio=false,capTimer=null;
   let vad=null; /* {spoken, quietAt, floor, startedAt, sent} — silence detector */
+  /* MIC SENSITIVITY (0 = strict for noisy rooms, 100 = catches a quiet voice).
+     It changes the speech gate, how long a voice must last, and the quiet tail. */
+  let sens=50;
+  try{const v=parseInt(localStorage.getItem("aura_mic_sens"),10);if(isFinite(v))sens=Math.max(0,Math.min(100,v))}catch(e){}
+  function setSensitivity(n){const v=Math.max(0,Math.min(100,parseInt(n,10)||0));sens=v;return v}
   function endpoint(){
     try{const b=(typeof backendUrl==="function"&&backendUrl())||"";return b?b.replace(/^http/,"ws").replace(/\/+$/,"")+"/ws/audio":""}catch(e){return""}
   }
@@ -5119,17 +5133,20 @@ window.AuraVoice=(function(){
         let sum=0,c=0;
         for(let k=0;k<input.length;k+=4){const s2=input[k];sum+=s2*s2;c++}
         const rms=Math.sqrt(sum/Math.max(1,c));
-        const gate=Math.max(0.012,vad.floor*2.8);
+        const s=sens/100; /* 0 strict → 1 sensitive */
+        const gate=Math.max(0.030-0.024*s,vad.floor*(4.6-3.0*s));
+        const minVoice=260-100*s;   /* noisy room needs a longer real voice */
+        const tailMs=1800-600*s;    /* quiet room sends sooner, noisy waits longer */
         const dur=Math.round((input.length/Math.max(1,ac.sampleRate))*1000);
         const now=Date.now();
         if(rms>gate){
           vad.spoken+=dur;vad.quietAt=0;
-          if(vad.spoken>=350)hint("🗣 bol rahe ho — rukne par khud bhej dunga");
+          if(vad.spoken>=Math.max(350,minVoice))hint("🗣 bol rahe ho — rukne par khud bhej dunga");
         }else{
           vad.floor=vad.floor*0.95+rms*0.05;
-          if(vad.spoken>=200){
+          if(vad.spoken>=minVoice){
             if(!vad.quietAt)vad.quietAt=now;
-            else if(now-vad.quietAt>1500&&!vad.sent){vad.sent=true;hint("⏳ silence — bhej raha hoon…");finish();return}
+            else if(now-vad.quietAt>tailMs&&!vad.sent){vad.sent=true;hint("⏳ silence — bhej raha hoon…");finish();return}
           }
         }
         if(!vad.spoken&&now-vad.startedAt>7000){hint("🔇 kuch sunai nahi diya — dobara tap karo");stopAll();return}
@@ -5143,7 +5160,7 @@ window.AuraVoice=(function(){
   }
   function toggle(){return begin()}
   try{paint()}catch(e){}
-  return{toggle:toggle,start:begin,finish:finish,isOn:function(){return on},isBusy:function(){return busy}};
+  return{toggle:toggle,start:begin,finish:finish,isOn:function(){return on},isBusy:function(){return busy},setSensitivity:setSensitivity,sensitivity:function(){return sens}};
 })();
 window.AuraEco=(function(){
   function openApp(file,hash){try{const w=window.open(file+(hash?'#'+hash:''),'_blank');if(!w&&typeof pushSys==='function')pushSys('popup blocked — allow popups for ecosystem commands');return w}catch(e){return null}}
@@ -9157,7 +9174,7 @@ try{window.__pickVoiceFor=__pickVoiceFor;window.__voiceCfg=__voiceCfg;window.__s
   }
   function paintUiSound(){const c=$id("uiSoundChk");if(c)c.checked=(localStorage.getItem("aura_ui_sound")!=="off")}
   const applyTab=function(t){try{if(window.__auraApply){window.__auraApply(t);return}}catch(e){}document.body.dataset.tab=t;document.querySelectorAll("#tabbar button").forEach(function(b){b.classList.toggle("on",b.dataset.t===t)})};
-  const refresh=function(){refreshUser();paintUiSound()};
+  const refresh=function(){refreshUser();paintUiSound();try{paintMicSens()}catch(e){}};
   const open=function(){applyTab("settings");refresh()};
   const close=function(){applyTab("chat")};
   const sb=$id("settingsBtn");if(sb)sb.onclick=open;
@@ -9177,6 +9194,20 @@ try{window.__pickVoiceFor=__pickVoiceFor;window.__voiceCfg=__voiceCfg;window.__s
     try{ if(!soundOn)setVoiceConsent(true); else speak("Voice check — AURA online. Yahi meri awaaz hai."); }
     catch(e){}
   };
+  const sensEl=$id("micSens");
+  const paintMicSens=function(){
+    let v=50;try{const n=parseInt(localStorage.getItem("aura_mic_sens"),10);if(isFinite(n))v=Math.max(0,Math.min(100,n))}catch(e){}
+    if(sensEl)sensEl.value=v;
+    const lab=$id("micSensVal");if(lab)lab.textContent=v;
+    const note=$id("micSensNote");
+    if(note)note.textContent=v<=30?"Noisy room / strict — sirf clear awaaz par send karega.":v>=70?"Quiet voice / sensitive — dheemi awaaz bhi pakdega.":"Balanced — normal room, normal voice.";
+    try{if(window.AuraVoice&&AuraVoice.setSensitivity)AuraVoice.setSensitivity(v)}catch(e){}
+  };
+  if(sensEl)sensEl.oninput=function(){
+    try{localStorage.setItem("aura_mic_sens",String(sensEl.value))}catch(e){}
+    paintMicSens();
+  };
+  paintMicSens();
   const chk=$id("uiSoundChk");
   if(chk)chk.onchange=function(){
     try{localStorage.setItem("aura_ui_sound",chk.checked?"on":"off")}catch(e){}
