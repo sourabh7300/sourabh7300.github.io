@@ -2322,7 +2322,12 @@ async function groundChat(messages) {
       return messages.concat([{ role: "system", content:
         "CURRENT DATE & TIME: " + now + " (anchor 'today/now/latest' to THIS moment).\n" + AURA_FACT_RULES }]);
     }
-    const q = searchQuery(messages);
+    /* clean the conversational wrapper before searching ("What is the latest news
+       about OpenAI today" → "latest OpenAI news today"). It matches the /v1/websearch
+       query, so the page's own prefetch already warmed the cache — and the search
+       engine gets the topic instead of question filler. */
+    const qRaw = searchQuery(messages);
+    const q = cleanAsk(qRaw) || qRaw;
     let web = "";
     try {
       const hits = await searchWeb(q.replace(/\s+/g, " "), esp ? 8000 : 7000);
