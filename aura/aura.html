@@ -3198,6 +3198,7 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
   <button class="ibtn" id="deepThinkBtn" style="display:none" title="DEEP THINK: always engage maximum reasoning">🧠 DEEP</button>
   <button class="ibtn" id="agentBtn" style="display:none" title="AGENT MODE: multi-step research with citations">🤖 AGENT</button>
   <button class="ibtn" id="auraLiveBtn" title="Voice mode — she listens continuously and answers in your language">🎙 VOICE MODE</button>
+  <button class="ibtn" id="wsMicBtn" title="HD mic — raw audio over a live socket, works in every browser (tap to record, tap again to send)">🎧 HD MIC</button>
   <button class="ibtn" id="remindBtn" style="display:none" title="Reminders">⏰ REMIND</button>
   <button class="ibtn" id="neuralBtn" style="display:none" title="Neural voice — server-rendered speech">🎙 ROBOT VOICE</button>
   </div>
@@ -5003,6 +5004,119 @@ window.AuraLive=(function(){
   try{paint()}catch(e){}
   return{toggle:toggle,start:start,stop:stop,isOn:function(){return on},refresh:paint};
 })();
+/* ============ HD MIC — raw audio over a WebSocket, every browser ============
+   SpeechRecognition is Chrome/Edge-only and silently unavailable on Safari, Firefox
+   and many mic setups. This lane records PCM16 at 16kHz, streams it to /ws/audio,
+   lets the server transcribe with the vision key, and renders the answer as it
+   streams back. Tap once to record, tap again to send; 19s hard cap. */
+window.AuraVoice=(function(){
+  let ws=null,ac=null,stream=null,proc=null,src=null,on=false,opened=false,busy=false;
+  let answerEl=null,answerText="",gotAudio=false,capTimer=null;
+  function endpoint(){
+    try{const b=(typeof backendUrl==="function"&&backendUrl())||"";return b?b.replace(/^http/,"ws").replace(/\/+$/,"")+"/ws/audio":""}catch(e){return""}
+  }
+  function paint(){
+    const b=document.getElementById("wsMicBtn");if(!b)return;
+    b.textContent=on?"⏹ SEND VOICE":"🎧 HD MIC";
+    b.style.borderColor=on?"rgba(244,114,182,.9)":"";
+    b.style.color=on?"#fbcfe8":"";
+    b.style.boxShadow=on?"0 0 0 1px rgba(244,114,182,.5),0 0 18px rgba(244,114,182,.35)":"";
+    b.setAttribute("aria-pressed",on?"true":"false");
+  }
+  function hint(t){const h=document.getElementById("micHint");if(h)h.textContent=t}
+  function resample(f32,from,to){
+    if(to>=from)return f32;
+    const ratio=from/to,n=Math.floor(f32.length/ratio),out=new Float32Array(n);
+    for(let i=0;i<n;i++){
+      const a=Math.floor(i*ratio),b=Math.min(f32.length,Math.floor((i+1)*ratio));
+      let s=0;for(let j=a;j<b;j++)s+=f32[j];
+      out[i]=s/Math.max(1,b-a);
+    }
+    return out;
+  }
+  function pcm16(f32){
+    const out=new Int16Array(f32.length);
+    for(let i=0;i<f32.length;i++){const s=Math.max(-1,Math.min(1,f32[i]));out[i]=s<0?s*32768:s*32767}
+    return out;
+  }
+  function cleanup(){
+    clearTimeout(capTimer);capTimer=null;
+    try{if(proc){proc.disconnect();proc.onaudioprocess=null}}catch(e){}
+    try{if(src)src.disconnect()}catch(e){}
+    try{if(stream)stream.getTracks().forEach(function(t){t.stop()})}catch(e){}
+    try{if(ac&&ac.state!=="closed")ac.close()}catch(e){}
+    proc=src=stream=ac=null;on=false;paint();
+  }
+  function stopAll(){busy=false;cleanup();try{if(ws)ws.close()}catch(e){}ws=null}
+  function finish(){
+    if(!ws||ws.readyState!==1||!opened){stopAll();return}
+    try{ws.send(JSON.stringify({type:"stop"}))}catch(e){}
+    cleanup();hint("⏳ transcribing…");busy=true;
+    setTimeout(function(){if(busy){busy=false;try{pushSys("voice lane timed out — try a shorter clip")}catch(e){};stopAll()}},30000);
+  }
+  function handle(m){
+    if(m.type==="transcript"){
+      hint("🗣 \""+String(m.text||"").slice(0,42)+"\"");
+      try{addMsg("YOU ▸",m.text,"user")}catch(e){}
+      answerEl=null;answerText="";gotAudio=false;
+    }else if(m.type==="delta"){
+      if(!answerEl){try{answerEl=addMsg(msgTag(),"","aura")}catch(e){}}
+      answerText+=m.text||"";
+      if(answerEl)answerEl.textContent=answerText;
+      try{const lg=document.getElementById("log");if(lg)lg.scrollTop=lg.scrollHeight}catch(e){}
+    }else if(m.type==="audio"){
+      gotAudio=true;
+      try{
+        const a=new Audio("data:"+(m.mime||"audio/mpeg")+";base64,"+m.data);
+        ttsActive=true;__ttsAudio=a;
+        a.onended=function(){ttsActive=false};
+        a.play().catch(function(){ttsActive=false});
+      }catch(e){ttsActive=false}
+    }else if(m.type==="error"){
+      hint(/no speech key/i.test(m.message||"")?"VOICE UNAVAILABLE — TYPE":"TAP TO SPEAK");
+      try{pushSys("voice: "+m.message)}catch(e){}
+    }else if(m.type==="done"){
+      busy=false;
+      if(!gotAudio&&answerText&&typeof soundOn!=="undefined"&&soundOn){try{speak(answerText)}catch(e){}}
+      hint("TAP TO SPEAK");
+      setTimeout(stopAll,400);
+    }
+  }
+  async function begin(){
+    if(on){finish();return true}
+    if(busy){try{pushSys("still transcribing the last clip — one moment")}catch(e){}return false}
+    const u=endpoint();
+    if(!u){try{pushSys("HD mic needs the backend URL")}catch(e){}return false}
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    }catch(e){try{pushSys("mic blocked — allow the microphone for this page, then tap 🎧 HD MIC again")}catch(e2){}return false}
+    try{
+      ac=new (window.AudioContext||window.webkitAudioContext)();
+      if(ac.state==="suspended")await ac.resume();
+      ws=new WebSocket(u);
+    }catch(e){cleanup();try{pushSys("voice socket could not open: "+String((e&&e.message)||e).slice(0,80))}catch(e2){}return false}
+    opened=false;on=true;paint();hint("🎧 RECORDING — tap ⏹ to send");
+    try{blip(760,.08)}catch(e){}
+    ws.onopen=function(){opened=true;try{ws.send(JSON.stringify({type:"start",rate:16000,lang:(window.__auraLang==="hi"?"hi":"en")}))}catch(e){}};
+    ws.onmessage=function(ev){let m=null;try{m=JSON.parse(String(ev.data))}catch(e){return}if(m&&m.type)handle(m)};
+    ws.onerror=function(){try{pushSys("voice socket dropped — check the connection")}catch(e){};stopAll()};
+    ws.onclose=function(){const wasBusy=busy;opened=false;if(on)cleanup();if(wasBusy){busy=false;try{pushSys("voice lane closed before the answer — try again")}catch(e){}}};
+    src=ac.createMediaStreamSource(stream);
+    proc=ac.createScriptProcessor(4096,1,1);
+    proc.onaudioprocess=function(ev){
+      if(!on||!ws||ws.readyState!==1)return;
+      const input=ev.inputBuffer.getChannelData(0);
+      const down=resample(input,ac.sampleRate,16000);
+      try{ws.send(pcm16(down).buffer)}catch(e){}
+    };
+    src.connect(proc);proc.connect(ac.destination);
+    capTimer=setTimeout(function(){if(on){hint("⏹ 20s limit — sending");finish()}},19000);
+    return true;
+  }
+  function toggle(){return begin()}
+  try{paint()}catch(e){}
+  return{toggle:toggle,start:begin,finish:finish,isOn:function(){return on},isBusy:function(){return busy}};
+})();
 window.AuraEco=(function(){
   function openApp(file,hash){try{const w=window.open(file+(hash?'#'+hash:''),'_blank');if(!w&&typeof pushSys==='function')pushSys('popup blocked — allow popups for ecosystem commands');return w}catch(e){return null}}
   function route(q){
@@ -5022,6 +5136,8 @@ window.AuraEco=(function(){
   if(ab)ab.onclick=()=>{const qi=document.getElementById('q');const t=((qi&&qi.value)||'').trim();if(t){window.__agentArmed=true;ask(t)}else{window.__agentArmed=true;addMsg(msgTag(),'🤖 Agent armed. Type or say your question — I will plan, search the web, read sources and answer with citations. (Say "agent mode <question>" anytime.)','aura')}};
   const lb=document.getElementById('auraLiveBtn');
   if(lb)lb.onclick=()=>AuraLive.toggle();
+  const wb=document.getElementById('wsMicBtn');
+  if(wb)wb.onclick=()=>AuraVoice.toggle();
   const rb=document.getElementById('remindBtn');
   if(rb)rb.onclick=()=>addMsg(msgTag(),AuraRemind.render(),'aura');
   const nb=document.getElementById('neuralBtn');
@@ -5095,6 +5211,18 @@ window.AuraDocs=(function(){
       .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&#39;/g,"'")
       .replace(/[ \t\u00a0]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim();
   }
+  /* server memory: the same upload is indexed server-side so answers follow the
+     account to any device. Best-effort — offline uploads still work locally. */
+  function tok(){try{const u=JSON.parse(localStorage.getItem("aura_fb_live")||"null");return (u&&u.tok)||""}catch(e){return""}}
+  function cloud(path,body,method){
+    const base=(typeof backendUrl==="function"&&backendUrl())||"";
+    if(!base)return Promise.reject(new Error("no backend URL"));
+    const h={"Content-Type":"application/json"};const t=tok();if(t)h.Authorization="Bearer "+t;
+    if(typeof auraOwnerId==="function"){const g=auraOwnerId();if(g)h["X-Aura-Owner"]=g;}
+    return fetch(base+path,{method:method||"POST",headers:h,body:body?JSON.stringify(body):undefined}).then(function(r){
+      return r.json().catch(function(){return{}}).then(function(j){if(!r.ok)throw new Error((j&&j.error)||("HTTP "+r.status));return j||{}});
+    });
+  }
   async function ingestFiles(files,report){
     for(const f of Array.from(files||[])){
       try{
@@ -5133,6 +5261,10 @@ window.AuraDocs=(function(){
         if(docs.length>MAX_DOCS)docs=docs.slice(-MAX_DOCS);
         save(docs);
         if(report)report("✅ "+f.name+" — "+pages+" pages · "+chunks.length+" chunks indexed. Ask anything about it — I cite the page.");
+        try{
+          const up=await cloud("/v1/rag/upload",{name:f.name,text:text,pages:pages});
+          if(report&&up&&up.chunks)report("☁ "+f.name+" synced to server memory — "+up.chunks+" chunks · engine "+(up.engine||"local"));
+        }catch(e){if(report)report("ℹ "+f.name+" saved on this device — server sync skipped ("+String((e&&e.message)||e).slice(0,60)+")");}
       }catch(e){if(report)report("❌ "+f.name+" — "+(e.message||e))}
     }
   }
@@ -5190,14 +5322,26 @@ window.AuraDocs=(function(){
       '<div style="display:flex;gap:8px;margin:8px 0"><button id="docsAdd" style="flex:1;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);color:#bfefff;border-radius:10px;padding:9px 8px;font-size:12.5px;cursor:pointer;font-weight:600">⬆ ADD PDF / NOTES</button>'+
       '<button id="docsClear" style="flex:1;background:rgba(255,120,120,.08);border:1px solid rgba(255,120,120,.35);color:#ffb4b4;border-radius:10px;padding:9px 8px;font-size:12.5px;cursor:pointer;font-weight:600">🗑 CLEAR ALL</button></div>'+
       '<div id="docsList" style="margin-top:10px;max-height:200px;overflow:auto">'+(docs.length?docs.map(function(d){return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px;border:1px solid rgba(120,220,255,.15);border-radius:9px;margin:5px 0;font-size:12px"><span>📄 '+esc2(d.name)+' <span style="opacity:.55">· '+d.pages+'p · '+d.chunks.length+' chunks</span></span><button data-n="'+esc2(d.name)+'" class="docsDel" style="background:none;border:none;color:#ff9c9c;cursor:pointer;font-size:13px">✕</button></div>'}).join(""):'<div style="font-size:12px;opacity:.6;padding:10px 4px">Nothing uploaded yet. Add class notes, syllabus, project reports — then ask “what does my syllabus say about the AI elective?”</div>')+'</div>'+
-      '<div style="font-size:11px;opacity:.6;margin:12px 0 0;line-height:1.5">Everything stays on this device. Voice too: “add a document”, “open my documents”, “clear documents”.</div>';
+      '<div id="docsCloud" style="margin-top:6px"><div style="font-size:11px;opacity:.5">☁ checking server memory…</div></div>'+
+      '<div style="font-size:11px;opacity:.6;margin:12px 0 0;line-height:1.5">Files are read on this device and also indexed in your account’s server memory, so they answer on every device. Not signed in? They stay local. Voice too: “add a document”, “open my documents”, “clear documents”.</div>';
     document.body.appendChild(ov);
     if(lastMsg){const sl=document.getElementById("docsStatus");if(sl){sl.textContent=lastMsg;sl.style.display="block"}}
     document.getElementById("docsX").onclick=function(){ov.remove()};
     ov.addEventListener("click",function(e){if(e.target===ov)ov.remove()});
     document.getElementById("docsAdd").onclick=function(){pick()};
-    document.getElementById("docsClear").onclick=function(){lastMsg="";clear();modal()};
+    document.getElementById("docsClear").onclick=function(){lastMsg="";clear();cloud("/v1/rag/remove",{id:"*"}).catch(function(){});modal()};
     ov.querySelectorAll(".docsDel").forEach(function(b){b.onclick=function(){remove(b.getAttribute("data-n"));modal()}});
+    cloud("/v1/rag/files",null,"GET").then(function(j){
+      const box=document.getElementById("docsCloud");if(!box)return;
+      const fl=(j&&j.files)||[];
+      box.innerHTML='<div style="font-size:11px;opacity:.65;margin:12px 0 4px">☁ SERVER MEMORY — synced across your devices ('+fl.length+')</div>'+(fl.length?fl.map(function(d){return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px;border:1px solid rgba(120,220,255,.15);border-radius:9px;margin:5px 0;font-size:12px"><span>☁ '+esc2(d.name)+' <span style="opacity:.55">· '+d.pages+'p · '+d.chunks+' chunks</span></span><button data-id="'+esc2(d.id)+'" class="docsCloudDel" style="background:none;border:none;color:#ff9c9c;cursor:pointer;font-size:13px">✕</button></div>'}).join(""):'<div style="font-size:11.5px;opacity:.55;padding:2px 4px">Nothing synced yet — add a document and it will answer here and on every device.</div>');
+      box.querySelectorAll(".docsCloudDel").forEach(function(b){b.onclick=function(){
+        const id=b.getAttribute("data-id");
+        cloud("/v1/rag/remove",{id:id}).then(function(){modal()}).catch(function(e){lastMsg="server delete failed: "+String((e&&e.message)||e).slice(0,80);modal()});
+      }});
+    }).catch(function(){
+      const box=document.getElementById("docsCloud");if(box)box.innerHTML='<div style="font-size:11px;opacity:.5;margin-top:10px">☁ server memory offline — documents on this device still answer.</div>';
+    });
   }
   const db=document.getElementById("docsBtn");if(db)db.addEventListener("click",modal);
   return{all:all,ingestFiles:ingestFiles,search:search,contextFor:contextFor,list:list,remove:remove,clear:clear,pick:pick,modal:modal};
@@ -5758,11 +5902,25 @@ return {total:p.length,live:p.filter(k=>!(__KEY_COOL[k]>now)).length,cooling:p.l
    Can be overridden locally: owner says 'set backend url <url>'. */
 const AURA_DEFAULT_BACKEND="https://aura-backend-jomj.onrender.com";
 function backendUrl(){return (localStorage.getItem("aura_backend_url")||AURA_DEFAULT_BACKEND).trim().replace(/\/+$/,"")}
+/* stable guest identity — documents follow this BROWSER, not the network address
+   (an ISP/edge IP change used to orphan server memory between two requests) */
+const AURA_OWNER_KEY="aura_owner_v1";
+function auraOwnerId(){
+  try{
+    let v=localStorage.getItem(AURA_OWNER_KEY);
+    if(!v||!/^[A-Za-z0-9_-]{8,64}$/.test(v)){
+      v=(window.crypto&&crypto.randomUUID)?crypto.randomUUID().replace(/-/g,""):("g"+Date.now().toString(36)+Math.random().toString(36).slice(2,10));
+      localStorage.setItem(AURA_OWNER_KEY,v);
+    }
+    return v;
+  }catch(e){return""}
+}
+function auraOwnerHeaders(h){const id=auraOwnerId();if(id)h["X-Aura-Owner"]=id;return h}
 async function backendCall(messages,maxTok,modelOverride,lane){
   const base=backendUrl();if(!base)throw new Error("no backend");
   try{if(!window.__backendUp)coldChip()}catch(e){} /* cold-start UX — Render free tier wakes in ~50s */
   const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
-  const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
+  const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;auraOwnerHeaders(headers);
   const r=await fetch(base+"/v1/chat/completions",{
     method:"POST",headers:headers,signal:AbortSignal.timeout(lane==="code"?55000:30000), /* code lane: Render cold start can take ~50s before the first byte */
     body:JSON.stringify({model:modelOverride||"openai/gpt-oss-120b",messages:messages,max_tokens:maxTok||1400,temperature:0.6,lane:lane||undefined})});
@@ -7164,7 +7322,7 @@ async function groqStream(messages,maxTok,onChunk){
       if(base){
         try{
           const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
-          const hd={"Content-Type":"application/json"};if(secret)hd["X-AURA-Key"]=secret;
+          const hd={"Content-Type":"application/json"};if(secret)hd["X-AURA-Key"]=secret;auraOwnerHeaders(hd);
           const r=await fetch(base+"/v1/chat/stream",{method:"POST",headers:hd,signal:ac.signal,
             body:JSON.stringify({model:groqModel||GROQ_MODELS[0],messages:messages,max_tokens:maxTok||1600})});
           if(r.ok&&r.body){
@@ -8519,7 +8677,9 @@ function askOnce(t){ /* one question = one answer: kill the repeat glitch */
 }
 function startListen(hiEar){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR)return;
+  /* no SpeechRecognition (Safari/Firefox) → the raw-audio socket takes over, so the
+     main mic button works in every browser instead of doing nothing */
+  if(!SR){if(window.AuraVoice)return AuraVoice.start();pushSys("this browser has no mic engine — type instead");return}
   const r=new SR();
   r.lang=hiEar?"hi-IN":(window.__auraLang==="hi"?"hi-IN":"en-IN");
   r.interimResults=true;r.continuous=true;r.maxAlternatives=5;
