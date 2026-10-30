@@ -8959,7 +8959,9 @@ function __meshNodeId(){
   const st=document.createElement("style");
   st.textContent="#meshMenu{position:fixed;inset:0;background:rgba(2,6,14,.72);backdrop-filter:blur(6px);z-index:9998;display:flex;align-items:center;justify-content:center}#meshMenu .tm-card{position:relative;background:rgba(10,16,30,.97);border:1px solid rgba(120,220,255,.25);border-radius:16px;padding:20px;width:min(470px,94vw);max-height:88vh;overflow:auto;color:#dfeaff;box-shadow:0 24px 60px rgba(0,0,0,.5)}#meshMenu h3{margin:0 0 4px;font-size:15px}#meshMenu .tm-sub{font-size:11.5px;opacity:.65;margin-bottom:10px;line-height:1.5}#meshMenu .tm-btn{background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);color:#bfefff;border-radius:10px;padding:8px 10px;font-size:12px;cursor:pointer;font-weight:600;margin:4px 4px 4px 0}#meshMenu .tm-btn:hover{background:rgba(34,211,238,.22)}#meshMenu .tm-close{position:absolute;top:8px;right:12px;background:none;border:none;color:#9cf;font-size:18px;cursor:pointer}#meshMenu .mrow{display:flex;gap:6px;align-items:center;margin:6px 0}#meshMenu input,#meshMenu select{background:rgba(3,10,20,.8);border:1px solid rgba(120,220,255,.3);color:#dfeaff;border-radius:8px;padding:7px 9px;font-size:12.5px}#meshMenu input{flex:1}#meshMenu .dev{border:1px solid rgba(120,220,255,.16);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:12px}#meshMenu .dev b{color:#e0f2fe}#meshMenu .res{font-size:11px;opacity:.8;margin:3px 0;padding-left:8px;border-left:2px solid rgba(34,211,238,.4)}#meshMenu .code{font-size:30px;font-weight:800;letter-spacing:8px;color:#67e8f9;text-shadow:0 0 18px rgba(34,211,238,.5);text-align:center;margin:6px 0}#meshMenu .qr{background:#fff;border-radius:8px;padding:6px;width:max-content;margin:4px auto}";
   document.head.appendChild(st);
-  let meshCode="",meshTimer=null,meshErr=""; /* server is the truth — code is CLAIMED fresh on every open (register is idempotent per owner) */
+  let meshCode="",meshTimer=null,meshErr="",meshLog=[]; /* server is the truth — code is CLAIMED fresh on every open (register is idempotent per owner) */
+  /* the server hands out results once (read-and-clear), so the panel keeps its own
+     short history — otherwise a delivered command's ✅ vanished on the next 4s poll */
   async function claimMesh(){
     try{ const j=await __meshFetch("/v1/mesh/register",{}); meshCode=j.code; meshErr=""; try{localStorage.setItem("aura_mesh_code",meshCode)}catch(e){} return true; }
     catch(e){ meshErr=e.message||"claim failed"; return false; }
@@ -8970,8 +8972,10 @@ function __meshNodeId(){
     try{
       const j=await __meshFetch("/v1/mesh/devices?code="+meshCode,null,"GET");
       const box=document.getElementById("meshDevs");if(!box)return;
+      (j.results||[]).forEach(function(r){meshLog.push(r)});
+      if(meshLog.length>8)meshLog=meshLog.slice(-8);
       box.innerHTML=(j.devices||[]).map(d=>'<div class="dev"><b>'+d.name.replace(/[<>]/g,"")+"</b> · "+d.id+'<br>🔋 '+(d.battery!=null?Math.round(d.battery)+"%"+(d.charging?" ⚡":""):"?")+" · "+(d.net||"?")+" · "+(d.fresh?'<span style="color:#34d399">● live</span>':'<span style="opacity:.5">○ idle</span>')+"</div>").join("")+
-        (j.results||[]).map(r=>'<div class="res">'+r.name+" → "+r.cmd+(r.ok?" ✅":" ❌")+" "+String(r.detail||"").replace(/[<>]/g,"").slice(0,80)+"</div>").join("")+
+        meshLog.slice().reverse().map(r=>'<div class="res">'+r.name+" → "+r.cmd+(r.ok?" ✅":" ❌")+" "+String(r.detail||"").replace(/[<>]/g,"").slice(0,80)+"</div>").join("")+
         ((!(j.devices||[]).length)?'<div style="opacity:.6;font-size:12px">No devices yet — phone pe ye file kholo: <b>#node='+meshCode+"</b> (QR niche)</div>":"");
       const qr=document.getElementById("meshQR");if(qr)qr.src=await qrURL(location.origin+location.pathname+"#node="+meshCode);
     }catch(e){
