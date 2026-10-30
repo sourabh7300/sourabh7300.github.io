@@ -62,12 +62,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v27";
+const BUILD = process.env.AURA_BUILD || "squad-v28";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v27";
+const SRC_BUILD = "squad-v28";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2276,6 +2276,28 @@ function searchQuery(messages) {
   if (hint && !new RegExp("\\b" + hint + "\\b", "i").test(q)) q = hint + " " + q;
   return q.replace(/\s+/g, " ").trim().slice(0, 300);
 }
+/* SEARCH EVIDENCE WITH A BUDGET + 10-MIN CACHE (30 Oct 2026, owner: "1 minute lag").
+   The grounding step ran a full search plus TWO uncapped page reads before the model
+   was even called, so every question started with 6-20s of silence. A question that
+   was just searched (a retry, a re-render, the same visitor) now costs zero. */
+const WEB_HITS_CACHE = new Map();
+async function searchWeb(q, budgetMs) {
+  const key = String(q || "").toLowerCase().replace(/\s+/g, " ").trim();
+  if (!key) return [];
+  const hit = WEB_HITS_CACHE.get(key);
+  if (hit && Date.now() - hit.at < 10 * 60_000) return hit.hits;
+  const started = Date.now();
+  const hits = await Promise.race([
+    toolSearch(q).catch(() => null),
+    new Promise(r => setTimeout(() => r(null), budgetMs || 7000))
+  ]);
+  if (hits && hits.length) {
+    if (WEB_HITS_CACHE.size > 120) WEB_HITS_CACHE.clear();
+    WEB_HITS_CACHE.set(key, { at: Date.now(), hits });
+    if (process.env.AURA_DEBUG) console.log("[search] " + hits.length + " hits in " + (Date.now() - started) + "ms q=\"" + q + "\"");
+  }
+  return hits || [];
+}
 async function groundChat(messages) {
   try {
     const q0 = lastUserMsg(messages);
@@ -2292,17 +2314,25 @@ async function groundChat(messages) {
     const f0 = evidenceFacts(messages);
     const esp = !!(LIQUI && (LIQUI.isEsportsQuery(ask) || LIQUI.isEsportsQuery(q0)));
     if (armed && (!esp || f0.list.length >= 3 || !!f0.start)) return messages;
-    const q = searchQuery(messages);
     const now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    /* FRESHNESS GATE — only questions that can actually have changed recently pay
+       for a search. "Explain quantum entanglement" used to wait for a search and two
+       page reads it never needed; a stable answer now starts in milliseconds. */
+    if (!esp && !FRESH_RE.test(ask) && !FRESH_RE.test(q0)) {
+      return messages.concat([{ role: "system", content:
+        "CURRENT DATE & TIME: " + now + " (anchor 'today/now/latest' to THIS moment).\n" + AURA_FACT_RULES }]);
+    }
+    const q = searchQuery(messages);
     let web = "";
     try {
-      const hits = await toolSearch(q.replace(/\s+/g, " "));
+      const hits = await searchWeb(q.replace(/\s+/g, " "), esp ? 8000 : 7000);
       if (hits && hits.length) {
         const top = hits.slice(0, 2);
-        /* a Liquipedia hit already IS the facts block — re-reading the page through the
-           text proxy costs seconds and returns the bot wall, never more facts */
-        const reads = await Promise.all(top.map(h => (h.extract && /DATES:|TEAMS\s*\(/.test(h.extract)) ? Promise.resolve(null) : toolFetch(h.url).catch(() => null)));
-        web = top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(cleanRead(reads[i]) || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
+        /* NO PAGE RE-READS ON THE ANSWER PATH (30 Oct 2026). The search API already
+           returns the page text, and a Liquipedia hit already IS the facts block
+           (h.extract && /DATES:|TEAMS\s*\(/) — re-reading either through the proxy
+           cost 4-20s per question and was the whole "1 minute" lag. */
+        web = top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(h.snippet || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
       }
     } catch (e) { /* search down → date + rules still apply */ }
     const head = esp
@@ -2717,13 +2747,24 @@ async function realSearch(q, n, fresh) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(Object.assign({ api_key: SEARCH_KEYS.tavily, query: q, max_results: count, include_answer: false }, opts)),
-        signal: AbortSignal.timeout(fresh ? 20_000 : 12_000)
+        signal: AbortSignal.timeout(fresh ? 10_000 : 8_000)
       });
-      let r = await tav(fresh ? { search_depth: "advanced", topic: "news", days: 60 } : { search_depth: "basic" });
+      /* SPEED (30 Oct 2026): "advanced" depth takes seconds on every fresh question.
+         The news topic on basic already returns dated results WITH their extracted
+         content — that is all the answer needs. Plain basic is the fallback. */
+      /* ultra-fast measured at 0.7s vs 2.8s for basic — a fresh question must not
+         wait 3s before the model is even called. If the account rejects the depth,
+         the plain-basic retry below keeps the lane alive. */
+      let r = await tav(fresh ? { search_depth: "ultra-fast", topic: "news", days: 30 } : { search_depth: "basic" });
       if (!r.ok && fresh) r = await tav({ search_depth: "basic" }); /* news index rejected the query → plain */
       if (!r.ok) return null;
-      const j = await r.json();
-      return (j.results || []).map(x => cleanHit(x.title, x.url, x.content, x.published_date)).filter(h => h.url);
+      let j = await r.json();
+      let hits = (j.results || []).map(x => cleanHit(x.title, x.url, x.content, x.published_date)).filter(h => h.url);
+      if (!hits.length && fresh) {
+        r = await tav({ search_depth: "basic" });
+        if (r.ok) { j = await r.json(); hits = (j.results || []).map(x => cleanHit(x.title, x.url, x.content, x.published_date)).filter(h => h.url); }
+      }
+      return hits;
     }
     if (provider === "brave") {
       const r = await fetch("https://api.search.brave.com/res/v1/web/search?q=" + encodeURIComponent(q) + "&count=" + count + "&safesearch=moderate" + (fresh ? "&freshness=pm" : ""), {
@@ -2888,16 +2929,17 @@ app.post("/v1/websearch", async (req, res) => {
   }
   const started = Date.now();
   try {
-    const hits = await toolSearch(q);
+    const hits = await searchWeb(q, 8000);
     if (!hits.length) return res.json({ results: [], took: Date.now() - started });
-    /* read the two most promising pages so the brain gets substance, not just headlines */
-    const top = hits.slice(0, 2);
-    const reads = await Promise.all(top.map(h => toolFetch(h.url, 8_000).catch(() => null)));
-    const results = hits.map((h, i) => ({
+    /* SPEED: the search API already returns the page text, so this lane does NOT
+       re-read pages through the text proxy (the old two uncapped reads were the
+       10-20s that made the whole app feel stuck). Headlines + snippets answer
+       "latest …" questions and cost one request. */
+    const results = hits.slice(0, 5).map(h => ({
       k: "web",
       title: h.title,
       url: h.url,
-      extract: String(cleanRead(reads[i]) || h.extract || h.title || "").slice(0, 1800)
+      extract: String(h.snippet || h.extract || h.title || "").slice(0, 1400)
     }));
     res.json({ results, took: Date.now() - started });
   } catch (e) {
@@ -3071,12 +3113,15 @@ app.post("/v1/chat/stream", async (req, res) => {
   }
   /* same grounding as /v1/chat/completions: today’s date + live web results + fact rules.
      Without this the stream lane answered tournaments/schedules from frozen memory. */
+  const __t0 = Date.now();
   messages = await groundChat(messages);
+  if (process.env.AURA_DEBUG) console.log("[timing] ground " + (Date.now() - __t0) + "ms");
   /* resolve a continuation ("teams in it") against the previous turn — the stream lane
      is what the app actually uses, so the topic guard must live here too */
   messages = withProductFacts(injectFollowUp(messages));
   /* stream lane gets the same server-side document memory as the proxy route */
   messages = await withRagContext(messages, req);
+  if (process.env.AURA_DEBUG) console.log("[timing] rag " + (Date.now() - __t0) + "ms");
   /* ESPORTS QUESTIONS ARE BUFFERED, NOT STREAMED (27 Oct 2026): a wrong team name
      cannot be un-sent once it is on screen. Tournaments are rare, so holding this
      one class of answer for a single validated delta costs nothing and guarantees
@@ -3124,6 +3169,7 @@ app.post("/v1/chat/stream", async (req, res) => {
     const __lr = await streamLane({ laneName: "code", apiKey: CODE_KEY, mistralModels: MISTRAL_CODE_MODELS, messages, maxTok: Math.min(body.max_tokens || 4000, 8000), temperature: body.temperature, send, isClosed: () => false, req });
     if (__lr === "served" || __lr === "partial") { if (__lr === "partial") send({ partial: true }); finish(); return; }
   }
+  if (process.env.AURA_DEBUG) console.log("[timing] model-loop " + (Date.now() - __t0) + "ms order=" + order.join(","));
   outer:
   for (const model of order) {
     for (let attempt = 0; attempt < Math.max(1, KEY_POOL.length); attempt++) {
@@ -3155,6 +3201,7 @@ app.post("/v1/chat/stream", async (req, res) => {
         }
         if (!r.ok || !r.body) { pushErr(model + " HTTP " + r.status); break; }
         send({ model });
+        if (process.env.AURA_DEBUG) console.log("[timing] first-byte " + model + " " + (Date.now() - __t0) + "ms");
         served = true;
         let full = ""; /* accumulated for the answer cache */
         const dec = new TextDecoder();

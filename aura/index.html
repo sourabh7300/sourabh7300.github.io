@@ -6836,22 +6836,34 @@ function __isFollowUp(q){
   if(/^(teams?|team names?|names?|list|lineup|roster|schedule|dates?|usme|uska|uski|unka|in it|more|and\??|aur\b|details?|kab|kaun|kon)\b/i.test(s))return true;
   return s.split(/\s+/).length<=4;
 }
+/* SPEED (30 Oct 2026, owner: "answer me 1 minute lag raha hai"): this lane used to
+   allow a 25s fetch for EVERY knowledge answer — a slow search blocked the whole
+   reply before the brain was even called. It now waits at most 9s, and a query that
+   was already searched in the last 10 minutes returns instantly from memory. */
+let __webCache=Object.create(null);
 async function webContext(q){
   if(!backendUrl()||__webBusy)return null;
+  const asked=String(q||"").slice(0,300);
+  const query=(__isFollowUp(asked)&&__lastTopicQ)?(__lastTopicQ+" "+asked).slice(0,300):asked;
+  if(!__isFollowUp(asked))__lastTopicQ=asked;
+  const ck=query.toLowerCase().replace(/\s+/g," ").trim();
+  const ch=__webCache[ck];
+  if(ch&&Date.now()-ch.at<600000)return ch.text;
   __webBusy=true;
   try{
     const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
     const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
-    const asked=String(q||"").slice(0,300);
-    const query=(__isFollowUp(asked)&&__lastTopicQ)?(__lastTopicQ+" "+asked).slice(0,300):asked;
-    if(!__isFollowUp(asked))__lastTopicQ=asked;
-    const r=await fetch(backendUrl()+"/v1/websearch",{method:"POST",headers:headers,signal:AbortSignal.timeout(25000),body:JSON.stringify({question:query})});
+    const r=await fetch(backendUrl()+"/v1/websearch",{method:"POST",headers:headers,signal:AbortSignal.timeout(9000),body:JSON.stringify({question:query})});
     if(!r.ok)throw new Error("HTTP "+r.status);
     const d=await r.json();
     const rs=(d&&d.results)||[];
     if(!rs.length)return null;
     slog("🌐 live web: "+rs.length+" source"+(rs.length>1?"s":" ")+" pulled seconds ago — freshest knowledge armed",true);
-    return rs.map((x,i)=>"[SOURCE "+(i+1)+": live web — "+(x.k||"web")+(x.title?" — "+x.title:"")+"]\n"+String(x.extract||x.title||"").slice(0,1400)).join("\n\n");
+    const text=rs.map((x,i)=>"[SOURCE "+(i+1)+": live web — "+(x.k||"web")+(x.title?" — "+x.title:"")+"]\n"+String(x.extract||x.title||"").slice(0,1400)).join("\n\n");
+    __webCache[ck]={at:Date.now(),text:text};
+    const keys=Object.keys(__webCache);
+    if(keys.length>30)keys.slice(0,keys.length-30).forEach(function(k){delete __webCache[k]});
+    return text;
   }catch(e){try{slog("live web lane down ("+(e.message||e)+") — answering from my own knowledge",true)}catch(e2){}return null}
   finally{__webBusy=false}
 }
@@ -7351,6 +7363,10 @@ async function groqStream(messages,maxTok,onChunk){
         try{
           const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
           const hd={"Content-Type":"application/json"};if(secret)hd["X-AURA-Key"]=secret;auraOwnerHeaders(hd);
+          /* a sleeping Render instance used to look frozen for ~50s with no clue why:
+             show the wake chip from the first stream request too, and hide it on the
+             first real token */
+          try{if(window.__backendUp===false||window.__backendUp===undefined)coldChip()}catch(e){}
           const r=await fetch(base+"/v1/chat/stream",{method:"POST",headers:hd,signal:ac.signal,
             body:JSON.stringify({model:groqModel||GROQ_MODELS[0],messages:messages,max_tokens:maxTok||1600})});
           if(r.ok&&r.body){
@@ -7364,7 +7380,7 @@ async function groqStream(messages,maxTok,onChunk){
                 const s=ln.slice(5).trim();if(!s||s==="[DONE]")continue;
                 let j=null;try{j=JSON.parse(s)}catch(e2){continue}
                 if(j.outOfTokens){const e2=new Error("out_of_tokens");e2.outOfTokens=true;throw e2}
-                if(j.delta){got=true;full+=j.delta;if(onChunk)onChunk(full)}
+                if(j.delta){if(!got){window.__backendUp=true;try{hideColdChip()}catch(e){}}got=true;full+=j.delta;if(onChunk)onChunk(full)}
               }
             }
             if(!got||!full.trim())throw new Error("empty stream");
@@ -10647,7 +10663,9 @@ async function scrAnalyze(qq){
   const ping=()=>{const u=(typeof backendUrl==="function")&&backendUrl();if(!u)return;const t0=Date.now();
     fetch(u+"/health",{signal:AbortSignal.timeout(45000)}).then(r=>{if(r.ok){window.__backendUp=true;slog("backend keep-alive ok ("+(Date.now()-t0)+"ms)",true);try{hideColdChip()}catch(e){}}})
     .catch(()=>{window.__backendUp=false})};
-  setTimeout(ping,4000);setInterval(ping,10*60*1000);
+  /* Render sleeps after 15 idle minutes and browser timers are throttled in a
+     background tab, so ping more often than the sleep window while the app is open */
+  setTimeout(ping,2500);setInterval(ping,4*60*1000);
 })();
 function coldChip(ms){
   try{
