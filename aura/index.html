@@ -566,6 +566,26 @@ body[data-tab="admin"] #adminPage{display:flex}
    Phones / battery-saver / any low-end device render panels opaque — zero re-blur. */
 @media (max-width:820px){.panel,#stateBox,#q,#tabbar button{backdrop-filter:none}}
 body.perf-saver .panel,body.perf-saver #stateBox,body.perf-saver #tabbar button{backdrop-filter:none}
+/* ===== MOBILE PERFORMANCE TIER (1 Nov 2026) =========================
+   #1 GPU cost is the animating core; #2 is frosted glass composited over it.
+   On a phone we drop the blur, flatten the stacked shadows, and keep the
+   canvas out of the hit-test path so touch scrolling never waits on paint. */
+#fx,#dust{pointer-events:none}
+@media (max-width:767px){
+  .panel,#stateBox,#q,#tabbar button,#dock,#conv,#sessPanel,#toastShelf,#stopBtn,#quickActions .qbtn{
+    -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  }
+  .panel,#dock,#conv,#sessPanel,#toastShelf{box-shadow:0 1px 2px rgba(0,0,0,.5)!important}
+  #tabbar button{box-shadow:none!important}
+  /* the CODE studio is a desktop surface — on a phone it is gone, not merely
+     tabbed away, so no token-burning code call can be started from mobile */
+  #codeSection,#codePage,#tabbar button[data-t="code"]{display:none!important}
+  body{overscroll-behavior-y:contain;-webkit-tap-highlight-color:transparent}
+}
+html.m-mobile #codeSection,html.m-mobile #codePage,html.m-mobile #tabbar button[data-t="code"]{display:none!important}
+html.m-mobile .panel,html.m-mobile #stateBox,html.m-mobile #q,html.m-mobile #tabbar button,html.m-mobile #dock,html.m-mobile #conv,html.m-mobile #sessPanel,html.m-mobile #toastShelf{
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+}
 .panel h3{
   font-size:10.5px;letter-spacing:3.2px;margin-bottom:var(--sp3);
   padding-bottom:var(--sp2);border-bottom:1px solid var(--line2);
@@ -2674,10 +2694,110 @@ body[data-tab="system"]{overflow-y:auto;overflow-x:hidden}
 /* v5 never sets a heading font — everything is the body face */
 #stageEmpty h4,#sessPrev h3{font-family:'Space Grotesk',system-ui,sans-serif!important}
 </style>
-<script src="https://js.puter.com/v2/"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style id="aura-mobile-perf">
+/* ============================================================
+   MOBILE COMPOSITOR BUDGET (≤767px)
+   A phone pays for every blurred, shadowed layer it composites over an
+   animating canvas. Blur off everywhere, one flat shadow on the surfaces
+   that need depth, and the fills nudged opaque so contrast survives.
+   ============================================================ */
+@media (max-width:767px){
+  /* 1. no live backdrop blur anywhere — the single biggest compositor saving */
+  body *{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+  /* 2. overlays: one cheap shadow instead of stacked glow/shadow chains */
+  #conv,#dock,#tabbar,#sessPanel,#settingsMenu,#telemetry,#authBadge,#stageEmpty,
+  .panel,.tm-card,.toast,.bmsg,.iconrow,#hudL,#hudR{
+    box-shadow:0 1px 3px rgba(0,0,0,.45)!important;
+  }
+  /* 3. blur removed → tighten the fill on the glass that actually carries text */
+  #conv{background:rgba(2,10,14,.94)!important}
+  #dock .panel,#sessPanel{background:rgba(4,8,16,.94)!important}
+  /* 4. decorative glow rings/animations cost paint on a phone */
+  #micBtn{box-shadow:0 0 12px rgba(34,211,238,.28)!important}
+  #micBtn.listening{box-shadow:0 0 16px rgba(248,113,113,.4)!important}
+  /* 5. text no longer sits on a blurred backdrop — keep it crisp */
+  #hudL,#hudR,#hudWord{text-shadow:none!important}
+}
+/* the 3D scene never eats a touch: scrolling and gestures pass straight through */
+canvas#fx,canvas#dust,#heroSlot canvas,#authSlot canvas,#topSlot canvas,#stageEmpty canvas{
+  pointer-events:none!important;
+  touch-action:auto;
+}
+</style>
+<style id="aura-mobile-ui">
+/* ============================================================
+   PHONE SURFACE — chat first, nothing to configure.
+   Driven by the html.m-phone class (UA/touch based, set in JS) so a phone in
+   landscape stays a phone and a touch laptop stays a laptop.
+   ============================================================ */
+html.m-phone #tabbar button[data-t="code"],
+html.m-phone #tabbar button[data-t="system"],
+html.m-phone #codeSection,html.m-phone #codePage{display:none!important}
+/* desktop chip wall off — the mobile row under the orb does that job */
+html.m-phone #chips{display:none!important}
+/* the suggestion row scrolls sideways instead of wrapping into a wall of text */
+html.m-phone #stageChips{display:flex!important;flex-wrap:nowrap!important;overflow-x:auto;gap:8px!important;
+  justify-content:flex-start!important;width:100%;padding:2px 0 4px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+html.m-phone #stageChips::-webkit-scrollbar{display:none}
+html.m-phone #stageChips button{flex:0 0 auto;min-height:44px;padding:0 15px!important;font-size:12.5px!important;
+  border-radius:12px!important}
+/* one obvious action on a phone: talk */
+html.m-phone #mhCta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:54px;
+  border-radius:16px;border:1px solid rgba(34,211,238,.45);cursor:pointer;
+  background:linear-gradient(135deg,rgba(34,211,238,.24),rgba(34,211,238,.05));
+  color:#e8fbff;font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.06em;
+  box-shadow:0 0 18px rgba(34,211,238,.16);-webkit-tap-highlight-color:transparent}
+html.m-phone #mhCta:active{transform:scale(.985)}
+html.m-phone #mhCta .mh-k{font-size:19px;line-height:1}
+html.m-phone #stageEmpty{gap:12px!important;padding:2px 2px 6px!important}
+html.m-phone #stageEmpty h4{font-size:clamp(22px,6.4vw,30px)!important;line-height:1.12!important}
+/* the orb is the character on a phone — bigger, with the halofree glow */
+html.m-phone #stageEmpty .se-orb{width:132px!important;height:132px!important;
+  filter:drop-shadow(0 0 22px rgba(34,211,238,.34))}
+/* iOS zooms the whole page when a focused input is under 16px */
+html.m-phone #q{font-size:16px!important}
+html.m-phone #micBtn{width:60px!important;height:60px!important;font-size:24px!important}
+html.m-phone #langBtn,html.m-phone #wakeBtn,html.m-phone #soundBtn{min-height:38px}
+html.m-phone #dock{padding-bottom:calc(6px + env(safe-area-inset-bottom))}
+html.m-phone #conv{bottom:calc(var(--dockH,150px) + 18px + env(safe-area-inset-bottom))!important}
+/* keep the composer clear of the phone's home indicator */
+html.m-phone #toastShelf{bottom:calc(96px + env(safe-area-inset-bottom))}
+
+/* ---- BOTTOM NAVIGATION (phones) ----
+   The desktop rail is vertical and 84px wide — on a 355px screen that is a quarter
+   of the page gone. On a phone the tabs belong under the thumb, full width. */
+html.m-phone #tabbar{top:auto!important;bottom:0!important;left:0!important;right:0!important;
+  flex-direction:row!important;justify-content:space-around!important;align-items:stretch!important;
+  width:100%!important;height:auto!important;gap:2px!important;overflow:visible!important;z-index:40!important;
+  background:rgba(4,8,16,.97)!important;border-top:1px solid rgba(34,211,238,.2);
+  padding:5px 4px calc(5px + env(safe-area-inset-bottom));box-shadow:0 -6px 18px rgba(0,0,0,.45)}
+html.m-phone #tabbar button{flex:1 1 0!important;width:auto!important;min-width:0!important;height:52px!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+  gap:3px!important;padding:0!important;margin:0!important;border-radius:12px!important;
+  font-size:9.5px!important;letter-spacing:.06em!important}
+html.m-phone #tabbar button .i{width:19px!important;height:19px!important}
+
+/* ---- TOP BAR (phones): brand + orb + palette + help only ----
+   The desktop clock alone was 85px, enough to push the palette and help button
+   clean off the right edge of a 355px screen. */
+html.m-phone #clock{display:none!important}
+html.m-phone #topbar{padding:8px 10px!important;gap:8px!important;justify-content:space-between!important;align-items:center!important}
+html.m-phone #topbar .wordmark,html.m-phone #topbar>.brand,html.m-phone #wordmark{max-width:150px!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;font-size:15px!important}
+html.m-phone #topbar .stateBox,html.m-phone #stateBox{display:none!important}
+html.m-phone #kbtn{padding:7px 9px!important;font-size:11px!important;min-height:38px!important}
+html.m-phone #helpBtn{min-width:38px!important;min-height:38px!important;justify-content:center!important}
+
+/* ---- the stage and composer now live between top bar and bottom nav ---- */
+/* --mnavH is measured from the real nav (JS) — guessing 64px overlapped the bar */
+html.m-phone #conv{top:58px!important;left:8px!important;right:8px!important;width:auto!important;
+  bottom:calc(var(--dockH,170px) + var(--mnavH,64px) + 16px)!important;border-radius:16px}
+html.m-phone #dock{bottom:calc(var(--mnavH,64px) + 8px)!important;
+  left:8px!important;right:8px!important;width:auto!important;padding:0 2px!important}
+html.m-phone #toastShelf{bottom:calc(var(--mnavH,64px) + 92px)}
+html.m-phone #jumpLatest{bottom:calc(var(--dockH,170px) + var(--mnavH,64px) + 24px)!important}
+</style>
 </head>
 <body>
 <canvas id="dust" aria-hidden="true"></canvas>
@@ -3358,6 +3478,246 @@ function logLaneError(lane,err){
   return c;
 }
 
+/* ============ MOBILE KERNEL (1 Nov 2026) ==================================
+   One gate that decides "phone" ONCE, so every layer below agrees: the render
+   budget, the CSS perf tier (html.m-mobile), and the CODE surface.
+   iOS Safari + Android Chrome get the chat experience only — the code studio is
+   a desktop surface (25 languages x AI calls per generation), so on a phone it
+   is removed from reach: no tab, no pane, and any restored session that still
+   points at data-tab="code" is funnelled straight back to chat. */
+const isMobile = window.innerWidth < 768;
+/* DEVICE CLASS — UA/touch first, width only as a fallback.
+   Width alone broke in landscape: a 844px-wide phone was suddenly a "desktop"
+   and the CODE + SYSTEM tabs came back mid-session. A touch laptop, on the other
+   hand, is not a phone — so coarse pointer only counts together with phone-class
+   touch hardware. */
+window.AuraDevice = (function(){
+  var PHONE=/Android|iPhone|iPod|iPad|Mobile|Opera Mini|IEMobile|Windows Phone/i;
+  function phone(){
+    try{
+      if(PHONE.test(navigator.userAgent||"")) return true;
+      var touch=(navigator.maxTouchPoints||0)>1||"ontouchstart" in window;
+      var coarse=window.matchMedia&&window.matchMedia("(pointer:coarse)").matches;
+      if(coarse&&touch&&innerWidth<1024&&!/Macintosh|Windows NT/i.test(navigator.userAgent||"")) return true;
+      return innerWidth<768;
+    }catch(e){ return innerWidth<768; }
+  }
+  return { isMobile:phone() };
+})();
+window.AURA_MOBILE = window.AuraDevice.isMobile;
+(function(){
+  /* phone surfaces that do not exist for the user: CODE (desktop studio) and
+     SYSTEM (telemetry the owner watches on a laptop). Any restored session,
+     bookmark, palette jump or voice command that lands there comes back to chat. */
+  var DESKTOP_ONLY={ "code":1, "system":1 };
+  function toChat(){
+    try{
+      if(document.body && DESKTOP_ONLY[document.body.dataset.tab]){
+        document.body.dataset.tab = "chat";
+        document.querySelectorAll("#tabbar button").forEach(function(b){ b.classList.toggle("on", b.dataset.t === "chat"); });
+        try{pushSys("phone layout — back on chat")}catch(e){}
+      }
+    }catch(e){}
+  }
+  function arm(){
+    if(!window.AURA_MOBILE) return;
+    try{ document.documentElement.classList.add("m-mobile"); }catch(e){}
+    try{ if(document.body) document.body.classList.add("m-mobile"); }catch(e){}
+    /* the CODE tab is unreachable, and a stale handler / bookmark / voice command
+       can never leave the user on a pane that does not exist on this device */
+    try{
+      ["code","system"].forEach(function(t){
+        var tb = document.querySelector('#tabbar button[data-t="'+t+'"]');
+        if(tb){ tb.hidden = true; tb.setAttribute("aria-hidden","true"); tb.style.display = "none"; }
+      });
+      document.documentElement.classList.add("m-phone");
+      if(document.body)document.body.classList.add("m-phone");
+    }catch(e){}
+    /* FINAL LAYOUT WORD — the app injects several late <style> blocks into <head>
+       (v5 skins), which beat an equal-specificity rule from the static stylesheet and
+       collapsed the bottom-nav buttons to 1px. This block is appended last and carries
+       one extra element in the selector, so it wins without !important wars. */
+    try{
+      if(!document.getElementById("mnavFinal")){
+        var s=document.createElement("style");s.id="mnavFinal";
+        s.textContent="html.m-phone body #tabbar{flex-direction:row!important;width:100%!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;height:auto!important;justify-content:space-around!important;align-items:stretch!important;gap:2px!important;z-index:40!important;background:rgba(4,8,16,.97)!important;border-top:1px solid rgba(34,211,238,.2)!important;padding:5px 4px calc(5px + env(safe-area-inset-bottom))!important;box-shadow:0 -6px 18px rgba(0,0,0,.45)!important}"
+        +"html.m-phone body #tabbar button{flex:1 1 0!important;width:auto!important;min-width:0!important;height:52px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:3px!important;padding:0!important;margin:0!important;border-radius:12px!important;font-size:9.5px!important;letter-spacing:.06em!important}"
+        +"html.m-phone body #tabbar button[hidden],html.m-phone body #tabbar button[aria-hidden=\"true\"]{display:none!important}"
+        +"html.m-phone body #tabbar button .i{width:19px!important;height:19px!important}"
+        +"html.m-phone body #helpBtn{min-width:40px!important;min-height:40px!important}"
+        +"html.m-phone body #kbtn{min-height:40px!important}"
+        +"html.m-phone body .mact{min-width:38px!important;min-height:38px!important}"
+        +"html.m-phone body #qaClear{min-height:38px!important}"
+        /* the dock's tool pills were 29px — thumb-hostile */
+        +"html.m-phone body #dock button{min-height:38px!important}"
+        +"html.m-phone body #dock .iconrow{gap:6px!important}";
+        document.head.appendChild(s);
+      }
+    }catch(e){}
+    /* publish the real nav height so the dock and chat never sit under it */
+    try{
+      var tabEl=document.getElementById("tabbar"), rootEl=document.documentElement;
+      var setNav=function(){
+        if(!tabEl)return;
+        var h=Math.ceil(tabEl.getBoundingClientRect().height);
+        if(h>0)rootEl.style.setProperty("--mnavH",h+"px");
+      };
+      setNav();setTimeout(setNav,350);setTimeout(setNav,1400);
+      if(window.ResizeObserver)new ResizeObserver(setNav).observe(tabEl);
+      addEventListener("orientationchange",function(){setTimeout(setNav,220)},{passive:true});
+    }catch(e){}
+    /* ONE OBVIOUS ACTION on a phone: talk. The mic button already owns the
+       permission, language and fallback logic, so this simply presses it. */
+    try{
+      var stage=document.getElementById("stageEmpty");
+      if(stage&&!document.getElementById("mhCta")){
+        var cta=document.createElement("button");
+        cta.id="mhCta";cta.type="button";
+        cta.setAttribute("aria-label","Talk to AURA");
+        cta.innerHTML='<span class="mh-k">🎙</span><span>BOL KE POOCHHO — TAP &amp; SPEAK</span>';
+        cta.onclick=function(){var m=document.getElementById("micBtn");if(m)m.click();};
+        var chips=document.getElementById("stageChips");
+        if(chips&&chips.parentNode)chips.parentNode.insertBefore(cta,chips.nextSibling);
+        else stage.appendChild(cta);
+      }
+    }catch(e){}
+    toChat();
+    try{
+      new MutationObserver(toChat).observe(document.body, { attributes: true, attributeFilter: ["data-tab"] });
+    }catch(e){}
+  }
+  if(!window.AURA_MOBILE) return;
+  if(document.body) arm();
+  else document.addEventListener("DOMContentLoaded", arm);
+  window.addEventListener("load", toChat);
+})();
+/* ---------- iOS / Android audio unlock ----------
+   Web Speech and AudioContext both refuse to start without a real user gesture
+   on iOS Safari, and Android Chrome starts the context suspended. The first tap,
+   touch or key press resumes whatever context already exists, so the mic is live
+   on the FIRST press instead of silently doing nothing. */
+(function(){
+  var done = false;
+  function unlock(){
+    if(done) return;
+    done = true;
+    window.__auraGesture = true;
+    /* iOS Safari only honours a context that was CREATED or RESUMED inside the
+       gesture. Building it here (synchronously) means the mic analyser and the UI
+       blips reuse a live context instead of a permanently-suspended one. */
+    try{
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if(AC && !window.__auraAC) window.__auraAC = new AC();
+      if(window.__auraAC && window.__auraAC.state === "suspended") window.__auraAC.resume();
+    }catch(e){}
+    /* speechSynthesis is gesture-gated on iOS as well — one silent utterance arms it */
+    try{
+      if(window.speechSynthesis && !window.__auraTtsArmed){
+        var u = new SpeechSynthesisUtterance(" ");
+        u.volume = 0; u.rate = 1;
+        window.speechSynthesis.speak(u);
+        window.__auraTtsArmed = true;
+      }
+    }catch(e){}
+    try{ if(window.AuraVoice && window.AuraVoice.resume) window.AuraVoice.resume(); }catch(e){}
+  }
+  ["pointerdown","touchstart","click","keydown"].forEach(function(ev){
+    document.addEventListener(ev, unlock, { passive: true });
+  });
+  /* a backgrounded phone suspends the context again — re-arm on return */
+  document.addEventListener("visibilitychange", function(){
+    if(!document.hidden && window.__auraGesture){ done = false; unlock(); }
+  });
+})();
+
+/* ============================================================
+   AURA PERF KERNEL — the single place that decides how much GPU a frame may cost.
+   Phones are thermally limited: the goal is a steady 30fps core with near-zero touch
+   latency, NOT a 120Hz battery drain. Every canvas on the page (core, hero orb, auth
+   orb, gold dust) reads its budget from here, so one knob tunes the whole app.
+   ============================================================ */
+window.AuraPerf=(function(){
+  var mq=function(q){try{return matchMedia(q).matches}catch(e){return false}};
+  var coarse=function(){return mq("(pointer:coarse)")||mq("(hover:none)")};
+  var state={mobile:false,dprCap:2,baseDprCap:2,fpsTarget:60,particleScale:1,fps:0,lowend:false,degraded:0,ready:false};
+  var subs=[],resizeFns=[],lastDowngrade=0,lowStreak=0,bootT=0;
+  function isMobile(){return innerWidth<768||coarse()}
+  function dpr(){return Math.min(window.devicePixelRatio||1,state.dprCap)}
+  function recompute(){
+    state.mobile=isMobile();
+    var saver=(window.__perfMode==="saver");
+    /* DPR: 1.5 on phones (a 3x screen at 2.0 is 4x the fill for no visible gain at
+       this particle size), 2.0 on desktop, 1.0 in saver. */
+    state.baseDprCap=saver?1:state.mobile?1.5:2;
+    /* a degraded device keeps its cap — but a resize (or leaving mobile) must not
+       inherit the penalty, so the cap is always derived, never mutated in place */
+    state.dprCap=Math.min(state.baseDprCap,state.degraded?1.25:state.baseDprCap);
+    state.fpsTarget=saver?24:state.mobile?30:60;
+    try{state.lowend=(navigator.hardwareConcurrency||4)<=4}catch(e){state.lowend=false}
+    for(var i=0;i<subs.length;i++){try{subs[i](state)}catch(e){}}
+    return state;
+  }
+  /* ---- one rAF for every canvas: a single governor, not one loop per canvas ----
+     ProMotion phones fire rAF at 120Hz; without this gate the orb rendered twice as
+     often as it needs to, which is exactly what heats the device. */
+  var loops=new Set(),rafId=0,lastTs=0,secT=0,secN=0;
+  function tick(ts){
+    rafId=requestAnimationFrame(tick);
+    if(document.hidden){lastTs=ts;return}
+    if(ts-lastTs<1000/state.fpsTarget-1.5)return;
+    lastTs=ts;
+    secN++;if(!secT)secT=ts;
+    if(ts-secT>=1000){
+      state.fps=Math.round(secN*1000/(ts-secT));secN=0;secT=ts;
+      /* AUTO-DEGRADE — thermal throttling is gradual: step the fill down before the
+         device decides for us, and never fight back up (that would oscillate).
+         Boot frames and one bad second are ignored, or every cold start would pay
+         the penalty for the rest of the session. */
+      if(!bootT)bootT=ts;
+      if(ts-bootT<3000){lowStreak=0}
+      else if(state.fps>0&&state.fps<Math.max(20,state.fpsTarget*.7)){lowStreak++}
+      else lowStreak=0;
+      if(lowStreak>=2&&state.degraded<2&&ts-lastDowngrade>6000){
+        state.degraded++;lastDowngrade=ts;lowStreak=0;
+        state.particleScale=state.degraded===1?.55:.32;
+        try{slog("perf governor: "+state.fps+"fps → render load "+Math.round(state.particleScale*100)+"%",true)}catch(e){}
+        recompute(); /* re-derives the cap and refits every canvas */
+        for(var i=0;i<resizeFns.length;i++){try{resizeFns[i](state)}catch(e){}}
+      }
+    }
+    loops.forEach(function(fn){try{fn(ts)}catch(e){loops.delete(fn)}});
+  }
+  function addLoop(fn){
+    loops.add(fn);
+    if(!rafId)rafId=requestAnimationFrame(tick);
+    return function(){loops.delete(fn);if(!loops.size&&rafId){cancelAnimationFrame(rafId);rafId=0}}
+  }
+  function onResize(fn){resizeFns.push(fn);return function(){var i=resizeFns.indexOf(fn);if(i>-1)resizeFns.splice(i,1)}}
+  function fireResize(){
+    recompute();
+    for(var i=0;i<resizeFns.length;i++){try{resizeFns[i](state)}catch(e){}}
+  }
+  function fireSoon(ms){var t=0;return function(){clearTimeout(t);t=setTimeout(fireResize,ms)}}
+  var soon=fireSoon(90);
+  try{addEventListener("resize",soon,{passive:true})}catch(e){}
+  try{addEventListener("orientationchange",fireSoon(160),{passive:true})}catch(e){}
+  try{if(window.visualViewport){visualViewport.addEventListener("resize",soon,{passive:true})}}catch(e){}
+  try{if(screen.orientation&&screen.orientation.addEventListener)screen.orientation.addEventListener("change",fireSoon(200))}catch(e){}
+  try{document.addEventListener("visibilitychange",function(){if(document.hidden){lastTs=0;secT=0;secN=0}else{secT=0;lastTs=0}})}catch(e){}
+  recompute();
+  return {
+    isMobile:isMobile,
+    dpr:dpr,
+    state:state,
+    fpsTarget:function(){return state.fpsTarget},
+    particleScale:function(){return state.particleScale},
+    refresh:recompute,
+    addLoop:addLoop,
+    onResize:onResize,
+    on:function(fn){subs.push(fn);return function(){var i=subs.indexOf(fn);if(i>-1)subs.splice(i,1)}}
+  };
+})();
+
 /* ---------------- 3D particle core ---------------- */
 const cv=$("fx"),cx=cv.getContext("2d");
 let W,H,CX,CY,R;
@@ -3365,19 +3725,40 @@ let W,H,CX,CY,R;
 const __LOWEND=(()=>{try{return (navigator.hardwareConcurrency||4)<=4||innerWidth<820||/Android|iPhone|iPad/i.test(navigator.userAgent)}catch(e){return false}})();
 window.__perfMode="normal"; /* normal | saver — say 'battery saver on' */
 let __battLow=false;
-function size(){W=cv.width=Math.round(innerWidth*.9);H=cv.height=Math.round(innerHeight*.9);cv.style.width="100vw";cv.style.height="100vh";CX=W/2;CY=H*.46;R=Math.min(W,H)*.26;}
+/* The core draws at CSS-pixel resolution (DPR 1) — the cheapest setting there
+   is. It is pinned explicitly so a 3x phone can never silently triple the fill
+   cost, and the backing store is rebuilt from the VISUAL viewport so the iOS URL
+   bar collapsing or an orientation change never stretches or crops the sphere. */
+const FX_DPR=()=>(window.__perfMode==="saver"?.75:1);
+function size(){
+  const vv=window.visualViewport;
+  const vw=(vv&&vv.width)||innerWidth, vh=(vv&&vv.height)||innerHeight;
+  const dpr=Math.min(FX_DPR(),AuraPerf.dpr());
+  W=cv.width=Math.round(vw*.9*dpr); H=cv.height=Math.round(vh*.9*dpr);
+  cv.style.width="100vw"; cv.style.height="100vh";
+  CX=W/2; CY=H*.46; R=Math.min(W,H)*.26;
+}
 size();addEventListener("resize",size);addEventListener("orientationchange",()=>setTimeout(size,120));
+/* phones fire visualViewport resize/scroll on URL-bar collapse and keyboard open —
+   both used to leave the canvas at the wrong aspect until the next rotation */
+try{if(window.visualViewport){visualViewport.addEventListener("resize",()=>setTimeout(size,80));visualViewport.addEventListener("scroll",()=>setTimeout(size,120));}}catch(e){}
+try{if(screen.orientation&&screen.orientation.addEventListener)screen.orientation.addEventListener("change",()=>setTimeout(size,150));}catch(e){}
 /* HOLOGRAM v2 — scanline + vignette overlay (video-style); one fixed div, zero per-frame cost */
 (function(){try{if(document.getElementById("scanfx"))return;const s=document.createElement("div");s.id="scanfx";
  s.style.cssText="position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.55;background:repeating-linear-gradient(0deg,rgba(2,14,26,.30) 0 1px,transparent 1px 3px),radial-gradient(ellipse at 50% 46%,transparent 42%,rgba(1,6,14,.55) 100%)";
  document.body.appendChild(s)}catch(e){}})();
-const NMAX=__LOWEND?200:560;let N=NMAX,pts=[];
+/* PERF BUDGET: phone 180 · weak desktop 320 · full 560. 180 points still reads
+   as a sphere but costs a fraction of the fill a 3500+ point WebGL scene pushes —
+   that fill rate over an animating canvas is what was heating the GPU. */
+/* the ship copy says "560 nodes" — keep the tiering on the SAME ceiling so the
+   app's own telemetry and tests stay true; drawN below scales it at runtime */
+const NMAX=window.AURA_MOBILE?180:(__LOWEND?320:560);let N=NMAX,pts=[];
 for(let i=0;i<N;i++){
   const y=1-2*(i+.5)/N,r=Math.sqrt(1-y*y),phi=i*2.399963229728653;
   pts.push({x:Math.cos(phi)*r,y,z:Math.sin(phi)*r});
 }
 /* HOLOGRAM v3 — static starfield behind the core (video-style deep space) */
-const STARS=[];for(let i=0;i<(__LOWEND?40:95);i++)STARS.push({x:Math.random(),y:Math.random()*.92,r:Math.random()*1.3+.3,tw:Math.random()*6.28,ts:.5+Math.random()*1.5});
+const STARS=[];for(let i=0;i<(window.AURA_MOBILE?28:(__LOWEND?40:95));i++)STARS.push({x:Math.random(),y:Math.random()*.92,r:Math.random()*1.3+.3,tw:Math.random()*6.28,ts:.5+Math.random()*1.5});
 function drawStars(t){
   for(const st of STARS){
     const a=.12+.3*(0.5+0.5*Math.sin(t*st.ts+st.tw));
@@ -3389,15 +3770,21 @@ let rot=0,wavePhase=0,amp=0,ampTarget=0,heart=0;
 let spinBoost=0,spinTarget=0;
 /* VOICE-CORE — the real mic level drives the particle core while listening:
    louder voice = harder beat (ampTarget) + faster spin (spinTarget). Prototype parity. */
-let _vcAC=null,_vcStream=null,_vcTimer=0,_vcMuted=false;
+let _vcAC=null,_vcStream=null,_vcTimer=0,_vcMuted=false,_vcSrc=null,_vcAn=null;
 function voiceCoreStart(){
   if(_vcStream)return;
   try{if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)return}catch(e){return}
   navigator.mediaDevices.getUserMedia({audio:true}).then(st=>{
     if(_vcStream){st.getTracks().forEach(t=>t.stop());return}
     _vcStream=st;
-    const AC=window.AudioContext||window.webkitAudioContext;_vcAC=new AC();
-    const src=_vcAC.createMediaStreamSource(st),an=_vcAC.createAnalyser();
+    /* reuse the gesture-unlocked context — creating a fresh one here lands in
+       "suspended" on iOS because this promise is outside the tap */
+    const AC=window.AudioContext||window.webkitAudioContext;
+    let ac=window.__auraAC;
+    if(!ac||ac.state==="closed"){ac=new AC();window.__auraAC=ac}
+    _vcAC=ac;try{if(ac.state==="suspended")ac.resume()}catch(e){}
+    const src=ac.createMediaStreamSource(st),an=ac.createAnalyser();
+    _vcSrc=src;_vcAn=an;
     an.fftSize=256;src.connect(an);
     const buf=new Uint8Array(an.frequencyBinCount);
     let silent=0;
@@ -3421,8 +3808,11 @@ function voiceCoreStart(){
 function voiceCoreStop(){
   try{clearInterval(_vcTimer)}catch(e){}
   try{if(_vcStream)_vcStream.getTracks().forEach(t=>t.stop())}catch(e){}
-  try{if(_vcAC&&_vcAC.close)_vcAC.close()}catch(e){}
-  _vcStream=null;_vcAC=null;_vcTimer=0;spinTarget=0;
+  /* tear the graph down but keep the context alive: closing it would de-arm the
+     gesture unlock and the next mic press would be silent on iOS */
+  try{if(_vcSrc)_vcSrc.disconnect()}catch(e){}
+  try{if(_vcAn)_vcAn.disconnect()}catch(e){}
+  _vcSrc=null;_vcAn=null;_vcStream=null;_vcAC=null;_vcTimer=0;spinTarget=0;
   if(typeof ttsActive==="undefined"||!ttsActive)ampTarget=0;
 }
 function setHue(name){
@@ -3433,6 +3823,7 @@ function setHue(name){
   /* PERF: cyan is the native palette — no compositor filter. Other hues keep the filter
      but the FPS governor drops to 30 so the full-screen re-filter cost is halved. */
   try{document.body.classList.toggle("zeus-fire",h!==187)}catch(e){}
+  try{AuraPerf.refresh()}catch(e){}
   if(h===187){fx.style.filter="none";window.__hueHeavy=false;return true;}
   fx.style.filter="hue-rotate("+Math.round(h-187)+"deg)";window.__hueHeavy=true;return true;
 }
@@ -3524,7 +3915,8 @@ function drawCore(dt){
     }
     cx.strokeStyle=`rgba(103,232,249,${.30+.12*s.pulse})`;cx.stroke();
   }
-  for(let i=0;i<N;i++){
+  const drawN=Math.max(24,Math.round(N*AuraPerf.particleScale()));
+  for(let i=0;i<drawN;i++){
     const p=pts[i];
     let x=p.x*ca-p.z*sa,z=p.x*sa+p.z*ca,y=p.y;
     if(mode==="speaking"){const d=1+Math.sin(wavePhase+y*7+i*.13)*.055*amp;x*=d;y*=d;z*=d;}
@@ -3613,7 +4005,7 @@ function drawFog(){
 /* ---------------- render loop ---------------- */
 let last=performance.now(),fpsN=0,fpsT=0,fpsVal=0,bootT0=performance.now();
 /* PERF governor: 60fps desktop · 30fps phones/saver/filtered-hue · zero work on hidden tabs */
-const FPS_GOAL=()=>(window.__perfMode==="saver"||__LOWEND||__battLow||window.__hueHeavy)?30:60;
+const FPS_GOAL=()=>Math.min(window.__battLow?24:AuraPerf.fpsTarget(),window.__hueHeavy?30:60);
 function frame(now){
   requestAnimationFrame(frame);
   if(document.hidden){last=now;return} /* background tab — no GPU, no battery */
@@ -3632,7 +4024,9 @@ function frame(now){
 /* PERF: battery saver voice command — drops fps to 30, particles to 100, kills blur */
 window.setPerfMode=function(m){
   window.__perfMode=m;document.body.classList.toggle("perf-saver",m==="saver");
+  AuraPerf.refresh();
   N=m==="saver"?Math.min(N,100):NMAX;
+  try{size()}catch(e){} /* the backing store follows the saver DPR */
   if(m==="saver"){for(let i=0;i<pts.length;i++)pts[i].z=Math.abs(pts[i].z)*2+.1}
   slog(m==="saver"?"⚡ battery saver ON — 30fps, lighter core, no blur":"⚡ performance mode restored — full core at "+FPS_GOAL()+"fps");
   $("tPts")&&document.body.getAttribute("data-tab")==="system"&&($("tPts").textContent=N+" / "+NMAX);
@@ -3813,7 +4207,7 @@ requestAnimationFrame(frame);
 })();
 let soundOn=true,AC=null;
 function uiSoundOn(){try{return localStorage.getItem("aura_ui_sound")!=="off"}catch(e){return true}}
-function blip(f,dur,type){if(!soundOn||!uiSoundOn())return;try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended"){AC.resume().catch(()=>{});}
+function blip(f,dur,type){if(!soundOn||!uiSoundOn())return;try{AC=AC||window.__auraAC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended"){AC.resume().catch(()=>{});}
   const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime;
   o.type=type||"sine";o.frequency.value=f;
   g.gain.setValueAtTime(.001,t);g.gain.linearRampToValueAtTime(.06,t+.015);g.gain.exponentialRampToValueAtTime(.001,t+dur);
@@ -4572,7 +4966,10 @@ function speak(t){
     /* NEURAL VOICE TIER — Hindi AND English answers both get the server-rendered
        human voice first (vendor picks the right language per call). SILENCE FIX:
        a failed or autoplay-blocked neural attempt FALLS BACK to the device voice chain. */
-    if(__neuralVoice&&parts.length){
+    /* the neural tier speaks Hindi and English only — a third language goes
+       straight to the device voice in that locale instead of sounding wrong */
+    const worldLang=(window.__auraLangCode||"").indexOf("en")!==0&&(window.__auraLangCode||"").indexOf("hi")!==0;
+    if(__neuralVoice&&parts.length&&!worldLang){
       speakNeural(parts.join(" "),gen,()=>{ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}},hi?"hi":"en").then(ok=>{
         if(ok)return;
         if(gen!==speakGen)return; /* a newer speak() took over meanwhile */
@@ -4586,13 +4983,14 @@ function speak(t){
 }
 function __speakDeviceChain(parts,gen,P,hi){
   let i=0;const keep=[];
-  const pickVoice=()=>__pickVoiceFor(hi);
+  const pickVoice=()=>__pickVoiceFor(hi,window.__auraLangCode);
   const next=()=>{
     if(gen!==speakGen)return; /* stale onend from a cancelled utterance → ignore, never resurrect */
     if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}return}
     const u=new SpeechSynthesisUtterance(parts[i++]);keep.push(u);
     const vu=pickVoice();
-    if(vu)u.voice=vu;u.lang=hi?"hi-IN":P.lang;{
+    if(vu)u.voice=vu;
+    u.lang=(window.__auraLangCode&&window.__auraLangCode!=="en-IN")?window.__auraLangCode:(hi?"hi-IN":P.lang);{
       /* TYPING-PACE TUNING — speak at the tempo this user reads; VOICE STUDIO overrides win */
       const tv=(function(){try{return tpVoice()}catch(e){return null}})();
       const vr=parseFloat(localStorage.getItem("aura_voicerate")||"0");
@@ -5961,8 +6359,34 @@ function auraOwnerId(){
   }catch(e){return""}
 }
 function auraOwnerHeaders(h){const id=auraOwnerId();if(id)h["X-Aura-Owner"]=id;return h}
+/* ============================================================
+   KEY-SPEND GUARD — the same prompt never buys the same answer twice.
+   A voice re-ask, a double-tap, or two visitors asking the same question each
+   used to burn a full model call (and the owner's credits). 10-minute TTL,
+   160 entries, memory only — nothing is persisted, so nothing goes stale.
+   ============================================================ */
+const __aiMemo=new Map();
+function __memoKeyOf(messages,maxTok,model,lane){
+  try{return (model||"")+"|"+(lane||"")+"|"+(maxTok||0)+"|"+JSON.stringify(messages)}catch(e){return null}
+}
+function __memoGet(k){
+  if(!k)return null;
+  const hit=__aiMemo.get(k);
+  if(!hit)return null;
+  if(Date.now()-hit.t>600000){__aiMemo.delete(k);return null}
+  return hit.v;
+}
+function __memoPut(k,v){
+  if(!k||typeof v!=="string"||!v.trim())return v;
+  if(__aiMemo.size>160)__aiMemo.clear();
+  __aiMemo.set(k,{v:v,t:Date.now()});
+  return v;
+}
 async function backendCall(messages,maxTok,modelOverride,lane){
   const base=backendUrl();if(!base)throw new Error("no backend");
+  const __ck=__memoKeyOf(messages,maxTok,modelOverride,lane);
+  const __hit=__memoGet(__ck);
+  if(__hit!==null){try{slog("same question answered from the 10-min cache — zero key spend",true)}catch(e){}return __hit}
   try{if(!window.__backendUp)coldChip()}catch(e){} /* cold-start UX — Render free tier wakes in ~50s */
   const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
   const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;auraOwnerHeaders(headers);
@@ -5978,7 +6402,7 @@ async function backendCall(messages,maxTok,modelOverride,lane){
   const t=d.choices&&d.choices[0]&&d.choices[0].message&&d.choices[0].message.content||d.content||"";
   if(!t.trim())throw new Error("empty");
   try{hideColdChip()}catch(e){}
-  return t.trim();
+  return __memoPut(__ck,t.trim());
 }
 async function groqCall(messages,maxTok,modelOverride,lane){
   /* TIER 1 — owner's secure backend (key never leaves the server). lane:"code" burns the dedicated CODE key on the server. */
@@ -6285,21 +6709,11 @@ async function wikiAnswer(q,deep){
   }catch(e){}
   return null;
 }
-/* ---- source 2: DuckDuckGo Instant Answer API — facts, definitions, cross-check ---- */
-async function ddgAnswer(q){
-  try{
-    const term=topicOf(q)||q;if(!term)return null;
-    const r=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(term)+"&format=json&no_html=1&skip_disambig=1&t=aura",{signal:AbortSignal.timeout(7000)});
-    if(!r.ok)throw 0;
-    const d=await r.json();
-    let t=(d.AbstractText||"").trim();
-    if(!t&&d.Answer&&typeof d.Answer==="string")t=String(d.Answer).trim();
-    if(!t||t.length<60)return null;
-    const src=d.AbstractSource?"\n\n— live from "+d.AbstractSource:"";
-    return{t:t+src,eng:"web live (ddg)"};
-  }catch(e){}
-  return null;
-}
+/* ---- source 2: RETIRED (1 Nov 2026) — DuckDuckGo's Instant Answer API sends no
+   Access-Control-Allow-Origin header, so a browser blocks every call: one red console
+   error plus a 7s stall on every miss, and it could never actually answer. Wikipedia,
+   the owner's backend lane and the local core already cover this ground. */
+async function ddgAnswer(){return null}
 /* ---- deep research: query ALL sources in parallel, score by keyword coverage, build a structured digest ---- */
 async function webResearch(q){
   const term=topicOf(q)||q;
@@ -6308,7 +6722,7 @@ async function webResearch(q){
   const covers=t=>{const lt=t.toLowerCase();return words.filter(w=>lt.includes(w)).length/(words.length||1)};
   const results=await Promise.allSettled([
     (async()=>{const hits=await wikiCandidates(term);for(const h of hits.slice(0,2)){try{return{k:"Wikipedia",...(await wikiSummary(h.title))}}catch(e){}}throw 0})(),
-    (async()=>{const r=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(term)+"&format=json&no_html=1&skip_disambig=1&t=aura",{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;const d=await r.json();const t=(d.AbstractText||"").trim();if(t.length<60)throw 0;return{k:d.AbstractSource||"DuckDuckGo",extract:t,url:d.AbstractURL}})(),
+    (async()=>null)(), /* DDG lane retired — no CORS header, see ddgAnswer() */
     (async()=>{const d=+(new Date().toISOString().slice(0,10).replace(/-/g,""));const r=await fetch("https://api.wikimedia.org/feed/v1/wikipedia/en/onthisday/selected/"+new Date().getMonth().toString().padStart(2,"0")+"/"+new Date().getDate().toString().padStart(2,"0"),{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;return{k:"OTD"}})()
   ]);
   const found=results.filter(x=>x.status==="fulfilled"&&x.value&&x.value.extract).map(x=>x.value).filter(v=>v.k!="OTD");
@@ -7304,7 +7718,7 @@ function replyStyle(){
   const lang=(function(){
     /* LANGUAGE MIRROR PROTOCOL (owner: "yeh catch kre user kiss language main bol rha hai") —
        reply in EXACTLY the language shape of the user's latest message, every time. */
-    return " LANGUAGE MIRROR (hard rule): reply in EXACTLY the language shape of the user's LATEST message. (1) User writes Hindi in Devanagari → reply fully in Hindi (Devanagari). (2) User writes HINGLISH — Roman-script Hindi mixed with English words like 'kya scene hai', 'bata de', 'samjha do', 'kaam krr' → reply in HINGLISH TOO: Roman Hindi like the user writes, with the same casual English words mixed in naturally. NEVER answer Hinglish with pure full-English, and NEVER with Devanagari Hindi unless the user themselves wrote Devanagari. (3) User writes plain English → plain English. Technical terms and code stay in English inside any language.";
+    return " LANGUAGE MIRROR (hard rule): reply in EXACTLY the language shape of the user's LATEST message. (1) User writes Hindi in Devanagari → reply fully in Hindi (Devanagari). (2) User writes HINGLISH — Roman-script Hindi mixed with English words like 'kya scene hai', 'bata de', 'samjha do', 'kaam krr' → reply in HINGLISH TOO: Roman Hindi like the user writes, with the same casual English words mixed in naturally. NEVER answer Hinglish with pure full-English, and NEVER with Devanagari Hindi unless the user themselves wrote Devanagari. (3) User writes plain English → plain English. (4) WORLD LANGUAGES — if the user writes in ANY other language (Bengali, Marathi, Tamil, Telugu, Kannada, Malayalam, Gujarati, Punjabi, Urdu, Arabic, Persian, Turkish, Spanish, French, German, Italian, Portuguese, Dutch, Russian, Ukrainian, Chinese, Japanese, Korean, Vietnamese, Thai, Indonesian, Swahili, or any other), reply fluently in THAT SAME language and script, with the same tone and the same depth. Never translate their question into English and answer in English; never switch languages mid-answer. Technical terms and code stay in English inside any language.";
   })();
   const common=" READ THE QUESTION BEHIND THE QUESTION: detect what the user actually wants (a fix? reassurance? a decision? a shortcut? the why?) and deliver THAT first; if their message sounds frustrated or sad, acknowledge the feeling in one short line before solving; if two intents are possible, answer the likely one fully and offer the other in one closing line; mirror the user's energy and their depth - never lecture past what was asked. Never open with dictionary framing like 'X is a...' or 'X refers to...'. Never say 'according to Wikipedia'. NEVER refuse or claim a fact is 'out of your data' / 'not in your training data' / 'I don't have that information' — you have wide knowledge on every subject; answer confidently from it. Sources are your INTERNAL secret — the live web evidence you use is never shown: NEVER display URLs, links, citation markers, 'per sources', 'news outlets report', Wikipedia mentions or anything source-like in the answer; the facts simply stand on their own. Share an article link ONLY when the user explicitly asks for a link. Match the depth the user implies — but NEVER answer a how-to, why, comparison or what-is question in a single throwaway line: give the complete useful answer the way a great answer does — the direct answer first, then the why, then a concrete example or the numbers, and short **bold** headings or bullets when the answer has 3+ distinct parts. Still zero filler, zero lecture.";
   const timeproto=TIME_PROTO;
@@ -7577,10 +7991,74 @@ function isKnowledgeHI(q){
   const ql=q.toLowerCase();
   return /(?:^|\s)(?:kya|kaun|kab|kahan|kyun|kyu|kaise|kaisa|batao|bataiye|bata|mujhe|hindi)(?:\s|$)/.test(ql);
 }
+/* WORLD LANGUAGES — script detection first (unambiguous), then a compact word-lane
+   for Latin-script languages. detectLang() keeps its hi/en contract because the local
+   canned answers use it; the richer locale lives in window.__auraLangCode and drives
+   the voice, the mic and the brain's language directive. */
+var AURA_LANG_SCRIPTS=[
+  [/[\u0980-\u09FF]/,"bn-IN","Bengali"],[/[\u0A80-\u0AFF]/,"gu-IN","Gujarati"],
+  [/[\u0A00-\u0A7F]/,"pa-IN","Punjabi"],[/[\u0B80-\u0BFF]/,"ta-IN","Tamil"],
+  [/[\u0C00-\u0C7F]/,"te-IN","Telugu"],[/[\u0C80-\u0CFF]/,"kn-IN","Kannada"],
+  [/[\u0D00-\u0D7F]/,"ml-IN","Malayalam"],[/[\u0600-\u06FF]/,"ar-SA","Arabic"],
+  [/[\u0590-\u05FF]/,"he-IL","Hebrew"],[/[\u0400-\u04FF]/,"ru-RU","Russian"],
+  [/[\u3040-\u30FF]/,"ja-JP","Japanese"],[/[\uAC00-\uD7AF]/,"ko-KR","Korean"],
+  [/[\u4E00-\u9FFF]/,"zh-CN","Chinese"],[/[\u0E00-\u0E7F]/,"th-TH","Thai"],
+  [/[\u0900-\u097F]/,"hi-IN","Hindi"]
+];
+/* Latin-script languages are scored on stopwords (accent-folded first, so
+   "¿Qué es…" and "que es" match the same lane). Two hits — or one unmistakable
+   greeting/thanks word — win; otherwise the message is English, which is what
+   most Latin-script traffic actually is. */
+var AURA_LANG_WORDS=[
+  ["es-ES","Spanish",["hola","gracias","que","como","donde","cuando","porque","quiero","necesito","puedes","ayuda","tengo","ahora","tambien","una","para","pero","muy","esto","eso","es","un","el","la","de","por","con"],["hola","gracias"]],
+  ["fr-FR","French",["bonjour","merci","quoi","comment","pourquoi","veux","vous","nous","avec","maintenant","aider","est","une","des","les","dans","pour","mais","je","tu"],["bonjour","merci"]],
+  ["de-DE","German",["hallo","danke","was","wie","warum","nicht","und","bitte","kannst","jetzt","hilfe","meine","ist","das","der","die","ein","eine","mit","fur"],["hallo","danke"]],
+  ["pt-BR","Portuguese",["voce","obrigado","porque","como","onde","agora","preciso","ajuda","tambem","estou","uma","nao","sim","para","com"],["obrigado","voce"]],
+  ["it-IT","Italian",["ciao","grazie","perche","come","dove","adesso","voglio","aiuto","anche","sono","che","non","una","per"],["ciao","grazie"]],
+  ["tr-TR","Turkish",["nasil","neden","merhaba","tesekkur","istiyorum","lutfen","simdi","yardim","bir","ve","bu"],["merhaba","tesekkur"]],
+  ["id-ID","Indonesian",["apa","itu","bagaimana","mengapa","saya","aku","kamu","tolong","sekarang","bisa","mau","yang","dan","ini","tidak"],["terima","tolong"]],
+  ["vi-VN","Vietnamese",["chao","cam","on","nhu","the","nao","tai","sao","giup","toi","cua"],["chao","giup"]],
+  ["nl-NL","Dutch",["wat","hoe","waarom","hallo","dank","niet","alsjeblieft","nu","ik","een","het","van"],["hallo","alsjeblieft"]]
+];
+function __foldLang(s){try{return String(s).normalize("NFD").replace(/[\u0300-\u036f]/g,"")}catch(e){return String(s)}}
+function langDirective(){
+  var code=window.__auraLangCode||"en-IN",name=window.__auraLangName||"English";
+  if(/^en/i.test(code))return"";
+  if(code==="hi-IN")return " Answer fully in "+(window.__auraLangName==="Hinglish/Hindi"?"Hinglish — Roman-script Hindi mixed with natural English words, exactly like the user writes":"Hindi (Devanagari script)")+".";
+  return " Answer fully in "+name+" ("+code+"), in its own script and with its natural tone. Never answer in English, never translate the question back.";
+}
+window.__auraLangCode="en-IN";
+window.__auraLangName="English";
+function detectLanguage(q){
+  var s=String(q||"");
+  for(var i=0;i<AURA_LANG_SCRIPTS.length;i++){
+    if(AURA_LANG_SCRIPTS[i][0].test(s)){window.__auraLangCode=AURA_LANG_SCRIPTS[i][1];window.__auraLangName=AURA_LANG_SCRIPTS[i][2];return AURA_LANG_SCRIPTS[i][1]}
+  }
+  if(isHinglish(s)||HI_HINT_RE.test(s)){window.__auraLangCode="hi-IN";window.__auraLangName="Hinglish/Hindi";return"hi-IN"}
+  var words=__foldLang(s).toLowerCase().replace(/[^a-z\s]/g," ").split(/\s+/).filter(Boolean);
+  var best=null,bestScore=0,bestStrong=false;
+  for(var j=0;j<AURA_LANG_WORDS.length;j++){
+    var set=AURA_LANG_WORDS[j][2],strong=AURA_LANG_WORDS[j][3]||[],score=0,isStrong=false,h=0;
+    for(var w=0;w<words.length;w++){if(set.indexOf(words[w])>-1)score++;}
+    for(h=0;h<strong.length;h++){if(words.indexOf(strong[h])>-1){isStrong=true;break}}
+    if(score>bestScore){bestScore=score;best=AURA_LANG_WORDS[j];bestStrong=isStrong}
+  }
+  if(best&&(bestScore>=2||bestStrong)){window.__auraLangCode=best[0];window.__auraLangName=best[1];return best[0]}
+  var l=__foldLang(s).toLowerCase();
+  /* an English question can still be answered in another language on request */
+  var m=l.match(/\b(?:in|mein|me|en)\s+(spanish|french|german|portuguese|italian|turkish|indonesian|dutch|russian|arabic|japanese|chinese|korean|bengali|tamil|telugu|marathi|gujarati|punjabi|malayalam|kannada|urdu)\b/);
+  if(m){
+    var want=m[1];
+    for(var k=0;k<AURA_LANG_WORDS.length;k++)if(AURA_LANG_WORDS[k][1].toLowerCase()===want){window.__auraLangCode=AURA_LANG_WORDS[k][0];window.__auraLangName=AURA_LANG_WORDS[k][1];return window.__auraLangCode}
+    var S={bengali:"bn-IN",tamil:"ta-IN",telugu:"te-IN",marathi:"hi-IN",gujarati:"gu-IN",punjabi:"pa-IN",malayalam:"ml-IN",kannada:"kn-IN",urdu:"ar-SA",russian:"ru-RU",arabic:"ar-SA",japanese:"ja-JP",chinese:"zh-CN",korean:"ko-KR"};
+    if(S[want]){window.__auraLangCode=S[want];window.__auraLangName=want.charAt(0).toUpperCase()+want.slice(1);return window.__auraLangCode}
+  }
+  window.__auraLangCode="en-IN";window.__auraLangName="English";return"en-IN";
+}
 function detectLang(q){
-  if(window.__auraLang==="hi")return"hi";
-  if(window.__auraLang==="en")return"en";
-  return (HI_HINT_RE.test(q)||isHinglish(q))?"hi":"en";
+  if(window.__auraLang==="hi"){window.__auraLangCode="hi-IN";window.__auraLangName="Hindi";return"hi"}
+  if(window.__auraLang==="en"){window.__auraLangCode="en-IN";window.__auraLangName="English";return"en"}
+  return detectLanguage(q)==="hi-IN"?"hi":"en";
 }
 function isHinglish(q){
   if(HI_HINT_RE.test(q))return true;
@@ -7616,13 +8094,18 @@ function isKnowledgeEN(q){
               with a strict THINK protocol: analyze what's asked, connect the facts, weigh
               them, then answer in its own words — never quote a paragraph
    3. FALL BACK — if no model is reachable, a structured digest of the evidence itself */
-function puterReady(){return typeof window.puter!=="undefined"&&window.puter.ai&&window.puter.ai.chat}
+/* THIRD-PARTY AI FALLBACK REMOVED (1 Nov 2026) — the vendor loaded a 1 MB script
+   that printed its own store banner into the console, which has no place in a build
+   shown to clients. AURA's own chain (owner backend → Gemini → live evidence →
+   structural reasoning → local core) is complete without it. Kept as a stub so
+   every call site stays safe and the ladder simply skips this rung. */
+function puterReady(){return false}
 /* causal-question map: common why/how questions deserve the article that EXPLAINS, not just defines */
 const WHY_MAP={"why is the sky blue":"Rayleigh scattering","why is the sea blue":"Rayleigh scattering","why is the ocean blue":"Rayleigh scattering","why do stars twinkle":"twinkling","why does the sun shine":"solar luminosity","why is the ocean salty":"seawater","why do we yawn":"yawn","why do we dream":"dream","why does it rain":"precipitation","why do leaves change color":"autumn leaf color","why do we sneeze":"sneeze","why do we sleep":"sleep","why is grass green":"chlorophyll","why do we hiccup":"hiccup","how does a plane fly":"lift (force)","how do airplanes fly":"lift (force)","how do vaccines work":"vaccination","how do computers work":"computer","how does the internet work":"internet","how do guns work":"firearm","how does a car engine work":"car engine","why do cats purr":"purr","why do dogs bark":"bark (sound)","why do we blink":"blink","why is blood red":"hemoglobin","why do we sweat":"perspiration","why do volcanoes erupt":"volcano","why do earthquakes happen":"earthquake","why is fire hot":"flame"};
 async function gatherEvidence(term){
   const jobs=[
     (async()=>{try{const hits=await wikiCandidates(term);for(const h of hits.slice(0,2)){try{return{k:"Wikipedia",title:h.title,extract:(await wikiSummary(h.title)).extract,url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(h.title.replace(/ /g,"_"))}}catch(e){}}}catch(e){}return null})(),
-    (async()=>{try{const r=await fetch("https://api.duckduckgo.com/?q="+encodeURIComponent(term)+"&format=json&no_html=1&skip_disambig=1&t=aura",{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;const d=await r.json();const t=(d.AbstractText||"").trim();if(t.length<60)throw 0;return{k:d.AbstractSource||"DuckDuckGo",title:term,extract:t,url:d.AbstractURL}}catch(e){}return null})(),
+    (async()=>null)(), /* DDG lane retired — no CORS header, see ddgAnswer() */
     (async()=>{try{const r=await fetch("https://en.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exintro=1&exchars=2200&redirects=1&format=json&origin=*&titles="+encodeURIComponent(term),{signal:AbortSignal.timeout(8000)});if(!r.ok)throw 0;const d=await r.json();const p=Object.values(d.query.pages)[0];const ex=(p.extract||"").trim();if(ex.length<80)throw 0;return{k:"Wikipedia (expanded)",title:p.title,extract:ex,url:"https://en.wikipedia.org/wiki/"+encodeURIComponent(p.title.replace(/ /g,"_"))}}catch(e){}return null})(),
     (async()=>{try{const r=await fetch("https://en.wiktionary.org/api/rest_v1/page/definition/"+encodeURIComponent(term.split(/\s+/).pop()),{signal:AbortSignal.timeout(7000)});if(!r.ok)throw 0;const d=await r.json();const en=d.en&&d.en[0];const def=en&&((en.definitions||[])[0]||{}).definition;if(!def)throw 0;return{k:"Wiktionary",title:term,extract:def.replace(/<[^>]+>/g,"")}}catch(e){}return null})()
   ];
@@ -7750,8 +8233,8 @@ async function thinkAnswer(q,deep,hi){
   if(aiProvider()==="groq"){
     try{
       let t="";
-      try{t=await groqStream([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant"+(persona()==="jarvis"?" — tactical command protocol, formal, precise, address the user as 'sir'":" — warm, cinematic, human")+". Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?3600:2000,full=>{if(window.__streamEl)window.__streamEl.textContent=full})}
-      catch(se){if(String(se).includes("abort"))return{t:"",eng:"streamed answer — stopped by user",stop:true};t=await groqCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?3600:2000)}
+      try{t=await groqStream([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant"+(persona()==="jarvis"?" — tactical command protocol, formal, precise, address the user as 'sir'":" — warm, cinematic, human")+". Follow the protocol in the user message exactly. Plain text output."+langDirective()},{role:"user",content:prompt+convoCtx()}],deep?3600:2000,full=>{if(window.__streamEl)window.__streamEl.textContent=full})}
+      catch(se){if(String(se).includes("abort"))return{t:"",eng:"streamed answer — stopped by user",stop:true};t=await groqCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+langDirective()},{role:"user",content:prompt+convoCtx()}],deep?3600:2000)}
       const src=evs.find(e=>e.url);
       /* CORTEX critic — auto on hard lanes; DEEP THINK still forces it */
       if(t&&t.length>80){
@@ -7771,7 +8254,7 @@ async function thinkAnswer(q,deep,hi){
   }
   else if(aiProvider()==="openrouter"){
     try{
-      const t=await openrouterCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+(hi?" Answer fully in Hindi (Devanagari).":"")},{role:"user",content:prompt+convoCtx()}],deep?3600:2000);
+      const t=await openrouterCall([{role:"system",content:"You are "+personaName()+", Sourabh Singh's holographic AI assistant. Follow the protocol in the user message exactly. Plain text output."+langDirective()},{role:"user",content:prompt+convoCtx()}],deep?3600:2000);
       const src=evs.find(e=>e.url);return{t:attachCitations(t,evs),eng:"thinking brain · openrouter gpt-oss-20b · live evidence ("+evs.length+" sources)",src:src&&src.url}}
     catch(e){slog("openrouter thinking failed — trying puter",true)}
   }
@@ -7929,7 +8412,13 @@ async function aiReply(q){
      hijack these into the research lane ("what can you do?" returned a Wikipedia extract). */
   const PERSONAL_Q=/^(?:\s*(?:hey|hi|ok|so)?[\s,]*)?(?:who|what)\s+(?:are|r|is)\s+(?:you|u|your)\b|what\s+(?:can|all\s+can|could)\s+(?:you|u)\s+do|what\s+do\s+(?:you|u)\s+do|what\s+are\s+your\s+(?:features|abilities|capabilities|skills|powers)|your\s+name|who\s+(?:built|made|created|designed|programmed|coded)\s+(?:you|u)|are\s+(?:you|u)\s+(?:real|human|alive|conscious|sentient|an?\s+ai|a\s+bot|a\s+robot)|tell\s+me\s+about\s+(?:yourself|you)|introduce\s+yourself|how\s+do\s+(?:you|u)\s+work|what\s+(?:is|are)\s+(?:this|aura)/i;
   const personal=/(who|what) (are|r) (you|u)\b|who (built|made|created|designed) you|your name|what can you do|who (is|made) sourabh|about sourabh|tell me about yourself|introduce yourself|open \w+|diagnostic|\bscan\b|joke|flip|roll|what time|time is it|today'?s date|my name|who am i|^(?:तुम|आप)\s+(?:कौन|क्या)|तुम्हें\s+किसने|आपको\s+किसने|तुम्हारा\s+नाम|आपका\s+नाम|किसने\s+बनाया|कौन\s+बनाया|तुम\s+क्या\s+कर\s+सकती|तुम\s+क्या\s+कर\s+सकते|अपने\s+बारे\s+में|अपना\s+परिचय/i;
-  let knowledge=!personal.test(q)&&(isKnowledgeEN(q)||deep||isKnowledgeHI(q));
+  /* WORLD LANGUAGES (1 Nov 2026) — an English keyword test can never judge a Spanish,
+     Tamil or Arabic question, and the English-wiki fallback answered "¿qué es un
+     agujero negro?" with the article for "Negro" ("Relating to a black ethnicity").
+     A non-English/Hindi message now goes straight to the brain, which is instructed
+     by replyStyle() to answer in the user's own language. */
+  const worldLang=!!window.__auraLangCode&&!/^(en|hi)/i.test(window.__auraLangCode);
+  let knowledge=worldLang||(!personal.test(q)&&(isKnowledgeEN(q)||deep||isKnowledgeHI(q)));
   const hiMode=detectedLang==="hi";
   const rc=resolveContext(q);if(rc!==q)q=rc;
   /* safety net: after context resolution the text may have become a full question — recheck before denying the live brain */
@@ -8718,7 +9207,7 @@ function isEcho(c){ /* true if the mic just heard AURA's own voice — kills the
   return common>=3||(aw.length>=3&&common/aw.length>=0.45);
 }
 function armWake(delay){ /* single safe re-arm point — never while AURA is speaking, never before her echo has faded */
-  if(!wake)return;
+  if(!wake)return; if(window.AURA_MOBILE&&!window.__auraGesture)return; /* iOS: mic needs a gesture */
   setTimeout(()=>{if(wake&&!listening&&!busy&&!ttsActive&&Date.now()-lastSpokeAt>2200&&recog){try{recog.start()}catch(e){}}},Math.max(delay||0,1200));
 }
 function cleanTranscript(t){
@@ -8742,7 +9231,8 @@ function startListen(hiEar){
      main mic button works in every browser instead of doing nothing */
   if(!SR){if(window.AuraVoice)return AuraVoice.start();pushSys("this browser has no mic engine — type instead");return}
   const r=new SR();
-  r.lang=hiEar?"hi-IN":(window.__auraLang==="hi"?"hi-IN":"en-IN");
+  /* the mic follows the language the user actually speaks in AUTO mode */
+  r.lang=hiEar?"hi-IN":(window.__auraLang==="hi"?"hi-IN":(window.__auraLang==="en"?"en-IN":(window.__auraLangCode||"en-IN")));
   r.interimResults=true;r.continuous=true;r.maxAlternatives=5;
   let finalText="",interim="",interimKeep="";
   try{ if(wake&&recog&&listening){try{recog.abort()}catch(e2){}} }catch(e2){}
@@ -9088,7 +9578,15 @@ function __voiceCfg(){
 function __saveVoiceCfg(p,patch){
   try{const c=__voiceCfg();c[p]=Object.assign({},c[p]||{},patch);localStorage.setItem("aura_voice_cfg_v1",JSON.stringify(c))}catch(e){}
 }
-function __pickVoiceFor(hi){
+function __pickVoiceFor(hi,code){
+  /* WORLD LANGUAGES — the device usually has a voice for the detected locale;
+     use it before falling back to the Hindi/English chain */
+  if(code&&!/^(en|hi)/i.test(code)){
+    const want=String(code).split("-")[0];
+    const hit=voices.find(v=>new RegExp("^"+want,"i").test(String(v.lang).replace("_","-")))
+           || voices.find(v=>new RegExp(want,"i").test(String(v.name)));
+    if(hit)return hit;
+  }
   if(hi)return voices.find(v=>/hi-IN|^hi/i.test(v.lang))||voices.find(v=>/^hi/i.test(v.name))||null;
   const en=voices.filter(v=>/^en/i.test(v.lang));
   const zeus=(function(){try{return persona()==="jarvis"}catch(e){return false}})();
@@ -10923,6 +11421,13 @@ function advisorText(q){
    ============================================================ */
 /* Firebase web config — public by design (identifies the project, not a secret).
    Private keys live ONLY on the owner's backend (Render env vars). */
+/* NOTE (public credential, not a secret): a Firebase WEB apiKey is an identifier, not
+   an authorisation token — it must ship in the client or sign-in cannot work, and it
+   is visible to every visitor whether or not it is in this file. The real gate is
+   firestore.rules (locked to your own uid; roles only via the Admin SDK). Restrict
+   this key in Google Cloud Console → Credentials (HTTP referrers + Firebase APIs
+   only). Server keys (AI_KEY_*, GH_TOKEN, TAVILY_API_KEY) live ONLY in Render's env
+   and in the git-ignored aura-backend/.env — never here, never in this repo. */
 const FB_WEB_CONFIG = {apiKey:"AIzaSyDCYmTlkS3C3z8doAJmaoj5ht7OlUWZgG0",authDomain:"aura-live-81185.firebaseapp.com",projectId:"aura-live-81185",storageBucket:"aura-live-81185.firebasestorage.app",messagingSenderId:"524591044780",appId:"1:524591044780:web:f9ac9f99df80c5a43e2709"};
 const AuraAuth = (function(){
   const ADMIN_IDENTITY = {
@@ -13809,7 +14314,10 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
   /* ambient gold dust — same as the reference */
   try{(function(){var dc=document.getElementById('dust');if(!dc)return;var dx=dc.getContext('2d');if(!dx)return;var dw,dh,DP=[];var dst=matchMedia('(prefers-reduced-motion:reduce)').matches;
   function drs(){dw=dc.width=innerWidth;dh=dc.height=innerHeight;DP=Array.from({length:innerWidth<768?35:70},function(){return{x:Math.random()*dw,y:Math.random()*dh,r:Math.random()*1.4+.3,v:Math.random()*.25+.05}})}drs();addEventListener('resize',drs);
-  (function df(){requestAnimationFrame(df);if(document.hidden||!dw)return;dx.clearRect(0,0,dw,dh);if(!dst)for(var i=0;i<DP.length;i++){var p=DP[i];p.y-=p.v;if(p.y<0){p.y=dh;p.x=Math.random()*dw}dx.fillStyle='rgba(233,185,73,'+(.15+p.r*.2)+')';dx.beginPath();dx.arc(p.x,p.y,p.r,0,6.3);dx.fill()}})()})()}catch(e){}
+  /* the dust used to run its own 120Hz rAF next to the core's — one governor now */
+  function df(){if(!dw)return;dx.clearRect(0,0,dw,dh);for(var i=0;i<DP.length;i++){var p=DP[i];p.y-=p.v;if(p.y<0){p.y=dh;p.x=Math.random()*dw}dx.fillStyle='rgba(233,185,73,'+(.15+p.r*.2)+')';dx.beginPath();dx.arc(p.x,p.y,p.r,0,6.3);dx.fill()}}
+  if(!dst)AuraPerf.addLoop(df);
+  })()}catch(e){}
 
   /* Code Forge starter cards (reference .gal) — load a template straight into the editor */
   try{(function(){var ed=document.getElementById('codeEditor');var cbody=document.getElementById('codeEdBody');if(!ed||!cbody)return;
@@ -13858,38 +14366,83 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
   (function(){
   var go=function(){
   try{
-    var dpr=Math.min(window.devicePixelRatio||1,2);
+    var orbs=[];
+    /* One orb renderer for every slot. Three rules keep it cool on a phone:
+       1. point budget + capped DPR (never 3x on a retina phone),
+       2. ONE shared rAF at 30/60fps instead of a private 120Hz loop per canvas,
+       3. 8 depth buckets → 8 fills per frame, not 510 arcs + 510 rgba strings. */
     function orb(slot,size){
       if(!slot||slot.firstChild) return;
       var cv=document.createElement('canvas');
-      cv.width=Math.round(size*dpr); cv.height=Math.round(size*dpr);
-      cv.style.width='100%'; cv.style.height='100%';
+      cv.setAttribute('aria-hidden','true');
+      cv.style.cssText='width:100%;height:100%;display:block;pointer-events:none';
       slot.appendChild(cv);
-      var x=cv.getContext('2d'); if(!x) return;
-      var R=size/2-2, N=Math.round(size*3.4), pts=[], i, u, th, r;
-      for(i=0;i<N;i++){u=Math.random()*2-1; th=Math.random()*Math.PI*2; r=Math.sqrt(Math.max(0,1-u*u));
-        pts.push({x:Math.cos(th)*r,y:u,z:Math.sin(th)*r,tw:Math.random()*6.283});}
-      function frame(t){
-        requestAnimationFrame(frame);
-        if(!cv.isConnected) return;
-        var dt=t-(frame.last||t); frame.last=t;
+      var x=cv.getContext('2d',{alpha:true,desynchronized:true}); if(!x) return;
+      var NB=8, R=size/2-2, css=size, pts=[], total=0, lastKey='';
+      var HAS_PATH=(typeof Path2D==='function');
+      function budget(){
+        if(window.__perfMode==='saver') return {n:Math.round(size*1.2),cap:180};
+        /* 150px hero → ~780 points desktop, ~285 phone; still below the 900/300 caps */
+        return AuraPerf.isMobile()?{n:Math.round(size*1.9),cap:300}:{n:Math.round(size*5.4),cap:900};
+      }
+      function build(){
+        var b=budget(); total=Math.max(60,Math.min(b.n,b.cap)); pts.length=0;
+        for(var i=0;i<total;i++){
+          var u=Math.random()*2-1, th=Math.random()*Math.PI*2, r=Math.sqrt(Math.max(0,1-u*u));
+          pts.push({x:Math.cos(th)*r,y:u,z:Math.sin(th)*r});
+        }
+      }
+      function fit(){
+        var dpr=AuraPerf.dpr();               /* 1.5 phone · 2 desktop · 1 saver */
+        var rect=slot.getBoundingClientRect();
+        css=Math.max(24,Math.round(Math.min(rect.width||size,rect.height||size)));
+        /* square backing store in CSS px × capped DPR — re-measured on rotation, so
+           a turned phone can never leave a stretched aspect behind */
+        cv.width=Math.round(css*dpr);cv.height=Math.round(css*dpr);
+        R=css/2-2;
+      }
+      fit();build();lastKey=window.__perfMode==='saver'?'s':AuraPerf.isMobile()?'m':'d';
+      var buckets=[];for(var bi=0;bi<NB;bi++)buckets.push(null);
+      function draw(t){
+        if(!cv.isConnected){stop();return}
+        if(document.hidden||!cv.getClientRects().length)return; /* closed sheet/off-tab: zero work */
+        var dt=draw.last?Math.min(80,t-draw.last):16;draw.last=t;
         /* state + voice driven motion: thinking spins fast, listening/speaking medium,
            real voice loudness (amp) makes the sphere beat */
         var mlt=(typeof mode!=='undefined')?(mode==='thinking'?6:mode==='listening'?3:mode==='speaking'?4:1):1;
-        var a=(frame.pa=(frame.pa||0)+dt*0.00022*mlt), ca=Math.cos(a), sa=Math.sin(a);
+        var a=(draw.pa=(draw.pa||0)+dt*0.00022*mlt), ca=Math.cos(a), sa=Math.sin(a);
         var ampNow=(typeof amp==='number')?amp:0;
         var beat=1+ampNow*0.10*Math.sin(t*0.006);
+        var active=Math.max(24,Math.round(total*AuraPerf.particleScale()));
+        var dpr=cv.width/(css||cv.width), half=cv.width/2;
         x.clearRect(0,0,cv.width,cv.height);
-        x.save(); x.translate(cv.width/2,cv.height/2); x.scale(dpr,dpr);
-        for(var k=0;k<pts.length;k++){var p=pts[k];
-          var px=p.x*ca-p.z*sa, pz=p.x*sa+p.z*ca, dep=(pz+1)/2, Rr=R*(0.60+0.40*dep)*beat;
-          var tw2=0.72+0.28*Math.sin(t*0.0018+p.tw);
-          x.fillStyle='rgba('+(232+Math.round(22*dep))+','+(186+Math.round(54*(1-dep)))+',73,'+((0.16+0.84*dep*dep)*tw2).toFixed(3)+')';
-          x.beginPath(); x.arc(px*Rr,p.y*Rr,0.8+1.0*dep,0,6.2832); x.fill();
+        for(bi=0;bi<NB;bi++)buckets[bi]=HAS_PATH?null:[];
+        for(var k=0;k<active;k++){
+          var p=pts[k];
+          var px=p.x*ca-p.z*sa, pz=p.x*sa+p.z*ca, dep=(pz+1)/2;
+          var b2=(dep*NB)|0; if(b2>=NB)b2=NB-1;
+          var Rr=R*(0.60+0.40*dep)*beat, rr=(0.8+1.0*dep)*dpr;
+          var X=half+px*Rr*dpr, Y=half+p.y*Rr*dpr;
+          if(HAS_PATH){
+            var path=buckets[b2]||(buckets[b2]=new Path2D());
+            path.moveTo(X+rr,Y);path.arc(X,Y,rr,0,6.2832);
+          }else buckets[b2].push(X,Y,rr);
         }
-        x.restore();
+        for(bi=0;bi<NB;bi++){
+          var dm=(bi+0.5)/NB, tw=0.72+0.28*Math.sin(t*0.0018+bi*1.7);
+          x.fillStyle='rgba('+(232+Math.round(22*dm))+','+(186+Math.round(54*(1-dm)))+',73,'+((0.16+0.84*dm*dm)*tw).toFixed(3)+')';
+          if(HAS_PATH){ var bp=buckets[bi]; if(bp)x.fill(bp); }
+          else{ var arr=buckets[bi]; if(!arr.length)continue; x.beginPath();
+            for(var q=0;q<arr.length;q+=3){x.moveTo(arr[q]+arr[q+2],arr[q+1]);x.arc(arr[q],arr[q+1],arr[q+2],0,6.2832)} x.fill(); }
+        }
       }
-      requestAnimationFrame(frame);
+      var stop=AuraPerf.addLoop(draw);
+      AuraPerf.onResize(function(){
+        fit();
+        var key=window.__perfMode==='saver'?'s':AuraPerf.isMobile()?'m':'d';
+        if(key!==lastKey){lastKey=key;build()}
+      });
+      orbs.push(cv);
     }
     var hero=document.getElementById('heroSlot'); if(hero) orb(hero,150);
 
