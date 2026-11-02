@@ -11790,7 +11790,7 @@ async function scrAnalyze(qq){
     .catch(()=>{window.__backendUp=false})};
   /* Render sleeps after 15 idle minutes and browser timers are throttled in a
      background tab, so ping more often than the sleep window while the app is open */
-  setTimeout(ping,2500);setInterval(ping,4*60*1000);
+  ping();setTimeout(ping,2500);setInterval(ping,4*60*1000); /* start the wake on load, not 2.5s later */
 })();
 function coldChip(ms){
   try{
