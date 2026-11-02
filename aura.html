@@ -2797,6 +2797,118 @@ html.m-phone #dock{bottom:calc(var(--mnavH,64px) + 8px)!important;
   left:8px!important;right:8px!important;width:auto!important;padding:0 2px!important}
 html.m-phone #toastShelf{bottom:calc(var(--mnavH,64px) + 92px)}
 html.m-phone #jumpLatest{bottom:calc(var(--dockH,170px) + var(--mnavH,64px) + 24px)!important}
+/* ---- HERO STACKED (phones) ----
+   The desktop hero is orb-beside-copy. At 355px that left the heading a 163px
+   column: "What are we / making today?" broken over three lines with the paragraph
+   one word wide. Stacking gives the words the full width and keeps the orb as the
+   character standing above them. */
+html.m-phone #stageEmpty{flex-direction:column!important;flex-wrap:nowrap!important;
+  align-items:center!important;text-align:center!important;gap:10px!important}
+html.m-phone #stageEmpty .se-copy{flex:0 0 auto!important;width:100%!important;min-width:0!important}
+html.m-phone #stageEmpty h4{font-size:clamp(21px,5.8vw,27px)!important;line-height:1.15!important}
+html.m-phone #stageEmpty p{max-width:340px!important}
+
+/* ---- ONE ROW OF TOOLS (phones) ----
+   Twelve pills wrapped into four rows (~200px tall) and buried the composer.
+   A single row that scrolls sideways keeps every tool one thumb-flick away at a
+   fixed height, so the dock stops growing as tools are added. */
+html.m-phone #dock .iconrow{flex-wrap:nowrap!important;overflow-x:auto!important;overflow-y:hidden!important;
+  width:100%!important;gap:6px!important;padding:2px 2px 4px!important;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+html.m-phone #dock .iconrow::-webkit-scrollbar{display:none}
+html.m-phone #dock .iconrow>*{flex:0 0 auto!important}
+/* ============================================================
+   PHONE SURFACE — CLEAN PASS (2 Nov 2026)
+   A phone screen holds one thing at a time. Below the composer there were 12
+   tool pills in four rows, a CLR/EXP/PSN action strip floating OVER the input,
+   an account pill and a build footer stacked on the bottom nav. All of it is
+   gone: what is left is the conversation, one pill to type into, three tabs.
+   ============================================================ */
+html.m-phone body #quickActions,
+html.m-phone body #pageFooter,
+html.m-phone body #scan,
+html.m-phone body #scanfx,
+html.m-phone body #stageChips,
+html.m-phone body #mhCta,
+html.m-phone body #dock .iconrow,
+html.m-phone body #chipsMobile,
+html.m-phone body #kbtn,
+html.m-phone body #helpBtn,
+html.m-phone body #topSlot{display:none!important}
+
+/* ---- top bar: the wordmark and nothing else ---- */
+html.m-phone body div#topbar{height:50px!important;padding:0 14px!important;gap:0!important;
+  background:rgba(4,8,16,.92)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;
+  border-bottom:1px solid rgba(255,255,255,.06)!important}
+html.m-phone body #topbar .wordmark{font-size:16px!important;letter-spacing:.14em!important;max-width:none!important}
+html.m-phone body #topbar .wordmark small{display:none!important}
+
+/* ---- the account chip moves out of the thumb zone into the top corner ---- */
+html.m-phone body #authBadge{position:fixed!important;top:9px!important;right:10px!important;
+  bottom:auto!important;left:auto!important;padding:3px 9px!important;font-size:10px!important;
+  border-radius:14px!important;box-shadow:none!important;z-index:45!important}
+
+/* ---- conversation: the whole screen, full bleed, readable ---- */
+html.m-phone body div#conv{top:50px!important;left:0!important;right:0!important;
+  bottom:calc(var(--mnavH,52px) + 66px)!important;
+  border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;
+  padding:6px 14px 0!important}
+html.m-phone body #log .msg{max-width:88%!important;font-size:15px!important;line-height:1.6!important;
+  padding:10px 13px!important;border-radius:16px!important;margin:0 0 10px!important}
+html.m-phone body #log .msg.aura{max-width:100%!important}
+
+/* ---- empty state: orb, one line, one status — nothing to choose ---- */
+html.m-phone body #stageEmpty{flex-direction:column!important;justify-content:center!important;
+  align-items:center!important;text-align:center!important;gap:8px!important;padding:20px 8px!important}
+html.m-phone body #stageEmpty .se-orb{width:92px!important;height:92px!important}
+html.m-phone body #stageEmpty h4{font-size:20px!important;line-height:1.25!important;font-weight:400!important}
+html.m-phone body #stageEmpty #state,html.m-phone body #stageEmpty p{font-size:11px!important;
+  max-width:270px!important;margin:0 auto!important;line-height:1.5!important}
+
+/* ---- composer: one row, one pill ---- */
+html.m-phone body div#dock{left:10px!important;right:10px!important;width:auto!important;
+  bottom:calc(var(--mnavH,52px) + 8px)!important;padding:4px 4px 4px 6px!important;
+  border-radius:24px!important;background:rgba(12,18,30,.96)!important;
+  border:1px solid rgba(255,255,255,.09)!important;box-shadow:none!important;min-height:0!important}
+html.m-phone body #inputRow{height:48px!important;gap:2px!important;align-items:center!important}
+html.m-phone body #micBtn{width:40px!important;height:40px!important;min-width:40px!important;
+  font-size:18px!important;border-radius:50%!important;box-shadow:none!important}
+html.m-phone body span.clipwrap{width:32px!important;height:32px!important}
+html.m-phone body #clipBtn{width:32px!important;height:32px!important;min-width:0!important;
+  border-radius:50%!important;box-shadow:none!important;font-size:14px!important}
+html.m-phone body #q{flex:1 1 auto!important;width:auto!important;min-width:0!important;height:40px!important;
+  font-size:16px!important;padding:0 10px!important;border-radius:20px!important;border:0!important;
+  background:rgba(255,255,255,.04)!important;box-shadow:none!important}
+html.m-phone body #sendBtn{width:40px!important;height:40px!important;min-width:0!important;
+  border-radius:50%!important;font-size:15px!important;box-shadow:none!important}
+
+/* ---- stop button clears the composer instead of sitting on it ---- */
+html.m-phone body #stopBtn{font-size:11px!important;min-height:34px!important;padding:0 14px!important;
+  bottom:calc(var(--mnavH,52px) + 68px)!important;box-shadow:none!important}
+html.m-phone body #toastShelf{bottom:calc(var(--mnavH,52px) + 72px)!important}
+
+/* ---- bottom nav: three quiet tabs, no shelf ---- */
+html.m-phone body div#tabbar{height:auto!important;padding:4px 6px calc(4px + env(safe-area-inset-bottom,0px))!important;
+  background:rgba(6,10,18,.98)!important;border-top:1px solid rgba(255,255,255,.07)!important;box-shadow:none!important}
+html.m-phone body #tabbar button[data-t]{height:44px!important;gap:2px!important;font-size:9px!important;
+  letter-spacing:.08em!important;border-radius:10px!important;background:none!important}
+html.m-phone body #tabbar button .i{width:18px!important;height:18px!important}
+/* the four HUD corner brackets are desktop framing — on a phone they sat on
+   top of the bottom nav */
+html.m-phone body .corner{display:none!important}
+/* message actions under the text, not wrapped into the last sentence */
+html.m-phone body #log .msg .tx{display:block!important}
+html.m-phone body #log .msg .mact{width:32px!important;height:32px!important;min-width:0!important;
+  margin:8px 6px 0 0!important;font-size:13px!important;border-radius:9px!important;box-shadow:none!important}
+/* active tab is a tint, not a box */
+
+/* a quiet stop pill — visible only while AURA is actually speaking */
+html.m-phone body button#stopBtn{font-size:10px!important;letter-spacing:1.2px!important;min-height:30px!important;
+  padding:0 13px!important;border-radius:15px!important;color:#ffc9c9!important;
+  background:rgba(160,20,20,.28)!important;border:1px solid rgba(248,113,113,.35)!important;
+  box-shadow:none!important;animation:none!important;bottom:calc(var(--mnavH,52px) + 64px)!important}
+html.m-phone body #tabbar button[data-t].on{background:rgba(233,185,73,.10)!important;
+  border-color:transparent!important;box-shadow:none!important}
 </style>
 </head>
 <body>
@@ -3532,6 +3644,8 @@ window.AURA_MOBILE = window.AuraDevice.isMobile;
       });
       document.documentElement.classList.add("m-phone");
       if(document.body)document.body.classList.add("m-phone");
+      /* the desktop placeholder is 44 characters and clipped in the 199px pill */
+      try{var qb=document.getElementById("q");if(qb)qb.placeholder="Message AURA…";}catch(e){}
     }catch(e){}
     /* FINAL LAYOUT WORD — the app injects several late <style> blocks into <head>
        (v5 skins), which beat an equal-specificity rule from the static stylesheet and
@@ -9383,158 +9497,636 @@ if(navigator.getBattery)navigator.getBattery().then(b=>{
   f();b.addEventListener("levelchange",f);b.addEventListener("chargingchange",f);
 });else $("tBat").textContent="AC LINK";
 
-/* ================= ZEUS MESH — video-style multi-device control (Sourabh's design) =================
-   ZEUS (owner) generates a 6-digit mesh code; any phone opens this same file with #node=<code>
-   to join as a NODE. ZEUS sees devices + battery, pushes commands (speak/vibrate/flash/
-   location/battery/open/show/ping), nodes execute and report back. Relay = Render backend,
-   maker-gated on the control side; nodes are passive receivers. */
+/* ================= ZEUS MESH — device command net (v2, 2 Nov 2026) =================
+   Two halves, one relay:
+
+   NODE  (#node=<code>) — a phone that joined a mesh. It stays connected until the
+         user turns it off: auto-rejoin, backoff on failure, instant wake on
+         network/visibility, wake-lock while visible, and an ack list so a lost
+         response can neither drop a command nor run one twice.
+   OWNER (the MESH panel) — claims the code, sees every device, targets one or all,
+         renames, kicks, and can disconnect (which releases the code) or reconnect.
+
+   Nothing in here throws into the page: every network path resolves to a state. */
 function __meshBackend(){return (localStorage.getItem("aura_backend_url")||AURA_DEFAULT_BACKEND).trim().replace(/\/+$/,"")}
-async function __meshFetch(path,body,method){
-  const secret=(localStorage.getItem("aura_backend_secret")||"").trim();
-  const headers={"Content-Type":"application/json"};if(secret)headers["X-AURA-Key"]=secret;
-  try{const g=auraOwnerId();if(g)headers["X-Aura-Owner"]=g}catch(e){} /* guest mesh ownership stays stable */
-  try{ /* AuraAuth is a later const — touching it before init throws TDZ; guard everything */
+function __meshStore(k,v){
+  try{
+    if(v===undefined)return localStorage.getItem(k);
+    if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,String(v));
+  }catch(e){}
+  return v;
+}
+function __meshNodeId(){
+  let id=__meshStore("aura_mesh_node_id");
+  if(!id){id="node-"+Math.random().toString(36).slice(2,9);__meshStore("aura_mesh_node_id",id)}
+  return id;
+}
+function __meshDeviceName(){
+  try{
+    let n=__meshStore("aura_mesh_node_name");
+    if(n)return n;
+    const ua=navigator.userAgent||"";
+    const plat=(navigator.userAgentData&&navigator.userAgentData.platform)||(/iPhone/.test(ua)?"iPhone":/iPad/.test(ua)?"iPad":/Android/.test(ua)?"Android":/Macintosh/.test(ua)?"Mac":/Windows/.test(ua)?"Windows":"Browser");
+    return plat+" · "+__meshNodeId().slice(-4);
+  }catch(e){return "Node"}
+}
+/* one network entry point: timeout, JSON, and an error that carries .status */
+async function __meshFetch(path,body,method,opts){
+  const secret=(__meshStore("aura_backend_secret")||"").trim();
+  const headers={"Content-Type":"application/json"};
+  if(secret)headers["X-AURA-Key"]=secret;
+  try{const g=auraOwnerId();if(g)headers["X-Aura-Owner"]=g}catch(e){}
+  try{
     if(typeof AuraAuth!=="undefined"&&AuraAuth&&AuraAuth.isAdmin&&AuraAuth.isAdmin()){
       const t=await __freshTok();if(t)headers["Authorization"]="Bearer "+t;
     }
-  }catch(e){} /* node devices are signed out — no token, no problem */
-  const r=await fetch(__meshBackend()+path,{method:method||"POST",headers,body:method==="GET"?undefined:JSON.stringify(body||{}),signal:AbortSignal.timeout(45000)});
-  const j=await r.json().catch(()=>({}));
-  if(!r.ok)throw new Error(j.error||"HTTP "+r.status);
-  return j;
-}
-function __meshNodeId(){
-  try{let id=localStorage.getItem("aura_mesh_node_id");if(!id){id="node-"+Math.random().toString(36).slice(2,9);localStorage.setItem("aura_mesh_node_id",id)}return id}catch(e){return "node-anon"}
-}
-/* ---------- NODE mode (#node=<code>) — the phone side, runs anywhere ---------- */
-(function(){
-  try{
-    const m=location.hash.match(/#node=(\d{6})/);if(!m)return;
-    const code=m[1];
-    const boot=(async()=>{
-      const devName=(navigator.userAgentData&&navigator.userAgentData.platform)||(/iPhone|iPad/.test(navigator.userAgent)?"iPhone":/Android/.test(navigator.userAgent)?"Android":"Browser")+" "+(navigator.hardwareConcurrency||2)+"-core";
-      let joined=false;
-      for(let i=0;i<6&&!joined;i++){ /* retry ~30s — ZEUS ki taraf code abhi ban raha ho sakta hai */
-        try{ await __meshFetch("/v1/mesh/join",{code,nodeId:__meshNodeId(),name:devName}); joined=true; }
-        catch(e){ document.title="⏳ MESH — waiting for ZEUS ("+(i+1)+"/6)"; await new Promise(r=>setTimeout(r,6000)); }
-      }
-      if(!joined){ document.title="✖ MESH — code not live, ZEUS se code refresh karwao"; return; }
-      document.title="✅ ZEUS NODE — mesh "+code;
-      try{pushSys("🔗 ZEUS NODE armed — mesh "+code+" · this device now takes orders from ZEUS.")}catch(e){}
-      (async function pollLoop(){
-        for(;;){
-          try{
-            const batt=navigator.getBattery?await new Promise(res=>{let done=false;navigator.getBattery().then(b=>{if(!done){done=true;res(b.level*100)}});setTimeout(()=>{if(!done){done=true;res(null)}},3000)}):null;
-            const j=await __meshFetch("/v1/mesh/poll",{code,nodeId:__meshNodeId(),battery:batt,net:(navigator.connection&&navigator.connection.effectiveType)||""});
-            for(const c of (j.cmds||[])){
-              (async()=>{
-                let ok=true,detail="";
-                try{
-                  if(c.cmd==="speak"){
-                    try{synth.cancel()}catch(e){}
-                    const u=new SpeechSynthesisUtterance(String(c.arg||"ZEUS orders received").slice(0,300));
-                    const v=(typeof __pickVoiceFor==="function")?__pickVoiceFor(false):null;if(v)u.voice=v;
-                    u.rate=1;u.pitch=.9;synth.speak(u);detail="spoke: "+String(c.arg||"").slice(0,60);
-                  }else if(c.cmd==="vibrate"){
-                    const n=Math.min(parseInt(c.arg,10)||3,8);navigator.vibrate&&navigator.vibrate([200,100,200,100,200].slice(0,n*2));detail="vibrated "+n+"x";
-                  }else if(c.cmd==="flash"){
-                    const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;background:#fff;z-index:99999;transition:opacity .3s";document.body.appendChild(d);
-                    let k=0;const iv=setInterval(()=>{k++;d.style.opacity=k%2?"1":"0";if(k>=6){clearInterval(iv);d.remove()}},280);detail="torch flash 3x";
-                  }else if(c.cmd==="battery"){
-                    const b=navigator.getBattery?await navigator.getBattery():null;detail=b?Math.round(b.level*100)+"% "+(b.charging?"charging":"on battery"):"no battery API";
-                  }else if(c.cmd==="location"){
-                    detail=await new Promise(res=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>res(p.coords.latitude.toFixed(5)+","+p.coords.longitude.toFixed(5)),e=>res("denied/timeout"),{timeout:12000}):res("no geolocation"));
-                  }else if(c.cmd==="open"){
-                    const u=String(c.arg||"").trim();if(/^https?:\/\//.test(u))window.open(u,"_blank"),detail="opened "+u.slice(0,60);else{ok=false;detail="invalid url"}
-                  }else if(c.cmd==="show"){
-                    const d=document.createElement("div");d.style.cssText="position:fixed;inset:0;z-index:99999;background:#05070E;color:#67e8f9;display:flex;align-items:center;justify-content:center;font:700 28px 'JetBrains Mono',monospace;text-align:center;padding:30px;white-space:pre-wrap";d.textContent=String(c.arg||"").slice(0,300);document.body.appendChild(d);setTimeout(()=>d.remove(),15000);detail="displayed";
-                  }else{detail="executed";
-                  }
-                }catch(e){ok=false;detail=e.message||"failed"}
-                try{await __meshFetch("/v1/mesh/result",{code,nodeId:__meshNodeId(),name:document.title.replace(/^✅ ZEUS NODE — mesh /,"Node "),cmd:c.cmd,ok,detail})}catch(e){}
-              })();
-            }
-          }catch(e){ await new Promise(r=>setTimeout(r,6000)); }
-          await new Promise(r=>setTimeout(r,2500));
-        }
-      })();
-    })();
   }catch(e){}
-})();
-/* ---------- ZEUS side: mesh panel + live device list ---------- */
-(function(){
-  const st=document.createElement("style");
-  st.textContent="#meshMenu{position:fixed;inset:0;background:rgba(2,6,14,.72);backdrop-filter:blur(6px);z-index:9998;display:flex;align-items:center;justify-content:center}#meshMenu .tm-card{position:relative;background:rgba(10,16,30,.97);border:1px solid rgba(120,220,255,.25);border-radius:16px;padding:20px;width:min(470px,94vw);max-height:88vh;overflow:auto;color:#dfeaff;box-shadow:0 24px 60px rgba(0,0,0,.5)}#meshMenu h3{margin:0 0 4px;font-size:15px}#meshMenu .tm-sub{font-size:11.5px;opacity:.65;margin-bottom:10px;line-height:1.5}#meshMenu .tm-btn{background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.35);color:#bfefff;border-radius:10px;padding:8px 10px;font-size:12px;cursor:pointer;font-weight:600;margin:4px 4px 4px 0}#meshMenu .tm-btn:hover{background:rgba(34,211,238,.22)}#meshMenu .tm-close{position:absolute;top:8px;right:12px;background:none;border:none;color:#9cf;font-size:18px;cursor:pointer}#meshMenu .mrow{display:flex;gap:6px;align-items:center;margin:6px 0}#meshMenu input,#meshMenu select{background:rgba(3,10,20,.8);border:1px solid rgba(120,220,255,.3);color:#dfeaff;border-radius:8px;padding:7px 9px;font-size:12.5px}#meshMenu input{flex:1}#meshMenu .dev{border:1px solid rgba(120,220,255,.16);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:12px}#meshMenu .dev b{color:#e0f2fe}#meshMenu .res{font-size:11px;opacity:.8;margin:3px 0;padding-left:8px;border-left:2px solid rgba(34,211,238,.4)}#meshMenu .code{font-size:30px;font-weight:800;letter-spacing:8px;color:#67e8f9;text-shadow:0 0 18px rgba(34,211,238,.5);text-align:center;margin:6px 0}#meshMenu .qr{background:#fff;border-radius:8px;padding:6px;width:max-content;margin:4px auto}";
-  document.head.appendChild(st);
-  let meshCode="",meshTimer=null,meshErr="",meshLog=[]; /* server is the truth — code is CLAIMED fresh on every open (register is idempotent per owner) */
-  /* the server hands out results once (read-and-clear), so the panel keeps its own
-     short history — otherwise a delivered command's ✅ vanished on the next 4s poll */
-  async function claimMesh(){
-    try{ const j=await __meshFetch("/v1/mesh/register",{}); meshCode=j.code; meshErr=""; try{localStorage.setItem("aura_mesh_code",meshCode)}catch(e){} return true; }
-    catch(e){ meshErr=e.message||"claim failed"; return false; }
+  const ms=(opts&&opts.timeout)||15000;
+  const ctl=(typeof AbortController!=="undefined")?new AbortController():null;
+  const timer=ctl?setTimeout(()=>{try{ctl.abort()}catch(e){}},ms):null;
+  try{
+    const r=await fetch(__meshBackend()+path,{
+      method:method||"POST",headers,
+      body:(method==="GET")?undefined:JSON.stringify(body||{}),
+      signal:ctl?ctl.signal:undefined,
+      cache:"no-store"
+    });
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok){
+      const err=new Error(j.error||("HTTP "+r.status));
+      err.status=r.status;err.payload=j;throw err;
+    }
+    return j;
+  }finally{if(timer)clearTimeout(timer)}
+}
+function __meshSleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+/* ---------------- command executor (runs on the node) ---------------- */
+function __meshSay(text){
+  const t=String(text||"ZEUS orders received").slice(0,300);
+  try{
+    if(typeof synth!=="undefined"&&synth){
+      try{synth.cancel()}catch(e){}
+      const u=new SpeechSynthesisUtterance(t);
+      const v=(typeof __pickVoiceFor==="function")?__pickVoiceFor(false):null;if(v)u.voice=v;
+      u.rate=1;u.pitch=.9;synth.speak(u);return "spoke: "+t.slice(0,60);
+    }
+    if(window.speechSynthesis){const u=new SpeechSynthesisUtterance(t);speechSynthesis.speak(u);return "spoke: "+t.slice(0,60)}
+  }catch(e){}
+  return "no speech engine";
+}
+function __meshRing(){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return "no audio";
+    const ac=window.__auraAC||new AC();window.__auraAC=ac;
+    if(ac.state==="suspended")ac.resume();
+    let t=ac.currentTime;
+    for(let i=0;i<6;i++){
+      const o=ac.createOscillator(),g=ac.createGain();
+      o.type="sine";o.frequency.value=i%2?880:660;
+      g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.18,t+.02);
+      g.gain.exponentialRampToValueAtTime(.001,t+.28);
+      o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+.3);t+=.32;
+    }
+    return "rang 6x";
+  }catch(e){return "ring failed"}
+}
+async function __meshExec(c,ctx){
+  let ok=true,detail="";
+  try{
+    const arg=String(c.arg==null?"":c.arg);
+    if(c.cmd==="speak"){detail=__meshSay(arg)}
+    else if(c.cmd==="vibrate"){
+      const n=Math.min(parseInt(arg,10)||3,8);
+      if(navigator.vibrate){navigator.vibrate(Array.from({length:n},()=>[220,120]).flat());detail="vibrated "+n+"x"}
+      else detail="no vibrator on this device";
+    }
+    else if(c.cmd==="flash"){
+      const d=document.createElement("div");
+      d.style.cssText="position:fixed;inset:0;background:#fff;z-index:99999;transition:opacity .28s;pointer-events:none";
+      document.body.appendChild(d);
+      let k=0;const iv=setInterval(()=>{k++;d.style.opacity=k%2?"1":"0";if(k>=6){clearInterval(iv);d.remove()}},300);
+      detail="flashed 3x";
+    }
+    else if(c.cmd==="battery"){
+      const b=navigator.getBattery?await navigator.getBattery():null;
+      detail=b?(Math.round(b.level*100)+"%"+(b.charging?" charging":" on battery")):"no battery API";
+    }
+    else if(c.cmd==="location"){
+      detail=await new Promise(res=>{
+        if(!navigator.geolocation)return res("no geolocation");
+        navigator.geolocation.getCurrentPosition(
+          p=>res(p.coords.latitude.toFixed(5)+","+p.coords.longitude.toFixed(5)),
+          e=>res("denied/timeout"),{timeout:12000,maximumAge:60000}
+        );
+      });
+    }
+    else if(c.cmd==="open"){
+      const u=arg.trim();
+      if(/^https?:\/\//.test(u)){window.open(u,"_blank");detail="opened "+u.slice(0,60)}
+      else {ok=false;detail="invalid url"}
+    }
+    else if(c.cmd==="show"){
+      const d=document.createElement("div");
+      d.style.cssText="position:fixed;inset:0;z-index:99999;background:#05070E;color:#67e8f9;display:flex;align-items:center;justify-content:center;font:700 26px 'JetBrains Mono',monospace;text-align:center;padding:28px;white-space:pre-wrap";
+      d.textContent=arg.slice(0,300);
+      document.body.appendChild(d);
+      d.onclick=()=>d.remove();
+      setTimeout(()=>{try{d.remove()}catch(e){}},15000);
+      detail="displayed";
+    }
+    else if(c.cmd==="notify"){
+      if(!("Notification" in window)){ok=false;detail="no notifications"}
+      else{
+        if(Notification.permission==="default"){try{await Notification.requestPermission()}catch(e){}}
+        if(Notification.permission==="granted"){new Notification("AURA MESH",{body:arg.slice(0,180)||"message from the mesh"});detail="notified"}
+        else {ok=false;detail="permission "+Notification.permission}
+      }
+    }
+    else if(c.cmd==="ring"){detail=__meshRing()}
+    else if(c.cmd==="copy"){
+      try{await navigator.clipboard.writeText(arg);detail="copied "+arg.length+" chars"}
+      catch(e){ok=false;detail="clipboard blocked"}
+    }
+    else if(c.cmd==="toast"){
+      const d=document.createElement("div");
+      d.style.cssText="position:fixed;left:50%;transform:translateX(-50%);bottom:90px;z-index:99999;background:rgba(6,16,26,.97);border:1px solid rgba(34,211,238,.45);color:#bff3ff;padding:10px 16px;border-radius:12px;font:600 12px 'JetBrains Mono',monospace;max-width:88vw";
+      d.textContent=arg.slice(0,180)||"mesh ping";
+      document.body.appendChild(d);setTimeout(()=>d.remove(),4200);
+      detail="toast shown";
+    }
+    else if(c.cmd==="reload"){setTimeout(()=>location.reload(),400);detail="reloading"}
+    else if(c.cmd==="ping"||c.cmd===""){detail="pong"+(ctx&&ctx.rtt?" · rtt "+ctx.rtt+"ms":"")}
+    else {ok=false;detail="unknown command: "+String(c.cmd).slice(0,20)}
+  }catch(e){ok=false;detail=String(e&&e.message||e).slice(0,120)}
+  return {ok,detail};
+}
+
+/* ---------------- NODE runtime ---------------- */
+const AuraMeshNode=(function(){
+  let code="",running=false,stopped=true,status="idle",rtt=null,peers=0,ran=0,gen=0;
+  const seen=[];               /* ids this node already executed (ack list) */
+  let wake=null,backoff=2000,bar=null,lock=null,live=null,lastErr="";
+  const seenKey="aura_mesh_seen";
+  try{const s=JSON.parse(__meshStore(seenKey)||"[]");if(Array.isArray(s))seen.push(...s.slice(-60))}catch(e){}
+  function remember(id){
+    if(id==null)return false;
+    if(seen.indexOf(id)>=0)return true;
+    seen.push(id);if(seen.length>60)seen.shift();
+    try{__meshStore(seenKey,JSON.stringify(seen))}catch(e){}
+    return false;
   }
-  async function qrURL(text){return "https://api.qrserver.com/v1/create-qr-code/?size=140x140&data="+encodeURIComponent(text)}
-  async function refresh(){
-    if(!meshCode)return;
+  function paint(label,cls){
+    if(!bar)return;
+    const t=bar.querySelector(".tx");if(t)t.textContent=label;
+    bar.className=cls||"";
+  }
+  function ensureBar(){
+    if(bar&&document.body.contains(bar))return bar;
+    if(!document.body)return null;
+    bar=document.createElement("div");
+    bar.id="meshBar";
+    bar.innerHTML='<span class="d"></span><span class="tx">MESH</span><span class="x" role="button" tabindex="0" aria-label="Disconnect from mesh">DISCONNECT</span>';
+    bar.querySelector(".x").onclick=function(e){e.stopPropagation();stop(true)};
+    bar.onclick=function(){openSheet()};
+    document.body.appendChild(bar);
+    return bar;
+  }
+  function setStatus(s,label){
+    if(stopped&&s==="live")return; /* a poll that was already in flight must not revive a stopped node */
+    status=s;
+    ensureBar();
+    const cls=s==="live"?"":(s==="wait"?"wait":"off");
+    paint(label||(s==="live"?"MESH · live"+(rtt?" "+rtt+"ms":"")+(peers?" · "+peers+" peer"+(peers>1?"s":""):""):s==="wait"?"MESH · connecting…":"MESH · offline — retrying"),cls);
+  }
+  async function heartbeat(){
+    return new Promise(res=>{
+      if(!navigator.getBattery)return res(null);
+      let done=false;
+      navigator.getBattery().then(b=>{if(!done){done=true;res({level:Math.round(b.level*100),charging:b.charging})}}).catch(()=>res(null));
+      setTimeout(()=>{if(!done){done=true;res(null)}},2500);
+    });
+  }
+  async function requestWakeLock(){
     try{
-      const j=await __meshFetch("/v1/mesh/devices?code="+meshCode,null,"GET");
-      const box=document.getElementById("meshDevs");if(!box)return;
-      (j.results||[]).forEach(function(r){meshLog.push(r)});
-      if(meshLog.length>8)meshLog=meshLog.slice(-8);
-      box.innerHTML=(j.devices||[]).map(d=>'<div class="dev"><b>'+d.name.replace(/[<>]/g,"")+"</b> · "+d.id+'<br>🔋 '+(d.battery!=null?Math.round(d.battery)+"%"+(d.charging?" ⚡":""):"?")+" · "+(d.net||"?")+" · "+(d.fresh?'<span style="color:#34d399">● live</span>':'<span style="opacity:.5">○ idle</span>')+"</div>").join("")+
-        meshLog.slice().reverse().map(r=>'<div class="res">'+r.name+" → "+r.cmd+(r.ok?" ✅":" ❌")+" "+String(r.detail||"").replace(/[<>]/g,"").slice(0,80)+"</div>").join("")+
-        ((!(j.devices||[]).length)?'<div style="opacity:.6;font-size:12px">No devices yet — phone pe ye file kholo: <b>#node='+meshCode+"</b> (QR niche)</div>":"");
-      const qr=document.getElementById("meshQR");if(qr)qr.src=await qrURL(location.origin+location.pathname+"#node="+meshCode);
-    }catch(e){
-      const box=document.getElementById("meshDevs");if(box)box.innerHTML='<div style="color:#f87171;font-size:12px">'+e.message+"</div>";
+      if(!navigator.wakeLock||document.visibilityState!=="visible")return;
+      if(lock)return;
+      lock=await navigator.wakeLock.request("screen");
+      lock.addEventListener("release",()=>{lock=null});
+    }catch(e){}
+  }
+  async function tick(){
+    const batt=await heartbeat();
+    const t0=(performance&&performance.now)?performance.now():Date.now();
+    const j=await __meshFetch("/v1/mesh/poll",{
+      code,nodeId:__meshNodeId(),name:__meshDeviceName(),
+      battery:batt?batt.level:undefined,charging:batt?batt.charging:undefined,
+      net:(navigator.connection&&navigator.connection.effectiveType)||"",
+      vis:document.visibilityState==="visible",
+      rtt:rtt,seen:seen.slice(-40)
+    });
+    rtt=Math.round(((performance&&performance.now)?performance.now():Date.now())-t0);
+    peers=j.peers||0;
+    backoff=2000;
+    setStatus("live");
+    for(const c of (j.cmds||[])){
+      if(remember(c.id))continue;      /* already ran — a re-delivery must not repeat it */
+      const r=await __meshExec(c,{rtt});
+      ran++;
+      try{
+        await __meshFetch("/v1/mesh/result",{code,nodeId:__meshNodeId(),name:__meshDeviceName(),cmd:c.cmd,ok:r.ok,detail:r.detail,id:c.id});
+      }catch(e){}
     }
   }
+  async function loop(myGen){
+    while(!stopped&&myGen===gen){
+      try{
+        await tick();
+        setStatus("live");
+        await __meshSleep(2500);
+      }catch(e){
+        const closed=e&&(e.status===404||/mesh-closed/i.test(e.message||""));
+        lastErr=String(e&&e.message||e);
+        if(closed){
+          setStatus("closed","MESH · band ho gaya (owner ne disconnect kiya)");
+          await __meshSleep(15000);
+        }else{
+          setStatus("wait","MESH · reconnecting in "+Math.round(backoff/1000)+"s");
+          await Promise.race([__meshSleep(backoff),(wake?new Promise(r=>{wake=r}):__meshSleep(backoff))]);
+          backoff=Math.min(Math.round(backoff*1.7),30000);
+        }
+      }
+    }
+  }
+  function start(c,opts){
+    if(c)code=String(c);
+    if(!/^\d{6}$/.test(code))return false;
+    __meshStore("aura_mesh_code",code);
+    __meshStore("aura_mesh_role","node");
+    __meshStore("aura_mesh_off","0");
+    if(document.title.indexOf("ZEUS NODE")<0)document.title="✅ ZEUS NODE — mesh "+code;
+    if(!stopped)return true;
+    stopped=false;running=true;backoff=2000;gen++;
+    requestWakeLock();
+    setStatus("wait","MESH · connecting…");
+    try{pushSys("🔗 ZEUS NODE — mesh "+code+" · ye device ZEUS ke orders leta hai (DISCONNECT tak)")}catch(e){}
+    loop(gen);
+    return true;
+  }
+  async function stop(notifyServer){
+    stopped=true;running=false;
+    const c=code;
+    setStatus("off","MESH · disconnected");
+    if(bar){try{bar.remove()}catch(e){}bar=null}
+    __meshStore("aura_mesh_off","1");
+    try{if(lock&&lock.release)lock.release()}catch(e){}
+    lock=null;
+    if(document.title.indexOf("ZEUS NODE")>=0)document.title="AURA — Holographic AI Assistant";
+    if(notifyServer&&c){
+      try{await __meshFetch("/v1/mesh/leave",{code:c,nodeId:__meshNodeId()},"POST",{timeout:6000})}catch(e){}
+      try{pushSys("mesh: is device ne disconnect kar diya")}catch(e){}
+    }
+  }
+  function openSheet(){
+    const old=document.getElementById("meshNodeSheet");if(old)old.remove();
+    const ov=document.createElement("div");
+    ov.id="meshNodeSheet";
+    ov.innerHTML='<div class="card"><h3>📡 MESH NODE</h3>'+
+      '<div class="row"><span>status</span><b>'+(status==="live"?"live":(status==="closed"?"mesh closed":"offline/retrying"))+'</b></div>'+
+      '<div class="row"><span>mesh code</span><b>'+code+'</b></div>'+
+      '<div class="row"><span>device</span><b>'+__meshDeviceName()+'</b></div>'+
+      '<div class="row"><span>node id</span><b>'+__meshNodeId()+'</b></div>'+
+      '<div class="row"><span>relay</span><b>'+(rtt?rtt+" ms":"—")+'</b></div>'+
+      '<div class="row"><span>peers</span><b>'+peers+'</b></div>'+
+      '<div class="row"><span>commands run</span><b>'+ran+'</b></div>'+
+      (lastErr?'<div class="row err"><span>last</span><b>'+String(lastErr).replace(/[<>]/g,"").slice(0,70)+'</b></div>':"")+
+      '<div class="btns"><button id="mnsClose" class="b2">Close</button><button id="mnsOff" class="b1">DISCONNECT</button></div>'+
+      '<div class="hint">Ye device mesh se juda rehta hai jab tak DISCONNECT na karo.</div></div>';
+    document.body.appendChild(ov);
+    const close=()=>ov.remove();
+    ov.addEventListener("click",e=>{if(e.target===ov)close()});
+    ov.querySelector("#mnsClose").onclick=close;
+    ov.querySelector("#mnsOff").onclick=()=>{close();stop(true)};
+  }
+  function boot(){
+    let codeFromHash="";
+    try{const m=location.hash.match(/#node=(\d{6})/);if(m)codeFromHash=m[1]}catch(e){}
+    const saved=__meshStore("aura_mesh_code")||"";
+    const off=__meshStore("aura_mesh_off")==="1";
+    const role=__meshStore("aura_mesh_role");
+    if(codeFromHash){
+      /* an explicit join link always wins, and clears a previous opt-out */
+      start(codeFromHash);
+      return;
+    }
+    if(saved&&role==="node"&&!off)start(saved);
+  }
+  /* a hidden tab is throttled by the browser, so send the state at that moment
+     instead of waiting for the next (very late) tick — the device then reads as
+     "away", never as gone */
+  function nudge(){
+    if(stopped||!code)return;
+    __meshFetch("/v1/mesh/poll",{code,nodeId:__meshNodeId(),name:__meshDeviceName(),vis:document.visibilityState==="visible",seen:seen.slice(-40)})
+      .then(function(j){peers=(j&&j.peers)||peers}).catch(function(){});
+  }
+  try{document.addEventListener("visibilitychange",function(){try{nudge()}catch(e){}});}catch(e){}
+  try{addEventListener("pagehide",function(){try{nudge()}catch(e){}});}catch(e){}
+  /* wake the loop the moment the device is usable again */
+  try{
+    /* opening a #node= link while the app is already running only changes the hash —
+       there is no reload, so boot has to run again here */
+    addEventListener("hashchange",function(){try{boot()}catch(e){}});
+    addEventListener("pageshow",function(e){if(e&&e.persisted){try{boot()}catch(e2){}}});
+    addEventListener("online",()=>{if(wake){const w=wake;wake=null;w()}});
+    addEventListener("offline",()=>{if(status==="live")setStatus("wait","MESH · offline (net nahi)")});
+    document.addEventListener("visibilitychange",()=>{
+      if(document.visibilityState==="visible"){
+        requestWakeLock();
+        if(wake){const w=wake;wake=null;w()}
+      }
+    });
+  }catch(e){}
+  return {start,stop,boot,get code(){return code},get status(){return status},get rtt(){return rtt}};
+})();
+
+/* ---------------- OWNER panel ---------------- */
+const AuraMeshOwner=(function(){
+  let code="",armed=false,timer=null,cursor=0,devices=[],log=[],rtt=null,lastErr="",busy=false;
+  const styleId="meshStyleV2";
+  function injectStyle(){
+    if(document.getElementById(styleId))return;
+    const st=document.createElement("style");st.id=styleId;
+    st.textContent=
+      "#meshBar{position:fixed;left:10px;right:10px;top:56px;z-index:45;display:flex;align-items:center;gap:7px;"+
+      "font:600 10px/1 'JetBrains Mono',monospace;letter-spacing:.06em;color:#bfefff;background:rgba(4,12,22,.94);"+
+      "border:1px solid rgba(34,211,238,.32);border-radius:12px;padding:8px 10px;cursor:pointer}"+
+      "#meshBar .d{width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 8px #34d399;flex:none}"+
+      "#meshBar .tx{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"+
+      "#meshBar .x{color:#ffb4b4;border:1px solid rgba(248,113,113,.4);border-radius:8px;padding:3px 7px;font-size:9px}"+
+      "#meshBar.wait .d{background:#fbbf24;box-shadow:0 0 8px #fbbf24}"+
+      "#meshBar.off .d{background:#f87171;box-shadow:0 0 8px #f87171}"+
+      "#meshNodeSheet,#meshMenu{position:fixed;inset:0;background:rgba(2,6,14,.78);z-index:9998;display:flex;align-items:center;justify-content:center;padding:14px}"+
+      "#meshNodeSheet .card,#meshMenu .tm-card{position:relative;background:rgba(8,14,26,.98);border:1px solid rgba(120,220,255,.22);"+
+      "border-radius:16px;padding:18px;width:min(470px,94vw);max-height:88vh;overflow:auto;color:#dfeaff;box-shadow:0 24px 60px rgba(0,0,0,.55)}"+
+      "#meshNodeSheet h3,#meshMenu h3{margin:0 0 10px;font-size:14px;letter-spacing:.08em}"+
+      "#meshNodeSheet .row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:5px 0;border-bottom:1px dashed rgba(120,220,255,.13)}"+
+      "#meshNodeSheet .row span{opacity:.6}#meshNodeSheet .row.err b{color:#fca5a5}"+
+      "#meshNodeSheet .btns{display:flex;gap:8px;margin-top:14px}#meshNodeSheet .hint{font-size:10.5px;opacity:.55;margin-top:10px;line-height:1.5}"+
+      "#meshNodeSheet button{flex:1;border-radius:10px;padding:10px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid}"+
+      "#meshNodeSheet .b1{background:rgba(160,20,20,.3);border-color:rgba(248,113,113,.45);color:#ffd7d7}"+
+      "#meshNodeSheet .b2{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#dfeaff}"+
+      "#meshMenu .tm-sub{font-size:11px;opacity:.6;line-height:1.55;margin-bottom:10px}"+
+      "#meshMenu .st{display:flex;align-items:center;gap:8px;font:600 10.5px 'JetBrains Mono',monospace;letter-spacing:.06em;"+
+      "border:1px solid rgba(34,211,238,.25);border-radius:10px;padding:8px 10px;margin-bottom:8px;flex-wrap:wrap}"+
+      "#meshMenu .st .dot{width:7px;height:7px;border-radius:50%;background:#f87171}"+
+      "#meshMenu .st.on .dot{background:#34d399;box-shadow:0 0 8px #34d399}"+
+      "#meshMenu .code{font:800 28px 'JetBrains Mono',monospace;letter-spacing:7px;color:#67e8f9;text-align:center;margin:8px 0;"+
+      "text-shadow:0 0 18px rgba(34,211,238,.45)}"+
+      "#meshMenu .btn{background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.32);color:#bfefff;border-radius:9px;"+
+      "padding:7px 10px;font-size:11.5px;font-weight:700;cursor:pointer;margin:0 4px 4px 0}"+
+      "#meshMenu .btn:hover{background:rgba(34,211,238,.22)}"+
+      "#meshMenu .btn.warn{background:rgba(160,20,20,.25);border-color:rgba(248,113,113,.4);color:#ffd7d7}"+
+      "#meshMenu .dev{border:1px solid rgba(120,220,255,.15);border-radius:11px;padding:8px 10px;margin:6px 0;font-size:11.5px}"+
+      "#meshMenu .dev .top{display:flex;justify-content:space-between;gap:8px;align-items:center}"+
+      "#meshMenu .dev .top b{color:#e6f7ff;font-size:12px}"+
+      "#meshMenu .dev .meta{opacity:.62;font-size:10.5px;margin-top:3px}"+
+      "#meshMenu .dev .acts{display:flex;gap:5px;margin-top:6px}"+
+      "#meshMenu .dev .acts button{font-size:10px;padding:4px 7px;border-radius:7px;background:rgba(255,255,255,.06);"+
+      "border:1px solid rgba(255,255,255,.14);color:#cfe9ff;cursor:pointer}"+
+      "#meshMenu .res{font:400 10.5px 'JetBrains Mono',monospace;opacity:.85;margin:3px 0;padding-left:8px;"+
+      "border-left:2px solid rgba(34,211,238,.35);word-break:break-word}"+
+      "#meshMenu .res.bad{border-left-color:rgba(248,113,113,.55);color:#fecaca}"+
+      "#meshMenu input,#meshMenu select{background:rgba(3,10,20,.9);border:1px solid rgba(120,220,255,.28);color:#dfeaff;"+
+      "border-radius:9px;padding:8px 9px;font-size:12.5px;min-width:0}"+
+      "#meshMenu .row{display:flex;gap:6px;margin:6px 0}"+
+      "#meshMenu .row>*{flex:1}"+
+      "#meshMenu .err{color:#fca5a5;font-size:11px;margin:4px 0}"+
+      "#meshMenu .qr{background:#fff;border-radius:8px;padding:6px;width:max-content;margin:6px auto}"+
+      "#meshMenu .qr img{display:block}";
+    document.head.appendChild(st);
+  }
+  async function claim(){
+    try{
+      const j=await __meshFetch("/v1/mesh/register",code?{code}:{});
+      if(j&&j.code){code=j.code;__meshStore("aura_mesh_code",code);__meshStore("aura_mesh_role","owner");}
+      lastErr="";return true;
+    }catch(e){lastErr=String(e&&e.message||e);return false}
+  }
+  async function sync(){
+    if(!code)return null;
+    const t0=(performance&&performance.now)?performance.now():Date.now();
+    const j=await __meshFetch("/v1/mesh/state?code="+code+"&since="+cursor,null,"GET");
+    rtt=Math.round(((performance&&performance.now)?performance.now():Date.now())-t0);
+    devices=(j.devices||[]);
+    (j.results||[]).forEach(r=>log.push(r));
+    if(log.length>60)log=log.slice(-60);
+    if(j.cursor)cursor=j.cursor;
+    return j;
+  }
+  function start(interval){
+    if(timer)clearInterval(timer);
+    armed=true;__meshStore("aura_mesh_armed","1");
+    timer=setInterval(()=>{if(!document.hidden)sync().catch(()=>{})},interval||3000);
+  }
+  function stopTimer(){
+    if(timer)clearInterval(timer);timer=null;
+    armed=false;__meshStore("aura_mesh_armed","0");
+  }
+  async function disconnect(){
+    stopTimer();
+    try{await __meshFetch("/v1/mesh/close",{code})}catch(e){}
+    try{pushSys("📡 mesh disconnected — code release ho gaya")}catch(e){}
+    code="";cursor=0;devices=[];log=[];lastErr="";
+    return true;
+  }
+  async function send(nodeId,cmd,arg){
+    if(!code)return {queued:0};
+    const j=await __meshFetch("/v1/mesh/command",{code,nodeId:nodeId||"all",cmd,arg});
+    return j;
+  }
+  function esc(s){return String(s==null?"":s).replace(/[<>]/g,"")}
+  function ago(ms){const s=Math.round((ms||0)/1000);return s<60?s+"s":Math.round(s/60)+"m"}
+  function statusLine(){
+    const live=devices.filter(d=>d.fresh).length;
+    return '<div class="st '+(armed?'on':'')+'"><span class="dot"></span>'+
+      (armed?"CONNECTED":"DISCONNECTED")+" · "+live+"/"+devices.length+" live"+
+      (rtt?" · relay "+rtt+"ms":"")+(code?" · "+code:"")+'</div>';
+  }
+  function devList(){
+    if(!devices.length)return '<div style="opacity:.6;font-size:11.5px;margin:8px 0">Abhi koi device nahi juda. Phone pe ye link kholo (ya QR scan karo):</div>';
+    return devices.map(d=>'<div class="dev"><div class="top"><b>'+
+      (d.fresh?'<span style="color:#34d399">●</span> ':'<span style="opacity:.45">○</span> ')+esc(d.name)+
+      '</b><span style="opacity:.5;font-size:10px">'+esc(d.id)+'</span></div>'+
+      '<div class="meta">🔋 '+(d.battery!=null?Math.round(d.battery)+"%"+(d.charging?" ⚡":""):"?")+
+      ' · net '+(esc(d.net)||"?")+' · seen '+ago(d.ageMs)+' ago'+
+      (d.rtt?' · node '+d.rtt+'ms':'')+(d.pending?' · ⏳'+d.pending+' pending':'')+'</div>'+
+      '<div class="acts">'+
+        '<button data-act="target" data-id="'+esc(d.id)+'">🎯 target</button>'+
+        '<button data-act="ping" data-id="'+esc(d.id)+'">🛰 ping</button>'+
+        '<button data-act="say" data-id="'+esc(d.id)+'">🔊 say</button>'+
+        '<button data-act="rename" data-id="'+esc(d.id)+'">✎ rename</button>'+
+        '<button data-act="kick" data-id="'+esc(d.id)+'">✖ kick</button>'+
+      '</div></div>').join("");
+  }
+  function history(){
+    if(!log.length)return "";
+    return log.slice().reverse().slice(0,14).map(r=>'<div class="res'+(r.ok?"":" bad")+'">'+
+      new Date(r.ts).toLocaleTimeString()+" · "+esc(r.name)+" → "+esc(r.cmd)+" "+(r.ok?"✅":"❌")+
+      (r.detail?" "+esc(String(r.detail).slice(0,90)):"")+'</div>').join("");
+  }
   async function openMenu(){
+    injectStyle();
     const old=document.getElementById("meshMenu");if(old)old.remove();
     const ov=document.createElement("div");ov.id="meshMenu";
-    ov.innerHTML='<div class="tm-card"><button class="tm-close" id="mxX">✕</button><h3>📡 MESH — device command net</h3><div class="tm-sub">Apne phones is file ko <b>#node=CODE</b> ke saath kholo — phir aap unhe bol sakte ho (speak), vibrate kar sakte ho, battery/location dekh sakte ho. <b>Public</b> — koi admin login nahi chahiye.</div>'+
-      '<div id="meshCodeBox"><div style="opacity:.6;font-size:12px">arming mesh…</div></div>'+
-      '<div id="meshDevs"><div style="opacity:.6;font-size:12px">loading…</div></div>'+
-      '<div class="qr"><img id="meshQR" width="140" height="140" alt="node qr"></div>'+
-      '<div class="mrow"><select id="mxCmd" style="flex:1"><option value="speak">🔊 Speak (bol ke suna)</option><option value="vibrate">📳 Vibrate</option><option value="flash">🔆 Flash screen</option><option value="battery">🔋 Ask battery</option><option value="location">📍 Ask location</option><option value="open">🌐 Open URL</option><option value="show">🖥 Show text fullscreen</option><option value="ping">🛰 Ping</option></select></div>'+
-      '<div class="mrow"><input id="mxArg" placeholder="argument — speech text / URL / message / seconds"></div>'+
-      '<div class="mrow"><button class="tm-btn" id="mxSend" style="flex:1">▶ Send to ALL devices</button></div>'+
-      '<div class="mrow" style="font-size:11px;opacity:.6">Commands poll har ~2.5s; results niche devices ke saath dikhte hain.</div></div>';
+    ov.innerHTML='<div class="tm-card">'+
+      '<button class="btn" id="mxX" style="position:absolute;top:8px;right:10px;margin:0">✕</button>'+
+      '<h3>📡 MESH — device command net</h3>'+
+      '<div class="tm-sub">Apne phones pe ye file <b>#node=CODE</b> ke saath kholo (ya QR). Wo device tab tak juda rahega jab tak tum DISCONNECT na karo.</div>'+
+      '<div id="mxStatus"></div><div id="mxCode"></div>'+
+      '<div id="mxDevs"></div>'+
+      '<div class="row" style="margin-top:10px"><select id="mxTarget"></select>'+
+      '<select id="mxCmd" style="flex:1.3"><option value="speak">🔊 Speak</option><option value="notify">🔔 Notify</option>'+
+      '<option value="ring">📞 Ring</option><option value="vibrate">📳 Vibrate</option><option value="flash">🔆 Flash</option>'+
+      '<option value="show">🖥 Show text</option><option value="toast">💬 Toast</option><option value="copy">📋 Copy text</option>'+
+      '<option value="open">🌐 Open URL</option><option value="battery">🔋 Battery</option><option value="location">📍 Location</option>'+
+      '<option value="ping">🛰 Ping</option><option value="reload">♻ Reload</option></select></div>'+
+      '<div class="row"><input id="mxArg" placeholder="text / URL / number"></div>'+
+      '<div class="row"><button class="btn" id="mxSend" style="flex:1">▶ Send</button>'+
+      '<button class="btn warn" id="mxOff" style="flex:0 0 auto">Disconnect</button></div>'+
+      '<div id="mxErr" class="err"></div>'+
+      '<div id="mxLog" style="margin-top:8px"></div></div>';
     document.body.appendChild(ov);
-    const close=()=>{if(meshTimer)clearInterval(meshTimer);meshTimer=null;ov.remove()};
+    const close=()=>{ov.remove()};
     ov.querySelector("#mxX").onclick=close;
     ov.addEventListener("click",e=>{if(e.target===ov)close()});
-    const renderCode=async()=>{
-      const okClaim=await claimMesh();
-      const box=ov.querySelector("#meshCodeBox");if(!box)return;
-      box.innerHTML=okClaim
-        ? '<div class="code">'+meshCode+'</div>'
-        : '<div class="tm-row" style="margin:8px 0"><button class="tm-btn" id="mxGen">⚡ Generate mesh code</button></div><div style="color:#f87171;font-size:11.5px">'+meshErr+'</div>';
-      const g2=box.querySelector("#mxGen");
-      if(g2)g2.onclick=async()=>{g2.disabled=true;g2.textContent="arming…";await renderCode()};
-      if(okClaim&&meshTimer)clearInterval(meshTimer);
-      if(okClaim){refresh();meshTimer=setInterval(refresh,4000)}
-    };
-    renderCode();
+
+    async function render(){
+      const stBox=ov.querySelector("#mxStatus"),codeBox=ov.querySelector("#mxCode");
+      if(!stBox)return;
+      stBox.innerHTML=statusLine();
+      codeBox.innerHTML=code
+        ? '<div class="code">'+code+'</div><div style="text-align:center;margin-bottom:6px">'+
+          '<button class="btn" id="mxCopy">copy code</button>'+
+          '<button class="btn" id="mxLink">copy link</button>'+
+          '<button class="btn" id="mxQr">QR</button>'+
+          '<button class="btn" id="mxRelink">reconnect</button></div><div id="mxQrBox"></div>'
+        : '<div class="row"><button class="btn" id="mxGo" style="flex:1">⚡ Connect — code banao</button></div>';
+      const g=codeBox.querySelector("#mxGo");
+      if(g)g.onclick=async()=>{g.disabled=true;g.textContent="connecting…";const ok=await claim();if(ok){start(3000);await sync().catch(()=>{})}render()};
+      const cp=codeBox.querySelector("#mxCopy");
+      if(cp)cp.onclick=async()=>{try{await navigator.clipboard.writeText(code);cp.textContent="copied ✓"}catch(e){cp.textContent="press long"}};
+      const lk=codeBox.querySelector("#mxLink");
+      if(lk)lk.onclick=async()=>{
+        const url=location.origin+location.pathname+"#node="+code;
+        try{await navigator.clipboard.writeText(url);lk.textContent="link copied ✓"}catch(e){lk.textContent="copy failed"}
+      };
+      const qr=codeBox.querySelector("#mxQr");
+      if(qr)qr.onclick=()=>{
+        const box=codeBox.querySelector("#mxQrBox");if(!box)return;
+        if(box.innerHTML){box.innerHTML="";return}
+        const url=location.origin+location.pathname+"#node="+code;
+        box.innerHTML='<div class="qr"><img width="150" height="150" alt="mesh qr" src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data='+encodeURIComponent(url)+'"></div>';
+      };
+      const rl=codeBox.querySelector("#mxRelink");
+      if(rl)rl.onclick=async()=>{rl.disabled=true;const ok=await claim();if(ok){start(3000);await sync().catch(()=>{})}render()};
+      const devBox=ov.querySelector("#mxDevs");
+      if(devBox){
+        devBox.innerHTML=devList();
+        devBox.querySelectorAll("button[data-act]").forEach(b=>{
+          b.onclick=async()=>{
+            const id=b.dataset.id,act=b.dataset.act;
+            try{
+              if(act==="target"){const s=ov.querySelector("#mxTarget");if(s)s.value=id;pushSys("mesh target set: "+id)}
+              else if(act==="ping"){const r=await send(id,"ping","");pushSys("mesh ping → "+(r.queued||0)+" queued")}
+              else if(act==="say"){const arg=ov.querySelector("#mxArg").value||"hello from ZEUS";const r=await send(id,"speak",arg);pushSys("mesh say → "+(r.queued||0)+" queued")}
+              else if(act==="rename"){
+                const n=prompt("Device ka naya naam:",(devices.find(d=>d.id===id)||{}).name||"");
+                if(n){await __meshFetch("/v1/mesh/rename",{code,nodeId:id,name:n.slice(0,26)});await sync()}
+              }
+              else if(act==="kick"){
+                if(confirm("Is device ko mesh se hata dein?")){await __meshFetch("/v1/mesh/kick",{code,nodeId:id});await sync()}
+              }
+            }catch(e){const er=ov.querySelector("#mxErr");if(er)er.textContent="action failed: "+(e.message||e)}
+            render();
+          };
+        });
+      }
+      const sel=ov.querySelector("#mxTarget");
+      if(sel){
+        const cur=sel.value;
+        sel.innerHTML='<option value="all">ALL devices</option>'+devices.map(d=>'<option value="'+esc(d.id)+'">'+esc(d.name)+'</option>').join("");
+        if(cur&&[...sel.options].some(o=>o.value===cur))sel.value=cur;
+      }
+      const lg=ov.querySelector("#mxLog");if(lg)lg.innerHTML=history();
+      const er=ov.querySelector("#mxErr");if(er&&lastErr)er.textContent=lastErr;
+    }
     ov.querySelector("#mxSend").onclick=async()=>{
-      if(!meshCode){pushSys("pehle mesh code generate karo");return}
+      if(!code){pushSys("pehle connect karo");return}
+      if(busy)return;busy=true;
+      const b=ov.querySelector("#mxSend");b.disabled=true;
       try{
-        const r=await __meshFetch("/v1/mesh/command",{code:meshCode,nodeId:"all",cmd:ov.querySelector("#mxCmd").value,arg:ov.querySelector("#mxArg").value});
-        pushSys("📡 mesh: "+r.queued+" device(s) ko command bheja");
-      }catch(e){pushSys("mesh send failed: "+e.message)}
+        const target=ov.querySelector("#mxTarget").value;
+        const cmd=ov.querySelector("#mxCmd").value;
+        const arg=ov.querySelector("#mxArg").value;
+        const r=await send(target,cmd,arg);
+        pushSys("📡 mesh: "+(r.queued||0)+" device(s) ko "+cmd+" bheja");
+        const er=ov.querySelector("#mxErr");if(er)er.textContent="";
+        await sync().catch(()=>{});
+      }catch(e){
+        const er=ov.querySelector("#mxErr");if(er)er.textContent="send failed: "+(e.message||e);
+      }
+      busy=false;b.disabled=false;render();
     };
+    ov.querySelector("#mxOff").onclick=async()=>{
+      if(!confirm("Mesh disconnect? Code release ho jayega aur saare devices hat jayenge."))return;
+      await disconnect();render();
+    };
+    if(!code){const ok=await claim();if(ok)start(3000)}
+    else{start(3000)}
+    await sync().catch(()=>{});
+    render();
+    const loop=setInterval(()=>{
+      if(!document.body.contains(ov)){clearInterval(loop);return}
+      if(document.hidden)return;
+      sync().then(render).catch(e=>{const er=ov.querySelector("#mxErr");if(er)er.textContent="sync: "+(e.message||e)});
+    },3000);
   }
   function armBtn(){
-    const b=document.getElementById("meshBtn");if(!b)return;
-    b.style.display=""; /* MESH is always reachable — gating it to ZEUS mode made it look deleted */
+    const b=document.getElementById("meshBtn");
+    if(b){b.style.display="";return}
+    const mb=document.createElement("button");
+    mb.className="ibtn";mb.id="meshBtn";mb.textContent="📡 MESH";
+    mb.title="MESH — apne devices ko command karo";
+    mb.onclick=openMenu;
+    const ir=document.querySelector(".iconrow");
+    if(ir)ir.appendChild(mb);else document.body.appendChild(mb);
   }
-  const mb=document.createElement("button");mb.className="ibtn";mb.id="meshBtn";mb.textContent="📡 MESH";mb.title="MESH — apne devices ko command karo (public, no admin login)";mb.style.display="";
-  mb.onclick=openMenu;
-  const ir=document.querySelector(".iconrow");
-  if(ir)ir.appendChild(mb);else document.body.appendChild(mb);
-  try{window.AuraMesh={open:openMenu,code:function(){return meshCode}};window.meshOpen=openMenu;}catch(e){}
-  setInterval(armBtn,1500);armBtn();
+  function boot(){
+    injectStyle();
+    armBtn();
+    setInterval(()=>{if(!document.getElementById("meshBtn"))armBtn()},4000);
+    const saved=__meshStore("aura_mesh_code")||"";
+    if(saved&&__meshStore("aura_mesh_role")==="owner")code=saved;
+    if(__meshStore("aura_mesh_armed")==="1"&&code){
+      /* reconnect silently — the panel keeps working across a reload */
+      claim().then(ok=>{if(ok)start(15000)}).catch(()=>{});
+    }
+  }
+  return {open:openMenu,boot,disconnect,get code(){return code},get devices(){return devices}};
 })();
+
+/* boot both halves; nothing above runs until the DOM exists */
+(function(){
+  const go=function(){
+    try{AuraMeshNode.boot()}catch(e){}
+    try{AuraMeshOwner.boot()}catch(e){}
+  };
+  if(document.body)go();else document.addEventListener("DOMContentLoaded",go);
+})();
+try{
+  window.AuraMesh={open:AuraMeshOwner.open,node:AuraMeshNode,owner:AuraMeshOwner,code:function(){return AuraMeshOwner.code}};
+  window.meshOpen=AuraMeshOwner.open;
+}catch(e){}
 
 /* ---------------- boot sequence ---------------- */
 const BOOT=persona()==="jarvis"?["> ZEUS OS v4.0 — initializing tactical core","> strategic matrix …………… <b class='ok'>OK</b>","> gold emitter ……………… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> ZEUS <b class='ok'>ONLINE</b> — owner protocol armed"]:["> AURA OS v3.2 — initializing neural core","> personality matrix ………… <b class='ok'>OK</b>","> holographic emitter ……… <b class='ok'>OK</b>","> voice interface …………… <b class='ok'>OK</b>","> establishing uplink ……… <b class='ok'>OK</b>","> AURA <b class='ok'>ONLINE</b>"];

@@ -468,6 +468,13 @@ function cacheGet(messages) {
   if (hit) answerCache.delete(k);
   return null;
 }
+/* a slow helper must never hold the whole answer: run it, but move on after ms */
+function deadline(p, ms, fallback) {
+  return Promise.race([
+    Promise.resolve(p).catch(() => fallback),
+    new Promise(r => setTimeout(() => r(fallback), ms))
+  ]);
+}
 function cachePut(messages, answer, model) {
   const k = normQ(messages); if (!k || !answer) return;
   if (FRESH_Q.test(k)) return;
@@ -695,6 +702,12 @@ app.get("/v1/usage", async (req, res) => {
   res.json({ ok: true, answers, users, staff, cacheSize: answerCache.size, dailyCap: DAILY_CAP || 0 });
 });
 
+/* ---- SEARCH CREDIT METER — how much Tavily headroom is left (masked, no keys) ---- */
+app.get("/v1/search/usage", (req, res) => {
+  try { res.json(tavUsageReport()); }
+  catch (e) { res.status(500).json({ ok: false, error: "search usage unavailable" }); }
+});
+
 /* ---- who am I (role comes from the VERIFIED token, never the client) ---- */
 app.get("/v1/me", async (req, res) => {
   const u = await verifyUser(req);
@@ -807,6 +820,7 @@ app.get("/v1/admin/usage", async (req, res) => {
     lanes: { code: !!CODE_KEY, admin: !!ADMIN_KEY, health: { code: laneErr.code || "ok", admin: laneErr.admin || "ok" } },
     spendByKey: keys.length ? keys : [{ key: "(no AI calls yet today)", aiCalls: 0, tokens: 0 }],
     biggestSpenders: who.length ? who : [{ who: "(no AI traffic yet today)", aiCalls: 0 }],
+    search: tavUsageReport(),
     guestAgentRunsPerDay: AGENT_DAILY_CAP
   });
 });
@@ -1706,27 +1720,65 @@ app.get("/v1/ping", (req, res) => {
    ZEUS (maker) owns a mesh code; phone nodes join with it. Relay only: in-memory queues,
    no persistence, entries expire in 90s. Node polls /poll for commands, ZEUS pushes
    commands and collects results. Unauthorized nodes with a WRONG code see an empty mesh. */
-const meshDevices = new Map(); /* code → Map(nodeId → {name,battery,charging,net,ts}) */
-const meshCmds = new Map();    /* code|nodeId → [ {id,cmd,arg,ts} ] */
-const meshResults = new Map(); /* code → [ {nodeId,name,cmd,ok,detail,ts} ] */
-const meshSeen = new Map();    /* code|nodeId → last cmd id seen (ack) */
+const meshDevices = new Map(); /* code → Map(nodeId → {name,battery,charging,net,ts,rtt,vis,ver}) */
+const meshCmds = new Map();    /* code|nodeId → [ {id,cmd,arg,ts} ]  — removed when the node acks */
+const meshResults = new Map(); /* code → [ {id,nodeId,name,cmd,ok,detail,ts} ] — a ring, never cleared on read */
+const meshSeen = new Map();    /* legacy ack cursor for clients that predate `seen` */
 const meshOwners = new Map();  /* code → owner key (signed-in uid, or a guest's stable id) */
-const meshBorn = new Map();    /* code → first-created ts (public meshes are released after 30 min idle) */
-let meshSeq = 0;               /* monotonic command id — numeric, so ack ordering never drops a cmd */
-const MESH_TTL = 90_000;
+const meshBorn = new Map();    /* code → created ts */
+const meshTouch = new Map();   /* code → owner's last sign of life */
+const meshResIds = new Map();  /* code → Set of result keys already stored (dedupe on retry) */
+const MESH_LIVE_MS = 35_000;       /* a node that polled inside this window is "live" */
+const MESH_DEVICE_TTL = 180_000;   /* keep a silent node listed for 3 min before dropping it */
+const MESH_CMD_TTL = 120_000;      /* a command nobody picked up expires after 2 min */
+const MESH_AWAY_TTL = 15 * 60_000; /* a backgrounded tab is throttled by the browser — keep it listed */
+const MESH_KEEP_MS = 6 * 60 * 60_000; /* an owner-less, node-less mesh is released after 6h */
+const MESH_TTL = MESH_DEVICE_TTL;  /* back-compat alias */
+let meshSeq = 0;                   /* monotonic command id */
+function meshTouchCode(code) { meshTouch.set(String(code), Date.now()); }
+function meshOwnerOnline(code) { const t = meshTouch.get(String(code)) || 0; return Date.now() - t < 120_000; }
+function meshLiveCount(devs) { const now = Date.now(); let n = 0; for (const d of devs.values()) if (now - d.ts < MESH_LIVE_MS) n++; return n; }
+function meshTrimDevices(devs) {
+  /* a phone that never comes back must not be listed forever */
+  const now = Date.now();
+  for (const [id, d] of devs) {
+    /* a phone in the background polls far less often; it is away, not gone */
+    const ttl = d.vis === false ? MESH_AWAY_TTL : MESH_DEVICE_TTL;
+    if (now - d.ts > ttl) devs.delete(id);
+  }
+}
+function meshDrop(code, nodeId) {
+  const devs = meshDevices.get(String(code));
+  if (devs) devs.delete(String(nodeId));
+  meshCmds.delete(String(code) + "|" + String(nodeId));
+  meshSeen.delete(String(code) + "|" + String(nodeId));
+}
 function meshSweep() {
   const now = Date.now();
   for (const [code, devs] of meshDevices) {
-    for (const [id, d] of devs) if (now - d.ts > MESH_TTL) devs.delete(id);
-    /* a mesh with no live node is kept for 30 minutes (pairing can take a while), then
-       released — PUBLIC codes must not pile up forever on one free instance */
-    const born = meshBorn.get(code) || 0;
-    if (!devs.size && now - born > 30 * 60_000) {
-      meshDevices.delete(code); meshResults.delete(code); meshOwners.delete(code); meshBorn.delete(code);
+    meshTrimDevices(devs);
+    const touched = Math.max(meshTouch.get(code) || 0, meshBorn.get(code) || 0);
+    /* the mesh lives while an owner watches it or a node still answers — only a
+       mesh that nobody owns AND nobody runs is released (PUBLIC codes must not pile
+       up forever on one free instance) */
+    if (!devs.size && now - touched > MESH_KEEP_MS) {
+      meshDevices.delete(code); meshResults.delete(code); meshOwners.delete(code);
+      meshBorn.delete(code); meshTouch.delete(code); meshResIds.delete(code);
     }
   }
-  for (const [k, arr] of meshCmds) { const na = arr.filter(c => now - c.ts < MESH_TTL); if (na.length) meshCmds.set(k, na); else meshCmds.delete(k); }
-  for (const [k, v] of meshSeen) { /* noop — refreshed on write */ if (now - v.ts > MESH_TTL * 2) meshSeen.delete(k); }
+  for (const [k, arr] of meshCmds) {
+    const na = arr.filter(c => now - c.ts < MESH_CMD_TTL);
+    if (na.length) meshCmds.set(k, na); else meshCmds.delete(k);
+  }
+  for (const [k, v] of meshSeen) { if (now - v.ts > MESH_CMD_TTL * 2) meshSeen.delete(k); }
+  /* hard ceiling so a script can't open 100k meshes and take the process down */
+  if (meshDevices.size > 400) {
+    const codes = [...meshDevices.keys()];
+    for (const c of codes.slice(0, meshDevices.size - 400)) {
+      meshDevices.delete(c); meshResults.delete(c); meshOwners.delete(c);
+      meshBorn.delete(c); meshTouch.delete(c); meshResIds.delete(c);
+    }
+  }
 }
 setInterval(meshSweep, 30_000).unref();
 function meshGuard(req, res) {
@@ -1734,90 +1786,244 @@ function meshGuard(req, res) {
   if (req.headers["x-aura-key"] !== SECRET) { res.status(401).json({ error: "Missing or wrong X-AURA-Key." }); return false; }
   return true;
 }
+function meshOwnerKey(req, u) {
+  if (u && u.uid) return "uid:" + u.uid;
+  const hdr = String((req.headers && req.headers["x-aura-owner"]) || "").trim();
+  if (/^[A-Za-z0-9_-]{8,64}$/.test(hdr)) return "guest:" + hdr;
+  return "ip:" + String(req.ip || "anon");
+}
 /* PUBLIC MESH (30 Oct 2026, owner order): anyone may claim a code — no admin gate.
-   Sign-in still gives the most stable owner; guests use the browser's X-Aura-Owner. */
+   Sign-in still gives the most stable owner; guests use the browser's X-Aura-Owner.
+   Body {code} lets a reconnecting owner KEEP its code instead of claiming a new one. */
 app.post("/v1/mesh/register", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   let u = null;
   try { u = await verifyUser(req); } catch (e) { u = null; }
-  let owner = u && u.uid ? "uid:" + u.uid : "";
-  if (!owner) {
-    const hdr = String((req.headers && req.headers["x-aura-owner"]) || "").trim();
-    owner = /^[A-Za-z0-9_-]{8,64}$/.test(hdr) ? "guest:" + hdr : "ip:" + String(req.ip || "anon");
-  }
+  const owner = meshOwnerKey(req, u);
+  const want = String((req.body && req.body.code) || "").trim();
   let code = null;
+  /* 1. the code this owner already holds */
   for (const [c, o] of meshOwners) { if (o === owner && meshDevices.has(c)) { code = c; break; } }
+  /* 2. a code the client remembers (survives a backend restart as long as it is free) */
+  if (!code && /^\d{6}$/.test(want) && meshDevices.has(want) && meshOwners.get(want) === owner) code = want;
   if (!code) {
     do { code = String(Math.floor(100000 + Math.random() * 900000)); } while (meshDevices.has(code));
     meshDevices.set(code, new Map()); meshOwners.set(code, owner); meshBorn.set(code, Date.now());
   }
-  res.json({ ok: true, code, owner: owner.slice(0, 12) });
+  meshTouchCode(code);
+  const devs = meshDevices.get(code);
+  res.json({ ok: true, code, owner: owner.slice(0, 12), devices: devs.size, live: meshLiveCount(devs), serverTime: Date.now() });
 });
-/* phone node joins with the code */
+/* phone node joins with the code — idempotent, so a reconnect can simply call it again */
 app.post("/v1/mesh/join", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  const { code, nodeId, name } = req.body || {};
+  const { code, nodeId, name, battery, charging, net } = req.body || {};
   if (!code || !/^\d{6}$/.test(String(code)) || !nodeId) return res.status(400).json({ error: "code (6 digits) and nodeId required" });
   const devs = meshDevices.get(String(code));
   if (!devs) return res.status(404).json({ error: "No mesh found for that code." });
-  devs.set(String(nodeId), { name: String(name || "Node").slice(0, 28), battery: null, charging: false, net: "", owner: null, ts: Date.now() });
-  res.json({ ok: true });
+  const id = String(nodeId).slice(0, 40);
+  const prev = devs.get(id) || {};
+  devs.set(id, {
+    name: String(name || prev.name || "Node").slice(0, 28),
+    battery: typeof battery === "number" ? battery : (prev.battery ?? null),
+    charging: charging !== undefined ? !!charging : !!prev.charging,
+    net: typeof net === "string" ? net.slice(0, 12) : (prev.net || ""),
+    rtt: typeof prev.rtt === "number" ? prev.rtt : null,
+    ts: Date.now(), joined: prev.joined || Date.now()
+  });
+  res.json({ ok: true, code: String(code), peers: devs.size, live: meshLiveCount(devs), ownerOnline: meshOwnerOnline(code), serverTime: Date.now() });
 });
-/* node heartbeat + battery/net + polls for queued commands */
+/* node heartbeat + battery/net + polls for queued commands.
+   `seen` = ids the node has already run: the server drops those and re-sends the rest,
+   so a lost response can never lose a command and a retry can never run one twice. */
 app.post("/v1/mesh/poll", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  const { code, nodeId, battery, charging, net } = req.body || {};
+  const { code, nodeId, battery, charging, net, seen, rtt, name, vis } = req.body || {};
+  if (!code || !nodeId) return res.status(400).json({ error: "code and nodeId required" });
   const devs = meshDevices.get(String(code));
-  if (!devs || !devs.has(String(nodeId))) return res.status(404).json({ error: "not in mesh — rejoin" });
-  const d = devs.get(String(nodeId));
-  d.ts = Date.now();
-  if (typeof battery === "number") d.battery = battery;
-  if (charging !== undefined) d.charging = !!charging; if (typeof net === "string") d.net = net.slice(0, 12);
-  const key = String(code) + "|" + String(nodeId);
-  const q = (meshCmds.get(key) || []).filter(c => { const s = meshSeen.get(key); return !s || c.id > s.id; });
-  if (q.length) meshSeen.set(key, { id: q[q.length - 1].id, ts: Date.now() });
-  res.json({ ok: true, cmds: q });
+  if (!devs) return res.status(404).json({ error: "mesh-closed" });
+  const id = String(nodeId).slice(0, 40);
+  let dev = devs.get(id);
+  let rejoined = false;
+  if (!dev) {
+    /* the node never has to know it expired — a heartbeat re-registers it silently */
+    dev = { name: String(name || "Node").slice(0, 28), battery: null, charging: false, net: "", rtt: null, ts: 0, joined: Date.now() };
+    devs.set(id, dev);
+    rejoined = true;
+  }
+  dev.ts = Date.now();
+  if (typeof battery === "number") dev.battery = battery;
+  if (charging !== undefined) dev.charging = !!charging;
+  if (typeof net === "string") dev.net = net.slice(0, 12);
+  if (typeof rtt === "number" && isFinite(rtt)) dev.rtt = Math.round(rtt);
+  if (vis !== undefined) dev.vis = !!vis;
+  if (typeof name === "string" && name.trim()) dev.name = name.trim().slice(0, 28);
+  const key = String(code) + "|" + id;
+  if (Array.isArray(seen) && seen.length) {
+    const done = new Set(seen.map(String));
+    const left = (meshCmds.get(key) || []).filter(c => !done.has(String(c.id)));
+    if (left.length) meshCmds.set(key, left); else meshCmds.delete(key);
+  } else if (!Array.isArray(seen)) {
+    /* legacy client: cursor-based ack */
+    const q0 = meshCmds.get(key) || [];
+    if (q0.length) meshSeen.set(key, { id: q0[q0.length - 1].id, ts: Date.now() });
+  }
+  const now = Date.now();
+  const cmds = (meshCmds.get(key) || []).filter(c => now - c.ts < MESH_CMD_TTL);
+  res.json({
+    ok: true, cmds, rejoined,
+    code: String(code), peers: devs.size, live: meshLiveCount(devs),
+    ownerOnline: meshOwnerOnline(code), serverTime: now
+  });
 });
-/* ZEUS pushes a command to one node or all */
+/* the owner pushes a command to one node, to an explicit list, or to all */
 app.post("/v1/mesh/command", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  /* the 6-digit code is the capability now: whoever holds it may command its nodes */
-  const { code, nodeId, cmd, arg } = req.body || {};
-  const devs = meshDevices.get(String(code));
-  if (!devs || !devs.size) return res.status(404).json({ error: "No live nodes in mesh." });
-  const targets = (nodeId && nodeId !== "all") ? [String(nodeId)] : [...devs.keys()];
-  const key0 = String(code);
-  let queued = 0;
-  for (const t of targets) {
-    const key = key0 + "|" + t;
-    const arr = meshCmds.get(key) || [];
-    arr.push({ id: ++meshSeq, cmd: String(cmd || "").slice(0, 24), arg: String(arg || "").slice(0, 300), ts: Date.now() });
-    meshCmds.set(key, arr); queued++;
-  }
-  res.json({ ok: true, queued, targets: targets.length });
-});
-/* nodes post results; ZEUS reads them (and clears) */
-app.post("/v1/mesh/result", async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  const { code, nodeId, name, cmd, ok, detail } = req.body || {};
+  const { code, nodeId, targets, cmd, arg } = req.body || {};
   const devs = meshDevices.get(String(code));
   if (!devs) return res.status(404).json({ error: "No mesh found for that code." });
-  const arr = meshResults.get(String(code)) || [];
-  arr.push({ nodeId: String(nodeId || "?"), name: String(name || "Node").slice(0, 28), cmd: String(cmd || "").slice(0, 24), ok: !!ok, detail: String(detail || "").slice(0, 220), ts: Date.now() });
-  meshResults.set(String(code), arr.slice(-40));
+  meshTouchCode(code);
+  let list;
+  if (Array.isArray(targets) && targets.length) list = targets.map(String);
+  else if (nodeId && nodeId !== "all") list = [String(nodeId)];
+  else list = [...devs.keys()];
+  if (!list.length) return res.json({ ok: true, queued: 0, targets: 0, note: "no nodes joined yet" });
+  const name = String(cmd || "").slice(0, 24);
+  if (!name) return res.status(400).json({ error: "cmd required" });
+  let queued = 0;
+  const ids = [];
+  for (const t of list) {
+    if (!devs.has(t)) continue; /* never queue into a device that is not here */
+    const key = String(code) + "|" + t;
+    const arr = meshCmds.get(key) || [];
+    const id = ++meshSeq;
+    arr.push({ id, cmd: name, arg: String(arg ?? "").slice(0, 300), ts: Date.now() });
+    meshCmds.set(key, arr.slice(-25)); /* a node that never polls must not grow forever */
+    ids.push(id); queued++;
+  }
+  res.json({ ok: true, queued, targets: list.length, ids });
+});
+/* nodes post results; the ring is read with a cursor, so nothing is lost on a read */
+app.post("/v1/mesh/result", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const { code, nodeId, name, cmd, ok, detail, id } = req.body || {};
+  const devs = meshDevices.get(String(code));
+  if (!devs) return res.status(404).json({ error: "mesh-closed" });
+  const c = String(code);
+  const key = String(id ?? "") + ":" + String(nodeId || "?") + ":" + String(cmd || "");
+  let set = meshResIds.get(c);
+  if (!set) { set = new Set(); meshResIds.set(c, set); }
+  if (id != null && set.has(key)) return res.json({ ok: true, dup: true });
+  if (id != null) { set.add(key); if (set.size > 400) meshResIds.set(c, new Set([...set].slice(-200))); }
+  const arr = meshResults.get(c) || [];
+  arr.push({
+    id: id != null ? Number(id) : null,
+    nodeId: String(nodeId || "?").slice(0, 40),
+    name: String(name || "Node").slice(0, 28),
+    cmd: String(cmd || "").slice(0, 24),
+    ok: !!ok,
+    detail: String(detail || "").slice(0, 220),
+    ts: Date.now()
+  });
+  meshResults.set(c, arr.slice(-60));
   res.json({ ok: true });
 });
-/* ZEUS reads the mesh: devices + pending results */
+/* ONE call for the owner panel: devices + everything that happened since `since` */
+app.get("/v1/mesh/state", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const code = String((req.query.code || "")).trim();
+  const since = Number(req.query.since || 0) || 0;
+  const devs = meshDevices.get(code);
+  if (!devs) return res.json({ ok: true, exists: false, devices: [], results: [], cursor: Date.now(), serverTime: Date.now() });
+  meshTouchCode(code);
+  meshTrimDevices(devs);
+  const now = Date.now();
+  const devices = [...devs.entries()].map(([id, d]) => ({
+    id, name: d.name, battery: d.battery, charging: !!d.charging, net: d.net || "",
+    rtt: typeof d.rtt === "number" ? d.rtt : null,
+    ageMs: now - d.ts,
+    fresh: now - d.ts < MESH_LIVE_MS && d.vis !== false, away: d.vis === false,
+    pending: (meshCmds.get(code + "|" + id) || []).length
+  })).sort((a, b) => a.ageMs - b.ageMs);
+  const results = (meshResults.get(code) || []).filter(r => r.ts > since);
+  res.json({
+    ok: true, exists: true, code, devices, results,
+    cursor: results.length ? results[results.length - 1].ts : since,
+    live: devices.filter(d => d.fresh).length,
+    ownerOnline: meshOwnerOnline(code), serverTime: now
+  });
+});
+/* legacy read — same payload, no longer destructive */
 app.get("/v1/mesh/devices", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   const code = String((req.query.code || "")).trim();
+  const since = Number(req.query.since || 0) || 0;
   const devs = meshDevices.get(code);
-  if (!devs) return res.json({ ok: true, devices: [], results: [] });
+  if (!devs) return res.json({ ok: true, devices: [], results: [], cursor: Date.now() });
+  meshTouchCode(code);
+  meshTrimDevices(devs);
   const now = Date.now();
-  const devices = [...devs.entries()].filter(([, d]) => now - d.ts < MESH_TTL).map(([id, d]) => ({ id, name: d.name, battery: d.battery, charging: d.charging, net: d.net, fresh: now - d.ts < 35_000 }));
-  const results = meshResults.get(code) || [];
-  meshResults.set(code, []);
-  res.json({ ok: true, devices, results });
+  const devices = [...devs.entries()].map(([id, d]) => ({
+    id, name: d.name, battery: d.battery, charging: !!d.charging, net: d.net || "",
+    rtt: typeof d.rtt === "number" ? d.rtt : null, ageMs: now - d.ts,
+    fresh: now - d.ts < MESH_LIVE_MS && d.vis !== false, away: d.vis === false, pending: (meshCmds.get(code + "|" + id) || []).length
+  }));
+  const results = (meshResults.get(code) || []).filter(r => r.ts > since);
+  res.json({ ok: true, devices, results, cursor: results.length ? results[results.length - 1].ts : since, serverTime: now });
+});
+/* node hangs up — the mesh stays open for the owner */
+app.post("/v1/mesh/leave", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const { code, nodeId } = req.body || {};
+  if (!code || !nodeId) return res.status(400).json({ error: "code and nodeId required" });
+  meshDrop(code, nodeId);
+  const devs = meshDevices.get(String(code));
+  res.json({ ok: true, peers: devs ? devs.size : 0 });
+});
+/* owner removes one device (or every device) */
+app.post("/v1/mesh/kick", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const { code, nodeId, reason } = req.body || {};
+  const devs = meshDevices.get(String(code));
+  if (!devs) return res.status(404).json({ error: "No mesh found for that code." });
+  meshTouchCode(code);
+  const ids = (!nodeId || nodeId === "all") ? [...devs.keys()] : [String(nodeId)];
+  let kicked = 0;
+  for (const id of ids) {
+    if (!devs.has(id)) continue;
+    const d = devs.get(id);
+    /* leave a trace so the panel shows why a device vanished */
+    const arr = meshResults.get(String(code)) || [];
+    arr.push({ id: null, nodeId: id, name: d.name, cmd: "kick", ok: false, detail: String(reason || "removed by owner").slice(0, 120), ts: Date.now() });
+    meshResults.set(String(code), arr.slice(-60));
+    meshDrop(code, id); kicked++;
+  }
+  res.json({ ok: true, kicked });
+});
+/* rename a device from either side */
+app.post("/v1/mesh/rename", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const { code, nodeId, name } = req.body || {};
+  const devs = meshDevices.get(String(code));
+  if (!devs) return res.status(404).json({ error: "No mesh found for that code." });
+  const d = devs.get(String(nodeId));
+  if (!d) return res.status(404).json({ error: "device not in mesh" });
+  d.name = String(name || "Node").slice(0, 28);
+  meshTouchCode(code);
+  res.json({ ok: true, name: d.name });
+});
+/* owner disconnects: the code is released, nodes are told the mesh is closed */
+app.post("/v1/mesh/close", async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const code = String((req.body && req.body.code) || "").trim();
+  const devs = meshDevices.get(code);
+  if (!devs) return res.json({ ok: true, closed: false });
+  const ids = [...devs.keys()];
+  for (const id of ids) meshCmds.delete(code + "|" + id);
+  meshDevices.delete(code); meshResults.delete(code); meshOwners.delete(code);
+  meshBorn.delete(code); meshTouch.delete(code); meshResIds.delete(code);
+  for (const [k] of meshSeen) if (k.startsWith(code + "|")) meshSeen.delete(k);
+  res.json({ ok: true, closed: true, released: ids.length });
 });
 
 /* optional shared-secret gate */
@@ -2721,13 +2927,131 @@ const WEB_JUNK = /unusual traffic|not a robot|why did this happen|captcha|enable
      TAVILY_API_KEY · BRAVE_SEARCH_API_KEY · EXA_API_KEY
    Results are normalized to {title,url,date,snippet}; nothing here is exposed to
    the browser and no key ever leaves the server. */
+/* ============ TAVILY KEY BANK (1 Nov 2026) ================================
+   Tavily is the lane that actually answers "latest …" questions, and ONE key
+   cannot carry real traffic: a dev key holds 1,000 credits/month at 100 RPM, so
+   it drains in a morning and every answer falls back to stale training data.
+   This bank keeps SEVERAL keys and spends them against a daily budget derived
+   from what is LEFT this month, so a quiet day hands tomorrow more headroom and
+   a drained key is replaced by the next one instead of losing the request.
+     TAVILY_API_KEY · TAVILY_API_KEY_2 … TAVILY_API_KEY_10   (comma lists OK)
+   Round-robin by default (even wear, fewer 429s); TAVILY_STRATEGY=drain burns
+   key 1 to empty before touching key 2. Key material never leaves the server —
+   /v1/search/usage reports masked labels and counts only. */
+const TAVILY_KEYS = (() => {
+  const out = [];
+  const add = v => String(v || "").split(",").map(s => s.trim()).filter(Boolean).forEach(k => { if (!out.includes(k)) out.push(k); });
+  add(process.env.TAVILY_API_KEY);
+  for (let i = 2; i <= 10; i++) add(process.env["TAVILY_API_KEY_" + i]);
+  return out;
+})();
 const SEARCH_KEYS = {
-  tavily: (process.env.TAVILY_API_KEY || "").trim(),
   brave: (process.env.BRAVE_SEARCH_API_KEY || process.env.BRAVE_API_KEY || "").trim(),
   exa: (process.env.EXA_API_KEY || "").trim()
 };
+const TAV_MONTHLY = Math.max(1, parseInt(process.env.TAVILY_MONTHLY_CREDITS || "1000", 10) || 1000);
+const TAV_STRATEGY = String(process.env.TAVILY_STRATEGY || "spread").toLowerCase();
+const TAV_RPM = Math.max(1, parseInt(process.env.TAVILY_RPM || "100", 10) || 100);
+const TAV_DAY_MS = 86400000;
+const tavDay = new Map();    /* key → { day, used } */
+const tavMonth = new Map();  /* key → { month, used } */
+const tavCool = new Map();   /* key → until (429) */
+const tavDead = new Map();   /* key → until (401/432/433) */
+const tavMin = new Map();    /* key → { at, n } one-minute window */
+let tavCursor = 0;
+const tavMonthNow = () => new Date().toISOString().slice(0, 7);
+function tavDaysLeft() {
+  const n = new Date();
+  const last = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth() + 1, 0)).getUTCDate();
+  return Math.max(1, last - n.getUTCDate() + 1);
+}
+function tavDayUsed(k) {
+  const r = tavDay.get(k);
+  if (!r || r.day !== TODAY()) { tavDay.set(k, { day: TODAY(), used: 0 }); return 0; }
+  return r.used;
+}
+function tavMonthUsed(k) {
+  const r = tavMonth.get(k);
+  if (!r || r.month !== tavMonthNow()) { tavMonth.set(k, { month: tavMonthNow(), used: 0 }); return 0; }
+  return r.used;
+}
+/* Spend what is left over the days that are left: the budget repairs itself
+   after a quiet day and can never overshoot the monthly cap. */
+function tavDailyBudget(k) {
+  const left = TAV_MONTHLY - tavMonthUsed(k);
+  if (left <= 0) return 0;
+  return Math.max(1, Math.ceil(left / tavDaysLeft()));
+}
+function tavCharge(k, cost) {
+  tavDay.set(k, { day: TODAY(), used: tavDayUsed(k) + cost });
+  tavMonth.set(k, { month: tavMonthNow(), used: tavMonthUsed(k) + cost });
+}
+function tavRefund(k, cost) {
+  try {
+    cost = Math.max(0, parseInt(cost, 10) || 0);
+    if (!cost) return;
+    tavDay.set(k, { day: TODAY(), used: Math.max(0, tavDayUsed(k) - cost) });
+    tavMonth.set(k, { month: tavMonthNow(), used: Math.max(0, tavMonthUsed(k) - cost) });
+  } catch (e) {}
+}
+/* A key is usable only if it is not dead, not cooling, under the month cap, under
+   today's budget and under ~90% of its per-minute ceiling. Returns null when the
+   whole bank is spent — the caller then falls back to Brave/Exa/free lanes. */
+function tavPick(cost) {
+  cost = Math.max(1, parseInt(cost, 10) || 1);
+  if (!TAVILY_KEYS.length) return null;
+  const now = Date.now();
+  const live = TAVILY_KEYS.filter(k => !(tavDead.get(k) > now) && !(tavCool.get(k) > now));
+  if (!live.length) return null;
+  let order = live;
+  if (TAV_STRATEGY !== "drain") {
+    const s = tavCursor++ % live.length;
+    order = live.slice(s).concat(live.slice(0, s));
+  }
+  const ceiling = Math.max(1, Math.floor(TAV_RPM * 0.9));
+  for (const k of order) {
+    const dUsed = tavDayUsed(k), mUsed = tavMonthUsed(k);
+    if (mUsed + cost > TAV_MONTHLY) continue;            /* month khatam */
+    if (dUsed + cost > tavDailyBudget(k)) continue;      /* aaj khatam → next key */
+    let w = tavMin.get(k);
+    if (!w || now - w.at >= 60000) w = { at: now, n: 0 };
+    if (w.n + 1 > ceiling) continue;                     /* minute full → next key */
+    w.n++; tavMin.set(k, w);
+    tavDay.set(k, { day: TODAY(), used: dUsed + cost });
+    tavMonth.set(k, { month: tavMonthNow(), used: mUsed + cost });
+    return k;
+  }
+  return null;
+}
+function tavLabel(k) {
+  const i = TAVILY_KEYS.indexOf(k);
+  return i >= 0 ? "t" + (i + 1) + "…" + String(k).slice(-4) : "t…" + String(k).slice(-4);
+}
+/* masked, no secrets — what the credit meter shows the owner */
+function tavUsageReport() {
+  const now = Date.now();
+  const keys = TAVILY_KEYS.map(k => ({
+    id: tavLabel(k),
+    monthUsed: tavMonthUsed(k),
+    monthLimit: TAV_MONTHLY,
+    dayUsed: tavDayUsed(k),
+    todayBudget: tavDailyBudget(k),
+    state: (tavDead.get(k) > now) ? "invalid" : (tavCool.get(k) > now) ? "cooling" : "ok"
+  }));
+  return {
+    ok: true,
+    provider: searchProvider(),
+    keyCount: TAVILY_KEYS.length,
+    strategy: TAV_STRATEGY,
+    daysLeft: tavDaysLeft(),
+    monthLeft: keys.reduce((a, k) => a + Math.max(0, k.monthLimit - k.monthUsed), 0),
+    todayLeft: keys.reduce((a, k) => a + Math.max(0, k.todayBudget - k.dayUsed), 0),
+    keys: keys,
+    updatedAt: new Date().toISOString()
+  };
+}
 function searchProvider() {
-  if (SEARCH_KEYS.tavily) return "tavily";
+  if (TAVILY_KEYS.length) return "tavily";
   if (SEARCH_KEYS.brave) return "brave";
   if (SEARCH_KEYS.exa) return "exa";
   return "free";
@@ -2747,29 +3071,50 @@ async function realSearch(q, n, fresh) {
   const count = Math.max(3, Math.min(n || 5, 8));
   const provider = searchProvider();
   try {
-    if (provider === "tavily") {
-      const tav = (opts) => fetch("https://api.tavily.com/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(Object.assign({ api_key: SEARCH_KEYS.tavily, query: q, max_results: count, include_answer: false }, opts)),
-        signal: AbortSignal.timeout(fresh ? 10_000 : 8_000)
-      });
-      /* SPEED (30 Oct 2026): "advanced" depth takes seconds on every fresh question.
-         The news topic on basic already returns dated results WITH their extracted
-         content — that is all the answer needs. Plain basic is the fallback. */
-      /* ultra-fast measured at 0.7s vs 2.8s for basic — a fresh question must not
-         wait 3s before the model is even called. If the account rejects the depth,
-         the plain-basic retry below keeps the lane alive. */
-      let r = await tav(fresh ? { search_depth: "ultra-fast", topic: "news", days: 30 } : { search_depth: "basic" });
-      if (!r.ok && fresh) r = await tav({ search_depth: "basic" }); /* news index rejected the query → plain */
-      if (!r.ok) return null;
-      let j = await r.json();
-      let hits = (j.results || []).map(x => cleanHit(x.title, x.url, x.content, x.published_date)).filter(h => h.url);
-      if (!hits.length && fresh) {
-        r = await tav({ search_depth: "basic" });
-        if (r.ok) { j = await r.json(); hits = (j.results || []).map(x => cleanHit(x.title, x.url, x.content, x.published_date)).filter(h => h.url); }
+        if (provider === "tavily") {
+      /* one key per attempt: a drained or rate-limited key must not cost the user
+         an answer — the next key in the bank takes over inside the same request */
+      for (let attempt = 0; attempt < TAVILY_KEYS.length; attempt++) {
+        const key = tavPick(1);
+        if (!key) break;                        /* bank spent → free lanes answer */
+        let charged = 1;
+        const tav = (opts) => fetch("https://api.tavily.com/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+          body: JSON.stringify(Object.assign({ query: q, max_results: count, include_answer: false }, opts)),
+          signal: AbortSignal.timeout(fresh ? 10_000 : 8_000)
+        });
+        let r;
+        try {
+          r = await tav(fresh ? { search_depth: "ultra-fast", topic: "news", days: 30 } : { search_depth: "basic" });
+          if (!r.ok && fresh) r = await tav({ search_depth: "basic" });
+        } catch (e) { tavRefund(key, charged); continue; }
+        if (r.status === 429) {
+          const wait = Math.min(600, Math.max(20, parseInt(r.headers.get("retry-after") || "60", 10) || 60));
+          tavCool.set(key, Date.now() + wait * 1000);
+          tavRefund(key, charged);
+          continue;                             /* next key answers immediately */
+        }
+        if (r.status === 401 || r.status === 432 || r.status === 433) {
+          tavDead.set(key, Date.now() + TAV_DAY_MS);   /* invalid/revoked → drop it */
+          tavRefund(key, charged);
+          continue;
+        }
+        if (!r.ok) { tavRefund(key, charged); continue; }
+        let j = await r.json();
+        let hits = (j.results || []).map(x => cleanHit(x.title, x.url, x.content, x.published_date)).filter(h => h.url);
+        if (!hits.length && fresh) {
+          /* the dated news index came back empty → one plain search on the SAME key */
+          charged++; tavCharge(key, 1);
+          try {
+            const r2 = await tav({ search_depth: "basic" });
+            if (r2.ok) { j = await r2.json(); hits = (j.results || []).map(x => cleanHit(x.title, x.url, x.content, x.published_date)).filter(h => h.url); }
+          } catch (e) {}
+        }
+        if (hits.length) return hits;
+        tavRefund(key, charged);                /* nothing usable → refund + next key */
       }
-      return hits;
+      return null;
     }
     if (provider === "brave") {
       const r = await fetch("https://api.search.brave.com/res/v1/web/search?q=" + encodeURIComponent(q) + "&count=" + count + "&safesearch=moderate" + (fresh ? "&freshness=pm" : ""), {
@@ -3003,6 +3348,13 @@ app.get("/v1/calendar", async (req, res) => {
 
 app.post("/v1/agent", async (req, res) => {
   const body = req.body || {};
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+  const send = obj => { try { res.write("data: " + JSON.stringify(obj) + "\n\n"); } catch (e) {} };
+  const finish = () => { try { res.write("data: [DONE]\n\n"); res.end(); } catch (e) {} };
   const q = String(body.question || "").trim();
   if (!q) return res.status(400).json({ error: "question required" });
   /* AGENT SPEND CONTROL — every step is a real AI call. Makers run freely;
@@ -3013,13 +3365,6 @@ app.post("/v1/agent", async (req, res) => {
     body.maxSteps = Math.min(parseInt(body.maxSteps, 10) || 5, 4);
   }
   countAgent(req);
-  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  if (typeof res.flushHeaders === "function") res.flushHeaders();
-  const send = obj => { try { res.write("data: " + JSON.stringify(obj) + "\n\n"); } catch (e) {} };
-  const finish = () => { try { res.write("data: [DONE]\n\n"); res.end(); } catch (e) {} };
   if (!pickKey() && !RESERVE_KEY) {
     send({ step: { icon: "⚠️", label: "no AI keys live on the server — ask the owner to re-arm the key bank" } });
     finish(); return;
@@ -3119,14 +3464,33 @@ app.post("/v1/chat/stream", async (req, res) => {
   /* same grounding as /v1/chat/completions: today’s date + live web results + fact rules.
      Without this the stream lane answered tournaments/schedules from frozen memory. */
   const __t0 = Date.now();
-  messages = await groundChat(messages);
+  /* FIRST BYTES BEFORE ANY WORK (2 Nov 2026): the browser used to receive nothing at
+     all until grounding + RAG finished, so a 3-4s search looked like a frozen app.
+     Headers and a status frame go out now; the answer streams in behind them. */
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  if (typeof res.flushHeaders === "function") res.flushHeaders();
+  const send = obj => { try { res.write("data: " + JSON.stringify(obj) + "\n\n"); } catch (e) {} };
+  const finish = () => { try { res.write("data: [DONE]\n\n"); res.end(); } catch (e) {} };
+  send({ status: "thinking" });
+  const makerHere = req.__role === "maker" || req.__role === "ceo";
+  /* PREP BUDGET — search/RAG are useful, never worth a stalled answer */
+  messages = await deadline(groundChat(messages), 2200, messages);
   if (process.env.AURA_DEBUG) console.log("[timing] ground " + (Date.now() - __t0) + "ms");
   /* resolve a continuation ("teams in it") against the previous turn — the stream lane
      is what the app actually uses, so the topic guard must live here too */
   messages = withProductFacts(injectFollowUp(messages));
   /* stream lane gets the same server-side document memory as the proxy route */
-  messages = await withRagContext(messages, req);
+  messages = await deadline(withRagContext(messages, req), 1200, messages);
   if (process.env.AURA_DEBUG) console.log("[timing] rag " + (Date.now() - __t0) + "ms");
+  /* REPEAT QUESTIONS COST NOTHING — the stream lane never read the cache, so the
+     same question paid for a model call again and again */
+  if (!makerHere) {
+    const __hit = cacheGet(messages);
+    if (__hit) { send({ model: __hit.model + " (cached)" }); send({ delta: __hit.answer }); finish(); return; }
+  }
   /* ESPORTS QUESTIONS ARE BUFFERED, NOT STREAMED (27 Oct 2026): a wrong team name
      cannot be un-sent once it is on screen. Tournaments are rare, so holding this
      one class of answer for a single validated delta costs nothing and guarantees
@@ -3136,17 +3500,9 @@ app.post("/v1/chat/stream", async (req, res) => {
      what keeps the event context, so the buffer decision must not look at __q alone */
   const __merged = followUpQuery(messages, __q);
   const __buffer = !!(LIQUI && (LIQUI.isEsportsQuery(__q) || LIQUI.isEsportsQuery(__merged)));
-  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  if (typeof res.flushHeaders === "function") res.flushHeaders();
-  const send = obj => { try { res.write("data: " + JSON.stringify(obj) + "\n\n"); } catch (e) {} };
-  const finish = () => { try { res.write("data: [DONE]\n\n"); res.end(); } catch (e) {} };
   /* roster-exact answers never touch a model (see esportsFastAnswer) */
   const __fast = esportsFastAnswer(messages, __merged, __q);
   if (__fast) { send({ model: "live esports data" }); send({ delta: __fast }); finish(); return; }
-  const makerHere = req.__role === "maker" || req.__role === "ceo";
   const requestedModel = makerHere ? (body.model || MODELS[0]).trim() : "";
   const modelList = makerHere ? MODELS : PUBLIC_MODELS;
   let order = makerHere ? [requestedModel, ...MODELS.filter(m => m !== requestedModel)] : PUBLIC_MODELS.slice();
@@ -3158,6 +3514,13 @@ app.post("/v1/chat/stream", async (req, res) => {
       order = [...new Set([...pref, ...rest])];
     }
   } catch (e) { /* discovery is best-effort */ }
+  /* FASTEST MODEL FIRST (2 Nov 2026): discovery put gpt-oss-120b (a reasoning model,
+     ~700ms before its first token) ahead of the 20b one. Public answers now start on
+     the quickest model that is actually available; a heavier one stays as fallback. */
+  if (!makerHere) {
+    const rank = m => /gpt-oss-20b/i.test(m) ? 0 : /qwen/i.test(m) ? 1 : /gpt-oss-120b/i.test(m) ? 2 : /allam-2-7b/i.test(m) ? 3 : 4;
+    order = order.slice().sort((a, b) => rank(a) - rank(b));
+  }
 
   /* VISION over stream: image messages resolve via Gemini, delivered as one delta */
   if (msgHasImage(messages)) {
@@ -3193,7 +3556,10 @@ app.post("/v1/chat/stream", async (req, res) => {
             messages,
             max_tokens: maxTok,
             temperature: body.temperature != null ? body.temperature : 0.6,
-            stream: true
+            stream: true,
+            /* gpt-oss spends its first ~500ms thinking; a chat answer does not need
+               that. Measured on this account: 727ms → 181ms to first token. */
+            ...(/^openai\/gpt-oss/.test(model) ? { reasoning_effort: body.reasoning_effort || "low" } : {})
           }),
           signal: AbortSignal.timeout(120_000)
         });

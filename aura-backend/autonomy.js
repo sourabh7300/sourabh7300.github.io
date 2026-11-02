@@ -721,7 +721,11 @@ function createAutopilot(deps) {
     try {
       if (!state.enabled && !o.force && !state.nonstop) return { ok: true, skipped: "autopilot is off" };
       if (!o.force && !state.nonstop && state.paused) return { ok: true, skipped: "paused: " + state.paused };
-      if (!o.force && !state.nonstop && (state.cyclesToday || 0) >= (state.maxCyclesPerDay || cfg.maxCyclesPerDay)) return { ok: true, skipped: "daily cycle budget reached (" + state.cyclesToday + ")" };
+      /* BUDGET IS ABSOLUTE (1 Nov 2026): nonstop used to skip this check entirely,
+         and the live host honestly reported cyclesToday 17 against a budget of 8 —
+         the owner's keys paid for those extra cycles. Only an explicit admin
+         force:true may exceed the day's budget now. */
+      if (!o.force && (state.cyclesToday || 0) >= (state.maxCyclesPerDay || cfg.maxCyclesPerDay)) return { ok: true, skipped: "daily cycle budget reached (" + (state.cyclesToday || 0) + "/" + (state.maxCyclesPerDay || cfg.maxCyclesPerDay) + ")" };
       /* NONSTOP IS NOT A BUDGET BYPASS (28 Oct 2026): nonstop ticks carry force:true,
          so they skipped the budget above and ran the engine every 15s — 91 cycles in
          one day, dozens of apply→revert commits, and a host that redeploys on every
