@@ -64,12 +64,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v32";
+const BUILD = process.env.AURA_BUILD || "squad-v33";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v32";
+const SRC_BUILD = "squad-v33";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -3563,7 +3563,14 @@ app.post("/v1/chat/stream", async (req, res) => {
      ~700ms before its first token) ahead of the 20b one. Public answers now start on
      the quickest model that is actually available; a heavier one stays as fallback. */
   if (!makerHere) {
-    const rank = m => /gpt-oss-20b/i.test(m) ? 0 : /qwen/i.test(m) ? 1 : /gpt-oss-120b/i.test(m) ? 2 : /allam-2-7b/i.test(m) ? 3 : 4;
+    /* a question that had to search gets the heavier brain (4 Nov 2026): the 20b model
+       answered "I don't have a confirmed winner yet" with the standings and a 3-0 final
+       sitting in its context, while the 120b reported them. Speed only wins when there is
+       nothing to read. */
+    const __liveQ = FRESH_RE.test(__q) || (FOCUS && FOCUS.isResultAsk(__q));
+    const rank = m => __liveQ
+      ? (/gpt-oss-120b/i.test(m) ? 0 : /qwen/i.test(m) ? 1 : /gpt-oss-20b/i.test(m) ? 3 : /allam-2-7b/i.test(m) ? 4 : 5)
+      : (/gpt-oss-20b/i.test(m) ? 0 : /qwen/i.test(m) ? 1 : /gpt-oss-120b/i.test(m) ? 2 : /allam-2-7b/i.test(m) ? 3 : 4);
     order = order.slice().sort((a, b) => rank(a) - rank(b));
   }
 
