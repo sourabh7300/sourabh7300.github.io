@@ -64,7 +64,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v40";
+const BUILD = process.env.AURA_BUILD || "squad-v41";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
@@ -2210,7 +2210,7 @@ setInterval(warmHealth, 4 * 60_000);
    chat route the same live grounding and hard fact rules. */
 const AURA_FACT_RULES =
   "FACT RULES (owner order): never invent team names, player names, rosters, lineups, schedules, scores, prices, winners or 'confirmed' lists. " +
-  "If the LIVE WEB RESULTS below do not contain the exact list or date asked for, say in one short line that you don't have the verified version yet and offer a live search — never fill the gap with placeholders like 'Team A'. " +
+  "If the LIVE WEB RESULTS below do not contain the exact list asked for, say so in one short line and answer with what they DO establish — never fill the gap with placeholders like 'Team A', and never refuse an answer the results already support (a version, a date, a price or a winner they name is the answer, even when the wording differs from the question). Only when there are no live results at all may you say you don't have it yet. " +
   "Answer the exact acronym/event the user named: BMIC is not BMSD, BGIS is not BGMS, BMS is not BMPS. If it is ambiguous, ask one short question instead of guessing. " +
   /* OWNER REPORT 4 Nov 2026: "aaj kaun jeeta" got "I don't have the verified winner" while
      the results in hand named a leader and a 3-0 grand final. Refusing a broad question is
@@ -2300,6 +2300,47 @@ function scriptNote(q) {
   if (DEVANAGARI.test(s)) return "SCRIPT: the user wrote Devanagari — reply in Devanagari.";
   if (ROMAN_HINGLISH.test(s)) return "SCRIPT: the user wrote Hindi/Urdu in Roman letters (Hinglish) — reply in Roman letters only, never Devanagari.";
   return "";
+}
+/* A STALE ANSWER GETS ONE LIVE LOOK (4 Nov 2026): when the draft admits a training
+   cutoff, the question earns a real search and one rewrite grounded in today's
+   evidence — instead of the visitor reading "as of my last update in 2024". */
+async function freshnessRepair(messages, draft, req) {
+  const now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  let block = "";
+  try {
+    const q = withYearAnchor(cleanAsk(searchQuery(messages)) || searchQuery(messages));
+    const hits = await toolSearch(q);
+    if (hits && hits.length) {
+      block = "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; these WIN over the model's memory):\n" +
+        hits.slice(0, 3).map((h, i) => "[" + (i + 1) + "] " + (h.title || "") + (h.date ? " (" + String(h.date).slice(0, 24) + ")" : "") +
+          "\n" + String(cleanRead(h.extract || h.snippet || "") || "").slice(0, 900)).join("\n\n");
+    }
+  } catch (e) { block = ""; }
+  const note = "CURRENT DATE & TIME: " + now + "\n" +
+    "Rewrite the answer for the user's actual question. Your previous draft said you could not reach current information — never say that: " +
+    (block ? "use the LIVE WEB RESULTS below, name the value they show, and say which date it belongs to." : "no live results were found, so answer with what is stable and say in one short line that the newest figure is unconfirmed today.") +
+    " Never mention a training cutoff, a knowledge date or your own limits as the answer.\n\n" + block +
+    "\n\nPrevious draft (do not repeat its excuse):\n" + String(draft || "").slice(0, 600);
+  const m2 = messages.concat([{ role: "system", content: note }]);
+  try { const g = await geminiText(m2, 1200); if (g && g.trim()) return g.trim(); } catch (e) {}
+  try { const r = await reserveCall(m2, 1200, 0.4, req); if (r && r.trim()) return r.trim(); } catch (e) {}
+  return "";
+}
+/* one exit for every answer lane: identity/script repair, then a live look when the
+   draft excuses itself with a cutoff. Returns the text to show (possibly ""). */
+async function finalizeAnswer(messages, text, req) {
+  let t = String(text || "").trim();
+  if (!t) return t;
+  const q = lastUserMsg(messages);
+  if (needsRewrite(q, t)) {
+    const fixed = await rewriteAnswer(messages, t, req);
+    if (fixed && !needsRewrite(q, fixed)) t = fixed;
+  }
+  if (staleExcuse(t)) {
+    const fresh = await freshnessRepair(messages, t, req);
+    if (fresh && !staleExcuse(fresh)) t = fresh;
+  }
+  return t;
 }
 function isSmallTalk(q) {
   return /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon)|who are you|what('s| is) your name|are you (real|human|an ai))\b/i.test(q || "");
@@ -2621,7 +2662,7 @@ async function groundChat(messages) {
        query, so the page's own prefetch already warmed the cache — and the search
        engine gets the topic instead of question filler. */
     const qRaw = searchQuery(messages);
-    const q = resultAsk ? FOCUS.sharpenQuery(ask) : (cleanAsk(qRaw) || qRaw);
+    const q = withYearAnchor(resultAsk ? FOCUS.sharpenQuery(ask) : (cleanAsk(qRaw) || qRaw));
     let web = "";
     try {
       const hits = await searchWeb(q.replace(/\s+/g, " "), esp ? 8000 : 7000);
@@ -2797,6 +2838,7 @@ app.post("/v1/chat/completions", async (req, res) => {
         /* a result question searches with a result-shaped query (see search-focus.js) */
         let _sq = cleanAsk(_q) || _q.replace(/\s+/g, " ");
         if (FOCUS && FOCUS.isResultAsk(_q)) _sq = FOCUS.sharpenQuery(_q);
+        _sq = withYearAnchor(_sq);
         const _hits = await toolSearch(_sq);
         if (process.env.AURA_DEBUG) console.log("[chat] live=" + (_hits ? _hits.length : 0) + " q=\"" + _sq + "\"")
         if (_hits && _hits.length) {
@@ -2820,6 +2862,14 @@ app.post("/v1/chat/completions", async (req, res) => {
       /* fresh facts are copied, not composed: a low temperature keeps the model on the
          headline instead of drifting back into its training data */
       if (typeof body.temperature !== "number") body.temperature = 0.25;
+      /* LAST WORD WINS (4 Nov 2026): with the evidence block already in place the model
+         still answered "I don't have the verified release date" while three live pages
+         named it. This line sits closest to the question, where it is hardest to skim. */
+      if (__live && __live.hits && __live.hits.length) {
+        messages = messages.concat([{ role: "system", content:
+          "ANSWER FROM THE RESULTS ABOVE: they were fetched seconds ago. Name the newest version, date, price or winner they show, and say which date it belongs to. " +
+          "Do not reply that you lack the information while these results name it, and do not add a training-cutoff disclaimer." }]);
+      }
     }
   } catch (e) { /* amplification is best-effort — never block the answer */ }
   /* visible to the owner on any response: did this answer get live evidence, and how much */
@@ -2841,8 +2891,8 @@ app.post("/v1/chat/completions", async (req, res) => {
      fast; the key bank below stays as the fallback. */
   if (GEMINI_API_KEY) {
     try {
-      let gt = await geminiChat(messages, Math.min(body.max_tokens || 1400, 3000), body.temperature, req);
-      if (gt && needsRewrite(lastUserMsg(messages), gt)) gt = await rewriteAnswer(messages, gt, req) || "";
+      const gtRaw = await geminiChat(messages, Math.min(body.max_tokens || 1400, 3000), body.temperature, req);
+      const gt = gtRaw ? await finalizeAnswer(messages, gtRaw, req) : "";
       if (gt) {
         if (!makerHere) { cachePut(messages, gt, "gemini"); countAnswer(req); }
         return res.json({ choices: [{ message: { content: gt } }], model: "gemini (text)" });
@@ -2907,11 +2957,8 @@ app.post("/v1/chat/completions", async (req, res) => {
       let t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
       if (t && t.trim()) {
         t = await rosterGuard(t, messages);
-        if (needsRewrite(lastUserMsg(messages), t)) {
-          const fixed = await rewriteAnswer(messages, t, req);
-          if (fixed && !needsRewrite(lastUserMsg(messages), fixed)) t = fixed;
-          else { pushErr(model + " derailed answer"); continue; }
-        }
+        t = await finalizeAnswer(messages, t, req);
+        if (!t || needsRewrite(lastUserMsg(messages), t) || staleExcuse(t)) { pushErr(model + " derailed answer"); continue; }
         recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); if (!makerHere) { cachePut(messages, t.trim(), model); countAnswer(req); } return res.json({ choices: [{ message: { content: t.trim() } }], model });
       }
     } catch (e) { /* network hiccup → try next model */ }
@@ -2953,12 +3000,8 @@ app.post("/v1/chat/completions", async (req, res) => {
           const d = await r.json();
           let t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
           if (t && t.trim()) {
-            t = await rosterGuard(t, messages);
-            if (needsRewrite(lastUserMsg(messages), t)) {
-              const fixed = await rewriteAnswer(messages, t, req);
-              if (fixed && !needsRewrite(lastUserMsg(messages), fixed)) t = fixed;
-              else continue;
-            }
+            t = await finalizeAnswer(messages, await rosterGuard(t, messages), req);
+            if (!t || needsRewrite(lastUserMsg(messages), t) || staleExcuse(t)) continue;
             return res.json({ choices: [{ message: { content: t } }], model: model + " (nvidia-nim)" });
           }
         } catch (e) { /* next NIM model */ }
@@ -2966,10 +3009,7 @@ app.post("/v1/chat/completions", async (req, res) => {
     }
     /* then the reserve brain before giving up */
     let mt = await reserveCall(messages, Math.min(body.max_tokens || 1400, 4000), body.temperature, req);
-    if (mt) {
-      mt = await rosterGuard(mt, messages);
-      if (needsRewrite(lastUserMsg(messages), mt)) mt = await rewriteAnswer(messages, mt, req) || "";
-    }
+    if (mt) mt = await finalizeAnswer(messages, await rosterGuard(mt, messages), req);
     if (mt) return res.json({ choices: [{ message: { content: mt } }], model: RESERVE_MODEL + " (reserve)" });
     /* every model lane is down — a grounded headline list beats an error page */
     const lf = liveFallback();
@@ -3194,7 +3234,24 @@ const cleanHit = (title, url, snippet, date) => ({
    generic index ranks 2025 buying guides first. A freshness-shaped question now asks
    Tavily's news index (dated, last 60 days) — "Best iPhone 2026 … including the Duo"
    instead of "iPhone 17 line-up". Normal questions keep the cheap basic search. */
-const FRESH_RE = /\b(latest|today|tonight|now|current|news|price|rate|score|result|schedule|launch|release|update|trending|winner|won|aaj|abhi|kab)\b|20[2-9][0-9]/i;
+/* WHAT COUNTS AS "CAN HAVE CHANGED" (widened 4 Nov 2026): the owner's report was
+   that answers still sounded like 2024. The old list only matched news-y words, so
+   "best phone under 30k", "python latest version", "who is the CEO of X" and
+   "kaunsa laptop lu" all answered from memory. Every one of those is a value that
+   moves, so it now earns a live search just like "latest news". */
+const FRESH_RE = /\b(latest|today|tonight|now|current|currently|news|price|prices|cost|salary|rate|score|result|results|schedule|launch|launched|release|released|update|updated|upgrade|version|download|install|trending|winner|won|wins|best|top|newest|new|compare|comparison|review|reviews|hiring|jobs|ceo|president|ministers?|election|population|gdp|rank|ranking|standings|season|episode|movie|song|box office|ipo|stock|crypto|weather|aaj|abhi|kab|kaun|kaunsa|konsa|konsi|kitna|kitne|kitni)\b|20[2-9][0-9]/i;
+/* the year belongs in a "best/ latest / price" search, otherwise the engine happily
+   returns last year's list: "best phone" → "best phone 2026". */
+function withYearAnchor(q) {
+  const s = String(q || "").trim();
+  if (!s || /\b20[2-9][0-9]\b/.test(s)) return s;
+  if (!/\b(best|top|latest|newest|new|price|prices|cost|cheapest|version|release|launch|compare|review|ranking|winner|who is|which)\b/i.test(s)) return s;
+  return s + " " + new Date().getFullYear();
+}
+/* THE 2024 EXCUSE — a model admitting its training cutoff instead of looking. Any of
+   these lines means the answer is not current, whatever date the page shows. */
+const STALE_EXCUSE = /\b(as of my (last |latest )?(knowledge|training|update)|my (knowledge|training) (cutoff|data)|knowledge cutoff|i (do not|don't) have (access to )?(real[- ]?time|live|current)|training data (only )?(goes|up to)|i (cannot|can't) (browse|access the internet)|beyond my (last )?update|meri jankari .{0,20}(tak|tak hi)|mera data .{0,20}(purana|2024))/i;
+function staleExcuse(text) { return STALE_EXCUSE.test(String(text || "")); }
 async function realSearch(q, n, fresh) {
   const count = Math.max(3, Math.min(n || 5, 8));
   const provider = searchProvider();
@@ -3300,6 +3357,21 @@ async function toolSearch(q) {
       const ranked = FOCUS.rankHits(got);
       if (ranked.length && FOCUS.scoreHit(ranked[0]) >= 3) return ranked.slice(0, 4);
       for (const h of ranked.slice(0, 4)) if (!out.some(x => x.url === h.url)) out.push(h);
+    }
+  } catch (e) {}
+  /* PRODUCT-FACT LANE (4 Nov 2026): "python ka latest version kya hai" was searched
+     through the NEWS feed, which answered with a LiteLLM supply-chain story and a
+     Node.js security patch — nothing that names a version, so the model honestly said
+     the results had no version and the visitor read "2024"-grade knowledge. A version,
+     release-date, price or spec question goes to the general web index first, where
+     the official page lives. */
+  try {
+    const VERSION_ASK = /\b(latest|newest|current)\b[^.?!]{0,30}\b(version|release|update)\b|\bversion\s*(number|kya|kaunsa)?\b|\brelease date\b|\bprice\b|\bkitni\b|\bkitna\b|\bspecs?\b|\blaunch date\b/i;
+    if (VERSION_ASK.test(q) && searchProvider() !== "free") {
+      const vh = await realSearch(withYearAnchor(q), 5, false).catch(() => null);
+      const good = (vh || []).filter(h => /version|release|price|official|docs?\.|download/i.test(String(h.title || "") + " " + String(h.extract || h.snippet || "").slice(0, 220)));
+      if (good.length >= 2) return good.slice(0, 4);
+      for (const h of (vh || []).slice(0, 2)) if (!out.some(x => x.url === h.url)) out.push(h);
     }
   } catch (e) {}
   if (LIQUI && LIQUI.isEsportsQuery(q)) {
@@ -3707,7 +3779,7 @@ app.post("/v1/chat/stream", async (req, res) => {
     send({ error: "The vision model could not read that image — try a clearer photo." }); finish(); return;
   }
 
-  let sawLimit = false, served = false, delivered = false, lastChatErr = "";
+  let sawLimit = false, served = false, delivered = false, staleQ = false, lastChatErr = "";
   const pushErr = s => { lastChatErr = (lastChatErr ? lastChatErr + " | " : "") + s; if (lastChatErr.length > 420) lastChatErr = "…" + lastChatErr.slice(-410); };
   if (body.lane === "code") {
     /* CODE LANE over stream — Mistral/Codestral first, shared bank on any miss */
@@ -3757,7 +3829,7 @@ app.post("/v1/chat/stream", async (req, res) => {
            model behind the assistant, or answers a Roman-script Hinglish question
            in Devanagari, is dropped here and the next model takes the turn — the
            visitor never reads the bad opening. */
-        let headOpen = !__buffer, head = "", derailed = false, upEmpty = false;
+        let headOpen = !__buffer, head = "", derailed = false, upEmpty = false, staleSeen = false;
         const __askQ = lastUserMsg(messages);
         const dec = new TextDecoder();
         let buf = "", closed = false;
@@ -3780,7 +3852,10 @@ app.post("/v1/chat/stream", async (req, res) => {
                  no text, fall out of the lane and let the next model / reserve answer. */
               /* a short answer never reaches the 90-character head gate, so it is still
                  sitting in `head` here — flush it before the turn can end */
-              if (headOpen && head) { headOpen = false; send({ delta: head }); delivered = true; }
+              if (headOpen && head) {
+                if (staleExcuse(head)) { derailed = true; staleSeen = true; break; }
+                headOpen = false; send({ delta: head }); delivered = true;
+              }
               if (!full.trim()) { pushErr(model + " empty answer"); served = false; upEmpty = true; break; }
               const safe = await rosterGuard(full, messages);
               if (__buffer || safe !== full) { send({ delta: safe }); delivered = true; }
@@ -3797,6 +3872,7 @@ app.post("/v1/chat/stream", async (req, res) => {
                   head += delta;
                   if (head.length >= 90) {
                     if (needsRewrite(__askQ, head)) { derailed = true; }
+                    else if (staleExcuse(head)) { /* a cutoff excuse is not an answer */ derailed = true; staleSeen = true; }
                     else { headOpen = false; send({ delta: head }); delivered = true; }
                   }
                 } else { send({ delta }); delivered = true; }
@@ -3805,9 +3881,10 @@ app.post("/v1/chat/stream", async (req, res) => {
           }
         }
         if (derailed) {
-          /* the opening was a model introduction or the wrong script — this model's
-             draft is dropped unsent and the next lane gets the same question */
-          pushErr(model + " derailed answer");
+          /* the opening was a model introduction, the wrong script, or a training-cutoff
+             excuse — this model's draft is dropped unsent and the next lane gets it */
+          pushErr(model + (staleSeen ? " stale cutoff excuse" : " derailed answer"));
+          if (staleSeen) staleQ = true;
           served = false;
           continue;
         }
@@ -3827,6 +3904,13 @@ app.post("/v1/chat/stream", async (req, res) => {
      model frame and [DONE] with zero deltas — the visitor watched a finished turn
      with no text in it. Falls through to the other lanes whenever nothing was
      actually delivered, not only when no upstream call succeeded. */
+  /* A CUTOFF EXCUSE EARNS A LIVE LOOK (4 Nov 2026) before any other fallback: when
+     every model answered with a training-date apology, the question is searched and
+     rewritten from today's evidence instead of being shown as an excuse. */
+  if (!delivered && staleQ) {
+    const fixed = await freshnessRepair(messages, "", req);
+    if (fixed) { send({ model: "live web (fresh look)" }); send({ delta: fixed }); delivered = true; finish(); return; }
+  }
   if (!served || !delivered) {
     /* the maker's NIM lane answers even when nothing looked rate-limited: a retired
        Groq model id returns 400/404, which the old gate read as "not a limit" and
