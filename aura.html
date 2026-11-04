@@ -6307,8 +6307,25 @@ function localReply(q){
   if(me&&/\d/.test(me)&&/^[\d\s+\-*/^%().,a-z]+$/i.test(me)&&/[+\-*/^%]|sqrt|sin|cos|tan|log/.test(me)){const v=calc(me);if(v!==null)return "That computes to "+fmtNum(v)+".";}
   const deep=/\b(in detail|detailed|details?|in depth|deep(er| dive)?|elaborate|more information|tell me more|explain fully|comprehensive|thorough|expand)\b/.test(l);
   const esc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
-  for(const k in KB){const hit=k.length<=4?new RegExp("\\b"+esc(k)+"\\b").test(l):l.includes(k);
-    if(hit){const d=DEEP[k];if(deep&&!d)break;return(d&&deep)?KB[k]+"\n\n"+d:KB[k];}}
+  /* THE ONE-LINER MAY NOT HIJACK A REAL QUESTION (4 Nov 2026): the old loop answered as
+     soon as a key appeared anywhere, so "python ka latest version kya hai" got the static
+     "created by Guido van Rossum in 1991" line instead of the brain plus a live search —
+     the exact "2024 answers" the owner kept seeing. A key answers only when the question
+     has no version/price/date/compare marker and is essentially about that key alone. */
+  const KB_SPECIFIC=/\b(latest|newest|current|version|release|released|update|price|cost|buy|cheapest|best|top|vs|compare|comparison|review|specs?|features?|salary|download|install|how many|how much|how long|when|which|kitna|kitne|kitni|kaunsa|konsa|konsi|kab|kahan|202[0-9])\b/;
+  const KB_FILLER=/^(what|whats|what's|is|are|was|were|the|a|an|of|about|tell|me|explain|define|meaning|definition|how|does|do|did|kya|hai|hain|ka|ki|ke|batao|bata|please|plz|bhai|so|in|short|one|line|answer|give|jankari|jaankari|chahiye|bare|baare|me|mein|exactly|briefly|simply|actually|basically)$/;
+  const KB_IDENTITY=["who are you","your name","who built you","who made you","your creator","what can you do","do you remember","chats sidebar","new chat","sourabh","jecrc","b.tech","portfolio","aura","lucid","foodora","mercedes"];
+  const kbSpecific=KB_SPECIFIC.test(l);
+  for(const k in KB){
+    const hit=k.length<=4?new RegExp("\\b"+esc(k)+"\\b").test(l):l.includes(k);
+    if(!hit)continue;
+    if(kbSpecific&&KB_IDENTITY.indexOf(k)<0)continue;
+    /* how much of the question is actually about this key? "python me decorator kaise" is
+       not a request for the 1991 one-liner — nothing but fillers may surround a key. */
+    const rest=l.split(k).join(" ").replace(/[^a-z0-9\s]/g," ").split(/\s+/).filter(Boolean).filter(function(w){return !KB_FILLER.test(w)});
+    if(rest.length>2&&KB_IDENTITY.indexOf(k)<0)continue;
+    const d=DEEP[k];if(deep&&!d)continue;return(d&&deep)?KB[k]+"\n\n"+d:KB[k];
+  }
   return undefined;
 }
 
