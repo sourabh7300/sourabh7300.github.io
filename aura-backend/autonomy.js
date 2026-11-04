@@ -714,7 +714,7 @@ function createAutopilot(deps) {
       let woken = 0;
       for (const id of Object.keys(state.missions || {})) {
         const m = state.missions[id];
-        if ((m.parked || m.liveBlocked) && !m.done) { m.parked = false; m.liveBlocked = false; m.retryAfter = 0; m.attempts = 0; woken++; }
+        if ((m.parked || m.liveBlocked) && !m.done) { m.parked = false; m.liveBlocked = false; m.retryAfter = 0; m.attempts = 0; m.resets = 0; woken++; }
       }
       log(state, "kratos", woken ? ("new day — " + woken + " parked mission(s) get a fresh attempt budget (daily second chance)") : "new day — cycles reset");
     }
@@ -725,15 +725,23 @@ function createAutopilot(deps) {
          and the live host honestly reported cyclesToday 17 against a budget of 8 —
          the owner's keys paid for those extra cycles. Only an explicit admin
          force:true may exceed the day's budget now. */
-      if (!o.force && (state.cyclesToday || 0) >= (state.maxCyclesPerDay || cfg.maxCyclesPerDay)) return { ok: true, skipped: "daily cycle budget reached (" + (state.cyclesToday || 0) + "/" + (state.maxCyclesPerDay || cfg.maxCyclesPerDay) + ")" };
+      /* BUT A SPENT BUDGET IS NOT A DEAD SQUAD (4 Nov 2026): the live host hit 8/8 by
+         mid-afternoon and every later tick returned "budget reached" — the panel then
+         read "no new publishes, nothing in progress" for the rest of the day, which is
+         exactly what "bots kaam nahi kar rahe" looked like from outside. The daily
+         budget only limits PAID model calls; the deterministic work is free, so a
+         spent budget now runs a maintenance cycle (sweep + world watch + signed
+         report) every tick instead of doing nothing. Feature work still waits for
+         tomorrow or an explicit force. */
+      const __budget = () => (state.cyclesToday || 0) >= (state.maxCyclesPerDay || cfg.maxCyclesPerDay);
+      const keylessOnly = !o.force && __budget();
+      if (keylessOnly) log(state, "kratos", "daily cycle budget reached (" + (state.cyclesToday || 0) + "/" + (state.maxCyclesPerDay || cfg.maxCyclesPerDay) + ") — maintenance cycle: sweep, world watch and report (zero keys), feature work waits");
       /* NONSTOP IS NOT A BUDGET BYPASS (28 Oct 2026): nonstop ticks carry force:true,
          so they skipped the budget above and ran the engine every 15s — 91 cycles in
          one day, dozens of apply→revert commits, and a host that redeploys on every
          push never finished a single deploy. Nonstop still works, it now respects the
          day's budget; a new day resets it. */
-      if (o.trigger === "nonstop" && (state.cyclesToday || 0) >= (state.maxCyclesPerDay || cfg.maxCyclesPerDay)) {
-        return { ok: true, skipped: "nonstop: daily cycle budget reached (" + state.cyclesToday + "/" + (state.maxCyclesPerDay || cfg.maxCyclesPerDay) + ")" };
-      }
+
 
       const cycle = { at: Date.now(), trigger: o.trigger, sweep: null, mission: null, publish: null, fail: null, world: null, stage: "sweep" };
       log(state, "kratos", "▶ cycle started (" + o.trigger + (o.dryRun ? ", dry-run" : "") + (state.nonstop ? ", nonstop" : "") + ")");
@@ -750,7 +758,12 @@ function createAutopilot(deps) {
       let src = null;
       if (d.readSource) { try { src = await d.readSource(); } catch (e) { log(state, "arthur", "source read failed: " + (e.message || e)); } }
       cycle.stage = "build";
-      if (src) {
+      if (src && keylessOnly) {
+        /* free work only: nothing here touches a model, so the panel still shows a
+           living squad and a broken lane is still caught the same day */
+        cycle.budget = "spent";
+        log(state, "arthur", "build skipped this cycle — the day's paid budget is spent (feature work resumes tomorrow, or now with a forced cycle)");
+      } else if (src) {
         /* an in-flight feature always continues first (work is never thrown away) */
         let mission = null;
         if (state.wip) mission = findMission(state, state.wip.mission) || null;
@@ -799,7 +812,7 @@ function createAutopilot(deps) {
           cycle.mission = mission.id;
           const out = await workMission(state, mission, src, o);
           cycle.publish = out.publish || null; cycle.fail = out.fail || null; cycle.queued = out.queued || null;
-          if (out.publish) { st.done = !!out.done; st.sha = out.publish; st.when = Date.now(); st.note = out.note || ""; }
+          if (out.publish) { st.done = !!out.done; st.sha = out.publish; st.when = Date.now(); st.note = out.note || ""; st.resets = 0; }
           else if (out.queued) { st.note = out.note || "queued for the admin's publish"; }
           else if (out.fail) {
             st.attempts = (st.attempts || 0) + 1;
@@ -835,11 +848,13 @@ function createAutopilot(deps) {
 
       /* 3.5 — ROADMAP AGENT: meta-improvement — propose the next missions when the
          roadmap runs thin, so the squad's work never runs out by design */
-      try { const gen = await improveLane(state, o); if (gen && gen.length) cycle.generated = gen.map(g => g.id); }
-      catch (e) { log(state, "kratos", "roadmap agent error: " + (e.message || e)); }
+      if (!keylessOnly) {
+        try { const gen = await improveLane(state, o); if (gen && gen.length) cycle.generated = gen.map(g => g.id); }
+        catch (e) { log(state, "kratos", "roadmap agent error: " + (e.message || e)); }
+      }
 
       /* 4 — KRATOS: sign the report over the REAL data */
-      state.cyclesToday = (state.cyclesToday || 0) + 1;
+      if (!keylessOnly) state.cyclesToday = (state.cyclesToday || 0) + 1;
       state.lastCycle = Date.now();
       state.lastShiftDay = day;
       let report = null;
@@ -945,7 +960,9 @@ function createAutopilot(deps) {
       if (complete) {
         /* the model says the stored batch is finished — verify the sentinel ourselves */
         let cur = wip.edits.length ? applyEdits(src, wip.edits) : { ok: false };
-        if (cur.ok && !mission.done.test(cur.src) && targetSentinel && wip.edits.length > 0) {
+        /* the stamp is only honest for an ADMIN task (a human checks the result);
+           an autonomous mission must actually reach its own sentinel */
+        if (cur.ok && mission.byAdmin && !mission.done.test(cur.src) && targetSentinel && wip.edits.length > 0) {
           const lastEd = wip.edits[wip.edits.length - 1];
           const withSentinel = Object.assign({}, lastEd, { replace: String(lastEd.replace || "") + "\n/* " + targetSentinel + " */\n" });
           const trialEdits = wip.edits.slice(0, -1).concat([withSentinel]);
@@ -998,8 +1015,12 @@ function createAutopilot(deps) {
       return { fail: r };
     }
 
-    /* auto-inject sentinel if missing so admin tasks or complete features are not trapped */
-    if ((mission.byAdmin || state.nonstop) && targetSentinel && !mission.done.test(next.src) && edits.length > 0) {
+    /* auto-inject sentinel if missing so ADMIN tasks are not trapped — never in
+       nonstop mode (4 Nov 2026): stamping the sentinel onto an unfinished batch made
+       the engine report a mission as built when the code behind it did nothing. An
+       admin task is judged by the admin, so the stamp is honest there; an autonomous
+       mission has to actually reach its goal. */
+    if (mission.byAdmin && targetSentinel && !mission.done.test(next.src) && edits.length > 0) {
       const lastEd = edits[edits.length - 1];
       const withSentinel = Object.assign({}, lastEd, { replace: String(lastEd.replace || "") + "\n/* " + targetSentinel + " */\n" });
       const trialEdits = wip.edits.concat(edits.slice(0, -1)).concat([withSentinel]);
@@ -1021,20 +1042,32 @@ function createAutopilot(deps) {
     /* still building: keep the work, respect the batch budget */
     if (wip.cycles >= cfg.maxWipCycles) {
       if (state.nonstop) {
-        if (wip.edits.length > 0 && targetSentinel) {
-          const lastEd = wip.edits[wip.edits.length - 1];
-          const withSentinel = Object.assign({}, lastEd, { replace: String(lastEd.replace || "") + "\n/* " + targetSentinel + " */\n" });
-          const trialEdits = wip.edits.slice(0, -1).concat([withSentinel]);
-          const trialCur = applyEdits(src, trialEdits);
-          if (trialCur.ok && mission.done.test(trialCur.src)) {
-            wip.edits[wip.edits.length - 1] = withSentinel;
-            log(state, "arthur", "salvaged batch before park limit by auto-injecting sentinel (" + targetSentinel + ")");
-            return await finalize(state, mission, src, trialCur.src, wip, o);
-          }
+        /* NO HOLLOW SALVAGE (4 Nov 2026): this branch used to stamp the mission's
+           sentinel onto the last edit and publish, which marked a feature done even
+           when the code never did the job — the report then said "built" for a
+           mission nobody could point at. The batch is reset for a genuinely fresh
+           attempt instead, and a mission that cannot finish is parked honestly.
+           A FRESH RETRY IS NOT A FREE RETRY (4 Nov 2026): nonstop used to wipe the
+           batch and start again, forever, on a mission the model could not finish.
+           Live evidence: 26 of 30 missions done, one mission "building" for days,
+           0 new publishes while every cycle still paid for a model call. Three fresh
+           attempts are enough to prove the mission needs a different approach, so it
+           is parked for TODAY (the new day wakes it with a clean budget) and the
+           squad moves to the next mission instead of burning the owner's keys. */
+        st.resets = (st.resets || 0) + 1;
+        if (st.resets >= 3) {
+          const r = "nonstop: " + st.resets + " fresh attempts could not complete " + mission.id +
+            " (sentinel " + mission.done.source + " never reached) — parked for today so the squad works another mission";
+          st.parked = true; st.attempts = cfg.maxAttempts; st.note = r;
+          state.fails.push({ mission: mission.id, reason: r, when: Date.now() });
+          if (state.fails.length > 60) state.fails = state.fails.slice(-60);
+          clearWip(state, "parked after " + st.resets + " fresh attempts: " + mission.id);
+          log(state, "arthur", "⚠ " + r);
+          return { fail: r };
         }
         wip.cycles = 0;
         wip.edits = [];
-        log(state, "arthur", "nonstop mode: reset batch for " + mission.id + " to retry fresh next cycle");
+        log(state, "arthur", "nonstop mode: reset batch for " + mission.id + " to retry fresh next cycle (attempt " + st.resets + "/3 before it parks today)");
         return { building: "nonstop retry", stored: 0 };
       }
       const r = "feature not complete after " + wip.cycles + " cycles (sentinel " + mission.done.source + " still missing) — batch kept for review, mission parked";
