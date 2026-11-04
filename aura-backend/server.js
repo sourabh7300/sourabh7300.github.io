@@ -64,7 +64,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v38";
+const BUILD = process.env.AURA_BUILD || "squad-v39";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
@@ -2225,7 +2225,7 @@ const AURA_FACT_RULES =
      slow laptop came back as "Mera naam Nemotron hai…", the vendor's own identity blurb in
      Devanagari. Two separate failures, both fixed here: the assistant must never introduce
      itself as the model behind it, and it must answer in the SCRIPT the user typed. */
-  "IDENTITY: you are AURA, the assistant inside this app. Never name, describe or promote the model, lab or vendor behind you (no 'I am <model>', no 'developed by'), and never open an answer with a self-introduction. If the user asks who you are, the answer is AURA — one short line, then help. " +
+  "IDENTITY: you are AURA, the assistant inside this app. Never name, describe or promote the model, lab or vendor behind you (no 'I am <model>', no 'developed by'), and never open an answer with a self-introduction. If the user asks who you are or what model you run on, answer 'Main AURA hoon' / 'I am AURA' in one short line and describe what you can do — never name a model, an architecture or a lab, even one you have heard of. " +
   "SCRIPT: mirror the user's script exactly. Hindi/Urdu typed in Roman letters (Hinglish) gets a Roman-letter reply — never Devanagari; Devanagari gets Devanagari; English gets English.";
 
 function lastUserMsg(messages) {
@@ -2246,13 +2246,21 @@ const IDENTITY_ASK = /(who\s+are\s+you|what('s| is) your name|which (model|ai|ll
 const SELF_MODEL = /(my name is|i am|i'm|main hoon|mera naam)\s+[^.\n]{0,50}?\b(nemotron|gpt-?[0-9]|llama|qwen|mistral|codestral|claude|gemini|deepseek|phi-?[0-9]|nvidia|openai|anthropic|meta ai|gemma)/i;
 const SELF_VENDOR = /\b(i (?:was|am) (?:developed|trained|created|built) by|researchers at (?:nvidia|openai|anthropic|google deepmind)|trained by (?:nvidia|openai|anthropic))/i;
 const ROMAN_HINGLISH = /\b(kya|hai|hain|kaise|kaisa|nahi|nhi|bhai|yaar|mujhe|mera|meri|karu|karun|karo|kyun|kyu|accha|acha|bata|batao|ho|raha|rahi|tum|aap|main|aur|abhi|kuch|koi)\b/i;
+/* "Main AURA hoon. Main GPT-4 architecture pe kaam karta hoon." — a first-person
+   claim about which model or architecture powers the assistant. Widened after that
+   exact line reached the live site (4 Nov 2026). */
+const MODEL_BRAND = /\b(gpt-?[0-9o][\w.]*|chatgpt|gemini|claude|llama|qwen|mistral|codestral|nemotron|deepseek|phi-?[0-9]|gemma)\b/i;
+const SELF_BRAND_CLAIM = /\b(i|i'm|main|mera|mujhe)\b[^.\n]{0,60}?\b(run on|runs on|work(s)? on|built on|based on|powered by|architecture|trained|kaam karta|chalta)\b/i;
 function derailedAnswer(q, text) {
   const a = String(text || "").trim();
   if (!a) return true;
-  if (IDENTITY_ASK.test(String(q || ""))) return false; /* the user actually asked */
+  /* naming the model behind the assistant is always a leak, even when the user asked */
   if (SELF_MODEL.test(a) || SELF_VENDOR.test(a)) return true;
-  /* a draft that only describes a language model is not an answer to "my laptop is slow" */
-  if (/\b(language model|trained on a large|i (?:do not|don't) have (?:personal|access to))/i.test(a) && a.length < 260) return true;
+  if (MODEL_BRAND.test(a) && SELF_BRAND_CLAIM.test(a)) return true;
+  if (IDENTITY_ASK.test(String(q || ""))) return false; /* a plain "I am AURA" is fine */
+  /* a draft that only describes ITSELF as a language model is not an answer to
+     "my laptop is slow" — but a real definition ("GPT-4 is a language model") is */
+  if (/\b(i am|i'm|main hoon|main ek|mera naam|my name is)\b[^.\n]{0,60}\b(language model|llm|ai model|assistant built)\b/i.test(a) && a.length < 260) return true;
   return false;
 }
 function scriptMismatch(q, text) {
