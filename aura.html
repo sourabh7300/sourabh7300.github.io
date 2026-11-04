@@ -2930,6 +2930,72 @@ body[data-persona="jarvis"] #quickBar .qa .dot{background:#e9b949;box-shadow:0 0
   #quickBar{gap:7px;margin-top:7px}
   #quickBar .qa{min-height:46px;font-size:11.5px}
 }
+/* ================= COMPOSER v2 — one pill, ChatGPT-shaped =================
+   The old dock was a row of loose buttons: the mic, a bare paperclip and the
+   send arrow each had their own border, so the bottom of the screen read as a
+   toolbar rather than a message box. One rounded pill now owns the whole row,
+   with the actions inside it and the attach sheet behind the plus. */
+#quickBar{display:none!important}
+
+#dock #inputRow{
+  display:flex;align-items:center;gap:2px;
+  padding:5px 6px;border-radius:26px;
+  background:rgba(10,17,28,.94);
+  border:1px solid rgba(120,220,255,.20);
+  box-shadow:0 8px 26px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.03);
+  transition:border-color .2s,box-shadow .2s;
+}
+#dock #inputRow:focus-within{
+  border-color:rgba(92,225,255,.55);
+  box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 0 3px rgba(34,211,238,.10);
+}
+#dock #q{
+  flex:1 1 auto;min-width:0;height:40px;
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  padding:0 6px!important;
+}
+#micWrap{position:static!important;display:flex!important;align-items:center!important;gap:0!important}
+#dock #micHint{display:none!important}
+
+/* plus = attach, mic = speak, arrow = send: three circles, no borders */
+#dock #clipBtn,#dock #micBtn,#dock #sendBtn{
+  width:38px!important;height:38px!important;min-width:38px!important;flex:0 0 38px;
+  border-radius:50%!important;border:0!important;background:transparent!important;
+  box-shadow:none!important;display:flex!important;align-items:center!important;
+  justify-content:center!important;font-size:17px!important;color:#9fe8f5!important;
+  transition:background .18s,color .18s,transform .12s;
+}
+#dock #clipBtn:active,#dock #micBtn:active,#dock #sendBtn:active{transform:scale(.93)}
+#dock #micBtn:hover,#dock #clipBtn:hover{background:rgba(34,211,238,.12)!important;color:#e6ffff!important}
+#dock #micBtn.listening{background:rgba(248,113,113,.18)!important;color:#fecaca!important;animation:pp 1s infinite}
+#dock #sendBtn{background:linear-gradient(135deg,#5ce1ff,#22d3ee)!important;color:#04222c!important;font-weight:800}
+#dock #sendBtn:hover{filter:brightness(1.06)}
+#dock #imgInput{width:38px!important;height:38px!important}
+
+body[data-persona="jarvis"] #dock #inputRow{border-color:rgba(233,185,73,.32)}
+body[data-persona="jarvis"] #dock #sendBtn{background:linear-gradient(135deg,#f5d98b,#e9b949)!important;color:#241a06!important}
+body[data-persona="jarvis"] #dock #micBtn,body[data-persona="jarvis"] #dock #clipBtn{color:#f4dcab!important}
+
+/* MESH lives in the header now — one tap, always visible, with a live dot */
+#meshTop{
+  display:inline-flex;align-items:center;gap:6px;
+  height:32px;padding:0 11px;border-radius:999px;cursor:pointer;
+  border:1px solid rgba(120,220,255,.22);background:rgba(12,20,32,.72);
+  color:#9fd8ea;font:600 11px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.06em;
+  -webkit-tap-highlight-color:transparent;transition:border-color .2s,color .2s,background .2s;
+}
+#meshTop:hover{border-color:rgba(92,225,255,.5);color:#dffbff}
+#meshTop[data-on="1"]{border-color:rgba(74,222,128,.5);color:#c9f9dc;background:rgba(74,222,128,.10)}
+#meshTop .mdot{width:6px;height:6px;border-radius:50%;background:#5b7183}
+#meshTop[data-on="1"] .mdot{background:#4ade80;box-shadow:0 0 8px #4ade80}
+html.m-phone body #meshTop{
+  position:fixed;top:9px;right:104px;z-index:120;
+  height:30px;padding:0 10px;font-size:10.5px;
+}
+@media (max-width:360px){ html.m-phone body #meshTop span.lbl{display:none} }
+
+/* the attach sheet, now that the plus opens it */
+#attachSheet .asb:active{background:rgba(34,211,238,.16)!important}
 </style>
 </head>
 <body>
@@ -3095,6 +3161,7 @@ body[data-persona="jarvis"] #quickBar .qa .dot{background:#e9b949;box-shadow:0 0
   <div id="stateBox"><span id="stateDot"></span><span id="stateText">SYSTEM ONLINE</span></div>
   <button class="kbtn" id="kbtn" aria-label="Search or run a command">Search<kbd>Ctrl K</kbd></button>
   <button class="kbtn" id="helpBtn" aria-label="Help — press question mark" title="Help — press ?" style="padding:7px 12px;font-weight:700;letter-spacing:0">?</button>
+  <button id="meshTop" type="button" title="MESH — run your devices together"><span class="mdot"></span><span class="lbl">MESH</span></button>
   <div id="clock"><b id="clockT">--:--</b><span id="clockD"></span></div>
 </div>
 
@@ -3443,8 +3510,8 @@ body[data-persona="jarvis"] #quickBar .qa .dot{background:#e9b949;box-shadow:0 0
     <button id="sendBtn">▸</button>
   </div>
   <div id="quickBar">
-    <button class="qa" id="qaAttach" title="Photo, PDF ya notes bhejo"><span class="ic">📎</span><span>ATTACH</span></button>
-    <button class="qa" id="qaMesh" title="MESH — apne devices ko ek saath chalao"><span class="ic">📡</span><span>MESH</span><i class="dot" id="qaMeshDot" hidden></i></button>
+    <button class="qa" id="qaAttach" title="Send a photo, a PDF or your notes"><span class="ic">📎</span><span>ATTACH</span></button>
+    <button class="qa" id="qaMesh" title="MESH — run your devices together"><span class="ic">📡</span><span>MESH</span><i class="dot" id="qaMeshDot" hidden></i></button>
   </div>
   <div class="iconrow">
   <button class="ibtn" id="settingsBtn" title="Settings — account (login), voice, sound, language, look">⚙ SETTINGS</button>
@@ -5001,7 +5068,7 @@ function typewrite(el,text){
 /* ---------------- voice ---------------- */
 const synth=window.speechSynthesis;
 let voices=[];function loadV(){voices=synth?synth.getVoices():[]}loadV();if(synth)synth.onvoiceschanged=loadV;
-let detectedLang="en";window.__auraLang=localStorage.getItem("aura_lang")||"auto";
+let detectedLang="en";window.__auraLang=localStorage.getItem("aura_lang")||"en";
 if(["auto","en","hi"].indexOf(window.__auraLang)<0)window.__auraLang="auto";
 (function(){const lb=document.getElementById("langBtn");if(lb)lb.textContent="LANG: "+(window.__auraLang==="hi"?"हिंदी":window.__auraLang==="en"?"ENG":"AUTO")})();
 let speakGen=0,ttsActive=false,lastSpoken="",lastSpokeAt=0,voiceSessionUntil=0,__ttsAudio=null;
@@ -9993,7 +10060,7 @@ const AuraMeshOwner=(function(){
       (rtt?" · relay "+rtt+"ms":"")+(code?" · "+code:"")+'</div>';
   }
   function devList(){
-    if(!devices.length)return '<div style="opacity:.6;font-size:11.5px;margin:8px 0">Abhi koi device nahi juda. Phone pe ye link kholo (ya QR scan karo):</div>';
+    if(!devices.length)return '<div style="opacity:.6;font-size:11.5px;margin:8px 0">No device joined yet. Open this link on your phone (or scan the QR):</div>';
     return devices.map(d=>'<div class="dev"><div class="top"><b>'+
       (d.fresh?'<span style="color:#34d399">●</span> ':'<span style="opacity:.45">○</span> ')+esc(d.name)+
       '</b><span style="opacity:.5;font-size:10px">'+esc(d.id)+'</span></div>'+
@@ -10021,7 +10088,7 @@ const AuraMeshOwner=(function(){
     ov.innerHTML='<div class="tm-card">'+
       '<button class="btn" id="mxX" style="position:absolute;top:8px;right:10px;margin:0">✕</button>'+
       '<h3>📡 MESH — device command net</h3>'+
-      '<div class="tm-sub">Apne phones pe ye file <b>#node=CODE</b> ke saath kholo (ya QR). Wo device tab tak juda rahega jab tak tum DISCONNECT na karo.</div>'+
+      '<div class="tm-sub">Open this page on your phones with <b>#node=CODE</b> (or scan the QR). A device stays connected until you press DISCONNECT.</div>'+
       '<div id="mxStatus"></div><div id="mxCode"></div>'+
       '<div id="mxDevs"></div>'+
       '<div class="row" style="margin-top:10px"><select id="mxTarget"></select>'+
@@ -15837,7 +15904,7 @@ dockCore();
         close();
         try{
           if(k==="photo")document.getElementById("imgInput").click();
-          else if(k==="doc"){if(window.AuraDocs){AuraDocs.pick()}else{say("documents module load nahi hua")}}
+          else if(k==="doc"){if(window.AuraDocs){AuraDocs.pick()}else{say("the documents module did not load")}}
           else if(k==="cam"){if(window.__camStart){window.__camStart()}else{document.getElementById("camBtn").click()}}
         }catch(e){say("attach failed: "+(e.message||e))}
       };
@@ -15845,14 +15912,37 @@ dockCore();
   }
   A.addEventListener("click",sheet);
 
+  /* the composer's plus is the attach entry now — one control, one meaning */
+  (function(){
+    const plus=document.getElementById("clipBtn");
+    if(!plus)return;
+    plus.addEventListener("click",function(e){
+      e.preventDefault();e.stopPropagation();
+      sheet();
+    },true);
+  })();
+
   M.addEventListener("click",function(){
     try{
       if(window.meshOpen){window.meshOpen();return}
       const b=document.getElementById("meshBtn");
       if(b){b.click();return}
-      say("MESH panel is device par available nahi hai");
+      say("the MESH panel is not available on this device");
     }catch(e){say("mesh failed: "+(e.message||e))}
   });
+
+  /* header chip — same panel, same dot, one tap from anywhere */
+  (function(){
+    const top=document.getElementById("meshTop");
+    if(!top)return;
+    top.addEventListener("click",function(){
+      try{
+        if(window.meshOpen){window.meshOpen();return}
+        const b=document.getElementById("meshBtn");if(b){b.click();return}
+        say("MESH panel is not available on this device");
+      }catch(e){say("mesh failed: "+(e.message||e))}
+    });
+  })();
 
   /* the dot is the truth: green means a mesh code is live right now */
   const dot=document.getElementById("qaMeshDot");
@@ -15867,7 +15957,9 @@ dockCore();
     M.dataset.on=on?"1":"0";
     if(dot)dot.hidden=!on;
     if(label)label.textContent=on?"MESH ON":"MESH";
-    if(!first)say(on?"📡 MESH connected — ye device ab mesh par hai":"📡 MESH off");
+    const top=document.getElementById("meshTop");
+    if(top){top.dataset.on=on?"1":"0";const l=top.querySelector(".lbl");if(l)l.textContent=on?"MESH ON":"MESH"}
+    if(!first)say(on?"📡 MESH connected — this device is on the mesh":"📡 MESH off");
   },2500);
 })();
 </script>
