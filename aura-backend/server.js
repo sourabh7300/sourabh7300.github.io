@@ -64,12 +64,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v35";
+const BUILD = process.env.AURA_BUILD || "squad-v36";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v35";
+const SRC_BUILD = "squad-v36";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2569,10 +2569,16 @@ async function groundChat(messages) {
     const base = resultAsk
       ? (messages || []).filter(m => !(m && m.role === "system" && /LIVE WEB RESULTS|AUTHORITATIVE ESPORTS FACTS/.test(String(m.content || ""))))
       : messages;
-    return base.concat([{ role: "system", content:
+    const out = base.concat([{ role: "system", content:
       "CURRENT DATE & TIME: " + now + " (anchor 'today/now/latest' to THIS moment).\n" +
       (web ? head + web + "\n" : "No live results were found for this question.\n") +
       AURA_FACT_RULES }]);
+    /* the page ships its own "say you don't have the verified version" rule, and it wins
+       over the fresh evidence unless it is explicitly overridden — this is the last thing
+       the model reads, so the override goes last (4 Nov 2026). */
+    if (resultAsk && web) return out.concat([{ role: "system", content:
+      "RESULT-QUESTION OVERRIDE (owner order, newest): the results above were fetched seconds ago and replace every earlier web block in this thread. Answer with the events and outcomes they contain, one line each, together with the date each result belongs to. Do not say you lack a verified winner while these results are present, and never present an older result as today's. Only if the results above are empty may you say you don't have it yet." }]);
+    return out;
   } catch (e) { return messages; }
 }
 
