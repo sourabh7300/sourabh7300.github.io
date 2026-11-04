@@ -64,12 +64,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v34";
+const BUILD = process.env.AURA_BUILD || "squad-v35";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v34";
+const SRC_BUILD = "squad-v35";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2562,7 +2562,14 @@ async function groundChat(messages) {
     const head = esp
       ? "AUTHORITATIVE ESPORTS FACTS (Liquipedia — fetched seconds ago, REAL and CURRENT; these WIN over every other source in this thread. If any earlier web block names a DIFFERENT tournament, or shows placeholder teams like 'Team A', it is WRONG — answer only the event named here):\n"
       : "LIVE WEB RESULTS (fetched seconds ago — REAL and CURRENT; the live results WIN over your memory of past events, dates, scores or records):\n";
-    return messages.concat([{ role: "system", content:
+    /* the page's own stale block is REMOVED for a result question (4 Nov 2026): it sat
+       before the fresh evidence and the model quoted it — "Alabama topped the high-school
+       esports rankings" for a "who won today" ask — even though the new search had real
+       scores. One source of truth, and it is the newest one. */
+    const base = resultAsk
+      ? (messages || []).filter(m => !(m && m.role === "system" && /LIVE WEB RESULTS|AUTHORITATIVE ESPORTS FACTS/.test(String(m.content || ""))))
+      : messages;
+    return base.concat([{ role: "system", content:
       "CURRENT DATE & TIME: " + now + " (anchor 'today/now/latest' to THIS moment).\n" +
       (web ? head + web + "\n" : "No live results were found for this question.\n") +
       AURA_FACT_RULES }]);
