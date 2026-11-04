@@ -64,7 +64,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v39";
+const BUILD = process.env.AURA_BUILD || "squad-v40";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
@@ -3707,7 +3707,7 @@ app.post("/v1/chat/stream", async (req, res) => {
     send({ error: "The vision model could not read that image — try a clearer photo." }); finish(); return;
   }
 
-  let sawLimit = false, served = false, lastChatErr = "";
+  let sawLimit = false, served = false, delivered = false, lastChatErr = "";
   const pushErr = s => { lastChatErr = (lastChatErr ? lastChatErr + " | " : "") + s; if (lastChatErr.length > 420) lastChatErr = "…" + lastChatErr.slice(-410); };
   if (body.lane === "code") {
     /* CODE LANE over stream — Mistral/Codestral first, shared bank on any miss */
@@ -3757,7 +3757,7 @@ app.post("/v1/chat/stream", async (req, res) => {
            model behind the assistant, or answers a Roman-script Hinglish question
            in Devanagari, is dropped here and the next model takes the turn — the
            visitor never reads the bad opening. */
-        let headOpen = !__buffer, head = "", derailed = false;
+        let headOpen = !__buffer, head = "", derailed = false, upEmpty = false;
         const __askQ = lastUserMsg(messages);
         const dec = new TextDecoder();
         let buf = "", closed = false;
@@ -3774,11 +3774,17 @@ app.post("/v1/chat/stream", async (req, res) => {
             const s = ln.replace(/^data:\s*/, "").trim();
             if (!s) continue;
             if (s === "[DONE]") {
-              if (full.trim()) {
-                const safe = await rosterGuard(full, messages);
-                if (__buffer || safe !== full) send({ delta: safe });
-                if (!makerHere) { cachePut(messages, safe, model); countAnswer(req); }
-              }
+              /* AN EMPTY ANSWER MUST NOT END THE TURN (4 Nov 2026): this branch used to
+                 finish and return even when the model produced no text at all, so a
+                 follow-up question ended as a finished turn with nothing in it. With
+                 no text, fall out of the lane and let the next model / reserve answer. */
+              /* a short answer never reaches the 90-character head gate, so it is still
+                 sitting in `head` here — flush it before the turn can end */
+              if (headOpen && head) { headOpen = false; send({ delta: head }); delivered = true; }
+              if (!full.trim()) { pushErr(model + " empty answer"); served = false; upEmpty = true; break; }
+              const safe = await rosterGuard(full, messages);
+              if (__buffer || safe !== full) { send({ delta: safe }); delivered = true; }
+              if (!makerHere) { cachePut(messages, safe, model); countAnswer(req); }
               finish(); return;
             }
             try {
@@ -3791,9 +3797,9 @@ app.post("/v1/chat/stream", async (req, res) => {
                   head += delta;
                   if (head.length >= 90) {
                     if (needsRewrite(__askQ, head)) { derailed = true; }
-                    else { headOpen = false; send({ delta: head }); }
+                    else { headOpen = false; send({ delta: head }); delivered = true; }
                   }
-                } else send({ delta });
+                } else { send({ delta }); delivered = true; }
               }
             } catch (e) {}
           }
@@ -3805,10 +3811,11 @@ app.post("/v1/chat/stream", async (req, res) => {
           served = false;
           continue;
         }
-        if (headOpen && head) { headOpen = false; send({ delta: head }); }
+        if (upEmpty) { try { await reader.cancel(); } catch (e) {} served = false; continue; }
+        if (headOpen && head) { headOpen = false; send({ delta: head }); delivered = true; }
         if (full.trim()) {
           const safe = await rosterGuard(full, messages);
-          if (__buffer || safe !== full) send({ delta: safe });
+          if (__buffer || safe !== full) { send({ delta: safe }); delivered = true; }
           if (!makerHere) { cachePut(messages, safe, model); countAnswer(req); }
         }
         finish();
@@ -3816,7 +3823,11 @@ app.post("/v1/chat/stream", async (req, res) => {
       } catch (e) { /* network hiccup → try next key */ }
     }
   }
-  if (!served) {
+  /* AN EMPTY STREAM IS A FAILED ANSWER (4 Nov 2026): a follow-up question streamed a
+     model frame and [DONE] with zero deltas — the visitor watched a finished turn
+     with no text in it. Falls through to the other lanes whenever nothing was
+     actually delivered, not only when no upstream call succeeded. */
+  if (!served || !delivered) {
     /* the maker's NIM lane answers even when nothing looked rate-limited: a retired
        Groq model id returns 400/404, which the old gate read as "not a limit" and
        skipped the only lane still working (28 Oct 2026 — public chat was 502 while
@@ -3841,19 +3852,21 @@ app.post("/v1/chat/stream", async (req, res) => {
               if (fixed && !needsRewrite(lastUserMsg(messages), fixed)) safe = fixed; else continue;
             }
             send({ model: nimModel + " (nvidia-nim)" });
-            send({ delta: safe });
+            send({ delta: safe }); delivered = true;
             if (!makerHere) { cachePut(messages, safe, nimModel); countAnswer(req); }
             finish(); return;
           }
         } catch (e) { /* next NIM model */ }
       }
     }
-    if (sawLimit) {
+    /* the reserve brain is tried whenever nothing reached the screen — a rate limit
+       is not the only way a turn ends up empty */
+    {
       const mt = await reserveCall(messages, Math.min(body.max_tokens || 1600, 4000), body.temperature);
-      if (mt) { send({ model: RESERVE_MODEL + " (reserve)" }); send({ delta: await rosterGuard(mt, messages) }); finish(); return; }
-      send({ outOfTokens: true });
+      if (mt) { send({ model: RESERVE_MODEL + " (reserve)" }); send({ delta: await rosterGuard(mt, messages) }); delivered = true; finish(); return; }
+      if (sawLimit) send({ outOfTokens: true });
+      else { chatLast.at = Date.now(); chatLast.err = lastChatErr || ""; send({ error: "All models exhausted or rate-limited. Try again shortly." + (lastChatErr ? " (" + lastChatErr + ")" : "") }); }
     }
-    else { chatLast.at = Date.now(); chatLast.err = lastChatErr || ""; send({ error: "All models exhausted or rate-limited. Try again shortly." + (lastChatErr ? " (" + lastChatErr + ")" : "") }); }
   }
   finish();
 });
