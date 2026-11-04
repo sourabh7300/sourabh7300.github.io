@@ -64,12 +64,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v33";
+const BUILD = process.env.AURA_BUILD || "squad-v34";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v33";
+const SRC_BUILD = "squad-v34";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2526,7 +2526,13 @@ async function groundChat(messages) {
     const armed = (messages || []).some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
     const f0 = evidenceFacts(messages);
     const esp = !!(LIQUI && (LIQUI.isEsportsQuery(ask) || LIQUI.isEsportsQuery(q0)));
-    if (armed && (!esp || f0.list.length >= 3 || !!f0.start)) return messages;
+    /* A RESULT QUESTION IS ALWAYS RE-SEARCHED (4 Nov 2026): the browser arrives with its own
+       LIVE WEB block, and "three facts" from that block used to end grounding here — but a
+       headline count is not a result. The app kept the pre-search's junk evidence (which is
+       why the site dodged the question that /v1/chat/completions answered correctly), so a
+       win/score ask now always gets the focused search below. */
+    const resultAsk = !!(FOCUS && FOCUS.isResultAsk(ask));
+    if (armed && !resultAsk && (!esp || f0.list.length >= 3 || !!f0.start)) return messages;
     const now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     /* FRESHNESS GATE — only questions that can actually have changed recently pay
        for a search. "Explain quantum entanglement" used to wait for a search and two
@@ -2540,7 +2546,7 @@ async function groundChat(messages) {
        query, so the page's own prefetch already warmed the cache — and the search
        engine gets the topic instead of question filler. */
     const qRaw = searchQuery(messages);
-    const q = cleanAsk(qRaw) || qRaw;
+    const q = resultAsk ? FOCUS.sharpenQuery(ask) : (cleanAsk(qRaw) || qRaw);
     let web = "";
     try {
       const hits = await searchWeb(q.replace(/\s+/g, " "), esp ? 8000 : 7000);
