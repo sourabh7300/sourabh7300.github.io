@@ -28,7 +28,10 @@ const ok = (name, cond, extra) => {
 console.log("A. spread · 60 credits/month · 2 keys");
 const A = run({ TAVILY_API_KEY: "AAAAfake1", TAVILY_API_KEY_2: "BBBBfake2", TAVILY_MONTHLY_CREDITS: "60", TAVILY_STRATEGY: "spread", TAVILY_RPM: "100" });
 ok("both keys loaded", A.TAVILY_KEYS.length === 2, A.TAVILY_KEYS.length);
-ok("budget splits 60 over the days left", A.tavDailyBudget("AAAAfake1") === Math.ceil(60 / new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 0)).getUTCDate()), A.tavDailyBudget("AAAAfake1"));
+/* the budget is the credits left divided by the days LEFT (not the whole month), so
+   the expectation has to shrink as the month runs out — it only matched on day 1 */
+const _daysLeft = (function () { const n = new Date(); const last = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth() + 1, 0)).getUTCDate(); return Math.max(1, last - n.getUTCDate() + 1); })();
+ok("budget splits 60 over the days left", A.tavDailyBudget("AAAAfake1") === Math.max(1, Math.ceil(60 / _daysLeft)), A.tavDailyBudget("AAAAfake1"));
 const picks = [];
 for (let i = 0; i < 20; i++) { const k = A.tavPick(1); if (!k) break; picks.push(k.slice(0, 4)); }
 ok("keys alternate (spread)", picks.length > 1 && picks[0] !== picks[1], picks.slice(0, 4));
