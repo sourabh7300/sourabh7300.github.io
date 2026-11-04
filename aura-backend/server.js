@@ -64,12 +64,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v29";
+const BUILD = process.env.AURA_BUILD || "squad-v30";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v29";
+const SRC_BUILD = "squad-v30";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2212,6 +2212,10 @@ const AURA_FACT_RULES =
   "FACT RULES (owner order): never invent team names, player names, rosters, lineups, schedules, scores, prices, winners or 'confirmed' lists. " +
   "If the LIVE WEB RESULTS below do not contain the exact list or date asked for, say in one short line that you don't have the verified version yet and offer a live search — never fill the gap with placeholders like 'Team A'. " +
   "Answer the exact acronym/event the user named: BMIC is not BMSD, BGIS is not BGMS, BMS is not BMPS. If it is ambiguous, ask one short question instead of guessing. " +
+  /* OWNER REPORT 4 Nov 2026: "aaj kaun jeeta" got "I don't have the verified winner" while
+     the results in hand named a leader and a 3-0 grand final. Refusing a broad question is
+     not honesty, it is a dead end: name the events you can see and their outcome. */
+  "If the user names no specific event (e.g. \"who won in esports today\"), never stall: report the most recent concrete outcomes or standings in the LIVE WEB RESULTS in one line each, prefixed with the event and date, and make clear which event each belongs to. A real result from a named event always beats saying you don't have the winner. " +
   /* OWNER REPORT 29 Oct 2026: asked for the 2026 iPhone line-up, the model replied
      "live results provided do NOT contain the verified list" — it quoted these rules
      back at the user instead of answering. Rules are for the model, not the reply. */
