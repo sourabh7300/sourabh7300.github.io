@@ -64,12 +64,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v36";
+const BUILD = process.env.AURA_BUILD || "squad-v37";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v36";
+const SRC_BUILD = "squad-v37";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2677,7 +2677,9 @@ app.post("/v1/chat/completions", async (req, res) => {
 
   /* ANSWER CACHE — makers bypass; identical visitor questions cost zero tokens */
   if (!makerHere && !body.stream) {
-    const hit = cacheGet(messages);
+    const __cq = lastUserMsg(messages);
+    const __okCache = !(FRESH_RE.test(__cq) || (FOCUS && FOCUS.isResultAsk(__cq)));
+    const hit = __okCache ? cacheGet(messages) : null;
     if (hit) return res.json({ choices: [{ message: { content: hit.answer } }], model: hit.model + " (cached)" });
   }
   /* VISITOR DAILY CAP — signed-in users count against their uid, guests against IP; makers exempt */
@@ -3551,7 +3553,11 @@ app.post("/v1/chat/stream", async (req, res) => {
   if (process.env.AURA_DEBUG) console.log("[timing] rag " + (Date.now() - __t0) + "ms");
   /* REPEAT QUESTIONS COST NOTHING — the stream lane never read the cache, so the
      same question paid for a model call again and again */
-  if (!makerHere) {
+  /* A TIME-SENSITIVE ANSWER IS NEVER SERVED FROM THE CACHE (4 Nov 2026): the page asks
+     "esports me aaj kaun jeeta" today and the cached copy from an earlier phrasing was
+     replayed verbatim — the user saw the old dodge even though the fix was already live. */
+  const __cacheableQ = !(FRESH_RE.test(lastUserMsg(messages)) || (FOCUS && FOCUS.isResultAsk(lastUserMsg(messages))));
+  if (!makerHere && __cacheableQ) {
     const __hit = cacheGet(messages);
     if (__hit) { send({ model: __hit.model + " (cached)" }); send({ delta: __hit.answer }); finish(); return; }
   }
