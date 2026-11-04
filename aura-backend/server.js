@@ -64,7 +64,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v41";
+const BUILD = process.env.AURA_BUILD || "squad-v42";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
@@ -2639,7 +2639,13 @@ async function groundChat(messages) {
        BMIC for BMSD and invented “Team A … Team H”. So an ESPORTS ask with no verified
        facts in hand is searched again right here, with the topic-aware query. Other
        questions keep the client's own block (no double search, no added latency). */
-    const armed = (messages || []).some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
+    /* A DATE LINE IS NOT EVIDENCE (4 Nov 2026): the page always ships its own
+       "CURRENT DATE & TIME" block, so treating that as "already grounded" skipped the
+       search for every question the page had not prefetched — the model then answered
+       "python latest version" as 3.13 while the live web already said 3.14. Only a block
+       that actually carries web results counts as armed. */
+    const armedWeb = (messages || []).some(m => m && m.role === "system" && /LIVE WEB RESULTS|AUTHORITATIVE ESPORTS FACTS/.test(String(m.content || "")));
+    const armed = armedWeb;
     const f0 = evidenceFacts(messages);
     const esp = !!(LIQUI && (LIQUI.isEsportsQuery(ask) || LIQUI.isEsportsQuery(q0)));
     /* A RESULT QUESTION IS ALWAYS RE-SEARCHED (4 Nov 2026): the browser arrives with its own
