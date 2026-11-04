@@ -64,12 +64,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v31";
+const BUILD = process.env.AURA_BUILD || "squad-v32";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v31";
+const SRC_BUILD = "squad-v32";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -3513,7 +3513,16 @@ app.post("/v1/chat/stream", async (req, res) => {
   send({ status: "thinking" });
   const makerHere = req.__role === "maker" || req.__role === "ceo";
   /* PREP BUDGET — search/RAG are useful, never worth a stalled answer */
-  messages = await deadline(groundChat(messages), 2200, messages);
+  /* A QUESTION WHOSE ANSWER CAN BE OUT OF DATE GETS A REAL LAYER OF TIME (4 Nov 2026):
+     the 2.2s prep budget silently threw away the whole live-web block whenever the search
+     was slow, and the stream lane is the one the app uses — which is why the site kept
+     answering from memory while /v1/chat/completions was grounded. A couple of seconds of
+     "thinking" costs less than a wrong winner. */
+  {
+    const __preQ = lastUserMsg(messages);
+    const __live = (FRESH_RE.test(__preQ) || (FOCUS && FOCUS.isResultAsk(__preQ))) && !isSmallTalk(__preQ);
+    messages = await deadline(groundChat(messages), __live ? 7000 : 2200, messages);
+  }
   if (process.env.AURA_DEBUG) console.log("[timing] ground " + (Date.now() - __t0) + "ms");
   /* resolve a continuation ("teams in it") against the previous turn — the stream lane
      is what the app actually uses, so the topic guard must live here too */
