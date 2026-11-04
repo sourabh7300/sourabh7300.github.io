@@ -3233,7 +3233,7 @@ html.m-phone body #meshTop{
         <span id="autoBadge" class="auto-badge off">CHECKING…</span>
         <span id="autoClock"></span>
       </div>
-      <p id="autoMission">Standing mission: <b>AURA ko Astra-class autonomous agent banana</b> — khud plan kare, tools use kare, sources padhe, apni lanes self-heal kare, aur bina bole kaam karta rahe. Squad isi par din bhar kaam karta hai.</p>
+      <p id="autoMission">Standing mission: <b>make AURA a fully autonomous agent</b> — plan on its own, use tools, read sources, self-heal its lanes and keep working without being asked. The squad works on this all day.</p>
       <div id="autoBarWrap" title="roadmap progress"><i id="autoBar"></i></div>
       <div id="autoMeta"></div>
       <div id="autoRow">
@@ -3250,7 +3250,7 @@ html.m-phone body #meshTop{
       <!-- PUSH HISTORY TIMELINE (owner order 20 Oct 2026): kaunsa feature kab push hua,
            kaunsa sha, live-verify ka sach — newest first, honest badges. -->
       <div id="autoShips"></div>
-      <pre id="autoReport">squad ka clock load ho raha hai…</pre>
+      <pre id="autoReport">loading the squad clock…</pre>
       <div id="autoHint"></div>
     </div>
     <style>
@@ -3536,10 +3536,10 @@ html.m-phone body #meshTop{
   <div class="tm-card">
     <button class="tm-close" id="setX" title="Close settings">✕</button>
     <h3>⚙ SETTINGS</h3>
-    <div class="tm-sub">Account (login), voice, sound, language aur look — sab kuch ek jagah.</div>
+    <div class="tm-sub">Account, voice, sound, language and look — all in one place.</div>
 
     <div class="set-sec">
-      <div class="set-h">👤 ACCOUNT / LOGIN<small>guest · sign in · apni chats, memory & kaam har device par</small></div>
+      <div class="set-h">👤 ACCOUNT / LOGIN<small>guest · sign in · your chats, memory & work on every device</small></div>
       <div class="set-user" id="setUserLine">Guest session</div>
       <div class="tm-row">
         <button class="tm-btn" id="setSignIn">🔑 Sign in / switch user</button>
@@ -3548,7 +3548,7 @@ html.m-phone body #meshTop{
     </div>
 
     <div class="set-sec">
-      <div class="set-h">🔊 AUDIO — VOICE<small>AURA / ZEUS kya bolegi · voice, speed & pitch</small></div>
+      <div class="set-h">🔊 AUDIO — VOICE<small>how AURA / ZEUS sounds · voice, speed & pitch</small></div>
       <div class="tm-row set-slot">
         <button class="ibtn" id="soundBtn" style="position: relative; top: 0; left: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center; z-index: 10;">🔊 VOICE: ON</button>
         <button class="ibtn" id="voiceCfgBtn" title="Voice Studio — pick voices, tune speed & pitch for AURA and ZEUS">🎛 VOICE SET</button>
@@ -3568,7 +3568,7 @@ html.m-phone body #meshTop{
     <div class="set-sec">
       <div class="set-h">🔔 SOUND — UI EFFECTS<small>button ticks, blips & alert sounds</small></div>
       <label class="set-row"><input type="checkbox" id="uiSoundChk"> UI sounds on (ticks & blips)</label>
-      <div class="set-note">VOICE: OFF = total silence — tab ye bhi chup ho jaate hain.</div>
+      <div class="set-note">VOICE: OFF = total silence — these stay muted too.</div>
     </div>
 
     <div class="set-sec">
@@ -5422,7 +5422,7 @@ window.AuraLive=(function(){
        · speak over her → the voice stops in that same instant and your new words win (barge-in)
        · her own voice is recognised and discarded, so she can never answer herself
        · the ear follows the language: Hinglish/Hindi in → Hindi ear, English in → English ear
-       · "stop / band karo / so jao" ends the mode; the ear always reopens itself after
+       · "stop / sleep" ends the mode; the ear always reopens itself after
          Chrome's ~60s stream timeout, with backoff, never in a tight loop */
   let r=null,on=false,gen=0,netFails=0,interimKeep="",lastFinal="",suppressUntil=0,settleT=null,restarts=0;
   /* "quiet" keeps voice mode on, just silences the current answer */
@@ -5597,9 +5597,9 @@ window.AuraLive=(function(){
     try{voiceSessionUntil=Date.now()+86400000}catch(e){}
     /* the click IS your permission gesture — make sure her voice may answer at all */
     if(typeof soundOn!=='undefined'&&!soundOn&&typeof setVoiceConsent==='function')setVoiceConsent(true);
-    paint();label('🎙 VOICE MODE ON — बोलिए / just talk');
+    paint();label('🎙 VOICE MODE ON — just talk');
     if(typeof setMode==='function')setMode('listening');
-    if(typeof pushSys==='function')pushSys('🎙 voice mode ON — talk in Hindi, Hinglish or English; speak over me to interrupt. Say "band karo" to stop.');
+    if(typeof pushSys==='function')pushSys('🎙 voice mode ON — talk in any language; speak over me to interrupt. Say "stop" to stop.');
     spawn();return true;
   }
   function stop(){
@@ -5718,7 +5718,7 @@ window.AuraVoice=(function(){
     }catch(e){cleanup();try{pushSys("voice socket could not open: "+String((e&&e.message)||e).slice(0,80))}catch(e2){}return false}
     opened=false;on=true;paint();
     vad={spoken:0,quietAt:0,floor:0.005,startedAt:Date.now(),sent:false};
-    hint("🎧 SUN RAHA HOON — bolna shuru karo (silence par khud bhej dunga)");
+    hint("🎧 LISTENING — start speaking (I send by myself when you pause)");
     try{blip(760,.08)}catch(e){}
     ws.onopen=function(){opened=true;try{ws.send(JSON.stringify({type:"start",rate:16000,lang:(window.__auraLang==="hi"?"hi":"en")}))}catch(e){}};
     ws.onmessage=function(ev){let m=null;try{m=JSON.parse(String(ev.data))}catch(e){return}if(m&&m.type)handle(m)};
@@ -5745,15 +5745,15 @@ window.AuraVoice=(function(){
         const now=Date.now();
         if(rms>gate){
           vad.spoken+=dur;vad.quietAt=0;
-          if(vad.spoken>=Math.max(350,minVoice))hint("🗣 bol rahe ho — rukne par khud bhej dunga");
+          if(vad.spoken>=Math.max(350,minVoice))hint("🗣 you're speaking — I send it myself when you pause");
         }else{
           vad.floor=vad.floor*0.95+rms*0.05;
           if(vad.spoken>=minVoice){
             if(!vad.quietAt)vad.quietAt=now;
-            else if(now-vad.quietAt>tailMs&&!vad.sent){vad.sent=true;hint("⏳ silence — bhej raha hoon…");finish();return}
+            else if(now-vad.quietAt>tailMs&&!vad.sent){vad.sent=true;hint("⏳ Silence — sending…");finish();return}
           }
         }
-        if(!vad.spoken&&now-vad.startedAt>7000){hint("🔇 kuch sunai nahi diya — dobara tap karo");stopAll();return}
+        if(!vad.spoken&&now-vad.startedAt>7000){hint("🔇 I didn't hear anything — tap again");stopAll();return}
       }
       const down=resample(input,ac.sampleRate,16000);
       try{ws.send(pcm16(down).buffer)}catch(e){}
@@ -7912,7 +7912,7 @@ const CONVO=[];const CONVO_MAX=24; /* cortex v2 — longer working memory than a
 function convoAdd(role,content){CONVO.push({role,content});if(CONVO.length>CONVO_MAX)CONVO.splice(0,CONVO.length-CONVO_MAX);try{hist.add(role,content)}catch(e){}try{if(role==="assistant"&&window.AuraMind&&AuraMind.noteAnswer)AuraMind.noteAnswer(content)}catch(e){}}
 function convoCtx(){
   /* CHATGPT-STYLE THREAD — the owner's standing complaint (12 Oct 2026): "yeh har baar refresh ho jata hai, ek topic do toh usi pe continuous baat kare". The old prompt TOLD the model to treat the history as a PREVIOUS topic and never continue it — so every message answered like a fresh window. Now the transcript is framed as THE ONGOING conversation: the model reads the last turns as what we were JUST talking about, continues that thread by default, and only switches topics when the user clearly starts one. Language follows the thread too: if the user has been writing Hinglish, stay Hinglish even when the newest line is short or mixed. */
-  let s=CONVO.length?"\n\nONGOING CONVERSATION (this is the SAME chat you are in right now — read it first, it sets the current topic and the language we both have been using. CONTINUE THIS THREAD: keep answering about the same subject, build on what was already said, refer back to it naturally with 'hum baat kar rahe the…' style continuity. Start a NEW topic only when the user clearly brings one. Match the LANGUAGE of the recent turns: if the user writes Hinglish (Roman-script Hindi + English mix), keep replying in Hinglish — never switch back to full English mid-thread. Never repeat these turns verbatim and never re-answer an older question):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
+  let s=CONVO.length?"\n\nONGOING CONVERSATION (this is the SAME chat you are in right now — read it first, it sets the current topic and the language we both have been using. CONTINUE THIS THREAD: keep answering about the same subject, build on what was already said, refer back to it naturally with 'we were talking about…' style continuity. Start a NEW topic only when the user clearly brings one. Match the LANGUAGE of the recent turns: if the user writes Hinglish (Roman-script Hindi + English mix), keep replying in Hinglish — never switch back to full English mid-thread. Never repeat these turns verbatim and never re-answer an older question):\n"+CONVO.map(m=>(m.role==="user"?"User: ":"You: ")+String(m.content).slice(0,340)).join("\n"):"";
   try{if(window.AuraMem&&window.__auraQ){const mc=AuraMem.contextFor(window.__auraQ);if(mc)s+=mc}}catch(e){}
   try{if(window.AuraDocs&&window.__auraQ){const dc=AuraDocs.contextFor(window.__auraQ);if(dc)s+=dc}}catch(e){}
   try{const pb=window.AuraMind&&AuraMind.profileBlock();if(pb)s+=pb}catch(e){}
@@ -9855,7 +9855,7 @@ const AuraMeshNode=(function(){
         const closed=e&&(e.status===404||/mesh-closed/i.test(e.message||""));
         lastErr=String(e&&e.message||e);
         if(closed){
-          setStatus("closed","MESH · band ho gaya (owner ne disconnect kiya)");
+          setStatus("closed","MESH · closed (owner disconnected)");
           await __meshSleep(15000);
         }else{
           setStatus("wait","MESH · reconnecting in "+Math.round(backoff/1000)+"s");
@@ -9876,7 +9876,7 @@ const AuraMeshNode=(function(){
     stopped=false;running=true;backoff=2000;gen++;
     requestWakeLock();
     setStatus("wait","MESH · connecting…");
-    try{pushSys("🔗 ZEUS NODE — mesh "+code+" · ye device ZEUS ke orders leta hai (DISCONNECT tak)")}catch(e){}
+    try{pushSys("🔗 ZEUS NODE — mesh "+code+" · this device takes ZEUS orders until you press DISCONNECT")}catch(e){}
     loop(gen);
     return true;
   }
@@ -9891,7 +9891,7 @@ const AuraMeshNode=(function(){
     if(document.title.indexOf("ZEUS NODE")>=0)document.title="AURA — Holographic AI Assistant";
     if(notifyServer&&c){
       try{await __meshFetch("/v1/mesh/leave",{code:c,nodeId:__meshNodeId()},"POST",{timeout:6000})}catch(e){}
-      try{pushSys("mesh: is device ne disconnect kar diya")}catch(e){}
+      try{pushSys("mesh: this device disconnected")}catch(e){}
     }
   }
   function openSheet(){
@@ -9908,7 +9908,7 @@ const AuraMeshNode=(function(){
       '<div class="row"><span>commands run</span><b>'+ran+'</b></div>'+
       (lastErr?'<div class="row err"><span>last</span><b>'+String(lastErr).replace(/[<>]/g,"").slice(0,70)+'</b></div>':"")+
       '<div class="btns"><button id="mnsClose" class="b2">Close</button><button id="mnsOff" class="b1">DISCONNECT</button></div>'+
-      '<div class="hint">Ye device mesh se juda rehta hai jab tak DISCONNECT na karo.</div></div>';
+      '<div class="hint">This device stays joined until you press DISCONNECT.</div></div>';
     document.body.appendChild(ov);
     const close=()=>ov.remove();
     ov.addEventListener("click",e=>{if(e.target===ov)close()});
@@ -9945,7 +9945,7 @@ const AuraMeshNode=(function(){
     addEventListener("hashchange",function(){try{boot()}catch(e){}});
     addEventListener("pageshow",function(e){if(e&&e.persisted){try{boot()}catch(e2){}}});
     addEventListener("online",()=>{if(wake){const w=wake;wake=null;w()}});
-    addEventListener("offline",()=>{if(status==="live")setStatus("wait","MESH · offline (net nahi)")});
+    addEventListener("offline",()=>{if(status==="live")setStatus("wait","MESH · offline (no network)")});
     document.addEventListener("visibilitychange",()=>{
       if(document.visibilityState==="visible"){
         requestWakeLock();
@@ -10042,7 +10042,7 @@ const AuraMeshOwner=(function(){
   async function disconnect(){
     stopTimer();
     try{await __meshFetch("/v1/mesh/close",{code})}catch(e){}
-    try{pushSys("📡 mesh disconnected — code release ho gaya")}catch(e){}
+    try{pushSys("📡 mesh disconnected — code released")}catch(e){}
     code="";cursor=0;devices=[];log=[];lastErr="";
     return true;
   }
@@ -10168,7 +10168,7 @@ const AuraMeshOwner=(function(){
       const er=ov.querySelector("#mxErr");if(er&&lastErr)er.textContent=lastErr;
     }
     ov.querySelector("#mxSend").onclick=async()=>{
-      if(!code){pushSys("pehle connect karo");return}
+      if(!code){pushSys("connect first");return}
       if(busy)return;busy=true;
       const b=ov.querySelector("#mxSend");b.disabled=true;
       try{
@@ -10185,7 +10185,7 @@ const AuraMeshOwner=(function(){
       busy=false;b.disabled=false;render();
     };
     ov.querySelector("#mxOff").onclick=async()=>{
-      if(!confirm("Mesh disconnect? Code release ho jayega aur saare devices hat jayenge."))return;
+      if(!confirm("Disconnect the mesh? The code is released and every device is removed."))return;
       await disconnect();render();
     };
     if(!code){const ok=await claim();if(ok)start(3000)}
@@ -10203,7 +10203,7 @@ const AuraMeshOwner=(function(){
     if(b){b.style.display="";return}
     const mb=document.createElement("button");
     mb.className="ibtn";mb.id="meshBtn";mb.textContent="📡 MESH";
-    mb.title="MESH — apne devices ko command karo";
+    mb.title="MESH — command your devices";
     mb.onclick=openMenu;
     const ir=document.querySelector(".iconrow");
     if(ir)ir.appendChild(mb);else document.body.appendChild(mb);
@@ -10311,7 +10311,7 @@ try{window.__pickVoiceFor=__pickVoiceFor;window.__voiceCfg=__voiceCfg;window.__s
   function openMenu(){
     const old=document.getElementById("voiceMenu");if(old)old.remove();
     const ov=document.createElement("div");ov.id="voiceMenu";
-    ov.innerHTML='<div class="tm-card"><button class="tm-close" id="vsX">✕</button><h3>🎙 VOICE STUDIO</h3><div class="tm-sub">AURA aur ZEUS — apni voice chuno, speed & pitch set karo. Sab yahin save hota hai.</div>'+
+    ov.innerHTML='<div class="tm-card"><button class="tm-close" id="vsX">✕</button><h3>🎙 VOICE STUDIO</h3><div class="tm-sub">AURA and ZEUS — pick a voice, set speed and pitch. Everything is saved here.</div>'+
       SECS.map(s=>'<div class="vs-sec"><div class="vs-h">'+s.label.split(" — ")[0]+"<small>"+s.label.split(" — ")[1]+"</small></div>"+
         '<select id="vsVoice_'+s.key+'"></select>'+
         '<div class="vs-lab"><span>SPEED</span><span id="vsRate_'+s.key+'V"></span></div><input type="range" min="0.5" max="1.6" step="0.02" id="vsRate_'+s.key+'">'+
@@ -10366,7 +10366,7 @@ try{window.__pickVoiceFor=__pickVoiceFor;window.__voiceCfg=__voiceCfg;window.__s
     const el=$id("setUserLine");if(!el)return;
     try{
       const u=(typeof AuraAuth!=="undefined"&&AuraAuth.getCurrentUser)?AuraAuth.getCurrentUser():null;
-      el.textContent=u?("👤 "+(u.name||"User")+" · "+(u.role==="admin"?"ADMIN":u.role==="staff"?"STAFF":"MEMBER")+" · "+u.id):"👤 Guest session — sign in karke apni chats, memory aur kaam har device par lao.";
+      el.textContent=u?("👤 "+(u.name||"User")+" · "+(u.role==="admin"?"ADMIN":u.role==="staff"?"STAFF":"MEMBER")+" · "+u.id):"👤 Guest session — sign in to bring your chats, memory and work to every device.";
     }catch(e){el.textContent="👤 Guest session"}
   }
   function paintUiSound(){const c=$id("uiSoundChk");if(c)c.checked=(localStorage.getItem("aura_ui_sound")!=="off")}
@@ -10384,11 +10384,11 @@ try{window.__pickVoiceFor=__pickVoiceFor;window.__voiceCfg=__voiceCfg;window.__s
       AuraAuth.signOut();
       refreshUser();
       pushSys("signed out — device ko fresh guest identity mili");
-      addMsg(msgTag(),"Signed out. Ab ye device Guest par hai — wapas apne account mein sign in kar lo apni chats & memory ke liye.","aura");
+      addMsg(msgTag(),"Signed out. This device is a guest again — sign in to get your chats & memory back.","aura");
     }catch(e){pushSys("sign-out failed: "+(e.message||e))}
   };
   const vt=$id("setVoiceTest");if(vt)vt.onclick=function(){
-    try{ if(!soundOn)setVoiceConsent(true); else speak("Voice check — AURA online. Yahi meri awaaz hai."); }
+    try{ if(!soundOn)setVoiceConsent(true); else speak("Voice check — AURA online. This is my voice."); }
     catch(e){}
   };
   const sensEl=$id("micSens");
@@ -11620,7 +11620,7 @@ function fabricationGuard(q,txt){
     const m=t.match(/\bTeam\s+[A-H]\b/g);
     if(m&&m.length>=3){
       return "I don't have a verified team list for that event yet — and I won't invent rosters.\n\n"+
-        "Event ka exact naam bolo (BMIC 2026 / BMSD 2026 / BGIS 2026) — main live web se official team list nikaal ke doonga.";
+        "Name the exact event (BMIC 2026 / BMSD 2026 / BGIS 2026) — I will pull the official team list from the live web.";
     }
     return t;
   }catch(e){return txt}
@@ -12173,7 +12173,7 @@ const AuraAuth = (function(){
       localStorage.removeItem("aura_admin_remember");
       updateBadge();
       try{ applyRoleUi(); }catch(e){}
-      try{ slog("stale legacy admin token auto-cleaned — koi live cloud session nahi mila; sign-in karo owner panel ke liye"); }catch(e){}
+      try{ slog("stale admin token cleared — no live cloud session was found; sign in to open the owner panel"); }catch(e){}
       return true;
     }catch(e){ return false; }
   }
@@ -13152,17 +13152,17 @@ document.addEventListener("DOMContentLoaded",function(){
     };
     const BOTS=[
       {id:"kratos",icon:"👑",name:"KRATOS",dept:"COMMAND",role:"takes your orders, dispatches the squad, reports back",st:"ok",
-       hint:"order do, kuch bhi poochho — Hinglish chalega…",
-       hi:"👑 KRATOS online, Sir. COMMAND ready — orders yahan RECEIVE hote hain; kaun execute karega, aap decide karte ho.\n• \"run a full sweep\" → 🛡 ERLANG source scan karega\n• \"arthur: <task>\" → ⚔ ARTHUR plan→code→verify karega\n• \"status report\" → poora squad readout\n• Bina naam ke task note hoga, dispatch nahi — executor aap choose karte ho."},
+       hint:"give an order or ask anything — any language works…",
+       hi:"👑 KRATOS online. COMMAND ready — orders are received here; you decide who executes.\n• \"run a full sweep\" → 🛡 ERLANG scans the source\n• \"arthur: <task>\" → ⚔ ARTHUR plans → codes → verifies\n• \"status report\" → full squad readout\n• A task without an executor is noted, not dispatched — you pick who runs it."},
       {id:"erlang",icon:"🛡",name:"ERLANG",dept:"RELIABILITY",role:"telecom-grade source sweeps — zero keys required",st:"idle",
-       hint:"sweep bol, ya kisi check ke baare me poochh…",
-       hi:"🛡 ERLANG online, Sir. RELIABILITY lane — deterministic, ZERO AI keys me chalta hai.\n• \"run a full sweep\" → parse checks, guards, admin gate, DOM lanes\n• fail hua check ⚔ ARTHUR ko bug report banta hai — silent pass kabhi nahi\n• poochho koi bhi check actually kya verify karta hai."},
+       hint:"say sweep, or ask about any check…",
+       hi:"🛡 ERLANG online. RELIABILITY lane — deterministic, runs with ZERO AI keys.\n• \"run a full sweep\" → parse checks, guards, admin gate, DOM lanes\n• a failing check becomes a bug report for ⚔ ARTHUR — a silent pass never happens\n• ask what any check actually verifies."},
       {id:"arthur",icon:"⚔",name:"ARTHUR",dept:"ENGINEERING",role:"plan → real code edits → verify; you approve the ship",st:"idle",
-       hint:"engineering kaam do — e.g. top bar me theme toggle add karo…",
-       hi:"⚔ ARTHUR online, Sir. ENGINEERING lane — plan → code → verify against the REAL file.\n• Task do: \"top bar me dark/light toggle add karo\"\n• Main real source padhta hoon, complete edits likhta hoon, har find-string dry-run karta hoon\n• \"ship\" bolo to verified edits GitHub pe publish (aapki approval zaroori)."},
+       hint:"give engineering work — e.g. add a theme toggle to the top bar…",
+       hi:"⚔ ARTHUR online. ENGINEERING lane — plan → code → verify against the REAL file.\n• Give a task: \"add a dark/light toggle to the top bar\"\n• I read the real source, write complete edits, dry-run every find-string\n• Say \"ship\" and the verified edits publish to GitHub (your approval is required)."},
       {id:"phoenix",icon:"🔥",name:"PHOENIX",dept:"KNOWLEDGE",role:"world stamps, briefs, squad lessons learned",st:"ok",
-       hint:"aaj ke din, duniya, ya squad lessons ke baare me poochh…",
-       hi:"🔥 PHOENIX online, Sir. KNOWLEDGE lane — world stamps, briefs, squad lessons.\n• \"today's brief\" → real date/time + cached headlines (keyless)\n• Kuch bhi poochho — freshness stamp ke saath jawab\n• Squad ki lessons learned sessions ke across yaad rakhta hoon."}
+       hint:"ask about today, the world, or squad lessons…",
+       hi:"🔥 PHOENIX online, Sir. KNOWLEDGE lane — world stamps, briefs, squad lessons.\n• \"today's brief\" → real date/time + cached headlines (keyless)\n• Ask anything — every answer carries a freshness stamp\n• I remember the squad's lessons across sessions."}
     ];
     function bot(id){return BOTS.find(function(b){return b.id===id})||BOTS[0]}
     /* ---------- chat storage + rendering ---------- */
@@ -13225,7 +13225,7 @@ document.addEventListener("DOMContentLoaded",function(){
       {c:"/publish",a:"[hold|batch]",d:"push the verified queue / switch policy",run:function(s){chat(s&&/hold|batch/i.test(s)?s+" mode":"publish it")}},
       {c:"/morning",a:"",d:"run today's daily shift now",run:function(){chat("morning shift")}},
       {c:"/autopilot",a:"[on|off]",d:"the squad's 24/7 clock",run:function(s){chat(s&&/off/i.test(s)?"stop autopilot":"autopilot on")}},
-      {c:"/nonstop",a:"[on|off]",d:"continuous 24/7 nonstop work loop",run:function(s){chat(s&&/off/i.test(s)?"stop nonstop":"nonstop kaam karo")}},
+      {c:"/nonstop",a:"[on|off]",d:"continuous 24/7 nonstop work loop",run:function(s){chat(s&&/off/i.test(s)?"stop nonstop":"work nonstop")}},
       {c:"/clear",a:"",d:"clear this bot's chat log",run:function(){clearChat()}},
       {c:"/export",a:"",d:"download this chat as Markdown",run:function(){downloadChat()}},
       {c:"/pins",a:"",d:"show pinned messages",run:function(){renderPins(true)}},
@@ -13260,9 +13260,9 @@ document.addEventListener("DOMContentLoaded",function(){
     /* SUGGESTIONS — contextual empty-state chips (real buttons, NNg) */
     const SUGGEST={
       kratos:["status report","morning shift","run a cycle now","autpilot on status"],
-      erlang:["run a full sweep","last sweep kya fail hua?","sweep me kya check hota hai?"],
-      arthur:["roadmap ka next mission batao","ek chota visual tweak suggest karo","arthur: ship countdown admin panel me add karo"],
-      phoenix:["today's brief","world stamp kde dikhao","squad ne aaj kya seekha?"]
+      erlang:["run a full sweep","what failed in the last sweep?","what does a sweep check?"],
+      arthur:["what is the next mission on the roadmap?","suggest one small visual tweak","arthur: add a ship countdown to the admin panel"],
+      phoenix:["today's brief","where do I see the world stamp?","what did the squad learn today?"]
     };
     function renderSuggestions(){
       const holder=$("botSug");if(!holder)return;
@@ -13318,23 +13318,23 @@ document.addEventListener("DOMContentLoaded",function(){
     function agentRoster(){
       const st=AUD&&AUD.state?AUD.state:null;
       const lines=[
-        "🤖 AGENTS — kaun kya karta hai (chat + server):",
+        "🤖 AGENTS — who does what (chat + server):",
         "",
-        "CHAT BOTS (admin-only, yahin):",
-        "• 👑 KRATOS — orders, dispatch, reports (typing ye hi ho raha hai abhi)",
+        "CHAT BOTS (admin-only, here):",
+        "• 👑 KRATOS — orders, dispatch, reports (typing is this one right now)",
         "• 🛡 ERLANG — deterministic sweep, zero AI keys",
-        "• ⚔ ARTHUR — real source edits, dry-run verify, ship sirf aapke word pe",
+        "• ⚔ ARTHUR — real source edits, dry-run verify, ships only on your word",
         "• 🔥 PHOENIX — world stamps, briefs, squad lessons",
         "",
-        "SERVER AGENTS (chalta rehta hai — laptop band ho tab bhi):",
-        "• 🕰 AUTOPILOT CLOCK — sweep → build → watch → report, har 15 min tick",
-        "• 🌱 ROADMAP AGENT — roadmap patli hoti hi naye missions propose karta hai (self-improvement loop)",
-        "• 📦 PUBLISH DRAIN — cron lane verified queue khud push karti hai",
-        "• ⏱ CRON BACKUP (GitHub Actions) — 3 ghante me ek baar tick + publish",
+        "SERVER AGENTS (keep running even when the laptop is off):",
+        "• 🕰 AUTOPILOT CLOCK — sweep → build → watch → report, ticks every 15 min",
+        "• 🌱 ROADMAP AGENT — proposes new missions whenever the roadmap thins out (self-improvement loop)",
+        "• 📦 PUBLISH DRAIN — the cron lane pushes the verified queue by itself",
+        "• ⏱ CRON BACKUP (GitHub Actions) — one tick + publish every 3 hours",
         "",
         st
           ? ("Roadmap: "+((st.progress&&st.progress.done)||0)+"/"+((st.progress&&st.progress.total)||0)+" missions · agent-generated: "+(st.generated||0)+" · cycles today "+(st.cyclesToday||0)+"/"+(st.maxCyclesPerDay||"?")+(st.paused?(" · PAUSED: "+st.paused):""))
-          : "(autopilot state abhi load nahi hua — ⚙ se refresh karo, /status bolo)"
+          : "(autopilot state not loaded yet — refresh with ⚙, or say /status)"
       ];
       push(S.who,"bot",lines.join("\n"));
     }
@@ -13727,8 +13727,8 @@ document.addEventListener("DOMContentLoaded",function(){
       const st=AUD.state;
       if(AUD.err){
         badge.textContent="UNREACHABLE";badge.className="auto-badge err";
-        const h=$("autoHint");if(h)h.textContent="⚠ backend lane: "+AUD.err+"\nAutopilot SERVICE pe chalta hai (server + cron), is page pe nahi — page sirf window hai. Backend utha to ye panel khud bhar jayega.";
-        const rp=$("autoReport");if(rp&&!st)rp.textContent="(report lagi nahi — backend lane down, ya admin session expire)";
+        const h=$("autoHint");if(h)h.textContent="⚠ backend lane: "+AUD.err+"\nAutopilot runs on the SERVICE (server + cron), not on this page — the page is only a window. Once the backend is up this panel fills itself.";
+        const rp=$("autoReport");if(rp&&!st)rp.textContent="(report not attached — the backend lane is down, or the admin session expired)";
         return;
       }
       if(!st)return;
@@ -13753,7 +13753,7 @@ document.addEventListener("DOMContentLoaded",function(){
         "roadmap       : "+done+"/"+total+" missions built"+(st.current?("  · doing: "+st.current):"")+((st.generated||0)?("  · +"+st.generated+" agent-gen") : ""),
         ((st.generated||0)?("self-roadmap  : 🌱 roadmap agent ne "+st.generated+" naya mission(s) propose kiye (queue thin hone par)"):null),
         "auto-ship     : "+(st.autoShip?"ON — gates pass → publish → live verify → auto-revert":"OFF — verified features held (SQUAD_AUTOSHIP=0)"),
-        "push policy   : "+(st.publish==="hold"?"HOLD — finished features queue me rukte hain, tum \"publish it\" bolo":"BATCH — ek feature = ek push (chote changes pe kabhi nahi)"),
+        "push policy   : "+(st.publish==="hold"?"HOLD — finished features wait in the queue until you say \"publish it\"":"BATCH — one feature = one push (never for tiny changes)"),
         "batch (arthur): "+(st.batch?("🔧 building "+st.batch.mission+" · cycle "+st.batch.cycles+" · "+st.batch.edits+" edit(s) stored, NOT pushed yet"):"no feature in progress"),
         "publish queue : "+((st.queue&&st.queue.length)?(st.queue.length+" verified feature(s) ready → \"PUBLISH QUEUE\" dabao"):"empty"),
         "sweep (ERLANG): "+(st.sweep?((st.sweep.fail?"✗ ":"✓ ")+st.sweep.pass+"/"+(st.sweep.pass+st.sweep.fail)+" checks · "+autoAgo(st.sweep.at)):"never run"),
@@ -13781,7 +13781,7 @@ document.addEventListener("DOMContentLoaded",function(){
         qe.className=q.length?"ready":"";
         qe.innerHTML=q.length
           ? ("📤 <b>READY TO PUBLISH ("+q.length+")</b> — verified complete, push ke liye tumhara word chahiye:\n"+q.map(function(x){return "  • "+autoEsc(x.title||x.mission)+" — "+(x.edits||0)+" edits · "+autoEsc(String(x.note||"").slice(0,80))}).join("\n")+"\n→ \"PUBLISH QUEUE\" dabao (ya bolo \"publish it\")")
-          : "📤 publish queue: khaali — jo push hua wo neeche KRATOS report me hai";
+          : "📤 publish queue: empty — anything pushed is in the KRATOS report below";
       }
       /* PUSH HISTORY TIMELINE — ships (survivors, green) merged with fails (reverts,
          amber), newest first. A ship entry only exists if its sentinel verified live
@@ -13805,18 +13805,18 @@ document.addEventListener("DOMContentLoaded",function(){
         }else{ sl.className=""; sl.innerHTML="⏱ push history: khaali — pehla publish hone pe yahan timeline bharegi (sha + verify sach)"; }
       }
       const rp=$("autoReport");
-      if(rp)rp.textContent=(st.report&&st.report.text)?st.report.text:"(koi report abhi nahi — pehla cycle hone pe KRATOS yahan likhega)";
+      if(rp)rp.textContent=(st.report&&st.report.text)?st.report.text:"(no report yet — KRATOS writes here after the first cycle)";
       const h=$("autoHint");
       if(h){
         const clk=st.clock||{};
-        const clkLine=clk.running?("⏱ clock CHALU — har "+clk.everyMinutes+" min khud cycle"+(clk.ticks?(" · "+clk.ticks+" tick"):"")+(clk.lastTick?(" · last "+new Date(clk.lastTick).toLocaleTimeString()):"")):"⏱ clock BAND — backend ka timer start nahi hua (redeploy karo, ya SQUAD_TICK_MINUTES 5+ set karo)";
-        const srcLine=st.sourceLane?("📄 source lane: "+st.sourceLane+" — issi file pe kaam hota hai"):"";
-        h.textContent=(st.paused?("Roadmap complete / paused: "+st.paused+" — squad khud bolti hai, aap naya mission dein."):((st.publish==="hold"?"HOLD mode: verified features queue me rukte hain — \"publish it\" bolo tab push hote hain. ":"BATCH mode: har finished feature khud push hota hai (chote changes pe kabhi nahi). ")))+clkLine+(srcLine?("\n"+srcLine):"");
+        const clkLine=clk.running?("⏱ clock RUNNING — a cycle every "+clk.everyMinutes+" min"+(clk.ticks?(" · "+clk.ticks+" tick"):"")+(clk.lastTick?(" · last "+new Date(clk.lastTick).toLocaleTimeString()):"")):"⏱ clock STOPPED — the backend timer never started (redeploy, or set SQUAD_TICK_MINUTES to 5+)";
+        const srcLine=st.sourceLane?("📄 source lane: "+st.sourceLane+" — this is the file it edits"):"";
+        h.textContent=(st.paused?("Roadmap complete / paused: "+st.paused+" — the squad speaks up itself; you can assign a new mission."):((st.publish==="hold"?"HOLD mode: verified features wait in the queue — say \"publish it\" and they push. ":"BATCH mode: every finished feature pushes itself (never for tiny changes). ")))+clkLine+(srcLine?("\n"+srcLine):"");
       }
     }
     async function autopilotRefresh(quiet){
       /* STUCK-CHECKING FIX (owner's vow 20 Oct 2026): guests used to see the panel carved
-         at "CHECKING… / load ho raha hai" forever, because a non-admin returned silently
+         at "CHECKING… / loading" forever, because a non-admin returned silently
          and never painted. Now EVERY path paints an honest view: guests still GET the
          public heartbeat (counters) + today's live ships from GitHub, and the one thing
          they cannot have says exactly why. */
@@ -13861,8 +13861,8 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
           autoPaintGuest();
           const _h=$("autoHint");
           if(_h)_h.textContent=_signed
-            ? "🔐 admin session expire ho gaya (bearer ~1 ghante ka hota hai) — panel wapas bharega: ⚙ SETTINGS → Sign in / switch user, ya page reload. Neeche ke counters PUBLIC heartbeat ke live sach hain."
-            : "🔐 owner panel sign-in pending — counters upar PUBLIC heartbeat ke sach hain (live). ⚙ SETTINGS → Sign in / switch user, phir poora panel khud bhar jayega.";
+            ? "🔐 admin session expired (a bearer lasts about an hour) — the panel refills itself: ⚙ SETTINGS → Sign in / switch user, or reload the page. The counters below are live from the PUBLIC heartbeat."
+            : "🔐 owner panel sign-in pending — the counters above are live from the PUBLIC heartbeat. ⚙ SETTINGS → Sign in / switch user, then the full panel fills itself.";
           if(!quiet)entry("kratos",_signed?"admin lane 401 on a STALE session — guest heartbeat painted, re-sign-in needed":"admin lane 401 on legacy token — guest view painted, sign-in needed for full data");
           return null;
         }
@@ -13886,16 +13886,16 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
         "cycles today  : "+(bt.cyclesToday||0)+"/"+(bt.maxCyclesPerDay||"?")+(bt.building?("  · building: "+bt.building):""),
         "roadmap       : "+(bt.missionsDone||0)+"/"+(bt.missionsTotal||0)+" missions built",
         "ships total   : "+(bt.publishes||0)+(bt.queued?(" · queue: "+bt.queued+" waiting"):""),
-        "yeh counters PUBLIC heartbeat se aaye hain (sach, live) — full panel + reports owner ke sign-in ke baad khulti hai"
+        "these counters come from the PUBLIC heartbeat (real, live) — the full panel and reports open after the owner signs in"
       ].join("\n"):"";
-      const q=$("autoQueue");if(q){q.className="";q.textContent="🔐 admin lane: sign-in ke baad publish queue / batch details khailegi"}
+      const q=$("autoQueue");if(q){q.className="";q.textContent="🔐 admin lane: the publish queue and batch details open after sign-in"}
       const bd=$("autoBoard");if(bd)bd.innerHTML="";
       const ba=$("autoBatch");if(ba){ba.className="";ba.textContent=""}
-      const sl=$("autoShips");if(sl){sl.className="";sl.innerHTML="⏱ push history: owner sign-in ke baad full sha-timeline khulti hai"}
+      const sl=$("autoShips");if(sl){sl.className="";sl.innerHTML="⏱ push history: the full sha timeline opens after the owner signs in"}
       const rp=$("autoReport");
-      if(rp)rp.textContent="(guest window — OWNER's KRATOS report + mission board sign-in ke baad)\niska pe Squad SERVICE alag chal rahi hai: jab tum AURA band karte ho, kaam rukta nahi.";
+      if(rp)rp.textContent="(guest window — the owner's KRATOS report and mission board appear after sign-in)\nThe squad runs as a separate SERVICE: closing AURA does not stop the work.";
       const hEl=$("autoHint");
-      if(hEl)hEl.textContent="ℹ Ye squad ka PUBLIC window hai — kaam LIVE hota hai (counters upar sach hain). Admin controls sign-in ke baad unlock hote hain. ⚙ SETTINGS → Sign in / switch user";
+      if(hEl)hEl.textContent="ℹ This is the squad\'s PUBLIC window — the work is LIVE (the counters above are real). Admin controls unlock after sign-in. ⚙ SETTINGS → Sign in / switch user";
     }
     async function autopilotToggle(on){
       if(!isAdmin())return "admin only — autopilot control is the owner's.";
@@ -13903,8 +13903,8 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
       try{
         const j=await autoCall("/v1/squad/autopilot",{enabled:!!on});
         AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
-        entry("kratos",on?"AUTOPILOT started — squad SERVICE pe kaam karegi, AURA band ho tab bhi":"AUTOPILOT paused — squad sirf aapke command pe chalegi");
-        return on?"▶ Autopilot ON, Sir — cycles service pe chalenge (AURA band ho tab bhi).\n"+autoStatusText():"⏸ Autopilot paused, Sir — squad ab sirf aapke command pe chalegi. State safe hai.";
+        entry("kratos",on?"AUTOPILOT started — the squad works on the SERVICE even when AURA is closed":"AUTOPILOT paused — the squad now runs only on your command");
+        return on?"▶ Autopilot ON — cycles run on the service (even when AURA is closed).\n"+autoStatusText():"⏸ Autopilot paused — the squad now runs only on your command. State is safe.";
       }catch(e){AUD.err=(e.message||String(e));autoPaint();const _t=laneErrChat("autopilot lane error (honest): "+AUD.err);if(/NO_SESSION|admin session|Unauthorized|401/.test(AUD.err+"")){try{if(window.__auraOpenAuthSoft)window.__auraOpenAuthSoft()}catch(e2){}}return _t}
       finally{if(a)a.disabled=false;if(b)b.disabled=false}
     }
@@ -13925,27 +13925,27 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
     async function autopilotPublish(){
       if(!isAdmin())return "admin only — publishing is the owner's word.";
       const b=$("autoPublish");if(b){b.disabled=true;b.textContent="⏳ PUSHING…"}
-      entry("kratos","📤 admin word — queue push ho rahi hai (har verified feature = ek commit)");
+      entry("kratos","📤 admin word — pushing the queue (one verified feature = one commit)");
       try{
         const j=await autoCall("/v1/squad/publish",{});
         if(j.ok===false)throw new Error(j.error||"publish failed");
         await autopilotRefresh(true);
-        if(!j.published)return "Publish queue khaali thi, Sir — "+String(j.note||"kuch verified wait nahi kar raha").split("\n")[0];
+        if(!j.published)return "The publish queue was empty — "+String(j.note||"nothing verified is waiting").split("\n")[0];
         return "🚀 PUSHED, Sir — "+j.published+" verified feature(s):\n"+((j.pushed||[]).map(function(x){return "• "+x.mission+" → "+(x.sha||"?")}).join("\n"))+
           ((j.refused&&j.refused.length)?("\n\n⚠ refused (raw):\n"+j.refused.map(function(x){return "• "+x.mission+" — "+x.reason}).join("\n")):"")+
-          "\n\nLive site ~60s me update hoga (GitHub Pages).";
+          "\n\nThe live site updates in about 60s (GitHub Pages).";
       }catch(e){return laneErrChat("publish lane error (honest): "+(e.message||e))}
       finally{if(b){b.disabled=false;b.textContent="📤 PUBLISH QUEUE"}}
     }
     async function autopilotPolicy(){
-      if(!isAdmin())return "admin only — push policy owner set karta hai.";
+      if(!isAdmin())return "admin only — the owner sets the push policy.";
       const next=(AUD.state&&AUD.state.publish)==="hold"?"batch":"hold";
       try{
         const j=await autoCall("/v1/squad/policy",{publish:next});
         AUD.state=j.state||AUD.state;AUD.err="";autoPaint();
         return next==="hold"
-          ? "🔒 HOLD mode, Sir — complete features queue me ruke rahenge, tum \"publish it\" bolo tab ek saath push honge (kaam tab tak safe store rahega)."
-          : "📤 BATCH mode, Sir — har finished feature verified gates ke baad khud push hoga, par chote changes pe kabhi nahi.";
+          ? "🔒 HOLD mode — finished features wait in the queue; say \"publish it\" and they push together (the work stays safely stored until then)."
+          : "📤 BATCH mode — every finished feature pushes itself after the verified gates, never for tiny changes.";
       }catch(e){return laneErrChat("policy lane error (honest): "+(e.message||e))}
     }
     async function autopilotTask(task, nonstop){
@@ -13970,27 +13970,27 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
         const j=await autoCall("/v1/squad/nonstop",{enabled:!!on});
         AUD.state=j.state||AUD.state;AUD.err="";autoPaint();__nsAuthFailAt=0;
         return on
-          ? "⚡ NONSTOP WORK ENGAGED, Sir! Squad server pe continuously bina ruke kaam karegi — admin tasks priority #1 par execute honge."
-          : "⏸ Nonstop mode paused, Sir — squad normal schedule pe wapas aa gayi.";
+          ? "⚡ NONSTOP WORK ENGAGED — the squad keeps working on the server without pause, and admin tasks run at priority #1nge."
+          : "⏸ Nonstop mode paused — the squad is back on its normal schedule.";
       }catch(e){const _m=String(e.message||e);if(/NO_SESSION|admin session|Unauthorized|401/i.test(_m))__nsAuthFailAt=Date.now();return laneErrChat("nonstop lane error: "+_m)}
     }
     function autoStatusText(){
       const st=AUD.state;
-      if(AUD.err||!st)return "🤖 AUTOPILOT — is page pe state nahi aayi ("+(AUD.err||"no state")+").\nSach: squad ka clock SERVICE + GitHub cron pe chalta hai, is browser pe nahi — backend utha to panel khud bhar jayega. Panel se 'RUN A CYCLE NOW' ya '↻ REFRESH' try karo.";
+      if(AUD.err||!st)return "🤖 AUTOPILOT — no state on this page ("+(AUD.err||"no state")+").\nTruth: the squad clock runs on the SERVICE + GitHub cron, not in this browser — once the backend is up the panel fills itselfga. Panel se 'RUN A CYCLE NOW' ya '↻ REFRESH' try karo.";
       const d=(st.progress&&st.progress.done)||0,t=(st.progress&&st.progress.total)||0;
       const last=(st.ships&&st.ships.length)?st.ships[st.ships.length-1]:null;
       return "🤖 AUTOPILOT — real state, Sir:\n"+
-        "• status: "+(st.paused?("PAUSED ("+st.paused+")"):(st.nonstop?"⚡ NONSTOP (continuous 24/7 cycles)":(st.enabled?"ON — squad khud kaam kar rahi hai":"OFF — sirf aapke command pe")))+(st.running?" · ⏳ ek cycle abhi chal raha hai":"")+"\n"+
-        "• aaj ke cycles: "+st.cyclesToday+"/"+st.maxCyclesPerDay+(st.cyclesToday>=st.maxCyclesPerDay?" (aaj ka budget khatam → ⚡ NONSTOP on karo to bypass, ya kal phir se)":" (baaki cycles apne aap chalenge)")+"\n"+
+        "• status: "+(st.paused?("PAUSED ("+st.paused+")"):(st.nonstop?"⚡ NONSTOP (continuous 24/7 cycles)":(st.enabled?"ON — squad khud kaam kar rahi hai":"OFF — sirf aapke command pe")))+(st.running?" · ⏳ one cycle is running now":"")+"\n"+
+        "• cycles today: "+st.cyclesToday+"/"+st.maxCyclesPerDay+(st.cyclesToday>=st.maxCyclesPerDay?" (today\'s budget is spent → turn on ⚡ NONSTOP to bypass, or wait for tomorrow)":" (the rest run on their own)")+"\n"+
         "• roadmap: "+d+"/"+t+" missions built"+(st.current?(" · doing: "+st.current):"")+"\n"+
         "• auto-ship: "+(st.autoShip?"ON — verified gates → commit → live verify → auto-revert":"OFF (SQUAD_AUTOSHIP=0)")+(last?(" · last ship "+last.sha+" ("+last.mission+")"):"")+"\n"+
         "• last cycle: "+autoAgo(st.lastCycle)+" · sweep: "+(st.sweep?((st.sweep.fail?"✗ ":"✓ ")+st.sweep.pass+"/"+(st.sweep.pass+st.sweep.fail)):"never")+"\n"+
-        "• push policy: "+(st.publish==="hold"?"HOLD (finished features queue me rukte hain)":"BATCH (ek feature = ek push)")+"\n"+
-        "• batch: "+(st.batch?("🔧 building "+st.batch.mission+" — cycle "+st.batch.cycles+", "+st.batch.edits+" edit(s) STORED, push nahi hua"):"no feature in progress")+"\n"+
-        "• publish queue: "+((st.queue&&st.queue.length)?((st.queue||[]).map(function(x){return x.title||x.mission}).join(", ")+" — verified, tumhara word chahiye"):"empty")+"\n"+
-        "• research: "+((st.research&&st.research.length)?String(st.research[st.research.length-1]).slice(0,150):"abhi koi live research nahi")+"\n"+
-        "• yeh sab SERVER pe chalta hai — AURA band, tab band, laptop band: cycles chalte rehte hain aur KRATOS report likhta hai.\n"+
-        "\n"+((st.report&&st.report.text)?("KRATOS REPORT (last signed):\n"+st.report.text):"(abhi koi report sign nahi hui — pehle cycle ke baad aayegi)");
+        "• push policy: "+(st.publish==="hold"?"HOLD (finished features wait in the queue)":"BATCH (one feature = one push)")+"\n"+
+        "• batch: "+(st.batch?("🔧 building "+st.batch.mission+" — cycle "+st.batch.cycles+", "+st.batch.edits+" edit(s) STORED, not pushed"):"no feature in progress")+"\n"+
+        "• publish queue: "+((st.queue&&st.queue.length)?((st.queue||[]).map(function(x){return x.title||x.mission}).join(", ")+" — verified, waiting for your word"):"empty")+"\n"+
+        "• research: "+((st.research&&st.research.length)?String(st.research[st.research.length-1]).slice(0,150):"no live research right now")+"\n"+
+        "• all of this runs on the SERVER — AURA closed, tab closed, laptop off: cycles keep running and KRATOS keeps writing the report.\n"+
+        "\n"+((st.report&&st.report.text)?("KRATOS REPORT (last signed):\n"+st.report.text):"(no report signed yet — it arrives after the first cycle)");
     }
     /* default: fires once a day, on the first admin session after load */
     function shiftBoot(){
@@ -14133,7 +14133,7 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
         const base=ctx||fallbackFor(id);
         const hinglish=/(\b(krr|kar|karo|kya|hai|nahi|bhai|yaar|batao|chal)\b|[\u0900-\u097F])/i.test(String(userMsg));
         return (hinglish
-          ?"⚠ AI brain abhi reachable nahi hai ("+(e.message||e)+") — sab lanes timeout/rate-limit hui. 1 min me dobara bolo, ya 'run a cycle now'.\n\n"
+          ?"⚠ AI brain abhi reachable nahi hai ("+(e.message||e)+") — every lane timed out or hit a rate limit. Try again in a minute, or say 'run a cycle now'.\n\n"
           :"⚠ AI brain unreachable ("+(e.message||e)+") — ladder lanes timed out or rate-limited. Try again in a minute, or 'run a cycle now'.\n\n")+base;
       }
     }
@@ -14440,13 +14440,13 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
           const signed=(typeof fbUser==="function")&&!!fbUser();
           if(already||signed||(Date.now()-__authPopAt<60000)){
             if(!already)push(S.who||"kratos","sys",signed
-              ? "⚠ backend lane session nahi maan raha — tum sign-in ho (ya Firebase bearer/role ka sawaal hai). Modal KOI tap me: 👤 profile badge (neeche-left) pe click, ya ⚙ SETTINGS → Sign in / switch user. Page reload bhi fresh bearer le aayega."
-              : "🔐 sign-in needed — ACCOUNT modal abhi khula tha (60s ke andar auto-open nahi dohrata). 👤 profile badge (neeche-left) ya ⚙ SETTINGS se kabhi bhi khol lo.");
+              ? "⚠ the backend lane is not accepting the session — you are signed in (so it is a Firebase bearer/role question). Open the modal any time: click the 👤 profile badge (bottom-left), or ⚙ SETTINGS → Sign in / switch user. A page reload also brings a fresh bearer."
+              : "🔐 sign-in needed — the ACCOUNT modal was just open (it does not auto-open again within 60s). Open it any time from the 👤 profile badge (bottom-left) or ⚙ SETTINGS.");
             return;
           }
           __authPopAt=Date.now();
           AuraAuth.openModal();
-        }catch(e4){try{push(S.who||"kratos","sys","sign-in modal unavailable — ⚙ SETTINGS se sign-in karo")}catch(e5){}}
+        }catch(e4){try{push(S.who||"kratos","sys","sign-in modal unavailable — sign in from ⚙ SETTINGS")}catch(e5){}}
       };
       window.__auraOpenAuthSoft=openAuth;
       if(awB)awB.onclick=async function(){
@@ -14467,9 +14467,9 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
             if(_auth)openAuth();
             return
           }
-          if(AUD.state&&!(AUD.state.enabled)){flow("⏳ autopilot start ho raha…");await autopilotToggle(true)}
+          if(AUD.state&&!(AUD.state.enabled)){flow("⏳ starting autopilot…");await autopilotToggle(true)}
           if(AUD.err){flow("✗ autopilot lane: " + (AUD.err+"").slice(0,90));try{push(S.who||"kratos","bot",laneErrChat("autopilot lane error (honest): "+AUD.err))}catch(e4){}return}
-          flow("⏳ cycle chal raha hai (publishNow)…");awB.textContent="⚡ WORKING…";
+          flow("⏳ running a cycle (publishNow)…");awB.textContent="⚡ WORKING…";
           const r=await autopilotRun(true,true);
           if(AUD.err){
             const _a2=/admin session|NO_SESSION|NOT_OWNER|ROLE_MISMATCH/i.test(AUD.err+"");
@@ -14492,7 +14492,7 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
       if(puB)puB.onclick=async function(){
         if(puB.disabled)return;
         puB.disabled=true;awB&&(awB.disabled=true);nsB&&(nsB.disabled=true);
-        try{flow("🚀 push ho raha hai…");puB.textContent="🚀 PUSHING…";
+        try{flow("🚀 pushing…");puB.textContent="🚀 PUSHING…";
           const r=await autopilotPublish();
           if(/^publish lane error|^admin only/.test(String(r))){
             const _m=String(r);flow("✗ " + _m.replace(/^publish lane error \(honest\): /,"").slice(0,110));
@@ -15494,7 +15494,7 @@ function __auraOtp6Init(){
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",__auraOtp6Init);else __auraOtp6Init();
 
 /* ================= CHAT EXPERIENCE UPGRADE (27 Oct 2026) =================
-   Owner: "AURA ke chats experience ko best kar do." What a top-tier chat has and
+   Owner: "make the chats experience the best it can be." What a top-tier chat has and
    AURA did not, added here WITHOUT touching the working pipeline:
      · Regenerate that actually re-asks the SAME question and replaces the answer
        (the old button re-asked "tell me more" and polluted the thread memory)
@@ -15569,8 +15569,8 @@ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",
   }
   async function regenAnswer(el,q){
     q=String(q||'').trim();
-    if(!q){pushSys('pehle kuch pucho, phir regenerate karunga');return}
-    if(busy){pushSys('abhi ek jawab chal raha hai — ek second');return}
+    if(!q){pushSys('ask something first, then I can regenerate');return}
+    if(busy){pushSys('an answer is already running — one second');return}
     busy=true;try{setMode('thinking')}catch(e){}
     el.innerHTML='…';window.__streamEl=el;codeButtons(el);
     try{const sb=document.getElementById('stopBtn');if(sb){sb.classList.add('show');sb.onclick=()=>{try{streamAbort&&streamAbort.abort()}catch(e){}}}}catch(e){}
@@ -15880,11 +15880,11 @@ dockCore();
         '<button id="asX" aria-label="Close" style="background:none;border:0;color:#9cf;font-size:18px;cursor:pointer">✕</button>'+
       '</div>'+
       '<div style="display:grid;gap:8px">'+
-        '<button class="asb" data-k="photo"><span>🖼</span><b>Photo</b><small>camera ya gallery se image bhejo — main use dekh kar jawab dunga</small></button>'+
-        '<button class="asb" data-k="doc"><span>📄</span><b>PDF &amp; notes</b><small>file padhta hoon; jawab [file · page] cite karta hai</small></button>'+
-        '<button class="asb" data-k="cam"><span>📷</span><b>Camera</b><small>live scene dekho aur batao kya chal raha hai</small></button>'+
+        '<button class="asb" data-k="photo"><span>🖼</span><b>Photo</b><small>send an image from the camera or gallery — I will look at it and answer</small></button>'+
+        '<button class="asb" data-k="doc"><span>📄</span><b>PDF &amp; notes</b><small>I read the file; answers cite [file · page]</small></button>'+
+        '<button class="asb" data-k="cam"><span>📷</span><b>Camera</b><small>look at the live scene and tell you what is going on</small></button>'+
       '</div>'+
-      '<div style="font-size:11px;opacity:.55;margin-top:11px;line-height:1.5">Photo aur camera is device par process hote hain; PDFs aapke account ki server memory me bhi index hote hain.</div>'+
+      '<div style="font-size:11px;opacity:.55;margin-top:11px;line-height:1.5">Photo and camera are processed on this device; PDFs are also indexed in the server memory of your account.</div>'+
     '</div>';
     document.body.appendChild(ov);
     ov.querySelectorAll(".asb").forEach(function(b){
