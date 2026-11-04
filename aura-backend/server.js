@@ -14,6 +14,8 @@ const path = require("path");
    rosters, schedules and results, so a team question never gets an invented list. */
 let LIQUI = null;
 try { LIQUI = require("./liquipedia"); } catch (e) { LIQUI = null; }
+let FOCUS = null;
+try { FOCUS = require("./search-focus"); } catch (e) { FOCUS = null; }
 const app = express();
 /* Behind Render's load balancer every socket looks like the same internal IP.
    Trusting the ONE proxy hop gives us the REAL visitor IP (rightmost entry —
@@ -62,12 +64,12 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v28";
+const BUILD = process.env.AURA_BUILD || "squad-v29";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
    shows srcBuild = the value below, THIS code is live. */
-const SRC_BUILD = "squad-v28";
+const SRC_BUILD = "squad-v29";
 const SECRET = process.env.SECRET || "";        // optional shared secret
 const REQUIRE_SECRET = process.env.REQUIRE_SECRET === "1";
 /* AUTOPILOT tick key — GitHub Actions presents this so the squad keeps working
@@ -2684,12 +2686,14 @@ app.post("/v1/chat/completions", async (req, res) => {
        ordinary question seconds — even "what is 2+2". Only questions that can
        actually have changed recently are worth that wait; math, code, definitions,
        how-to and small talk answer straight from the brain. */
-    const _fresh = /(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|match|tournament|election|weather|stock|ipo|launch|release|update|trending|kitna)/i.test(_q);
+    const _fresh = /(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|jeeta|jita|kaun|match|tournament|election|weather|stock|ipo|launch|release|update|trending|kitna)/i.test(_q);
     if (_q && _fresh && !_small && !_alreadyArmed) {
       const _now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
       let _web = "", _cand = "";
       try {
-        const _sq = cleanAsk(_q) || _q.replace(/\s+/g, " ");
+        /* a result question searches with a result-shaped query (see search-focus.js) */
+        let _sq = cleanAsk(_q) || _q.replace(/\s+/g, " ");
+        if (FOCUS && FOCUS.isResultAsk(_q)) _sq = FOCUS.sharpenQuery(_q);
         const _hits = await toolSearch(_sq);
         if (process.env.AURA_DEBUG) console.log("[chat] live=" + (_hits ? _hits.length : 0) + " q=\"" + _sq + "\"")
         if (_hits && _hits.length) {
@@ -3147,6 +3151,33 @@ async function toolSearch(q) {
      1) Google News RSS (machine feed, no bot walls, always fresh)
      2) jina → Google News HTML   3) DuckDuckGo lite/html   4) Wikipedia search (never blocked) */
   const out = [];
+  /* RESULT QUESTIONS (4 Nov 2026, owner report: "latest bhi nahi bata raha"):
+     "bhai esports me aaj kaun jeeta" went to the search API almost verbatim, so it came
+     back with high-school-esports press releases — no score, no winner, so the model
+     refused to answer and it looked like AURA knows nothing current. A win/score/
+     standings question gets a result-shaped query and result-shaped sources instead.
+     Fail-open: if the focused search finds nothing useful we fall through to the old
+     lanes exactly as before. */
+  try {
+    if (FOCUS && FOCUS.isResultAsk(q)) {
+      const fq = FOCUS.sharpenQuery(q);
+      const got = [];
+      if (searchProvider() !== "free") {
+        try {
+          /* basic depth on purpose: the query already carries an explicit date, and the
+             news/ultra-fast variant plus its retry blew the 8s web-search budget */
+          const hits = await realSearch(fq, 6, false);
+          for (const h of (hits || [])) if (!got.some(x => x.url === h.url)) got.push(h);
+        } catch (e) {}
+      }
+      /* no Liquipedia call here on purpose: it is a page lookup (rosters, dates), it
+         answers nothing about a finished match, and its politeness delay pushed this
+         whole search past the 8s budget. The generic Liquipedia lane still runs below. */
+      const ranked = FOCUS.rankHits(got);
+      if (ranked.length && FOCUS.scoreHit(ranked[0]) >= 3) return ranked.slice(0, 4);
+      for (const h of ranked.slice(0, 4)) if (!out.some(x => x.url === h.url)) out.push(h);
+    }
+  } catch (e) {}
   if (LIQUI && LIQUI.isEsportsQuery(q)) {
     try {
       const lp = await LIQUI.liquipediaSearch(q, 2);
