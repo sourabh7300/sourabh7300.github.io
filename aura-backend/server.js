@@ -64,7 +64,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v44";
+const BUILD = process.env.AURA_BUILD || "squad-v45";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
@@ -1607,6 +1607,35 @@ app.get("/v1/squad/state", async (req, res) => {
   if (!(await squadAuth(req, res))) return;
   try { res.json(Object.assign(await autopilot.snapshot(), { clock: Object.assign({}, squadClock), sourceLane: lastSourceLane })); }
   catch (e) { res.status(502).json({ error: e.message || String(e) }); }
+});
+/* PUBLIC MISSION BOARD (5 Nov 2026) — the owner kept asking "kaun se missions bache hain"
+   while the full state stayed behind the admin gate. This exposes the ROADMAP only:
+   mission ids/titles/priority and their state, the shipped list and the budget. No keys,
+   no prompts, no source, nothing that is not already visible in the app's squad panel. */
+app.get("/v1/squad/status", async (req, res) => {
+  try {
+    const st = await autopilot.state();
+    if (!st) return res.json({ ok: false, loaded: false });
+    const all = autopilotLib.allMissions(st);
+    const pend = autopilotLib.pendingByImportance(st);
+    const row = m => {
+      const s = autopilotLib.missionState(st, m.id) || {};
+      return { id: m.id, title: m.title || m.id, prio: m.prio, attempts: s.attempts || 0, done: !!s.done, parked: !!s.parked, liveBlocked: !!s.liveBlocked, note: String(s.note || "").slice(0, 160) };
+    };
+    res.json({
+      ok: true,
+      day: st.day, cyclesToday: st.cyclesToday || 0,
+      budget: st.maxCyclesPerDay || autopilotLib.DEFAULTS.maxCyclesPerDay,
+      enabled: !!st.enabled, publish: st.publish, autoShip: !!st.autoShip,
+      paused: st.paused || "",
+      done: all.filter(m => (autopilotLib.missionState(st, m.id) || {}).done).length,
+      total: all.length, roadmap: autopilotLib.MISSIONS.length, generated: (st.generated || []).length,
+      pending: pend.map(row),
+      parked: all.filter(m => (autopilotLib.missionState(st, m.id) || {}).parked).map(row),
+      ships: (st.ships || []).slice(-12).map(s => ({ title: s.title || s.note || "", sha: String(s.sha || "").slice(0, 8), at: s.at || 0, url: s.url || "" })),
+      lastReport: String(st.lastReport || (st.report && st.report.text) || "").split("\n").slice(0, 8)
+    });
+  } catch (e) { res.status(502).json({ ok: false, error: e.message || String(e) }); }
 });
 /* BOTS' BRAIN SOURCE (owner's order, 13 Oct 2026) */
 app.post("/v1/squad/brain", async (req, res) => {
