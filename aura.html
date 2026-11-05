@@ -9529,7 +9529,7 @@ function cleanTranscript(t){
     .replace(/\bsquare root of\b/g,"sqrt");
   return s.replace(/\s+/g," ").trim();
 }
-let hiTried=false,lastAlts=[],lastAskText="",lastAskAt=0,voiceCap=0;
+let hiTried=false,lastAlts=[],lastAskText="",lastAskAt=0,voiceCap=0,micFallbackTried=false;
 function askOnce(t){ /* one question = one answer: kill the repeat glitch */
   const c=cleanTranscript(t); if(!c) return;
   if(Date.now()-lastAskAt<9000&&c===lastAskText){slog("same question heard twice — ignored the repeat",true);pushSys("heard the same thing twice — answered once");return}
@@ -9548,7 +9548,7 @@ function startListen(hiEar){
   try{ if(wake&&recog&&listening){try{recog.abort()}catch(e2){}} }catch(e2){}
   clearTimeout(voiceCap);
   voiceCap=setTimeout(()=>{try{if(recog===r)r.stop()}catch(e2){}},14000); /* never listen forever */
-  r.onstart=()=>{listening=true;$("micBtn").classList.add("listening");$("micHint").textContent=hiEar?"सुन रही हूँ… (हिंदी)":"LISTENING…";setMode("listening");voiceCoreStart();blip(880,.1);
+  r.onstart=()=>{r.__auraStarted=true;listening=true;$("micBtn").classList.add("listening");$("micHint").textContent=hiEar?"सुन रही हूँ… (हिंदी)":"LISTENING…";setMode("listening");voiceCoreStart();blip(880,.1);
     pushSys(hiEar?"hindi ear online — boliye":"mic online — speak naturally")};
   r.onresult=e=>{lastAlts=[];interim="";
     for(let i=e.resultIndex;i<e.results.length;i++){
@@ -9574,9 +9574,13 @@ function startListen(hiEar){
     clearTimeout(voiceCap);
     listening=false;voiceCoreStop();$("micBtn").classList.remove("listening");$("micHint").textContent="TAP TO SPEAK";
     if(mode==="listening")setMode("idle");
-    if(e.error==="not-allowed"||e.error==="service-not-allowed")pushSys("mic blocked — allow microphone in browser settings");
-    else if(e.error==="no-speech")pushSys("didn't catch that — tap and speak a little louder");
-    else if(e.error==="network")pushSys("speech service unreachable — type instead");
+    /* a blocked mic is the user's choice; every OTHER failure means the browser's speech
+       service is missing/broken on this device — the raw-audio lane still works there */
+    if(e.error==="not-allowed"){pushSys("mic blocked — allow microphone in browser settings for this site, then tap again");return}
+    const broken=/service-not-allowed|network|audio-capture|language-not-supported|bad-grammar|aborted/.test(String(e.error||""));
+    if(broken&&window.AuraVoice&&!micFallbackTried){micFallbackTried=true;pushSys("browser speech service unavailable — switching to the HD mic");setTimeout(()=>{try{AuraVoice.start()}catch(e2){}},200);return}
+    if(e.error==="no-speech")pushSys("didn't catch that — tap and speak a little louder");
+    else if(e.error==="network")pushSys("speech service unreachable — the HD mic still works");
   };
   r.onend=()=>{
     clearTimeout(voiceCap);
@@ -9597,15 +9601,30 @@ function startListen(hiEar){
     if(wake)armWake(600);
   };
   try{recog=r;r.start()}catch(e){}
+  /* WATCHDOG (5 Nov 2026): on iOS Chrome and several Android webviews SpeechRecognition
+     exists but never fires onstart — the mic silently did nothing. If nothing started in
+     1.8s, hand the mic to the raw-audio lane instead of leaving the user with silence. */
+  setTimeout(()=>{
+    if(!listening&&recog===r&&!r.__auraStarted&&window.AuraVoice&&!micFallbackTried){
+      micFallbackTried=true;
+      try{pushSys("speech engine didn't start — using the HD mic instead");slog("SR never started — fell back to the raw-audio lane",true)}catch(e){}
+      try{r.abort()}catch(e){}
+      try{AuraVoice.start()}catch(e){}
+    }
+  },1800);
 }
 $("micBtn").onclick=()=>{
   if(window.AuraLive&&AuraLive.isOn()){pushSys("voice mode is already listening — just talk, or tap 🎙 VOICE MODE to switch it off");return}
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){pushSys("voice input needs Chrome/Edge — typing works everywhere");return}
+  /* MOBILE MIC (5 Nov 2026): Safari, Firefox and every in-app browser ship no
+     SpeechRecognition, and the button used to only print "needs Chrome/Edge" — the
+     mic looked dead on phones. The raw-audio lane records the voice itself and the
+     server transcribes it, so it works in every browser. */
+  if(!SR){ if(window.AuraVoice){pushSys("this browser has no built-in speech engine — switching to the HD mic");return AuraVoice.start();} pushSys("this browser has no mic engine — type instead");return }
   if(listening){try{recog.stop()}catch(e){};return}
   stopSpeech(); /* barge-in: tapping the mic silences AURA immediately */
   voiceSessionUntil=Date.now()+45000; /* tap = explicit request → voice answers for 45s */
-  hiTried=false;lastAlts=[];
+  hiTried=false;lastAlts=[];micFallbackTried=false;
   startListen(window.__auraLang==="hi");
 };
 $("wakeBtn").onclick=()=>{

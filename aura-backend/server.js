@@ -64,7 +64,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v45";
+const BUILD = process.env.AURA_BUILD || "squad-v46";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
@@ -2779,6 +2779,12 @@ async function groundChat(messages) {
            (h.extract && /DATES:|TEAMS\s*\(/) — re-reading either through the proxy
            cost 4-20s per question and was the whole "1 minute" lag. */
         web = top.map((h, i) => "[SOURCE " + (i + 1) + ": live web — " + (h.title || "") + "]\n" + String(h.snippet || h.extract || h.title || "").slice(0, 1600)).join("\n\n");
+        /* CURRENT FACT FIRST (5 Nov 2026): the small/fast models skim long evidence and
+           still answer from memory. The newest headline is repeated as ONE line before
+           the sources, so the current name/version/price is the easiest thing to copy. */
+        const h0 = top[0];
+        const s0 = String(cleanRead(h0.snippet || h0.extract || "") || "").replace(/\s+/g, " ").trim().slice(0, 260);
+        web = "CURRENT FACT (from the newest result — if it names the person, model, version, price or winner asked about, THAT is the answer, even when your memory says otherwise): \"" + (h0.title || "") + "\"" + (s0 ? " — " + s0 : "") + "\n\n" + web;
       }
     } catch (e) { /* search down → date + rules still apply */ }
     const head = esp
@@ -2936,12 +2942,18 @@ app.post("/v1/chat/completions", async (req, res) => {
     const _lastUser = [...messages].reverse().find(m => m && m.role === "user" && typeof m.content === "string" && m.content.trim());
     const _q = _lastUser ? searchQuery(messages) : "";
     const _small = /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon)|who are you|what('s| is) your name|are you (real|human|an ai))\b/i.test(_q);
-    const _alreadyArmed = messages.some(m => m && m.role === "system" && /CURRENT DATE & TIME|LIVE WEB RESULTS/.test(String(m.content || "")));
+    /* A DATE LINE IS NOT EVIDENCE (5 Nov 2026): this lane still counted the page's own
+       "CURRENT DATE & TIME" line as grounding, so every non-streaming ask skipped the
+       search and answered from the model's frozen cutoff (verified live: "who is the ceo
+       of intel" answered Brian Krzanich, 2018). Only a block that carries web results
+       counts as armed — same rule the streaming lane already uses. */
+    const _alreadyArmed = messages.some(m => m && m.role === "system" && /LIVE WEB RESULTS|AUTHORITATIVE ESPORTS FACTS/.test(String(m.content || "")));
     /* SPEED (29 Oct 2026): a search plus two page reads BEFORE the model cost every
        ordinary question seconds — even "what is 2+2". Only questions that can
        actually have changed recently are worth that wait; math, code, definitions,
        how-to and small talk answer straight from the brain. */
     const _fresh = /(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|jeeta|jita|kaun|match|tournament|election|weather|stock|ipo|launch|release|update|trending|kitna)/i.test(_q);
+    if (process.env.AURA_DEBUG) console.log("[gate] q=" + JSON.stringify(String(_q).slice(0, 80)) + " fresh=" + _fresh + " small=" + _small + " armed=" + _alreadyArmed + ( _alreadyArmed ? " hit=" + JSON.stringify(String((messages.find(m => m && m.role === "system" && /LIVE WEB RESULTS|AUTHORITATIVE ESPORTS FACTS/.test(String(m.content || ""))) || {}).content || "").slice(0, 160)) : ""));
     if (_q && _fresh && !_small && !_alreadyArmed) {
       const _now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
       let _web = "", _cand = "";
@@ -2984,7 +2996,13 @@ app.post("/v1/chat/completions", async (req, res) => {
     }
   } catch (e) { /* amplification is best-effort — never block the answer */ }
   /* visible to the owner on any response: did this answer get live evidence, and how much */
-  try { res.setHeader("X-Aura-Live", String(__live && __live.hits ? __live.hits.length : 0)); } catch (e) {}
+  /* the header must tell the truth even when groundChat already attached the evidence
+     before this lane ran (it used to report 0 on a fully grounded answer) */
+  try {
+    const _ev = (messages || []).filter(m => m && m.role === "system" && /LIVE WEB RESULTS|AUTHORITATIVE ESPORTS FACTS|CURRENT FACT \(/.test(String(m.content || ""))).map(m => String(m.content)).join("\n");
+    const _n = __live && __live.hits ? __live.hits.length : (_ev.match(/\[SOURCE \d+:/g) || []).length;
+    res.setHeader("X-Aura-Live", String(_n));
+  } catch (e) {}
   /* the fact rules apply even to already-grounded / cached / small-talk requests */
   try {
     if (!messages.some(m => m && m.role === "system" && String(m.content || "").includes("FACT RULES (owner order)")))
@@ -3356,7 +3374,11 @@ const FRESH_RE = /\b(latest|today|tonight|now|current|currently|news|price|price
 function withYearAnchor(q) {
   const s = String(q || "").trim();
   if (!s || /\b20[2-9][0-9]\b/.test(s)) return s;
-  if (!/\b(best|top|latest|newest|new|price|prices|cost|cheapest|version|release|launch|compare|review|ranking|winner|who is|which)\b/i.test(s)) return s;
+  /* IDENTITY QUESTIONS TAKE NO YEAR (5 Nov 2026): "who is the ceo of intel right now" +
+     "2026" made the search return a stock story that never names the CEO, and the model
+     filled the hole from memory (Pat Gelsinger, 2018). The year belongs on version/price/
+     launch asks; "who is / which" asks are answered best by the plain wording. */
+  if (!/\b(best|top|latest|newest|new|price|prices|cost|cheapest|version|release|launch|compare|review|ranking|winner)\b/i.test(s)) return s;
   return s + " " + new Date().getFullYear();
 }
 /* THE 2024 EXCUSE — a model admitting its training cutoff instead of looking. Any of
