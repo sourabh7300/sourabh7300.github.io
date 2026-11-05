@@ -12708,18 +12708,17 @@ const AuraAuth = (function(){
        it rides the registry record that already syncs with the account blob */
     setProfileTheme: function(id){
       try{
-        const users=getUsers();
+        const A=window.AuraAuth, users=A.getUsers(), cur=A.getCurrentUser();
         /* resolve through getCurrentUser — the active profile can be users[0] when no id
            has been written yet, and a raw id lookup silently wrote nothing */
-        const cur=getCurrentUser();
         const rec=users.find(function(x){return x.id===cur.id});
         if(rec&&rec.theme!==id){rec.theme=id;localStorage.setItem("aura_users_registry",JSON.stringify(users));try{cloudPushDebounced()}catch(e){}}
       }catch(e){}
     },
     profileTheme: function(){
       try{
-        const cur=getCurrentUser();
-        const rec=getUsers().find(function(x){return x.id===cur.id});
+        const A=window.AuraAuth, cur=A.getCurrentUser();
+        const rec=A.getUsers().find(function(x){return x.id===cur.id});
         return (rec&&rec.theme)||"";
       }catch(e){return ""}
     },
