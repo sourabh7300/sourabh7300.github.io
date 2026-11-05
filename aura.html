@@ -12709,17 +12709,18 @@ const AuraAuth = (function(){
     setProfileTheme: function(id){
       try{
         const users=getUsers();
-        const curId=localStorage.getItem("aura_current_user_id")||"";
-        const cur=users.find(function(x){return x.id===curId});
-        if(cur&&cur.theme!==id){cur.theme=id;localStorage.setItem("aura_users_registry",JSON.stringify(users));try{cloudPushDebounced()}catch(e){}}
+        /* resolve through getCurrentUser — the active profile can be users[0] when no id
+           has been written yet, and a raw id lookup silently wrote nothing */
+        const cur=getCurrentUser();
+        const rec=users.find(function(x){return x.id===cur.id});
+        if(rec&&rec.theme!==id){rec.theme=id;localStorage.setItem("aura_users_registry",JSON.stringify(users));try{cloudPushDebounced()}catch(e){}}
       }catch(e){}
     },
     profileTheme: function(){
       try{
-        const users=getUsers();
-        const curId=localStorage.getItem("aura_current_user_id")||"";
-        const cur=users.find(function(x){return x.id===curId});
-        return (cur&&cur.theme)||"";
+        const cur=getCurrentUser();
+        const rec=getUsers().find(function(x){return x.id===cur.id});
+        return (rec&&rec.theme)||"";
       }catch(e){return ""}
     },
     denyInfo: function(){ return lastDeny; },
