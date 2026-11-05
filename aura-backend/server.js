@@ -2197,7 +2197,7 @@ app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, voice: ((process.env.ELEVENLABS_API_KEY || "").trim() ? "elevenlabs" : "backup"), accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
+  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, voice: (String(ELEVEN_KEY || "").trim() ? "elevenlabs" : "backup"), accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
 });
 /* keep the last-known values fresh without ever blocking the endpoint */
 setTimeout(warmHealth, 1500);
@@ -4046,6 +4046,9 @@ app.post("/v1/chat/stream", async (req, res) => {
    Tier 3: Groq Orpheus English neural — kept as an English-only backup.
    The client plays whatever audio bytes come back, so tiering is invisible to users. */
 const ELEVEN_VOICES = { female: "21m00Tcm4TlvDq8ikWAM", male: "pNInz6obpgDQGcFmaJgB" } ;
+/* accept the common dashboard spellings — a key saved as ELEVENLABS_KEY must not look
+   like "the voice was removed" just because the code read one exact name */
+const ELEVEN_KEY = envv("ELEVENLABS_API_KEY", "ELEVENLABS_KEY", "ELEVEN_KEY", "XI_API_KEY");
 /* HYBRID VOICE ENGINE — speech-text sanitizer (client already renders clean chat text; this
    second pass strips anything the raw answer still carried: markdown, links, citations,
    emoji labels) + a small cache so repeat lines answer instantly at premium quality. */
@@ -4088,7 +4091,7 @@ const ttsFallback = async (input, voice, lang) => {
 /* Tier 1 — ElevenLabs multilingual (premium lifelike, Hindi + English).
    Returns {buf, type} or null when no key / upstream hiccup. */
 const elevenTTS = async (input, voice) => {
-  const key = (process.env.ELEVENLABS_API_KEY || "").trim();
+  const key = String(ELEVEN_KEY || "").trim();
   if (!key) return null;
   const gender = /venom|adam|male|george|jarvis/i.test(voice) ? "male" : "female";
   try {
