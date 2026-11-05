@@ -77,5 +77,38 @@ console.log("D. the 2024 excuse is recognised");
 ].forEach(a => ok("stale: " + a.slice(0, 42), mod.staleExcuse(a) === true));
 ok("a normal answer is not stale", mod.staleExcuse("Canberra is the capital of Australia.") === false);
 
+/* OWNER REPORT 4 Nov 2026 (round 2): the live page still said "latest Python is 3.13,
+ * October 2024" while the web said 3.15 in 2026. The page asks on the non-stream lane
+ * and ships its own search block, which the server trusted blindly. */
+const mod2 = new Function(
+  slice("const CUR_YEAR = new Date().getFullYear();", "/* one exit for every answer lane") +
+  slice("const FRESH_RE", "async function realSearch") +
+  "; return { staleFact, evidenceIsCurrent, newestYear };"
+)();
+
+console.log("E. a confident stale answer is caught, not just a cutoff excuse");
+const ASK = "python ka latest version kya hai abhi";
+ok("3.13 / October 2024 draft is stale",
+  mod2.staleFact(ASK, "Abhi Python ka latest stable version 3.13 hai, October 2024 mein release hua.", "old blog 2024") === true);
+ok("3.14.8 / October 2026 draft is fresh",
+  mod2.staleFact(ASK, "Python 3.14.8 latest hai (October 2026).", "blog 2026") === false);
+ok("a stable fact from the past is not stale",
+  mod2.staleFact("what is python", "Python was created in 1991.", "") === false);
+ok("a non-fresh question is never flagged",
+  mod2.staleFact("reverse a string in python", "Use s[::-1] - a 1991 trick.", "2026 news") === false);
+
+console.log("F. a date line is not current evidence, and the typed lane grounds");
+ok("the page's own date line is not a results block",
+  mod2.evidenceIsCurrent([{ role: "system", content: "CURRENT DATE & TIME: Wednesday, 4 November 2026." }]) === false);
+ok("a block naming this year counts",
+  mod2.evidenceIsCurrent([{ role: "system", content: "LIVE WEB RESULTS: Python 3.15 released October 2026." }]) === true);
+ok("a block from an older year does not",
+  mod2.evidenceIsCurrent([{ role: "system", content: "LIVE WEB RESULTS: Python 3.13, October 2024." }]) === false);
+{
+  const route = src.slice(src.indexOf('app.post("/v1/chat/completions"'), src.indexOf('app.post("/v1/chat/stream"'));
+  ok("the non-stream lane runs the same grounding", /groundChat\(messages\)/.test(route));
+  ok("the repair can fall back to the main rotation", /const l = await llm1\(m2/.test(src));
+}
+
 console.log("\n" + (fail ? "FAILED " + fail + " (" + pass + " passed)" : "all " + pass + " checks passed"));
 process.exit(fail ? 1 : 0);

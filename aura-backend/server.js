@@ -64,7 +64,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v42";
+const BUILD = process.env.AURA_BUILD || "squad-v43";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
@@ -2226,6 +2226,10 @@ const AURA_FACT_RULES =
      Devanagari. Two separate failures, both fixed here: the assistant must never introduce
      itself as the model behind it, and it must answer in the SCRIPT the user typed. */
   "IDENTITY: you are AURA, the assistant inside this app. Never name, describe or promote the model, lab or vendor behind you (no 'I am <model>', no 'developed by'), and never open an answer with a self-introduction. If the user asks who you are or what model you run on, answer 'Main AURA hoon' / 'I am AURA' in one short line and describe what you can do — never name a model, an architecture or a lab, even one you have heard of. " +
+  /* OWNER REPORT 4 Nov 2026: "aaj kaun sa match hai india ka" answered "Aaj India ka koi
+     match nahi hai" while the results only talked about Australia — a confident negative is
+     as wrong as an invented list. */
+  "Never claim that nothing is scheduled, released or available today unless the LIVE WEB RESULTS actually say so for that exact team, product or event; if they are about something else, say in one natural line that you could not confirm it for today and give the nearest thing they do show. " +
   "SCRIPT: mirror the user's script exactly. Hindi/Urdu typed in Roman letters (Hinglish) gets a Roman-letter reply — never Devanagari; Devanagari gets Devanagari; English gets English.";
 
 function lastUserMsg(messages) {
@@ -2317,17 +2321,46 @@ async function freshnessRepair(messages, draft, req) {
     }
   } catch (e) { block = ""; }
   const note = "CURRENT DATE & TIME: " + now + "\n" +
-    "Rewrite the answer for the user's actual question. Your previous draft said you could not reach current information — never say that: " +
+    "Rewrite the answer for the user's actual question. The previous draft is out of date (older sources or an older knowledge date) — fix the facts with what is true TODAY, never mention a cutoff, and never say you cannot reach current information: " +
     (block ? "use the LIVE WEB RESULTS below, name the value they show, and say which date it belongs to." : "no live results were found, so answer with what is stable and say in one short line that the newest figure is unconfirmed today.") +
     " Never mention a training cutoff, a knowledge date or your own limits as the answer.\n\n" + block +
     "\n\nPrevious draft (do not repeat its excuse):\n" + String(draft || "").slice(0, 600);
   const m2 = messages.concat([{ role: "system", content: note }]);
   try { const g = await geminiText(m2, 1200); if (g && g.trim()) return g.trim(); } catch (e) {}
   try { const r = await reserveCall(m2, 1200, 0.4, req); if (r && r.trim()) return r.trim(); } catch (e) {}
+  /* the main rotation is the last try: a stale draft must not survive just because the
+     fast lanes were busy or keyless */
+  try { const l = await llm1(m2, 1200, req); if (l && l.trim()) return l.trim(); } catch (e) {}
   return "";
 }
+const CUR_YEAR = new Date().getFullYear();
+function yearsIn(s) { return (String(s || "").match(/\b20[2-9]\d\b/g) || []).map(Number); }
+function newestYear(s) { const y = yearsIn(s); return y.length ? Math.max.apply(null, y) : 0; }
+function systemText(messages) {
+  return (messages || []).filter(m => m && m.role === "system").map(m => String(m.content || "")).join("\n");
+}
+/* Incoming evidence is only "current" when it names the present year: the page ships its
+   own search block, and a block from last year used to end grounding for a version or
+   price question. */
+function evidenceIsCurrent(messages) {
+  /* the date line always names this year — strip it, or every stale block looks current */
+  return newestYear(systemText(messages).replace(/CURRENT DATE & TIME[^\n]*/g, " ")) >= CUR_YEAR;
+}
+/* AN ANSWER CAN BE STALE WITHOUT EXCUSING ITSELF (4 Nov 2026): "Abhi Python ka latest
+   stable version 3.13 hai, October 2024 mein release hua" reads perfectly confident while
+   the live web already says 3.15 in 2026. A freshness question whose whole timeline sits
+   years behind the evidence it was given earns one grounded rewrite. */
+function staleFact(askText, answer, evidenceText) {
+  const a = String(answer || "");
+  if (!a || !FRESH_RE.test(String(askText || ""))) return false;
+  const nA = newestYear(a);
+  if (!nA) return false;
+  const nE = Math.max(CUR_YEAR, newestYear(String(evidenceText || "").replace(/CURRENT DATE & TIME[^\n]*/g, " ")));
+  return nA <= nE - 2; /* an answer two years behind today is not "current" */
+}
 /* one exit for every answer lane: identity/script repair, then a live look when the
-   draft excuses itself with a cutoff. Returns the text to show (possibly ""). */
+   draft excuses itself with a cutoff or clearly lives in an older year.
+   Returns the text to show (possibly ""). */
 async function finalizeAnswer(messages, text, req) {
   let t = String(text || "").trim();
   if (!t) return t;
@@ -2336,9 +2369,9 @@ async function finalizeAnswer(messages, text, req) {
     const fixed = await rewriteAnswer(messages, t, req);
     if (fixed && !needsRewrite(q, fixed)) t = fixed;
   }
-  if (staleExcuse(t)) {
+  if (staleExcuse(t) || staleFact(q, t, systemText(messages))) {
     const fresh = await freshnessRepair(messages, t, req);
-    if (fresh && !staleExcuse(fresh)) t = fresh;
+    if (fresh && !staleExcuse(fresh) && newestYear(fresh) >= CUR_YEAR - 1) t = fresh;
   }
   return t;
 }
@@ -2645,7 +2678,8 @@ async function groundChat(messages) {
        "python latest version" as 3.13 while the live web already said 3.14. Only a block
        that actually carries web results counts as armed. */
     const armedWeb = (messages || []).some(m => m && m.role === "system" && /LIVE WEB RESULTS|AUTHORITATIVE ESPORTS FACTS/.test(String(m.content || "")));
-    const armed = armedWeb;
+    /* a results block from an older year is not grounding for a version/price ask */
+    const armed = armedWeb && (!FRESH_RE.test(ask) || evidenceIsCurrent(messages));
     const f0 = evidenceFacts(messages);
     const esp = !!(LIQUI && (LIQUI.isEsportsQuery(ask) || LIQUI.isEsportsQuery(q0)));
     /* A RESULT QUESTION IS ALWAYS RE-SEARCHED (4 Nov 2026): the browser arrives with its own
@@ -2780,6 +2814,11 @@ app.post("/v1/chat/completions", async (req, res) => {
   messages = withProductFacts(injectFollowUp(messages));
   /* the script the visitor typed in, appended last so every lane below obeys it */
   { const _sn = scriptNote(lastUserMsg(messages)); if (_sn) messages = messages.concat([{ role: "system", content: _sn }]); }
+  /* THE NON-STREAM LANE GROUNDS TOO (4 Nov 2026): the page uses this route for typed
+     questions and shipped its own search block — which the server used to trust blindly,
+     so a stale block became a stale answer ("latest Python is 3.13", October 2024).
+     Same freshness gate as the stream lane now runs here. */
+  messages = await deadline(groundChat(messages), 8000, messages);
   /* server-side document memory: whichever device asks, the same files answer */
   messages = await withRagContext(messages, req);
   const makerHere = req.__role === "maker" || req.__role === "ceo";
@@ -4153,4 +4192,5 @@ module.exports = {
   groundChat, toolSearch, toolFetch, searchQuery, currentAsk, topicHint, followUpQuery, threadTurns,
   evidenceFacts, esportsFastAnswer, rosterGuard, cleanRead, isRosterAsk, fakeRoster,
   prettyDate, lastUserMsg, resolveFragment, injectFollowUp,
+  staleFact, evidenceIsCurrent, newestYear, finalizeAnswer,
 };
