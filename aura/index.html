@@ -12520,21 +12520,41 @@ const AuraAuth = (function(){
       return {ok:false, why:"Google sign-in failed: " + c};
     }
   }
-  async function fbSendOtp(phoneE164, boxEl){
+  /* ONE human-check helper for every phone entry point (5 Nov 2026). The visible
+     reCAPTCHA widget sat inside a hidden box, so on phones it never rendered and the
+     send button answered "the human-check did not load". An invisible verifier created
+     on the tap works on iOS and Android, and is re-created after each attempt because
+     Firebase allows one use per verifier. */
+  async function ensureVerifier(){
+    if(window.__auraVerifier) return window.__auraVerifier;
+    let box = document.getElementById("recaptchaBox");
+    if(!box){
+      box = document.createElement("div");
+      box.id = "recaptchaBox";
+      box.style.cssText = "position:fixed;bottom:0;left:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none";
+      document.body.appendChild(box);
+    }
+    window.__auraVerifier = new firebase.auth.RecaptchaVerifier("recaptchaBox", { size: "invisible" });
+    return window.__auraVerifier;
+  }
+  function dropVerifier(){
+    try{ if(window.__auraVerifier && window.__auraVerifier.clear) window.__auraVerifier.clear(); }catch(e){}
+    window.__auraVerifier = null;
+  }
+  async function fbSendOtp(phoneE164){
     if(!fbInit()) return {ok:false, why:"Phone sign-in engine is still loading — check your connection and retry."};
     try{
-      if(boxEl){ fbAuthObj.settings.appVerifier = null; }
-      /* the human-check object is required — without it Firebase fails on a
-         bare "reading 'verify'". Fail with the real reason instead. */
-      if(!window.__auraVerifier) return {ok:false, why:"The human-check did not load — reload the page and try again."};
-      fbConfirm = await fbAuthObj.signInWithPhoneNumber(phoneE164, window.__auraVerifier);
+      const verifier = await ensureVerifier();
+      fbConfirm = await fbAuthObj.signInWithPhoneNumber(phoneE164, verifier);
       return {ok:true};
       }catch(e){
       const c = String((e && e.code) || e.message || e);
+      dropVerifier();
       if(/invalid-phone-number/i.test(c)) return {ok:false, why:"That number does not look valid — use full international format, e.g. +91 73003 53703."};
       if(/quota-exceeded/i.test(c)) return {ok:false, why:"Firebase's free SMS quota for today is used up — try Google sign-in instead."};
       if(/invalid-app-credential|operation-not-allowed/i.test(c)) return {ok:false, why:"Phone sign-in is not enabled yet in the AURA Firebase console (SETUP-FIREBASE.md, step 3)."};
-      if(/captcha/i.test(c)) return {ok:false, why:"The human-check did not finish — reload the page and try again."};
+      if(/captcha/i.test(c)) return {ok:false, why:"The human-check did not finish — give it a second and tap Send code again."};
+      if(/network-request-failed/i.test(c)) return {ok:false, why:"No connection to Firebase right now — check your network and retry."};
       return {ok:false, why:"Could not send the code: " + c};
     }
   }
@@ -12621,6 +12641,7 @@ const AuraAuth = (function(){
       return r;
     },
     fbSendOtp: function(phoneE164){ return fbSendOtp(phoneE164); },
+    ensureVerifier: function(){ return ensureVerifier(); },
     fbVerifyOtp: async function(code){
       const r = await fbVerifyOtp(code);
       if(r.ok) applyRoleUi();
@@ -13045,10 +13066,6 @@ document.addEventListener("DOMContentLoaded",function(){
     let e164 = raw.startsWith("+") ? "+" + digits : (digits.length === 10 ? "+91" + digits : "+" + digits);
     if(digits.length < 10){ pushSys("⚠ Enter a full mobile number, e.g. +91 98765 43210"); $("accPhoneInput").focus(); return; }
     sendBtn2.disabled = true; sendBtn2.textContent = "Sending…";
-    if(!window.__auraVerifier){
-      try{ window.__auraVerifier = new firebase.auth.RecaptchaVerifier("recaptchaBox", {size:"normal", callback:function(){ pushSys("✓ verified human — sending code…"); }}); }catch(e){}
-    }
-    try{ if(window.__auraVerifier) { /* verifier persists across sends */ } }catch(e){}
     const r = await AuraAuth.fbSendOtp(e164);
     sendBtn2.disabled = false; sendBtn2.textContent = "Send code";
     if(!r.ok){ pushSys("⚠ " + r.why); return; }
