@@ -7112,7 +7112,7 @@ async function cloudPushNow(){
   try{
     await cloudEnsureFreshToken();
     if(!backendUrl()||!cloudSignedIn())return;
-    const blob={convo:CONVO.slice(-120),memory:memGet(),sessions:sessions.all().slice(-30),lastTopic:lastTopic||"",usage:(function(){try{return JSON.parse(localStorage.getItem("aura_usage")||"{}")}catch(e){return{}}})(),settings:(function(){try{return{topics:briefTopicsLoad(),routines:routinesLoad(),cal:calCfg(),theme:(function(){try{return localStorage.getItem("aura_theme")||"deck"}catch(e){return "deck"}})(),sleep:(function(){try{return sleepLoad()}catch(e){return{}}})()}}catch(e){return{}}})()};
+    const blob={convo:CONVO.slice(-120),memory:memGet(),sessions:sessions.all().slice(-30),lastTopic:lastTopic||"",usage:(function(){try{return JSON.parse(localStorage.getItem("aura_usage")||"{}")}catch(e){return{}}})(),settings:(function(){try{return{topics:briefTopicsLoad(),routines:routinesLoad(),cal:calCfg(),theme:currentAccountTheme()||(function(){try{return localStorage.getItem("aura_theme")||"deck"}catch(e){return "deck"}})(),sleep:(function(){try{return sleepLoad()}catch(e){return{}}})()}}catch(e){return{}}})()};
     await fetch(backendUrl()+"/v1/userdata",{method:"PUT",headers:Object.assign({"Content-Type":"application/json"},cloudAuthHeader()),body:JSON.stringify(blob),signal:AbortSignal.timeout(15000)});
     slog("☁ synced to your account",true);
   }catch(e){}
@@ -12028,6 +12028,16 @@ function applyTheme(id){
   try{applyPersonaTheme()}catch(e){}
   if(id==="deck")setHue("azure");
 }
+function themeByUser(){try{const v=JSON.parse(localStorage.getItem("aura_theme_by_user")||"{}");return v&&typeof v==="object"?v:{}}catch(e){return{}}}
+function currentAccountTheme(){
+  try{
+    const map=themeByUser();
+    const id=localStorage.getItem("aura_current_user_id")||"";
+    if(id&&map[id])return map[id];
+    try{const reg=JSON.parse(localStorage.getItem("aura_users_registry")||"[]")[0];if(reg&&map[reg.id])return map[reg.id];}catch(e){}
+  }catch(e){}
+  return "";
+}
 /* AURA_THEME_RESTORE (mission: persistent-theme-preference) — the saved theme used to
    arrive 150ms AFTER the deck painted (and never at all when the theme button was not
    on screen yet), so every reload flashed the default look. The body class is written
@@ -12036,13 +12046,7 @@ function applyTheme(id){
    localStorage theme is the fallback, and both are read before the first paint. */
 (function(){
   let early="deck";try{
-    let t="";
-    try{
-      const reg=JSON.parse(localStorage.getItem("aura_users_registry")||"[]");
-      const id=localStorage.getItem("aura_current_user_id")||"";
-      const cur=reg.find(function(x){return x.id===id});
-      if(cur&&cur.theme)t=cur.theme;
-    }catch(e){}
+    let t=currentAccountTheme();
     if(!t)t=localStorage.getItem("aura_theme")||"deck";
     if(t&&["deck","cyan","gold","classical"].indexOf(t)>=0)early=t;
   }catch(e){}
@@ -12706,21 +12710,18 @@ const AuraAuth = (function(){
     identity: ADMIN_IDENTITY,
     /* AURA_GEN_PERSISTENT_THEME_PREFERENCE — the profile carries its theme; no endpoint,
        it rides the registry record that already syncs with the account blob */
+    /* one map of account id → theme, so the look travels with the account without
+       touching the roster records themselves */
     setProfileTheme: function(id){
       try{
-        const A=window.AuraAuth, users=A.getUsers(), cur=A.getCurrentUser();
-        /* resolve through getCurrentUser — the active profile can be users[0] when no id
-           has been written yet, and a raw id lookup silently wrote nothing */
-        const rec=users.find(function(x){return x.id===cur.id});
-        if(rec&&rec.theme!==id){rec.theme=id;localStorage.setItem("aura_users_registry",JSON.stringify(users));try{cloudPushDebounced()}catch(e){}}
+        const cur=window.AuraAuth.getCurrentUser(); if(!cur)return;
+        const map=themeByUser(); if(map[cur.id]===id)return;
+        map[cur.id]=id; localStorage.setItem("aura_theme_by_user",JSON.stringify(map));
+        try{cloudPushDebounced()}catch(e){}
       }catch(e){}
     },
     profileTheme: function(){
-      try{
-        const A=window.AuraAuth, cur=A.getCurrentUser();
-        const rec=A.getUsers().find(function(x){return x.id===cur.id});
-        return (rec&&rec.theme)||"";
-      }catch(e){return ""}
+      try{ const cur=window.AuraAuth.getCurrentUser(); return (cur&&themeByUser()[cur.id])||""; }catch(e){return ""}
     },
     denyInfo: function(){ return lastDeny; },
     isAdmin: isAdmin,
