@@ -64,7 +64,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v46";
+const BUILD = process.env.AURA_BUILD || "squad-v47";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
@@ -2419,6 +2419,11 @@ async function finalizeAnswer(messages, text, req) {
     const fresh = await freshnessRepair(messages, t, req);
     if (fresh && !staleExcuse(fresh) && newestYear(fresh) >= CUR_YEAR - 1) t = fresh;
   }
+  /* the same evidence test for the streaming and Gemini lanes */
+  if (evidenceConflict(messages, t)) {
+    const fresh2 = await freshnessRepair(messages, t, req);
+    if (fresh2 && !evidenceConflict(messages, fresh2)) t = fresh2;
+  }
   t = stripHedge(t);
   /* A "nothing today" claim needs a source that says today (5 Nov 2026): asked for
      today's India match, the model answered "Aaj India ka koi match nahi hai" while the
@@ -2431,6 +2436,22 @@ async function finalizeAnswer(messages, text, req) {
         : "I couldn't confirm today's fixture from live sources — tell me the series or team and I'll pull the schedule.");
   }
   return t;
+}
+/* does an answer contradict the live evidence on a version/price/model ask? */
+const VERSION_ASK = /\b(latest|newest|current|version|release|price|rate|kitna|konsa|kaunsa|flagship)\b/i;
+function evidenceConflict(messages, answer) {
+  try {
+    const q = lastUserMsg(messages);
+    if (!q || !VERSION_ASK.test(q)) return false;
+    const ev = systemText(messages) || "";
+    if (!/LIVE WEB RESULTS|CURRENT FACT \(/.test(ev)) return false;
+    const nums = s => String(s || "").match(/\b\d+(?:\.\d+){1,2}\b/g) || [];
+    const evN = nums(ev.replace(/CURRENT DATE & TIME[^\n]*/g, " "));
+    if (!evN.length) return false;
+    const ansN = nums(answer);
+    if (!ansN.length) return false;
+    return !ansN.some(n => evN.indexOf(n) >= 0);
+  } catch (e) { return false; }
 }
 const NEG_TODAY = /(koi\s+(bhi\s+)?match[^.\n]{0,40}(nahi|nahin)|no\s+(match|game|fixture)[^.\n]{0,40}(today|scheduled)|nothing\s+scheduled[^.\n]{0,20}today|not\s+scheduled[^.\n]{0,25}today)/i;
 /* does the evidence actually date something today? */
@@ -3088,6 +3109,19 @@ app.post("/v1/chat/completions", async (req, res) => {
         t = await rosterGuard(t, messages);
         t = await finalizeAnswer(messages, t, req);
         if (!t || needsRewrite(lastUserMsg(messages), t) || staleExcuse(t)) { pushErr(model + " derailed answer"); continue; }
+        /* EVIDENCE BEATS MEMORY (5 Nov 2026): the light models shipped "python latest
+           is 3.12.2" and "iphone 17" while the live block in the same request named a
+           newer value. On a version/price/model ask a conflicting answer gets one
+           grounded rewrite; if that still conflicts, the grounded headline list ships
+           instead of the stale sentence. */
+        if (evidenceConflict(messages, t)) {
+          const __fix = await freshnessRepair(messages, t, req);
+          if (__fix && !evidenceConflict(messages, __fix)) t = __fix;
+          else {
+            const __lf = liveFallback();
+            if (__lf) { if (!makerHere) countAnswer(req); return res.json({ choices: [{ message: { content: __lf } }], model: "live web" }); }
+          }
+        }
         recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); if (!makerHere) { cachePut(messages, t.trim(), model); countAnswer(req); } return res.json({ choices: [{ message: { content: t.trim() } }], model });
       }
     } catch (e) { /* network hiccup → try next model */ }
@@ -3374,6 +3408,11 @@ const FRESH_RE = /\b(latest|today|tonight|now|current|currently|news|price|price
 function withYearAnchor(q) {
   const s = String(q || "").trim();
   if (!s || /\b20[2-9][0-9]\b/.test(s)) return s;
+  /* A YEAR WRECKS A "LATEST" SEARCH (5 Nov 2026): "python latest version 2026"
+     returned Cloud Run and CVE articles, so the answer fell back to memory (3.13) while
+     "python latest version" names 3.15 in the first hit. Freshness words already anchor
+     the query to now — the year only helps bare asks like "price of gold" or "best laptop". */
+  if (/\b(latest|newest|current|now|today|abhi|aaj)\b/i.test(s)) return s;
   /* IDENTITY QUESTIONS TAKE NO YEAR (5 Nov 2026): "who is the ceo of intel right now" +
      "2026" made the search return a stock story that never names the CEO, and the model
      filled the hole from memory (Pat Gelsinger, 2018). The year belongs on version/price/
