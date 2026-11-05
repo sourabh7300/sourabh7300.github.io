@@ -4601,26 +4601,40 @@ async function routeIntent(input) {
   }
 }
 
-/* AURA_ANSWER_SCORE — cheap self-critique: returns {score:0-1, flags:string[]} */
+/* AURA_ANSWER_SCORE — cheap self-critique: returns {score:0-1, flags:string[]}
+   MISSION answer-self-score-fix (5 Nov 2026): the old scorer punished the right answers.
+   "O(n) — one pass over the string" is a complete answer with no citation yet lost points
+   for being short AND for having no source; a code block was marked "no-citations"; a
+   Devanagari answer was called "short" at 120 characters even though it says twice as
+   much. Edge cases now score on what the answer actually is. */
 function scoreAnswer(text) {
-  if (!text || typeof text !== 'string') return {score: 0, flags:['empty']};
+  if (text == null) return {score: 0, flags:['empty']};
+  if (typeof text !== 'string') return {score: 0, flags:['not-text']};
   const t = text.trim();
-  let score = 0.5; // base
-  const flags = [];
-  // citations / sources
-  if (/\[\d+\]/.test(t) || /https?:\/\//.test(t)) { score += 0.15; }
-  else { flags.push('no-citations'); score -= 0.1; }
-  // hedging language
+  if (!t) return {score: 0, flags:['empty']};
+  /* code and quoted text are judged on their own terms — a snippet needs no citation */
+  const code = /```[\s\S]*?```|^\s*(function|const|let|var|class|def|import|from|public|private)\b/m.test(t);
   const hedges = /\b(maybe|perhaps|likely|probably|seems|appears|might|could be|I think|I believe)\b/i;
-  if (hedges.test(t)) { score -= 0.1; flags.push('hedging'); }
-  // specificity: numbers, dates, proper nouns
+  const hindi = /[\u0900-\u097F]/.test(t);
+  /* a short answer can still be complete: a value, a date, a name, a winner */
+  const compact = t.replace(/\s+/g, " ").length <= 160 && /\d|[\u0900-\u097F]/.test(t) && t.split(/\s+/).length <= 40;
+  let score = 0.5;
+  const flags = [];
+  if (!code) {
+    if (/\[\d+\]/.test(t) || /https?:\/\//.test(t)) score += 0.15;
+    else if (compact) { /* a one-line fact stands on its own */ }
+    else { flags.push('no-citations'); score -= 0.1; }
+    if (hedges.test(t)) { score -= 0.1; flags.push('hedging'); }
+  }
   if (/\b\d{1,3}(?:,\d{3})*(?:\.\d+)?\b/.test(t)) score += 0.05;
   if (/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2},? \d{4}\b/i.test(t)) score += 0.05;
-  if (/\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(t)) score += 0.05; // Name Name
-  // length proxy
-  if (t.length < 120) { score -= 0.1; flags.push('short'); }
-  else if (t.length > 800) { score += 0.05; }
-  // clamp
+  if (/\b[A-Z][a-z]+ [A-Z][a-z]+\b/.test(t)) score += 0.05;
+  if (code) score += 0.1;
+  /* length: Devanagari packs more meaning per character, so its bar is lower */
+  const shortBar = hindi ? 80 : 120;
+  if (t.length < shortBar && !compact && !code) { score -= 0.1; flags.push('short'); }
+  else if (t.length > 800) score += 0.05;
+  if (!Number.isFinite(score)) score = 0.5;
   score = Math.max(0, Math.min(1, score));
   if (score < 0.45) flags.push('low-confidence');
   return {score: +score.toFixed(2), flags};
@@ -4814,43 +4828,100 @@ function exportChat(){
 })();
 
 /* ---------------- EXPORT CENTER: client-side builders (AURA_EXPORT_CENTER) ---------------- */
+/* ================= EXPORT CONTRACT (mission: export-center-format-fix) =================
+   AURA_EXPORT_FORMAT — every export now shares ONE filename scheme, MIME type and
+   confirmation line, and each builder reports the real row count it wrote. The old
+   builders disagreed with themselves: the chat lane labelled every user turn a "new
+   session", the memory CSV promised an "updated" column it never filled, and the
+   confirmation lines printed a literal "<ts>" instead of the file that downloaded. */
+const AURA_EXPORT = {
+  stamp: function(){
+    const d = new Date(), p = function(n){ return String(n).padStart(2, "0"); };
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+  },
+  name: function(kind, ext){ return "aura-" + kind + "-" + this.stamp() + "." + ext; },
+  /* build() returns { body, mime, count, unit } — the name is derived, never typed twice */
+  save: function(kind, ext, build){
+    let out;
+    try{ out = build(); }catch(e){ pushSys("export failed — " + (e.message || e)); return false; }
+    if(!out){ return false; }
+    const name = this.name(kind, ext);
+    dlBlob(new Blob([out.body], { type: out.mime }), name);
+    pushSys("exported " + name + " — " + out.count + " " + out.unit);
+    return true;
+  },
+  chatGroups: function(){
+    let list = [];
+    try{ list = (window.sessions && sessions.all) ? sessions.all() : []; }catch(e){ list = []; }
+    const groups = list.filter(function(s){ return s && Array.isArray(s.convo) && s.convo.length; })
+      .map(function(s){ return { title: s.title || "Chat", at: s.updated || s.ts || 0, convo: s.convo }; });
+    if(groups.length) return groups;
+    const conv = (typeof CONVO !== "undefined" && Array.isArray(CONVO) && CONVO.length) ? CONVO : (hist.load("convo") || []);
+    return conv.length ? [{ title: "Current chat", at: Date.now(), convo: conv }] : [];
+  }
+};
 function exportChatsMD(){
-  const raw=hist.load("convo")||[];
-  if(!raw.length){pushSys("no chats to export");return}
-  let md="# AURA Chat Export — "+new Date().toISOString().split("T")[0]+"\n\n";
-  let session=1, count=0;
-  raw.forEach(m=>{
-    if(m.role==="user"){md+="## Session "+session+++" — "+(m.ts?new Date(m.ts).toLocaleString():"unknown")+"\n\n";count++}
-    md+="**"+(m.role==="user"?"You":"AURA")+"**: "+String(m.content||"").replace(/\n/g,"\n")+"\n\n";
+  AURA_EXPORT.save("chats", "md", function(){
+    const groups = AURA_EXPORT.chatGroups();
+    if(!groups.length){ pushSys("no chats to export yet"); return null; }
+    let md = "# AURA chat export\n\n";
+    md += "- exported: " + new Date().toLocaleString() + "\n- sessions: " + groups.length + "\n\n---\n\n";
+    let turns = 0;
+    groups.forEach(function(g, i){
+      const when = g.at ? new Date(g.at).toLocaleString() : "date unknown";
+      md += "## " + (i + 1) + ". " + String(g.title).slice(0, 80) + "\n\n_" + when + "_\n\n";
+      g.convo.forEach(function(m){
+        if(!m || !m.content) return;
+        turns++;
+        md += "**" + (m.role === "user" ? "You" : "AURA") + "**" + (m.ts ? " · " + new Date(m.ts).toLocaleString() : "") + "\n\n" + String(m.content) + "\n\n";
+      });
+    });
+    return { body: md, mime: "text/markdown", count: turns, unit: "turns in " + groups.length + " session(s)" };
   });
-  dlBlob(new Blob([md],{type:"text/markdown"}),"aura-chats-"+Date.now()+".md");
-  pushSys("exported aura-chats-<ts>.md — "+count+" sessions");
 }
 function exportTasksJSON(){
-  const tasks=(window.AuraTasks&&AuraTasks.all?AuraTasks.all():[]);
-  if(!tasks.length){pushSys("no tasks to export");return}
-  const payload={exported:new Date().toISOString(),count:tasks.length,tasks};
-  dlBlob(new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),"aura-tasks-"+Date.now()+".json");
-  pushSys("exported aura-tasks-<ts>.json — "+tasks.length+" tasks");
+  AURA_EXPORT.save("tasks", "json", function(){
+    const tasks = (window.AuraTasks && AuraTasks.all) ? AuraTasks.all() : [];
+    if(!tasks.length){ pushSys("no tasks to export yet"); return null; }
+    const payload = { app: "AURA", kind: "tasks", exported: new Date().toISOString(), version: "aura-export/1", count: tasks.length, tasks: tasks };
+    return { body: JSON.stringify(payload, null, 2), mime: "application/json", count: tasks.length, unit: "task(s)" };
+  });
 }
 function exportMemoryCSV(){
-  const mem=memGet?memGet():{};
-  const rows=[["key","value","updated"]];
-  Object.entries(mem).forEach(([k,v])=>rows.push([k,String(v).replace(/"/g,'""'),""]));
-  if(rows.length===1){pushSys("memory empty — nothing to export");return}
-  const csv=rows.map(r=>r.map(c=>"\""+c+"\"").join(",")).join("\n");
-  dlBlob(new Blob([csv],{type:"text/csv"}),"aura-memory-"+Date.now()+".csv");
-  pushSys("exported aura-memory-<ts>.csv — "+(rows.length-1)+" entries");
+  AURA_EXPORT.save("memory", "csv", function(){
+    const mem = memGet ? (memGet() || {}) : {};
+    const keys = Object.keys(mem);
+    if(!keys.length){ pushSys("memory is empty — nothing to export"); return null; }
+    /* only promise the columns the data really has */
+    const hasWhen = keys.some(function(k){ return mem[k] && typeof mem[k] === "object" && (mem[k]._ts || mem[k].updated); });
+    const cell = function(v){ return '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"'; };
+    const rows = [(hasWhen ? ["key", "value", "updated"] : ["key", "value"])];
+    keys.forEach(function(k){
+      const v = mem[k];
+      const shown = (v && typeof v === "object") ? JSON.stringify(v) : v;
+      const when = hasWhen ? ((v && (v._ts || v.updated)) ? new Date(v._ts || v.updated).toISOString() : "") : null;
+      rows.push(when === null ? [k, shown] : [k, shown, when]);
+    });
+    /* BOM so Excel opens Hindi text as UTF-8 instead of mojibake */
+    const csv = "\ufeff" + rows.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
+    return { body: csv, mime: "text/csv;charset=utf-8", count: keys.length, unit: "entr(y/ies)" };
+  });
 }
-function exportBackupAll(skip={}){
-  const chats=hist.load("convo")||[];
-  const tasks=(window.AuraTasks&&AuraTasks.all?AuraTasks.all():[]);
-  const mem=memGet?memGet():{};
-  const env={exported:new Date().toISOString(),version:"1.0",chats:skip.chats?undefined:chats,tasks:skip.tasks?undefined:tasks,memory:skip.memory?undefined:mem};
-  const json=JSON.stringify(env,null,2);
-  dlBlob(new Blob([json],{type:"application/json"}),"aura-backup-"+Date.now()+".json");
-  const parts=[];if(!skip.chats)parts.push(chats.length+" chats");if(!skip.tasks)parts.push(tasks.length+" tasks");if(!skip.memory)parts.push(Object.keys(mem).length+" mem");
-  pushSys("exported aura-backup-<ts>.json — "+parts.join(", "));
+function exportBackupAll(skip){
+  skip = skip || {};
+  AURA_EXPORT.save("backup", "json", function(){
+    const groups = AURA_EXPORT.chatGroups();
+    const chats = skip.chats ? [] : groups;
+    const tasks = skip.tasks ? [] : ((window.AuraTasks && AuraTasks.all) ? AuraTasks.all() : []);
+    const mem = skip.memory ? {} : (memGet ? (memGet() || {}) : {});
+    if(!chats.length && !tasks.length && !Object.keys(mem).length){ pushSys("nothing selected to back up"); return null; }
+    const env = {
+      app: "AURA", kind: "backup", exported: new Date().toISOString(), version: "aura-export/1",
+      counts: { sessions: chats.length, turns: chats.reduce(function(n, g){ return n + (g.convo || []).length; }, 0), tasks: tasks.length, memory: Object.keys(mem).length },
+      chats: skip.chats ? undefined : chats, tasks: skip.tasks ? undefined : tasks, memory: skip.memory ? undefined : mem
+    };
+    return { body: JSON.stringify(env, null, 2), mime: "application/json", count: env.counts.sessions + env.counts.tasks + env.counts.memory, unit: "item(s) — " + env.counts.sessions + " sessions, " + env.counts.tasks + " tasks, " + env.counts.memory + " memory" };
+  });
 }
 /* ---------------- TOOLBELT: document engine (PDF) + image converter ---------------- */
 function docPDF(title,body){
@@ -11954,8 +12025,23 @@ function applyTheme(id){
   try{applyPersonaTheme()}catch(e){}
   if(id==="deck")setHue("azure");
 }
+/* AURA_THEME_RESTORE (mission: persistent-theme-preference) — the saved theme used to
+   arrive 150ms AFTER the deck painted (and never at all when the theme button was not
+   on screen yet), so every reload flashed the default look. The body class is written
+   the moment this runs, and the button state is painted on the same paint. */
 (function(){
-  const tb=document.getElementById("themeBtn");if(!tb)return;
+  let early="deck";try{const t=localStorage.getItem("aura_theme");if(t&&["deck","cyan","gold","classical"].indexOf(t)>=0)early=t}catch(e){}
+  try{
+    document.body.classList.remove("theme-classical","theme-gold","theme-deck");
+    document.body.classList.add("theme-"+early);
+    document.documentElement.setAttribute("data-theme",early);
+    const tb0=document.getElementById("themeBtn"), th0=THEMES.find(t=>t.id===early);
+    if(tb0&&th0)tb0.textContent=th0.label;
+    window.__auraThemeRestored=early;
+  }catch(e){}
+})();
+(function(){
+  const tb=document.getElementById("themeBtn");if(!tb){setTimeout(()=>{try{applyTheme(window.__auraThemeRestored||"deck")}catch(e){}},150);return}
   let cur="deck";try{cur=localStorage.getItem("aura_theme")||"deck";if(!["deck","cyan","gold","classical"].includes(cur))cur="deck"}catch(e){}
   setTimeout(()=>applyTheme(cur),150);
   tb.onclick=()=>{const i=THEMES.findIndex(t=>t.id===cur);cur=THEMES[(i+1)%THEMES.length].id;applyTheme(cur);pushSys("theme → "+cur.toUpperCase()+(cur==="classical"?" — parchment & ink, as the old engineers preferred":""))};
@@ -15949,6 +16035,8 @@ dockCore();
     '<div class="help-row"><span>Command palette — jump anywhere</span><kbd>Ctrl / ⌘ K</kbd></div>'+
     '<div class="help-row"><span>Send message</span><kbd>Enter</kbd></div>'+
     '<div class="help-row"><span>New line in the box</span><kbd>Shift Enter</kbd></div>'+
+    /* AURA_SHORTCUT_SHEET — the sheet lists only shortcuts that really exist in this build */
+    '<div class="help-row"><span>Run the code in the editor</span><kbd>Ctrl / ⌘ Enter</kbd></div>'+
     '<div class="help-row"><span>Close overlays / exit focus</span><kbd>Esc</kbd></div>'+
     '<div class="help-row"><span>Talk hands-free — the core beats with your REAL voice: louder = harder beat + spin</span><kbd>🎙 + Hey Aura</kbd></div>'+
     '<div class="help-row"><span>Personas, themes, engine — everything</span><kbd>SETTINGS</kbd></div>'+
