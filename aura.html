@@ -4617,7 +4617,8 @@ function scoreAnswer(text) {
   const hedges = /\b(maybe|perhaps|likely|probably|seems|appears|might|could be|I think|I believe)\b/i;
   const hindi = /[\u0900-\u097F]/.test(t);
   /* a short answer can still be complete: a value, a date, a name, a winner */
-  const compact = t.replace(/\s+/g, " ").length <= 160 && /\d|[\u0900-\u097F]/.test(t) && t.split(/\s+/).length <= 40;
+  const words = t.split(/\s+/).length;
+  const compact = (t.length <= 160 && words <= 40 && (/\d/.test(t) || hindi || /\bO\(|=>|::|[a-z]+\/[a-z]+/i.test(t))) || (t.length <= 70 && words <= 14);
   let score = 0.5;
   const flags = [];
   if (!code) {
@@ -4876,7 +4877,7 @@ function exportChatsMD(){
         md += "**" + (m.role === "user" ? "You" : "AURA") + "**" + (m.ts ? " · " + new Date(m.ts).toLocaleString() : "") + "\n\n" + String(m.content) + "\n\n";
       });
     });
-    return { body: md, mime: "text/markdown", count: turns, unit: "turns in " + groups.length + " session(s)" };
+    return { body: md, mime: "text/markdown", count: turns, unit: (turns === 1 ? "turn" : "turns") + " in " + groups.length + (groups.length === 1 ? " session" : " sessions") };
   });
 }
 function exportTasksJSON(){
@@ -4884,7 +4885,7 @@ function exportTasksJSON(){
     const tasks = (window.AuraTasks && AuraTasks.all) ? AuraTasks.all() : [];
     if(!tasks.length){ pushSys("no tasks to export yet"); return null; }
     const payload = { app: "AURA", kind: "tasks", exported: new Date().toISOString(), version: "aura-export/1", count: tasks.length, tasks: tasks };
-    return { body: JSON.stringify(payload, null, 2), mime: "application/json", count: tasks.length, unit: "task(s)" };
+    return { body: JSON.stringify(payload, null, 2), mime: "application/json", count: tasks.length, unit: tasks.length === 1 ? "task" : "tasks" };
   });
 }
 function exportMemoryCSV(){
@@ -4904,7 +4905,7 @@ function exportMemoryCSV(){
     });
     /* BOM so Excel opens Hindi text as UTF-8 instead of mojibake */
     const csv = "\ufeff" + rows.map(function(r){ return r.map(cell).join(","); }).join("\r\n");
-    return { body: csv, mime: "text/csv;charset=utf-8", count: keys.length, unit: "entr(y/ies)" };
+    return { body: csv, mime: "text/csv;charset=utf-8", count: keys.length, unit: keys.length === 1 ? "entry" : "entries" };
   });
 }
 function exportBackupAll(skip){
@@ -4920,7 +4921,7 @@ function exportBackupAll(skip){
       counts: { sessions: chats.length, turns: chats.reduce(function(n, g){ return n + (g.convo || []).length; }, 0), tasks: tasks.length, memory: Object.keys(mem).length },
       chats: skip.chats ? undefined : chats, tasks: skip.tasks ? undefined : tasks, memory: skip.memory ? undefined : mem
     };
-    return { body: JSON.stringify(env, null, 2), mime: "application/json", count: env.counts.sessions + env.counts.tasks + env.counts.memory, unit: "item(s) — " + env.counts.sessions + " sessions, " + env.counts.tasks + " tasks, " + env.counts.memory + " memory" };
+    return { body: JSON.stringify(env, null, 2), mime: "application/json", count: env.counts.sessions + env.counts.tasks + env.counts.memory, unit: "items — " + env.counts.sessions + " sessions, " + env.counts.tasks + " tasks, " + env.counts.memory + " memory" };
   });
 }
 /* ---------------- TOOLBELT: document engine (PDF) + image converter ---------------- */
