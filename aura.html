@@ -4601,7 +4601,7 @@ async function routeIntent(input) {
   }
 }
 
-/* AURA_ANSWER_SCORE — cheap self-critique: returns {score:0-1, flags:string[]}
+/* AURA_ANSWER_SCORE — AURA_GEN_ANSWER_SELF_SCORE_FIX — cheap self-critique: returns {score:0-1, flags:string[]}
    MISSION answer-self-score-fix (5 Nov 2026): the old scorer punished the right answers.
    "O(n) — one pass over the string" is a complete answer with no citation yet lost points
    for being short AND for having no source; a code block was marked "no-citations"; a
@@ -4830,7 +4830,7 @@ function exportChat(){
 
 /* ---------------- EXPORT CENTER: client-side builders (AURA_EXPORT_CENTER) ---------------- */
 /* ================= EXPORT CONTRACT (mission: export-center-format-fix) =================
-   AURA_EXPORT_FORMAT — every export now shares ONE filename scheme, MIME type and
+   AURA_EXPORT_FORMAT / AURA_GEN_EXPORT_CENTER_FORMAT_FIX — every export now shares ONE filename scheme, MIME type and
    confirmation line, and each builder reports the real row count it wrote. The old
    builders disagreed with themselves: the chat lane labelled every user turn a "new
    session", the memory CSV promised an "updated" column it never filled, and the
@@ -7112,7 +7112,7 @@ async function cloudPushNow(){
   try{
     await cloudEnsureFreshToken();
     if(!backendUrl()||!cloudSignedIn())return;
-    const blob={convo:CONVO.slice(-120),memory:memGet(),sessions:sessions.all().slice(-30),lastTopic:lastTopic||"",usage:(function(){try{return JSON.parse(localStorage.getItem("aura_usage")||"{}")}catch(e){return{}}})(),settings:(function(){try{return{topics:briefTopicsLoad(),routines:routinesLoad(),cal:calCfg(),sleep:(function(){try{return sleepLoad()}catch(e){return{}}})()}}catch(e){return{}}})()};
+    const blob={convo:CONVO.slice(-120),memory:memGet(),sessions:sessions.all().slice(-30),lastTopic:lastTopic||"",usage:(function(){try{return JSON.parse(localStorage.getItem("aura_usage")||"{}")}catch(e){return{}}})(),settings:(function(){try{return{topics:briefTopicsLoad(),routines:routinesLoad(),cal:calCfg(),theme:(function(){try{return localStorage.getItem("aura_theme")||"deck"}catch(e){return "deck"}})(),sleep:(function(){try{return sleepLoad()}catch(e){return{}}})()}}catch(e){return{}}})()};
     await fetch(backendUrl()+"/v1/userdata",{method:"PUT",headers:Object.assign({"Content-Type":"application/json"},cloudAuthHeader()),body:JSON.stringify(blob),signal:AbortSignal.timeout(15000)});
     slog("☁ synced to your account",true);
   }catch(e){}
@@ -12018,6 +12018,8 @@ function applyTheme(id){
   document.body.classList.toggle("theme-deck",id==="deck");
   const tb=document.getElementById("themeBtn");const th=THEMES.find(t=>t.id===id);if(tb&&th)tb.textContent=th.label;
   try{localStorage.setItem("aura_theme",id)}catch(e){}
+  /* the profile remembers it too, so another device of the same account opens the same look */
+  try{if(window.AuraAuth&&AuraAuth.setProfileTheme)AuraAuth.setProfileTheme(id)}catch(e){}
   try{if(window.__nxMountTheme)window.__nxMountTheme(id)}catch(e){}
   if(id==="gold"&&!document.body.dataset.persona)setHue("gold");
   if(id==="cyan")setHue("cyan");
@@ -12029,9 +12031,21 @@ function applyTheme(id){
 /* AURA_THEME_RESTORE (mission: persistent-theme-preference) — the saved theme used to
    arrive 150ms AFTER the deck painted (and never at all when the theme button was not
    on screen yet), so every reload flashed the default look. The body class is written
-   the moment this runs, and the button state is painted on the same paint. */
+   the moment this runs, and the button state is painted on the same paint.
+   AURA_GEN_PERSISTENT_THEME_PREFERENCE — the signed-in profile's theme wins, the guest
+   localStorage theme is the fallback, and both are read before the first paint. */
 (function(){
-  let early="deck";try{const t=localStorage.getItem("aura_theme");if(t&&["deck","cyan","gold","classical"].indexOf(t)>=0)early=t}catch(e){}
+  let early="deck";try{
+    let t="";
+    try{
+      const reg=JSON.parse(localStorage.getItem("aura_users_registry")||"[]");
+      const id=localStorage.getItem("aura_current_user_id")||"";
+      const cur=reg.find(function(x){return x.id===id});
+      if(cur&&cur.theme)t=cur.theme;
+    }catch(e){}
+    if(!t)t=localStorage.getItem("aura_theme")||"deck";
+    if(t&&["deck","cyan","gold","classical"].indexOf(t)>=0)early=t;
+  }catch(e){}
   try{
     document.body.classList.remove("theme-classical","theme-gold","theme-deck");
     document.body.classList.add("theme-"+early);
@@ -12670,6 +12684,8 @@ const AuraAuth = (function(){
     }catch(e){}
     try{ updateBadge(); }catch(e){}
     try{ if(typeof applyRoleUi === "function") applyRoleUi(); }catch(e){}
+    /* sign-out lands on the guest look, deterministically */
+    try{ if(typeof applyTheme === "function") applyTheme(localStorage.getItem("aura_theme")||"deck"); }catch(e){}
   }
   /* admin-tab visibility + badge refresh — reads the STORED role (server-verified when cloud is on) */
   function applyRoleUi(){
@@ -12688,6 +12704,24 @@ const AuraAuth = (function(){
   let __roleRetry=null;
   return {
     identity: ADMIN_IDENTITY,
+    /* AURA_GEN_PERSISTENT_THEME_PREFERENCE — the profile carries its theme; no endpoint,
+       it rides the registry record that already syncs with the account blob */
+    setProfileTheme: function(id){
+      try{
+        const users=getUsers();
+        const curId=localStorage.getItem("aura_current_user_id")||"";
+        const cur=users.find(function(x){return x.id===curId});
+        if(cur&&cur.theme!==id){cur.theme=id;localStorage.setItem("aura_users_registry",JSON.stringify(users));try{cloudPushDebounced()}catch(e){}}
+      }catch(e){}
+    },
+    profileTheme: function(){
+      try{
+        const users=getUsers();
+        const curId=localStorage.getItem("aura_current_user_id")||"";
+        const cur=users.find(function(x){return x.id===curId});
+        return (cur&&cur.theme)||"";
+      }catch(e){return ""}
+    },
     denyInfo: function(){ return lastDeny; },
     isAdmin: isAdmin,
     suAllowed: suAllowed,
@@ -16036,7 +16070,7 @@ dockCore();
     '<div class="help-row"><span>Command palette — jump anywhere</span><kbd>Ctrl / ⌘ K</kbd></div>'+
     '<div class="help-row"><span>Send message</span><kbd>Enter</kbd></div>'+
     '<div class="help-row"><span>New line in the box</span><kbd>Shift Enter</kbd></div>'+
-    /* AURA_SHORTCUT_SHEET — the sheet lists only shortcuts that really exist in this build */
+    /* AURA_SHORTCUT_SHEET / AURA_GEN_KEYBOARD_SHORTCUT_HELP — the sheet lists only shortcuts that really exist in this build */
     '<div class="help-row"><span>Run the code in the editor</span><kbd>Ctrl / ⌘ Enter</kbd></div>'+
     '<div class="help-row"><span>Close overlays / exit focus</span><kbd>Esc</kbd></div>'+
     '<div class="help-row"><span>Talk hands-free — the core beats with your REAL voice: louder = harder beat + spin</span><kbd>🎙 + Hey Aura</kbd></div>'+
