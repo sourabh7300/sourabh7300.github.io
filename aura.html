@@ -12019,7 +12019,7 @@ function applyTheme(id){
   const tb=document.getElementById("themeBtn");const th=THEMES.find(t=>t.id===id);if(tb&&th)tb.textContent=th.label;
   try{localStorage.setItem("aura_theme",id)}catch(e){}
   /* the profile remembers it too, so another device of the same account opens the same look */
-  try{if(window.AuraAuth&&AuraAuth.setProfileTheme)AuraAuth.setProfileTheme(id)}catch(e){}
+  try{rememberAccountTheme(id)}catch(e){}
   try{if(window.__nxMountTheme)window.__nxMountTheme(id)}catch(e){}
   if(id==="gold"&&!document.body.dataset.persona)setHue("gold");
   if(id==="cyan")setHue("cyan");
@@ -12029,6 +12029,18 @@ function applyTheme(id){
   if(id==="deck")setHue("azure");
 }
 function themeByUser(){try{const v=JSON.parse(localStorage.getItem("aura_theme_by_user")||"{}");return v&&typeof v==="object"?v:{}}catch(e){return{}}}
+function rememberAccountTheme(id){
+  try{
+    const A=window.AuraAuth;
+    const cur=(A&&A.getCurrentUser&&A.getCurrentUser())||null;
+    if(!cur||!cur.id)return "";
+    const map=themeByUser();
+    if(map[cur.id]===id)return id;
+    map[cur.id]=id; localStorage.setItem("aura_theme_by_user",JSON.stringify(map));
+    try{cloudPushDebounced()}catch(e){}
+    return id;
+  }catch(e){return ""}
+}
 function currentAccountTheme(){
   try{
     const map=themeByUser();
@@ -12712,17 +12724,8 @@ const AuraAuth = (function(){
        it rides the registry record that already syncs with the account blob */
     /* one map of account id → theme, so the look travels with the account without
        touching the roster records themselves */
-    setProfileTheme: function(id){
-      try{
-        const cur=window.AuraAuth.getCurrentUser(); if(!cur)return;
-        const map=themeByUser(); if(map[cur.id]===id)return;
-        map[cur.id]=id; localStorage.setItem("aura_theme_by_user",JSON.stringify(map));
-        try{cloudPushDebounced()}catch(e){}
-      }catch(e){}
-    },
-    profileTheme: function(){
-      try{ const cur=window.AuraAuth.getCurrentUser(); return (cur&&themeByUser()[cur.id])||""; }catch(e){return ""}
-    },
+    setProfileTheme: function(id){ return rememberAccountTheme(id); },
+    profileTheme: function(){ return currentAccountTheme(); },
     denyInfo: function(){ return lastDeny; },
     isAdmin: isAdmin,
     suAllowed: suAllowed,
