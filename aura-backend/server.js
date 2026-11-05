@@ -2197,7 +2197,7 @@ app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
+  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, voice: ((process.env.ELEVENLABS_API_KEY || "").trim() ? "elevenlabs" : "backup"), accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
 });
 /* keep the last-known values fresh without ever blocking the endpoint */
 setTimeout(warmHealth, 1500);
@@ -4132,21 +4132,27 @@ app.post("/v1/tts", async (req, res) => {
   if (hit && (Date.now() - hit.at) < 30 * 60_000) {
     res.setHeader("Content-Type", hit.type);
     res.setHeader("Cache-Control", "no-store");
+    res.setHeader("X-AURA-Voice", hit.tier || "cached");
+    res.setHeader("Access-Control-Expose-Headers", "X-AURA-Voice");
     return res.send(hit.buf);
   }
-  let out = null;
+  let out = null, tier = "";
   /* Tier 1 — premium multilingual (when the owner's ElevenLabs key is configured) */
   try { out = await elevenTTS(input, voice); } catch (e) { out = null; }
+  if (out) tier = "elevenlabs";
   /* Tier 2 — Hindi: straight to the Google neural voice (best free Hindi);
      English: Groq Orpheus first, then the Google voice. */
-  if (!out && lang === "hi") { try { out = await ttsFallback(input, voice, lang); } catch (e) { out = null; } }
-  if (!out) { try { out = await orpheusTTS(input, voice); } catch (e) { out = null; } }
-  if (!out) { try { out = await ttsFallback(input, voice, lang); } catch (e) { out = null; } }
+  if (!out && lang === "hi") { try { out = await ttsFallback(input, voice, lang); tier = "google"; } catch (e) { out = null; } }
+  if (!out) { try { out = await orpheusTTS(input, voice); tier = "orpheus"; } catch (e) { out = null; } }
+  if (!out) { try { out = await ttsFallback(input, voice, lang); tier = "google"; } catch (e) { out = null; } }
   if (!out) return res.status(502).json({ error: "tts unavailable" });
-  ttsCache.set(ck, { buf: out.buf, type: out.type, at: Date.now() });
+  ttsCache.set(ck, { buf: out.buf, type: out.type, at: Date.now(), tier: tier });
   if (ttsCache.size > 120) { const k0 = ttsCache.keys().next().value; ttsCache.delete(k0); }
   res.setHeader("Content-Type", out.type);
   res.setHeader("Cache-Control", "no-store");
+  /* which engine actually spoke — the owner can verify the premium voice in one curl */
+  res.setHeader("X-AURA-Voice", tier || "backup");
+  res.setHeader("Access-Control-Expose-Headers", "X-AURA-Voice");
   return res.send(out.buf);
 });
 

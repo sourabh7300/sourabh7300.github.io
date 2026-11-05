@@ -12223,6 +12223,63 @@ const AuraAuth = (function(){
     }
   }
 
+  /* ================= WHO IS SIGNED IN? (5 Nov 2026) =================
+     Owner report: "har kisi mai bss sourabh arhaa hai". Two device-wide leftovers caused
+     it — the local profile kept the FIRST name it ever got, and the greeting read a
+     memory object that is not per account. Now the signed-in account names the person:
+     displayName, else the email handle, else the phone's last digits. */
+  function accountNameOf(u){
+    if(!u) return "";
+    var n = String(u.displayName || "").trim();
+    if(!n && u.email) n = String(u.email).split("@")[0].replace(/[._\-]+/g, " ").replace(/\d+/g, " ").trim();
+    if(!n && u.phoneNumber) n = "User " + String(u.phoneNumber).replace(/\D/g, "").slice(-4);
+    n = n.replace(/\s+/g, " ").trim().slice(0, 32);
+    /* "sourabh singh" → "Sourabh Singh"; a single handle stays capitalised too */
+    return n ? n.replace(/\b[A-Za-z]/g, function(c){ return c.toUpperCase(); }) : "";
+  }
+  /* the signed-in account owns the workspace it lands in: rename a leftover/default
+     profile and stamp the memory object with the same person, so greetings follow the
+     account instead of the device */
+  function adoptAccountName(name, uid){
+    if(!name || name === "User") return;
+    try{
+      const users = getUsers();
+      const curId = localStorage.getItem("aura_current_user_id") || "";
+      let cur = users.find(function(x){ return x.id === curId; });
+      if(!cur){
+        cur = { id: "u_" + ((typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + "" + Math.floor(Math.random() * 999))), name: name, role: "user", created: Date.now() };
+        users.push(cur);
+        localStorage.setItem("aura_current_user_id", cur.id);
+      }else if(String(cur.name || "").toLowerCase() !== name.toLowerCase()){
+        cur.name = name;
+      }
+      if(uid) cur.uid = uid;
+      localStorage.setItem("aura_users_registry", JSON.stringify(users));
+    }catch(e){}
+    try{ const mm = memGet(); if(!mm || mm.name !== name || (uid && mm.uid !== uid)){ const m2 = mm || {}; m2.name = name; if(uid) m2.uid = uid; memSet(m2); } }catch(e){}
+    try{ updateBadge(); }catch(e){}
+    try{ if(typeof memRender === "function") memRender(); }catch(e){}
+  }
+  /* a workspace switch must not inherit the previous person's name */
+  function resetMemoryIdentity(){
+    try{
+      const mm = memGet();
+      if(mm && (mm.name || mm.uid)){ delete mm.name; delete mm.uid; memSet(mm); }
+    }catch(e){}
+    try{ if(typeof memRender === "function") memRender(); }catch(e){}
+  }
+  function isMobileBrowser(){
+    try{
+      const ua = navigator.userAgent || "";
+      if(/Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(ua)) return true;
+      /* iPadOS reports itself as a Mac — a touch Mac is still a tablet */
+      return !!(navigator.maxTouchPoints > 1 && /Macintosh/i.test(ua));
+    }catch(e){ return false; }
+  }
+  function inAppBrowser(){
+    try{ return /FBAN|FBAV|Instagram|Line\/|WhatsApp|Twitter|Snapchat|MicroMessenger/i.test(navigator.userAgent || ""); }catch(e){ return false; }
+  }
+
   function isAdmin(){
     /* only a server-verified role grants admin — the legacy local token is
        accepted during a grace window but NEVER grants self-integration power */
@@ -12281,6 +12338,10 @@ const AuraAuth = (function(){
     const tagEl = $("authTag");
     const u = getCurrentUser();
     const admin = isAdmin();
+    /* a live account outranks the device profile: "har kisi mai sourabh" came from showing
+       the stored local name while a different Google account was actually signed in */
+    const _cloud = fbUser();
+    const shownName = admin ? ADMIN_IDENTITY.name : ((_cloud && _cloud.name) ? _cloud.name : u.name);
     badge.classList.toggle("admin", admin); /* keep extra classes (acct-foot) intact */
     /* ADMIN tab visibility rides on every badge refresh too — the boot-time
        applyRoleUi() call is out of scope and silently no-ops, so without this
@@ -12304,10 +12365,10 @@ const AuraAuth = (function(){
     const verified = !!vfyMethod || admin;
     badge.classList.toggle("verified", verified);
     badge.title = admin ? "Signed in — Sourabh Singh · identity verified"
-      : verified ? ("Signed in — " + u.name + " · identity verified (" + vfyMethod + ")")
-      : ("Local profile — " + u.name + " · not verified");
+      : verified ? ("Signed in — " + shownName + " · identity verified (" + vfyMethod + ")")
+      : ("Local profile — " + shownName + " · not verified");
     if(roleIcon) roleIcon.textContent = admin ? "👑" : "👤";
-    if(nameEl) nameEl.textContent = admin ? ADMIN_IDENTITY.name : u.name;
+    if(nameEl) nameEl.textContent = shownName;
     if(tagEl){ tagEl.textContent = admin ? "PRO" : "USER"; tagEl.style.display = "inline-block"; }
     /* mirror the state into the account card + done screen (DOM-safe) */
     try{ syncVerifiedUi(verified, vfyMethod || (admin ? "owner" : ""), cloud); }catch(e){}
@@ -12353,6 +12414,20 @@ const AuraAuth = (function(){
       fbApp = firebase.apps.length ? firebase.apps[0] : firebase.initializeApp(FB_CFG);
       fbAuthObj = fbApp.auth();
       fbAuthObj.useDeviceLanguage();
+      /* iOS Safari drops a session stored with the default in-memory persistence —
+         an explicit LOCAL persistence is what makes sign-in survive the redirect we
+         now use on phones */
+      try{ fbAuthObj.setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
+      /* the phone flow leaves the page and comes back here; this resolves that return */
+      try{
+        fbAuthObj.getRedirectResult().then(function(res){
+          if(res && res.user){ adoptAccountName(accountNameOf(res.user), res.user.uid); }
+        }).catch(function(e){
+          const c = String((e && e.code) || "");
+          if(/unauthorized-domain/i.test(c)) pushSys("⚠ This domain is not authorised in the Firebase console yet.");
+          else if(/operation-not-allowed/i.test(c)) pushSys("⚠ Google sign-in is not enabled for this project yet.");
+        });
+      }catch(e){}
       fbAuthObj.onAuthStateChanged(function(u){
         try{
           if(u && !u.isAnonymous){
@@ -12360,16 +12435,14 @@ const AuraAuth = (function(){
               /* keep any previously verified role — wiping it here made every SHIP
                  button silently die after a page reload until this fix */
               const __prev=(function(){try{return JSON.parse(localStorage.getItem(FB_LIVE_KEY)||"null")}catch(e){return null}})()||{};
-              localStorage.setItem(FB_LIVE_KEY, JSON.stringify({uid:u.uid, email:u.email||"", phone:u.phoneNumber||"", name:u.displayName||"", tok:tok, role:__prev.role, ts:Date.now()}));
+              localStorage.setItem(FB_LIVE_KEY, JSON.stringify({uid:u.uid, email:u.email||"", phone:u.phoneNumber||"", name:accountNameOf(u), tok:tok, role:__prev.role, ts:Date.now()}));
+              /* the account — not the device — decides the name and the greeting */
+              try{ adoptAccountName(accountNameOf(u), u.uid); }catch(e){}
               try{ AuraAuth.refreshRole(); }catch(e){}
               /* ---- account safety: same code path for Google and phone OTP ----
                  pull this account's data back on a new device, then push whatever this
                  device still holds (guest chats + memories) so nothing is lost on the way in */
               (function(){
-                try{
-                  var nm=u.displayName||((u.email||"").split("@")[0])||"";
-                  if(nm&&!memGet().name){var mm=memGet();mm.name=nm;memSet(mm);}
-                }catch(e){}
                 function migrate(){
                   try{
                     var hasLocal=CONVO.length>0||!!(memGet()&&memGet().name)||sessions.all().length>0;
@@ -12407,17 +12480,43 @@ const AuraAuth = (function(){
   }
   async function fbGoogle(){
     if(!fbInit()) return {ok:false, why:"Google sign-in is loading — try again in a moment (offline or blocked network)."};
+    const p = new firebase.auth.GoogleAuthProvider();
+    try{ p.setCustomParameters({ prompt: "select_account" }); }catch(e){}
+    /* PHONES CANNOT POPUP (5 Nov 2026): iOS Safari and Android Chrome block or
+       sandbox signInWithPopup, so "iOS or Android user sign in hi nahi kar pa rahe"
+       was this one line. A touch device signs in by full-page redirect instead, which
+       both platforms allow; the desktop popup stays as it was. */
+    if(isMobileBrowser()){
+      if(inAppBrowser()) return {ok:false, why:"This in-app browser blocks Google sign-in — open the page in Safari or Chrome and try again."};
+      try{
+        await fbAuthObj.signInWithRedirect(p);
+        return {ok:true, redirect:true};
+      }catch(e){
+        const c2 = String((e && e.code) || e.message || e);
+        if(/unauthorized-domain/i.test(c2)) return {ok:false, why:"This domain is not on the Firebase authorized list yet (SETUP-FIREBASE.md, step 5)."};
+        if(/operation-not-allowed|configuration-not-found/i.test(c2)) return {ok:false, why:"Google sign-in is not enabled yet in the AURA Firebase console — flip it on (see SETUP-FIREBASE.md)."};
+        return {ok:false, why:"Google sign-in failed: " + c2};
+      }
+    }
     try{
-      const p = new firebase.auth.GoogleAuthProvider();
       await fbAuthObj.signInWithPopup(p);
       const ok = await fbWait(8000);
       return ok ? {ok:true} : {ok:false, why:"Google finished but the session did not stick — check that popups are allowed."};
     }catch(e){
       const c = String((e && e.code) || e.message || e);
+      /* a desktop browser can still refuse a popup — redirect is the universal fallback */
+      if(/popup-blocked|popup-closed-by-user|cancelled-popup-request|operation-not-supported/i.test(c)){
+        try{ await fbAuthObj.signInWithRedirect(p); return {ok:true, redirect:true}; }
+        catch(e2){
+          const c2 = String((e2 && e2.code) || e2.message || e2);
+          if(/unauthorized-domain/i.test(c2)) return {ok:false, why:"This domain is not on the Firebase authorized list yet (SETUP-FIREBASE.md, step 5)."};
+          return {ok:false, why:"Google sign-in was blocked — allow popups for this site, or open it in Safari/Chrome."};
+        }
+      }
       if(/popup-closed|cancelled/i.test(c)) return {ok:false, why:"Google window closed before finishing."};
-      if(/popup-blocked/i.test(c)) return {ok:false, why:"Browser blocked the Google popup — allow popups for this site."};
       if(/operation-not-allowed|configuration-not-found/i.test(c)) return {ok:false, why:"Google sign-in is not enabled yet in the AURA Firebase console — flip it on (see SETUP-FIREBASE.md)."};
       if(/unauthorized-domain/i.test(c)) return {ok:false, why:"This domain is not on the Firebase authorized list yet (SETUP-FIREBASE.md, step 5)."};
+      if(/network-request-failed/i.test(c)) return {ok:false, why:"No connection to Google right now — check your network and retry."};
       return {ok:false, why:"Google sign-in failed: " + c};
     }
   }
@@ -12453,6 +12552,17 @@ const AuraAuth = (function(){
   function fbSignOut(){
     try{ if(fbAuthObj) fbAuthObj.signOut(); }catch(e){}
     localStorage.removeItem(FB_LIVE_KEY);
+    /* the account's name leaves with the account — the next person on this device must
+       not be greeted as the previous one */
+    try{ resetMemoryIdentity(); }catch(e){}
+    try{
+      const users = getUsers();
+      const curId = localStorage.getItem("aura_current_user_id") || "";
+      const cur = users.find(function(x){ return x.id === curId; });
+      if(cur && cur.uid){ delete cur.uid; cur.name = "Guest"; localStorage.setItem("aura_users_registry", JSON.stringify(users)); }
+    }catch(e){}
+    try{ updateBadge(); }catch(e){}
+    try{ if(typeof applyRoleUi === "function") applyRoleUi(); }catch(e){}
   }
   /* admin-tab visibility + badge refresh — reads the STORED role (server-verified when cloud is on) */
   function applyRoleUi(){
@@ -12624,7 +12734,13 @@ const AuraAuth = (function(){
         users.push(u);
         localStorage.setItem("aura_users_registry", JSON.stringify(users));
       }
+      const __prevId = localStorage.getItem("aura_current_user_id") || "";
       localStorage.setItem("aura_current_user_id", u.id);
+      /* a different person, a different memory: the previous name must not greet them */
+      if(__prevId !== u.id) resetMemoryIdentity();
+      if(name && name !== "Guest" && name !== "User"){
+        try{ const mm = memGet() || {}; if(mm.name !== u.name){ mm.name = u.name; memSet(mm); } }catch(e){}
+      }
       updateBadge();
       if(typeof sessions !== "undefined" && sessions.newChat){ sessions.newChat(); }
       slog("Signed in as " + u.name);
@@ -12908,6 +13024,8 @@ document.addEventListener("DOMContentLoaded",function(){
     gBtn.disabled = true; const t0 = gBtn.textContent; gBtn.textContent = "Connecting to Google…";
     const r = await AuraAuth.fbGoogle();
     gBtn.textContent = t0; gBtn.disabled = false;
+    /* phones continue on Google's own page and come back signed in — nothing to paint yet */
+    if(r.ok && r.redirect){ gBtn.textContent = "Opening Google…"; pushSys("📱 Taking you to Google sign-in — you'll come straight back."); return; }
     if(!r.ok){ pushSys("⚠ " + r.why); return; }
     const u = AuraAuth.firebaseUser() || {};
     $("doneAvatar").innerHTML = "&#128100;";
@@ -15201,7 +15319,7 @@ counters live) + an exact recovery line: no-session → sign-in pending; stale s
     if(backBtn) backBtn.onclick=function(){ step('ap1'); };
     function google(){ step('ap1');
       var r; try{ r=Promise.resolve(AuraAuth.fbGoogle()); }catch(e){ return; }
-      r.then(function(res){ if(res&&res.ok) signedIn(); else pushSys('⚠ '+((res&&res.why)||'Google sign-in was cancelled')); })
+      r.then(function(res){ if(res&&res.ok&&!res.redirect) signedIn(); else if(res&&res.redirect) pushSys('📱 Opening Google sign-in…'); else pushSys('⚠ '+((res&&res.why)||'Google sign-in was cancelled')); })
        .catch(function(){ pushSys('⚠ Google sign-in failed — try the phone code instead'); });
     }
     if(mkBtn) mkBtn.onclick=google;
