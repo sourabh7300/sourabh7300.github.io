@@ -12032,11 +12032,13 @@ function themeByUser(){try{const v=JSON.parse(localStorage.getItem("aura_theme_b
 function rememberAccountTheme(id){
   try{
     const A=window.AuraAuth;
-    const cur=(A&&A.getCurrentUser&&A.getCurrentUser())||null;
-    if(!cur||!cur.id)return "";
+    let cur=null; try{cur=(A&&A.getCurrentUser&&A.getCurrentUser())||null}catch(e){}
+    let uid=(cur&&cur.id)||"";
+    if(!uid){try{const reg=JSON.parse(localStorage.getItem("aura_users_registry")||"[]")[0];uid=(reg&&reg.id)||""}catch(e){}}
+    if(!uid)return "";
     const map=themeByUser();
-    if(map[cur.id]===id)return id;
-    map[cur.id]=id; localStorage.setItem("aura_theme_by_user",JSON.stringify(map));
+    if(map[uid]===id)return id;
+    map[uid]=id; localStorage.setItem("aura_theme_by_user",JSON.stringify(map));
     try{cloudPushDebounced()}catch(e){}
     return id;
   }catch(e){return ""}
