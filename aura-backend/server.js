@@ -64,7 +64,7 @@ const KEY_POOL = [...new Set([
 ].filter(Boolean))];
 /* BUILD MARKER — one request tells you which build the host is really serving.
    If /health does not show this string, the deploy did NOT land (stale build). */
-const BUILD = process.env.AURA_BUILD || "squad-v43";
+const BUILD = process.env.AURA_BUILD || "squad-v44";
 /* WHAT THIS FILE IS — a dashboard env var can hold any value (or an old one may be
    left behind), which makes /health look stale even when the new code IS serving.
    srcBuild is compiled into the source itself, so no env var can fake it: if /health
@@ -2230,6 +2230,10 @@ const AURA_FACT_RULES =
      match nahi hai" while the results only talked about Australia — a confident negative is
      as wrong as an invented list. */
   "Never claim that nothing is scheduled, released or available today unless the LIVE WEB RESULTS actually say so for that exact team, product or event; if they are about something else, say in one natural line that you could not confirm it for today and give the nearest thing they do show. " +
+  /* OWNER REPORT 5 Nov 2026: asked for Microsoft's CEO, the same rules produced "I couldn't
+     find a live result confirming the current CEO" — a refusal for a fact that never moves.
+     Only figures that move need today's source; settled facts stay answerable. */
+  "A settled fact — who leads a company, a capital city, a founder, a definition, how something works — is answered directly from your own knowledge even when the results only carry related news: one line, no note about what the results did or did not contain. Today's source is required for figures that move (versions, prices, scores, schedules, rankings, releases), not for facts that have stood for years. " +
   "SCRIPT: mirror the user's script exactly. Hindi/Urdu typed in Roman letters (Hinglish) gets a Roman-letter reply — never Devanagari; Devanagari gets Devanagari; English gets English.";
 
 function lastUserMsg(messages) {
@@ -2358,6 +2362,19 @@ function staleFact(askText, answer, evidenceText) {
   const nE = Math.max(CUR_YEAR, newestYear(String(evidenceText || "").replace(/CURRENT DATE & TIME[^\n]*/g, " ")));
   return nA <= nE - 2; /* an answer two years behind today is not "current" */
 }
+/* OWNER REPORT 4 Nov 2026: "who is the ceo of microsoft" opened with "I couldn't find
+   that detail in the provided sources, but Satya Nadella is…". The rule says never talk
+   about sources; the model still does, so the hedge sentence is dropped when a real answer
+   follows it. */
+const HEDGE_HEAD = /^(?:[^.\n]{0,200}?(?:couldn[’']?t (?:find|locate)|can[’']?t find|not (?:present|found|listed|in the)|do(?:es)?n[’']?t (?:contain|mention|have)|does not (?:contain|mention)|no mention|sources? (?:do|does) not)[^.\n]{0,140}?)(?:\.\s+|,\s*but\s+)/i;
+function stripHedge(t) {
+  const s = String(t || "").trim();
+  const m = s.match(HEDGE_HEAD);
+  if (m && s.slice(m[0].length).trim().length > 12) {
+    return s.slice(m[0].length).trim().replace(/^(however|but|still|that said)\s*[,:;-]?\s+/i, "");
+  }
+  return s;
+}
 /* one exit for every answer lane: identity/script repair, then a live look when the
    draft excuses itself with a cutoff or clearly lives in an older year.
    Returns the text to show (possibly ""). */
@@ -2373,7 +2390,27 @@ async function finalizeAnswer(messages, text, req) {
     const fresh = await freshnessRepair(messages, t, req);
     if (fresh && !staleExcuse(fresh) && newestYear(fresh) >= CUR_YEAR - 1) t = fresh;
   }
+  t = stripHedge(t);
+  /* A "nothing today" claim needs a source that says today (5 Nov 2026): asked for
+     today's India match, the model answered "Aaj India ka koi match nahi hai" while the
+     results carried no dated fixture at all. An unverified negative is as wrong as an
+     invented list, so it becomes an honest one-liner in the user's own script. */
+  if (NEG_TODAY.test(t) && !todayInEvidence(messages)) {
+    const u = lastUserMsg(messages);
+    t = DEVANAGARI.test(u) ? "आज के मैच का पक्का शेड्यूल सामने नहीं आया — सीरीज़ या टीम का नाम बता दो, मैं तुरंत निकाल देता हूँ।"
+      : (ROMAN_HINGLISH.test(u) ? "Aaj ke match ka pakka schedule sources me confirm nahi hua — series ya team ka naam bata do, main turant nikal deta hoon."
+        : "I couldn't confirm today's fixture from live sources — tell me the series or team and I'll pull the schedule.");
+  }
   return t;
+}
+const NEG_TODAY = /(koi\s+(bhi\s+)?match[^.\n]{0,40}(nahi|nahin)|no\s+(match|game|fixture)[^.\n]{0,40}(today|scheduled)|nothing\s+scheduled[^.\n]{0,20}today|not\s+scheduled[^.\n]{0,25}today)/i;
+/* does the evidence actually date something today? */
+function todayInEvidence(messages) {
+  const d = new Date(), day = String(d.getDate());
+  const mon = d.toLocaleString("en-US", { month: "short" });
+  const monFull = d.toLocaleString("en-US", { month: "long" });
+  const re = new RegExp("\\b(?:" + day + "\\s*(?:" + mon + "|" + monFull + ")|" + mon + "\\w*\\s*" + day + "\\b)", "i");
+  return re.test(systemText(messages));
 }
 function isSmallTalk(q) {
   return /^(hi+|hello+|hey+|yo|ok(ay)?|thanks?|thank you|namaste|good\s*(morning|evening|night|afternoon)|who are you|what('s| is) your name|are you (real|human|an ai))\b/i.test(q || "");
@@ -4192,5 +4229,5 @@ module.exports = {
   groundChat, toolSearch, toolFetch, searchQuery, currentAsk, topicHint, followUpQuery, threadTurns,
   evidenceFacts, esportsFastAnswer, rosterGuard, cleanRead, isRosterAsk, fakeRoster,
   prettyDate, lastUserMsg, resolveFragment, injectFollowUp,
-  staleFact, evidenceIsCurrent, newestYear, finalizeAnswer,
+  staleFact, evidenceIsCurrent, newestYear, finalizeAnswer, stripHedge,
 };

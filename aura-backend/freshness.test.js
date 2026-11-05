@@ -110,5 +110,34 @@ ok("a block from an older year does not",
   ok("the repair can fall back to the main rotation", /const l = await llm1\(m2/.test(src));
 }
 
+console.log("G. a source hedge never opens the answer");
+const mod3 = new Function(
+  slice("const HEDGE_HEAD", "/* one exit for every answer lane") +
+  "; return { stripHedge };"
+)();
+ok("the hedge clause is dropped, the fact stays",
+  mod3.stripHedge("I couldn’t find that detail in the provided sources, but Satya Nadella is the current CEO of Microsoft.") ===
+  "Satya Nadella is the current CEO of Microsoft.",
+  mod3.stripHedge("I couldn’t find that detail in the provided sources, but Satya Nadella is the current CEO of Microsoft."));
+ok("a leading hedge sentence goes too",
+  mod3.stripHedge("The provided sources don't mention today's match. However, the last one was on 2 Nov.") ===
+  "the last one was on 2 Nov.",
+  mod3.stripHedge("The provided sources don't mention today's match. However, the last one was on 2 Nov."));
+ok("a plain answer is untouched",
+  mod3.stripHedge("Python 3.14.8 hai (October 2026).") === "Python 3.14.8 hai (October 2026).");
+
+console.log("H. an unverified 'nothing today' is not shown as fact");
+const mod4 = new Function(
+  slice("const NEG_TODAY", "function isSmallTalk") +
+  slice("function systemText", "/* Incoming evidence") +
+  "; return { NEG_TODAY, todayInEvidence };"
+)();
+ok("'Aaj India ka koi match nahi hai' is caught",
+  mod4.NEG_TODAY.test("Aaj India ka koi match nahi hai.") === true);
+ok("a dated answer is not touched",
+  mod4.NEG_TODAY.test("Aaj India vs South Africa ka match hai, 5 Nov ko.") === false);
+ok("evidence with no date cannot prove a negative",
+  mod4.todayInEvidence([{ role: "system", content: "LIVE WEB RESULTS: cricket news, undated." }]) === false);
+
 console.log("\n" + (fail ? "FAILED " + fail + " (" + pass + " passed)" : "all " + pass + " checks passed"));
 process.exit(fail ? 1 : 0);
