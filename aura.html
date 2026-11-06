@@ -4839,6 +4839,7 @@ const AURA_EXPORT = {
   stamp: function(){
     const d = new Date(), p = function(n){ return String(n).padStart(2, "0"); };
     return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+    /* AURA_GEN_EXPORT_CENTER_FORMAT_FIX */
   },
   name: function(kind, ext){ return "aura-" + kind + "-" + this.stamp() + "." + ext; },
   /* build() returns { body, mime, count, unit } — the name is derived, never typed twice */
@@ -4847,8 +4848,10 @@ const AURA_EXPORT = {
     try{ out = build(); }catch(e){ pushSys("export failed — " + (e.message || e)); return false; }
     if(!out){ return false; }
     const name = this.name(kind, ext);
-    dlBlob(new Blob([out.body], { type: out.mime }), name);
-    pushSys("exported " + name + " — " + out.count + " " + out.unit);
+    const mime = "text/csv";
+    const unit = "rows";
+    dlBlob(new Blob([out.body], { type: mime }), name);
+    pushSys("exported " + name + " — " + out.count + " " + unit);
     return true;
   },
   chatGroups: function(){
