@@ -3826,6 +3826,12 @@ window.AURA_MOBILE = window.AuraDevice.isMobile;
       }
     }catch(e){}
     try{ if(window.AuraVoice && window.AuraVoice.resume) window.AuraVoice.resume(); }catch(e){}
+    /* iOS/Chrome only allow audio to start after a real gesture — create and resume the
+       output context here so the neural voice can actually be heard on the first answer */
+    try{
+      const C=window.__auraOutCtx||(window.__auraOutCtx=new (window.AudioContext||window.webkitAudioContext)());
+      if(C.state==="suspended")C.resume().catch(function(){});
+    }catch(e){}
   }
   ["pointerdown","touchstart","click","keydown"].forEach(function(ev){
     document.addEventListener(ev, unlock, { passive: true });
@@ -5198,25 +5204,57 @@ function stopSpeech(){speakGen++;ttsActive=false;try{if(__ttsAudio){__ttsAudio.p
    the raw device fallback voice (robotic) was what made AURA sound bad. Neural renders
    real human-class speech for Hindi AND English; the device chain stays as safety net. */
 let __neuralVoice=(localStorage.getItem("aura_neural")||"on")!=="off";
-async function speakNeural(t,gen,done,lang){ lang=lang==="hi"?"hi":"en";
+async function speakNeural(t,gen,done,lang,onFail){ lang=lang==="hi"?"hi":"en";
   /* NEURAL TIER — server-rendered voice (Orpheus). Returns true if it spoke.
      SILENCE FIX: an autoplay-blocked or dead TTS lane previously left the caller
      with no fallback; now any failure pauses+revokes and returns false fast. */
   let a=null,url=null;
   try{
     if(!backendUrl())return false;
-    const r=await fetch(backendUrl()+"/v1/tts",{method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(30000),body:JSON.stringify({input:String(t).slice(0,900),voice:persona()==="jarvis"?"venom":"hilda",lang:lang})});
+    /* never cut a sentence in half: if the answer is longer than the lane accepts,
+       end it on the last full stop we can keep */
+    let say=String(t).slice(0,900);
+    if(String(t).length>900){
+      const cut=Math.max(say.lastIndexOf(". "),say.lastIndexOf("? "),say.lastIndexOf("! "),say.lastIndexOf("। "));
+      if(cut>400)say=say.slice(0,cut+1);
+    }
+    /* 7s, not 30: a cold or dead lane must hand over to the device voice fast instead
+       of leaving the user in silence wondering whether AURA is answering at all */
+    const r=await fetch(backendUrl()+"/v1/tts",{method:"POST",headers:{"Content-Type":"application/json"},signal:AbortSignal.timeout(7000),body:JSON.stringify({input:say,voice:persona()==="jarvis"?"venom":"hilda",lang:lang})});
     if(!r.ok)return false;
     const blob=await r.blob();if(!blob.size)return false;
     url=URL.createObjectURL(blob);
     a=new Audio(url);a.volume=1;__ttsAudio=a;
-    a.onended=()=>{if(__ttsAudio===a)__ttsAudio=null;URL.revokeObjectURL(url);done()};
-    a.onerror=()=>{if(__ttsAudio===a)__ttsAudio=null;URL.revokeObjectURL(url);done()};
+    /* A clip that "plays" and then dies (no output device, a decode fault, a blocked
+       sink) used to leave NOTHING playing and still report success — the device voice
+       must take over the moment the neural clip cannot really be heard */
+    let dead=false;
+    const bail=function(){if(dead)return;dead=true;try{if(a)a.pause()}catch(e){}try{if(__ttsAudio===a)__ttsAudio=null}catch(e){}try{if(url)URL.revokeObjectURL(url)}catch(e){}if(typeof onFail==="function"){try{onFail()}catch(e){}}};
+    /* LOUDNESS — the server clip is mastered quietly and a phone speaker plays it softer
+       still; a gain stage + compressor makes it clearly audible without clipping */
+    try{
+      const C=window.__auraOutCtx||(window.__auraOutCtx=new (window.AudioContext||window.webkitAudioContext)());
+      if(C.state==="suspended"){try{await Promise.race([C.resume(),new Promise(res=>setTimeout(res,300))])}catch(e){}}
+      if(C.state==="running"){
+        const src=C.createMediaElementSource(a);
+        const gain=C.createGain();gain.gain.value=1.9;
+        const comp=C.createDynamicsCompressor();
+        try{comp.threshold.value=-18;comp.knee.value=24;comp.ratio.value=4;comp.attack.value=0.003;comp.release.value=0.25}catch(e){}
+        src.connect(gain);gain.connect(comp);comp.connect(C.destination);
+      }
+    }catch(e){ /* no Web Audio → the plain element still plays at volume 1 */ }
+    a.onended=()=>{
+      const heard=a&&a.currentTime>0.05;
+      if(__ttsAudio===a)__ttsAudio=null;try{URL.revokeObjectURL(url)}catch(e){}
+      if(!heard){bail();return} /* ended in milliseconds → nothing was actually audible */
+      done();
+    };
+    a.onerror=()=>{bail()};
     if(gen!==speakGen){URL.revokeObjectURL(url);return true}
     ttsActive=true;ampTarget=1;setMode("speaking");try{document.getElementById("stopBtn").classList.add("show")}catch(e){}
     /* AUTOPLAY GUARD — browsers refuse audio without a user gesture; if playback
        has not started within 6s, treat the attempt as failed so the device voice takes over */
-    await Promise.race([a.play(),new Promise((_,rej)=>setTimeout(()=>rej(new Error("neural play blocked")),6000))]);
+    await Promise.race([a.play(),new Promise((_,rej)=>setTimeout(()=>rej(new Error("neural play blocked")),2500))]);
     return true;
   }catch(e){
     try{if(a)a.pause()}catch(e2){}
@@ -5229,7 +5267,10 @@ async function speakNeural(t,gen,done,lang){ lang=lang==="hi"?"hi":"en";
 function speak(t){
   /* VOICE MASTER SWITCH governs everything: ON → every answer is written AND spoken;
      OFF → written only. No session windows, no missed answers — the button decides. */
-  if(!synth||!soundOn||!canAutoSpeak()){return}
+  /* a browser without speechSynthesis can still be heard through the neural lane, so a
+     missing device voice is no longer a reason to stay silent */
+  if(!soundOn||!canAutoSpeak()){__voiceOffNotice();return}
+  if(!synth&&!__neuralVoice){return}
   try{if(synth.paused)synth.resume()}catch(e){} /* silent by default — voice only after wake/tap */
   try{
     const gen=++speakGen; /* any new speak() kills every older chain — no ghost speech */
@@ -5251,46 +5292,132 @@ function speak(t){
        straight to the device voice in that locale instead of sounding wrong */
     const worldLang=(window.__auraLangCode||"").indexOf("en")!==0&&(window.__auraLangCode||"").indexOf("hi")!==0;
     if(__neuralVoice&&parts.length&&!worldLang){
-      speakNeural(parts.join(" "),gen,()=>{ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}},hi?"hi":"en").then(ok=>{
-        if(ok)return;
+      /* ONE fallback path for every kind of neural failure: the lane said no, the
+         element could not play, or the clip "played" and died without a sound */
+      const devFallback=function(){
         if(gen!==speakGen)return; /* a newer speak() took over meanwhile */
-        ttsActive=true; /* device chain takes over with the speaking flag armed */
+        ttsActive=true;           /* device chain takes over with the speaking flag armed */
         try{__speakDeviceChain(parts,gen,P,hi)}catch(e){ttsActive=false}
-      });
+      };
+      speakNeural(parts.join(" "),gen,()=>{ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}},hi?"hi":"en",devFallback).then(ok=>{
+        if(ok)return;
+        devFallback();
+      },devFallback);
       return;
     }
     __speakDeviceChain(parts,gen,P,hi);
   }catch(e){ttsActive=false}
 }
+/* ---------------- DEVICE VOICE ENGINE (rewritten for clarity) ----------------
+   The old chain was either silent or clipped. What was actually wrong:
+     • one utterance of ~190 chars runs past Chrome's ~15s speech limit and just dies
+       mid-sentence, and onend never fires, so the rest of the answer was never spoken;
+     • a device with no matching installed voice fired onerror with no sound at all and
+       the chain moved on silently — from the outside: "kuch sunai nahi deta";
+     • chunks were glued together with no breath, so it sounded robotic and rushed.
+   This version speaks sentence-sized chunks, breathes 170ms between them, pins volume
+   to 1, retries a dead voice once with the system default, keeps a stuck-voice guard,
+   and wakes a frozen queue (the classic Chrome long-speech freeze). ---------------- */
+let __dvTimer=null;
+function __dvTimersOff(){if(__dvTimer){clearInterval(__dvTimer);__dvTimer=null}}
+function __dvChunks(parts){
+  const out=[];
+  const push=(s)=>{s=String(s||"").replace(/\s+/g," ").trim();if(s)out.push(s)};
+  (parts||[]).forEach(function(raw){
+    const s=String(raw||"").replace(/\s+/g," ").trim();
+    if(!s)return;
+    if(s.length<=150){push(s);return}
+    const bits=s.split(/(?<=[.!?;:।])\s+/);
+    let buf="";
+    for(const b of bits){
+      if((buf?buf+" ":"" ).length+b.length<=150){buf=buf?buf+" "+b:b;continue}
+      if(buf)push(buf);
+      buf=b;
+      while(buf.length>150){
+        let cut=buf.lastIndexOf(", ",140);if(cut<70)cut=buf.lastIndexOf(" ",140);if(cut<70)cut=150;
+        push(buf.slice(0,cut+1));
+        buf=buf.slice(cut+1).trim();
+      }
+    }
+    if(buf)push(buf);
+  });
+  return out;
+}
+/* SILENCE EXPLAINED — a user who expects a voice and hears nothing has no way to know
+   the master switch is off (that is exactly how "kuch sunai nahi deta" happened). Say it
+   once per page load, as text, so the mute state is never a mystery. */
+function __voiceOffNotice(){
+  try{
+    if(window.__vOffHinted)return;
+    window.__vOffNoticeCount=(window.__vOffNoticeCount||0)+1;
+    if(window.__vOffNoticeCount<2)return; /* the first speak() after a reply is too early to nag */
+    window.__vOffHinted=1;
+    if(typeof pushSys==="function")pushSys("🔇 voice is OFF — answers are text only. Tap the VOICE button (settings) to hear me.");
+  }catch(e){}
+}
 function __speakDeviceChain(parts,gen,P,hi){
-  let i=0;const keep=[];
-  const pickVoice=()=>__pickVoiceFor(hi,window.__auraLangCode);
+  if(typeof synth==="undefined"||!synth){ttsActive=false;ampTarget=0;setMode("idle");return}
+  const queue=__dvChunks(parts);
+  const finish=()=>{__dvTimersOff();ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}};
+  if(!queue.length){finish();return}
+  const speakRate=(function(){
+    /* TYPING-PACE TUNING — speak at the tempo this user reads; VOICE STUDIO overrides win */
+    const tv=(function(){try{return tpVoice()}catch(e){return null}})();
+    const vr=parseFloat(localStorage.getItem("aura_voicerate")||"0");
+    const vcfg=(function(){try{return __voiceCfg()[persona()]||{}}catch(e){return{}}})();
+    return {
+      /* auto speed is capped at 1.15× — past that the device voices slur their words,
+         which is exactly what "samajh nahi aata / sunai nahi deta" sounds like */
+      rate:vcfg.rate>0?Math.max(.5,Math.min(2,vcfg.rate)):(vr>0?Math.max(.6,Math.min(1.15,P.rate*vr)):(tv?Math.max(.6,Math.min(1.15,P.rate*tv.rate)):P.rate)),
+      pitch:vcfg.pitch>0?Math.max(.5,Math.min(2,vcfg.pitch)):(tv&&!(vr>0)?Math.max(.5,Math.min(1.6,P.pitch*tv.pitch)):P.pitch)
+    };
+  })();
+  let i=0;
+  try{if(synth.paused)synth.resume()}catch(e){}
+  try{synth.cancel()}catch(e){} /* a stale queue from an older answer must not interleave */
   const next=()=>{
     if(gen!==speakGen)return; /* stale onend from a cancelled utterance → ignore, never resurrect */
-    if(i>=parts.length){ttsActive=false;ampTarget=0;setMode("idle");armWake(450);try{document.getElementById("stopBtn").classList.remove("show")}catch(e){}return}
-    const u=new SpeechSynthesisUtterance(parts[i++]);keep.push(u);
-    const vu=pickVoice();
-    if(vu)u.voice=vu;
-    u.lang=(window.__auraLangCode&&window.__auraLangCode!=="en-IN")?window.__auraLangCode:(hi?"hi-IN":P.lang);{
-      /* TYPING-PACE TUNING — speak at the tempo this user reads; VOICE STUDIO overrides win */
-      const tv=(function(){try{return tpVoice()}catch(e){return null}})();
-      const vr=parseFloat(localStorage.getItem("aura_voicerate")||"0");
-      const vcfg=(function(){try{return __voiceCfg()[persona()]||{}}catch(e){return{}}})();
-      u.rate=vcfg.rate>0?Math.max(.5,Math.min(2,vcfg.rate)):(vr>0?Math.max(.6,Math.min(1.8,P.rate*vr)):(tv?Math.max(.6,Math.min(1.8,P.rate*tv.rate)):P.rate));
-      u.pitch=vcfg.pitch>0?Math.max(.5,Math.min(2,vcfg.pitch)):(tv&&!(vr>0)?Math.max(.5,Math.min(1.6,P.pitch*tv.pitch)):P.pitch);
-    }
-    u.onstart=()=>{if(gen===speakGen){ampTarget=1;setMode("speaking")}};
-    u.onend=next;
-    u.onerror=next;
-    synth.speak(u);
+    if(i>=queue.length){finish();return}
+    const text=queue[i++];
+    const u=new SpeechSynthesisUtterance(text);
+    const vu=__pickVoiceFor(hi,window.__auraLangCode);
+    if(vu){u.voice=vu;u.lang=vu.lang}
+    else u.lang=(window.__auraLangCode&&window.__auraLangCode!=="en-IN")?window.__auraLangCode:(hi?"hi-IN":P.lang);
+    u.rate=speakRate.rate;u.pitch=speakRate.pitch;u.volume=1;
+    let started=false,retried=false;
+    const advance=()=>{if(gen!==speakGen)return;setTimeout(next,queue.length>1?170:0)};
+    u.onstart=()=>{started=true;if(gen===speakGen){ampTarget=1;setMode("speaking");try{document.getElementById("stopBtn").classList.add("show")}catch(e){}}};
+    u.onend=advance;
+    u.onerror=()=>{
+      if(gen!==speakGen)return;
+      /* a voice that cannot render this text → one retry with the system default */
+      if(!started&&u.voice&&!retried){retried=true;u.voice=null;try{synth.speak(u)}catch(e){advance()}return}
+      advance();
+    };
+    try{synth.speak(u)}catch(e){advance();return}
+    /* STUCK-VOICE GUARD — some Android/iOS voices never fire onstart and never sound.
+       If nothing is actually playing 1.6s later, retry the same sentence voice-free. */
+    setTimeout(function(){
+      if(gen!==speakGen||started||retried)return;
+      try{if(!synth.speaking&&!synth.pending){retried=true;u.voice=null;synth.speak(u)}}catch(e){}
+    },1600);
   };
   next();
-  setTimeout(()=>{if(gen===speakGen&&ttsActive){try{if(!synth.speaking&&!synth.pending){ttsActive=false;ampTarget=0;setMode("idle");armWake(400)}}catch(e){}}},9000);
+  /* KEEP-ALIVE — Chrome freezes speech after a while with speaking=true forever; a
+     resume pulse (only while it is genuinely speaking) unfreezes it without a glitch */
+  __dvTimersOff();
+  __dvTimer=setInterval(function(){
+    try{
+      if(gen!==speakGen){__dvTimersOff();return}
+      if(synth.speaking){synth.pause();synth.resume()}
+      else if(!synth.pending&&i>=queue.length){__dvTimersOff();ttsActive=false;ampTarget=0;setMode("idle");armWake(400)}
+    }catch(e){}
+  },9000);
 }
 
 /* ---------------- persona core: AURA + the owner's tactical ZEUS protocol (Sourabh's own design — no borrowed fiction) ---------------- */
 const PERSONAS={
-  aura:{name:"AURA",title:"HOLOGRAPHIC AI INTERFACE",who:"I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks.",hue:"cyan",rate:1.02,pitch:1,lang:"en-US",mode:"Ask me anything, boss.",wake:"Hey Aura"},
+  aura:{name:"AURA",title:"HOLOGRAPHIC AI INTERFACE",who:"I am AURA — Adaptive Universal Reasoning Assistant — a holographic AI interface designed and hand-built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. My 3D core, voice system and intelligence are all vanilla JavaScript, no frameworks.",hue:"cyan",rate:0.98,pitch:1,lang:"en-US",mode:"Ask me anything, boss.",wake:"Hey Aura"},
   jarvis:{name:"ZEUS",title:"TACTICAL COMMAND INTERFACE",who:"I am ZEUS — the tactical command protocol of this holographic interface — designed and hand-built by Sourabh Singh, B.Tech CSE (AI, DevOps & Cloud Automation) at JECRC University. Formal, precise, tactical: every answer ends with an implication, a trade-off or a recommended next move. This protocol is armed only for the owner.",hue:"gold",rate:0.97,pitch:0.88,lang:"en-GB",mode:"At your command, sir.",wake:"Hey Zeus"}
 };
 function persona(){try{const p=localStorage.getItem("aura_persona");return PERSONAS[p]?p:"aura"}catch(e){return "aura"}}
