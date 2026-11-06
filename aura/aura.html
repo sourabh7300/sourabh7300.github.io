@@ -9966,8 +9966,17 @@ const AuraMeshNode=(function(){
         const closed=e&&(e.status===404||/mesh-closed/i.test(e.message||""));
         lastErr=String(e&&e.message||e);
         if(closed){
+          /* the owner closed the mesh (or the code expired with the backend restart):
+             unlink this device instead of polling a dead code every 15s forever —
+             that kept a retired node alive in the background and spammed 404s */
           setStatus("closed","MESH · closed (owner disconnected)");
-          await __meshSleep(15000);
+          stopped=true;running=false;
+          __meshStore("aura_mesh_off","1");
+          __meshStore("aura_mesh_code","");
+          __meshStore("aura_mesh_role","");
+          try{if(bar){bar.remove();bar=null}}catch(e){}
+          try{pushSys("📡 mesh closed — this device is unlinked. Open a fresh QR/link to rejoin.")}catch(e){}
+          break;
         }else{
           setStatus("wait","MESH · reconnecting in "+Math.round(backoff/1000)+"s");
           await Promise.race([__meshSleep(backoff),(wake?new Promise(r=>{wake=r}):__meshSleep(backoff))]);
