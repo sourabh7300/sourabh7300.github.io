@@ -10145,11 +10145,22 @@ const AuraMeshOwner=(function(){
     document.head.appendChild(st);
   }
   async function claim(){
-    try{
-      const j=await __meshFetch("/v1/mesh/register",code?{code}:{});
-      if(j&&j.code){code=j.code;__meshStore("aura_mesh_code",code);__meshStore("aura_mesh_role","owner");}
-      lastErr="";return true;
-    }catch(e){lastErr=String(e&&e.message||e);return false}
+    /* the free backend sleeps when nobody uses it — the first tap can take ~30s to
+       wake it, so give register three tries and a long timeout instead of failing
+       on the one call that creates the mesh code */
+    let last=null;
+    for(let i=0;i<3;i++){
+      try{
+        const j=await __meshFetch("/v1/mesh/register",code?{code}:{},null,{timeout:45000});
+        if(j&&j.code){code=j.code;__meshStore("aura_mesh_code",code);__meshStore("aura_mesh_role","owner");}
+        lastErr="";return true;
+      }catch(e){
+        last=e;
+        if(i<2)await new Promise(r=>setTimeout(r,1500));
+      }
+    }
+    lastErr=(last&&(last.message||String(last))||"backend unreachable — tap connect again");
+    return false;
   }
   async function sync(){
     if(!code)return null;
@@ -10256,9 +10267,14 @@ const AuraMeshOwner=(function(){
         const qb=codeBox.querySelector("#mxQrBox");
         if(qb){
           const url=joinUrl();
-          const svg=qrSvg(url,168);
+          const svg=qrSvg(url,240);
+          /* the link is clickable on purpose: a phone that cannot scan (camera busy,
+             cracked lens, in-app browser) can just tap it and join in one move */
           qb.innerHTML='<div class="qr">'+(svg||'')+'</div>'+
-            '<div style="font-size:10px;line-height:1.45;opacity:.62;text-align:center;word-break:break-all;padding:0 4px 2px">'+esc(url)+'</div>';
+            '<a href="'+esc(url)+'" target="_blank" rel="noopener" style="display:block;font-size:10.5px;line-height:1.45;opacity:.78;text-align:center;word-break:break-all;padding:6px 4px 2px;color:#67e8f9;text-decoration:underline">'+esc(url)+'</a>'+
+            '<button class="btn" id="mxOpenHere" style="display:block;width:100%;margin:4px 0 8px">open this link here</button>';
+          const oh=qb.querySelector("#mxOpenHere");
+          if(oh)oh.onclick=function(){try{location.href=url}catch(e){}};
         }
       }
       const g=codeBox.querySelector("#mxGo");
