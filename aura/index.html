@@ -4521,7 +4521,10 @@ function pushSys(t){
   try{
     const lg=document.getElementById('log');
     const box=lg&&lg.getBoundingClientRect();
-    const hidden=!lg||getComputedStyle(lg).display==='none'||!box||box.width<40||box.height<20;
+    /* the phone layout renders sys lines into a collapsed node (0px), so the log box
+       itself can look big while the words are invisible — on a phone always toast */
+    const phone=/\bm-phone\b|\bm-mobile\b/.test(document.body.className+' '+document.documentElement.className);
+    const hidden=phone||!lg||getComputedStyle(lg).display==='none'||!box||box.width<40||box.height<20;
     if(hidden&&typeof window!=='undefined'&&typeof window.auraToast==='function'){
       /* three at most — a stack of notices must never cover the phone screen */
       const shelf=document.getElementById('toastShelf');
