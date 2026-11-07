@@ -4512,7 +4512,24 @@ function addMsg(who,text,cls){
   log.scrollTop=log.scrollHeight;
   return d.querySelector(".tx");
 }
-function pushSys(t){addMsg("SYS","▸ "+t,"sys");slog(t);}
+function pushSys(t){
+  addMsg("SYS","▸ "+t,"sys");slog(t);
+  /* the system log is a side panel — it is hidden in the phone layout and in narrow
+     windows, so mic/permission/voice errors were written somewhere nobody could see
+     (tap the mic → looks completely dead, no message at all). Anything pushed while
+     the log is off screen also surfaces as a toast. */
+  try{
+    const lg=document.getElementById('log');
+    const box=lg&&lg.getBoundingClientRect();
+    const hidden=!lg||getComputedStyle(lg).display==='none'||!box||box.width<40||box.height<20;
+    if(hidden&&typeof window!=='undefined'&&typeof window.auraToast==='function'){
+      /* three at most — a stack of notices must never cover the phone screen */
+      const shelf=document.getElementById('toastShelf');
+      if(shelf&&shelf.children)while(shelf.children.length>=3){try{shelf.firstElementChild.remove()}catch(e){break}}
+      window.auraToast(t,'warn',5200);
+    }
+  }catch(e){}
+}
 function msgTag(){return (PERSONAS[persona()]||PERSONAS.aura).name+" ▸"}
 /* ---------------- markdown renderer (ChatGPT-style rich answers) ---------------- */
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
@@ -5866,6 +5883,13 @@ window.AuraVoice=(function(){
     b.style.color=on?"#fbcfe8":"";
     b.style.boxShadow=on?"0 0 0 1px rgba(244,114,182,.5),0 0 18px rgba(244,114,182,.35)":"";
     b.setAttribute("aria-pressed",on?"true":"false");
+    /* the dock 🎙 is the ONLY mic a phone user can reach (HD MIC sits in the row that
+       is hidden in the phone layout), and it used to stay visually dead while the HD
+       lane was recording. Light it up exactly like the speech-recognition lane does. */
+    try{
+      const d=document.getElementById("micBtn");
+      if(d){if(on)d.classList.add("listening");else d.classList.remove("listening")}
+    }catch(e){}
   }
   function hint(t){const h=document.getElementById("micHint");if(h&&h.textContent!==t)h.textContent=t}
   function resample(f32,from,to){
