@@ -4513,18 +4513,18 @@ function addMsg(who,text,cls){
   return d.querySelector(".tx");
 }
 function pushSys(t){
-  addMsg("SYS","▸ "+t,"sys");slog(t);
-  /* the system log is a side panel — it is hidden in the phone layout and in narrow
-     windows, so mic/permission/voice errors were written somewhere nobody could see
-     (tap the mic → looks completely dead, no message at all). Anything pushed while
-     the log is off screen also surfaces as a toast. */
+  const tx=addMsg("SYS","▸ "+t,"sys");slog(t);
+  /* THE THEME HIDES SYS LINES (.msg.sys{display:none!important}), so every mic,
+     permission and voice message was written where nobody could ever read it — the mic
+     looked completely dead, on laptop and phone alike. Check the node we just appended:
+     if the words are not on screen, the same message also appears as a toast. */
   try{
-    const lg=document.getElementById('log');
-    const box=lg&&lg.getBoundingClientRect();
-    /* the phone layout renders sys lines into a collapsed node (0px), so the log box
-       itself can look big while the words are invisible — on a phone always toast */
-    const phone=/\bm-phone\b|\bm-mobile\b/.test(document.body.className+' '+document.documentElement.className);
-    const hidden=phone||!lg||getComputedStyle(lg).display==='none'||!box||box.width<40||box.height<20;
+    let shown=false;
+    try{const b=tx&&tx.getBoundingClientRect?tx.getBoundingClientRect():null;shown=!!(b&&b.width>4&&b.height>4)}catch(e){shown=false}
+    /* only words a person can act on are worth a pop-up; boot timings, mesh targets and
+       other telemetry stay in the (hidden) log exactly as the theme intends */
+    const ACTIONABLE=/\b(?:blocked|allow|permission|microphone|mic|speech|voice|server|connection|offline|online|unavailable|failed|cannot|can'?t|could not|did not|didn'?t|timed out|try again|switched|switching|instead|plug one in|disconnected|queued)\b/i;
+    const hidden=!shown&&ACTIONABLE.test(String(t||''));
     if(hidden&&typeof window!=='undefined'&&typeof window.auraToast==='function'){
       /* three at most — a stack of notices must never cover the phone screen */
       const shelf=document.getElementById('toastShelf');
