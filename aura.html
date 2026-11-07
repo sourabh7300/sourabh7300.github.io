@@ -5952,7 +5952,13 @@ window.AuraVoice=(function(){
   }
   async function begin(){
     if(on){finish();return true}
-    if(busy){try{pushSys("still transcribing the last clip — one moment")}catch(e){}return false}
+    if(busy){
+      /* a stale "transcribing" flag left behind by a socket that died mid-take used to
+         lock the mic forever: every tap answered "one moment" and nothing was ever
+         caught. No open lane → the flag is stale, take the new question. */
+      if(!ws||ws.readyState!==1){busy=false}
+      else{try{pushSys("still transcribing the last clip — one moment")}catch(e){}return false}
+    }
     const u=endpoint();
     if(!u){try{pushSys("HD mic needs the backend URL")}catch(e){}return false}
     /* IOS RULE — an AudioContext only unlocks inside the tap itself. Creating it AFTER
