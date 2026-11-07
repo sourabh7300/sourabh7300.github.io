@@ -5626,7 +5626,7 @@ window.AuraLive=(function(){
        · the ear follows the language: Hinglish/Hindi in → Hindi ear, English in → English ear
        · "stop / sleep" ends the mode; the ear always reopens itself after
          Chrome's ~60s stream timeout, with backoff, never in a tight loop */
-  let r=null,on=false,gen=0,netFails=0,interimKeep="",lastFinal="",suppressUntil=0,settleT=null,restarts=0;
+  let r=null,on=false,gen=0,netFails=0,interimKeep="",lastFinal="",suppressUntil=0,settleT=null,restarts=0,spawnFails=0;
   /* "quiet" keeps voice mode on, just silences the current answer */
   const QUIET=/^(?:(?:hey|ok|okay|arre)\s+)?(?:stop talking|shut up|be quiet|quiet|chup|chup ho|chup raho|stop speech|चुप|चुप रहो)[\s.!?।]*$/i;
   /* "stop" closes voice mode itself */
@@ -5757,7 +5757,7 @@ window.AuraLive=(function(){
       r.lang=earLang();r.interimResults=true;r.continuous=true;r.maxAlternatives=5;
       r.onstart=()=>{
         if(!on||my!==gen)return;
-        restarts=0;netFails=0;
+        restarts=0;netFails=0;spawnFails=0;
         label(r.lang==='hi-IN'?'🎙 सुन रही हूँ — बोलिए':'🎙 LISTENING — speak freely');
         if(typeof setMode==='function')setMode('listening');
       };
@@ -5788,11 +5788,32 @@ window.AuraLive=(function(){
         setTimeout(()=>{if(on&&my===gen)spawn()},wait);
       };
       r.start();
-    }catch(e){setTimeout(()=>{if(on)spawn()},1200)}
+    }catch(e){
+      /* a recognizer that cannot even OPEN (mic held by another app, iOS webview rules)
+         used to retry forever and never say why — after 3 tries say it plainly */
+      spawnFails++;
+      if(spawnFails>=3){
+        on=false;gen++;paint();label('TAP TO SPEAK');if(typeof setMode==='function')setMode('idle');
+        try{pushSys('voice mode could not open the mic — tap 🎧 HD MIC instead (it uses the same microphone)')}catch(e2){}
+        return;
+      }
+      setTimeout(()=>{if(on)spawn()},1200)
+    }
   }
   function start(){
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){if(typeof pushSys==='function')pushSys('voice mode needs Chrome or Edge — typing works everywhere');return false}
+    if(!SR){
+      /* iPhone Safari, Firefox and in-app browsers ship NO SpeechRecognition. The button
+         must still catch your voice, so it hands the mic to the raw-audio lane instead of
+         telling you your browser is wrong. */
+      if(window.AuraVoice&&typeof AuraVoice.start==='function'){
+        if(typeof pushSys==='function')pushSys('🎧 this browser has no built-in speech engine — using the HD mic (it sends itself when you pause)');
+        setTimeout(function(){try{AuraVoice.start()}catch(e){}},10);
+        return true;
+      }
+      if(typeof pushSys==='function')pushSys('this browser cannot open a microphone — type instead');
+      return false;
+    }
     if(on)return true;
     on=true;gen++;restarts=0;netFails=0;
     try{if(typeof wake!=='undefined'&&wake){wake=false;try{recog&&recog.abort()}catch(e1){}}}catch(e0){} /* one ear only — the wake engine steps aside */
@@ -5872,7 +5893,7 @@ window.AuraVoice=(function(){
   }
   function stopAll(){busy=false;cleanup();try{if(ws)ws.close()}catch(e){}ws=null}
   function finish(){
-    if(!ws||ws.readyState!==1||!opened){stopAll();return}
+    if(!ws||ws.readyState!==1||!opened){hint("not connected yet — tap again");stopAll();return}
     try{ws.send(JSON.stringify({type:"stop"}))}catch(e){}
     cleanup();hint("⏳ transcribing…");busy=true;
     setTimeout(function(){if(busy){busy=false;try{pushSys("voice lane timed out — try a shorter clip")}catch(e){};stopAll()}},30000);
@@ -5905,27 +5926,74 @@ window.AuraVoice=(function(){
       setTimeout(stopAll,400);
     }
   }
+  /* MIC ACCESS — one plain sentence per real-world failure, never a raw error code.
+     Every browser names these differently; these are the names that actually show up. */
+  function micProblem(e){
+    const n=String((e&&(e.name||e.code))||'');
+    if(/NotAllowed|Permission|Security|Denied/i.test(n))return "mic blocked — allow the microphone for this site (padlock in the address bar), then tap again";
+    if(/NotFound|DevicesNotFound/i.test(n))return "no microphone found — plug one in (or pick another input), then tap again";
+    if(/NotReadable|TrackStart|Abort/i.test(n))return "the microphone is busy in another app or tab — close it, then tap again";
+    if(/NotSupported|Overconstrained/i.test(n))return "this browser cannot record audio — open the page in Chrome, Edge or Safari";
+    return "mic did not start — tap again, or type instead";
+  }
+  /* some phones reject the full constraint set — a plain {audio:true} request is
+     accepted there, so retry instead of failing the whole take */
+  async function openMic(){
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+      throw Object.assign(new Error('no mediaDevices'),{name:(window.isSecureContext===false?'SecurityError':'NotSupportedError')});
+    }
+    const wanted={audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
+    try{
+      return await navigator.mediaDevices.getUserMedia(wanted);
+    }catch(e){
+      if(/Overconstrained|NotSupported|TypeError/i.test(String((e&&(e.name||e.message))||'')))return navigator.mediaDevices.getUserMedia({audio:true});
+      throw e;
+    }
+  }
   async function begin(){
     if(on){finish();return true}
     if(busy){try{pushSys("still transcribing the last clip — one moment")}catch(e){}return false}
     const u=endpoint();
     if(!u){try{pushSys("HD mic needs the backend URL")}catch(e){}return false}
+    /* IOS RULE — an AudioContext only unlocks inside the tap itself. Creating it AFTER
+       `await getUserMedia` leaves it suspended on Safari, and then the recorder runs but
+       never delivers a frame: the mic looks on, nothing is ever caught, and no error is
+       shown. So the context is created and resumed FIRST, synchronously, before any await. */
+    if(!ac){try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(e){ac=null}}
+    if(ac){try{if(ac.state==="suspended"){const p=ac.resume();if(p&&p.catch)p.catch(function(){})}}catch(e){}}
     try{
-      stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-    }catch(e){try{pushSys("mic blocked — allow the microphone for this page, then tap 🎧 HD MIC again")}catch(e2){}return false}
+      stream=await openMic();
+    }catch(e){try{pushSys(micProblem(e))}catch(e2){}return false}
+    /* a mic that dies after it opened (headset unplugged, another app grabbed it) ends
+       the take politely instead of throwing on the next audio frame */
     try{
-      ac=new (window.AudioContext||window.webkitAudioContext)();
-      if(ac.state==="suspended")await ac.resume();
+      const tr=stream.getAudioTracks&&stream.getAudioTracks()[0];
+      if(tr)tr.onended=function(){if(on){try{pushSys("microphone disconnected — tap 🎧 HD MIC to start again")}catch(e){};stopAll()}};
+    }catch(e){}
+    if(!ac){cleanup();try{pushSys("this browser cannot process microphone audio — typing still works")}catch(e){}return false}
+    try{
+      if(ac.state==="suspended"){try{await ac.resume()}catch(e){}}
       ws=new WebSocket(u);
-    }catch(e){cleanup();try{pushSys("voice socket could not open: "+String((e&&e.message)||e).slice(0,80))}catch(e2){}return false}
+    }catch(e){cleanup();try{pushSys("voice lane could not open: "+String((e&&e.message)||e).slice(0,80))}catch(e2){}return false}
     opened=false;on=true;paint();
     vad={spoken:0,quietAt:0,floor:0.005,startedAt:Date.now(),sent:false};
     hint("🎧 LISTENING — start speaking (I send by myself when you pause)");
     try{blip(760,.08)}catch(e){}
-    ws.onopen=function(){opened=true;try{ws.send(JSON.stringify({type:"start",rate:16000,lang:(window.__auraLang==="hi"?"hi":"en")}))}catch(e){}};
+    /* RENDER COLD START — the socket can take seconds to accept. Recording starts
+       locally at once; if the lane is still not up after 4s, say so instead of leaving
+       the user talking into a take that can never be sent. */
+    const wsWarn=setTimeout(function(){if(!opened&&on)hint("⏳ waking the voice server…")},4000);
+    ws.onopen=function(){clearTimeout(wsWarn);opened=true;try{ws.send(JSON.stringify({type:"start",rate:16000,lang:(window.__auraLang==="hi"?"hi":"en")}))}catch(e){}};
     ws.onmessage=function(ev){let m=null;try{m=JSON.parse(String(ev.data))}catch(e){return}if(m&&m.type)handle(m)};
-    ws.onerror=function(){try{pushSys("voice socket dropped — check the connection")}catch(e){};stopAll()};
-    ws.onclose=function(){const wasBusy=busy;opened=false;if(on)cleanup();if(wasBusy){busy=false;try{pushSys("voice lane closed before the answer — try again")}catch(e){}}};
+    /* quiet on purpose — onclose reports the failure once, in words a person can act on */
+    ws.onerror=function(){};
+    ws.onclose=function(){
+      clearTimeout(wsWarn);
+      const wasBusy=busy,neverOpened=!opened;
+      opened=false;if(on)cleanup();
+      if(neverOpened){try{pushSys("voice server did not answer — check the connection, then tap 🎧 HD MIC again")}catch(e){}}
+      if(wasBusy){busy=false;try{pushSys("voice lane closed before the answer — try again")}catch(e){}}
+    };
     src=ac.createMediaStreamSource(stream);
     proc=ac.createScriptProcessor(4096,1,1);
     proc.onaudioprocess=function(ev){
@@ -5955,7 +6023,7 @@ window.AuraVoice=(function(){
             else if(now-vad.quietAt>tailMs&&!vad.sent){vad.sent=true;hint("⏳ Silence — sending…");finish();return}
           }
         }
-        if(!vad.spoken&&now-vad.startedAt>7000){hint("🔇 I didn't hear anything — tap again");stopAll();return}
+        if(!vad.spoken&&now-vad.startedAt>7000){hint("🔇 I didn't hear anything — speak a little louder, or raise MIC sensitivity in settings");stopAll();return}
       }
       const down=resample(input,ac.sampleRate,16000);
       try{ws.send(pcm16(down).buffer)}catch(e){}
