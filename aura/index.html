@@ -3745,8 +3745,9 @@ window.AURA_MOBILE = window.AuraDevice.isMobile;
       });
       document.documentElement.classList.add("m-phone");
       if(document.body)document.body.classList.add("m-phone");
-      /* the desktop placeholder is 44 characters and clipped in the 199px pill */
-      try{var qb=document.getElementById("q");if(qb)qb.placeholder="Message AURA…";}catch(e){}
+      /* the reference keeps one placeholder per personality on every screen;
+         the v6 wire re-applies it after any later skin touches the box */
+      try{var qb=document.getElementById("q");if(qb)qb.placeholder=(typeof persona==='function'&&persona()==='jarvis')?"Command ZEUS — bol, hukm de…":"How can AURA help you today?";}catch(e){}
     }catch(e){}
     /* FINAL LAYOUT WORD — the app injects several late <style> blocks into <head>
        (v5 skins), which beat an equal-specificity rule from the static stylesheet and
@@ -4470,7 +4471,7 @@ slog("aura kernel v4.0 · cortex v2 loaded");slog("particle core: 560 nodes",tru
     c.addEventListener("click",function(){
       const on=document.body.classList.toggle("focus-mode");
       c.classList.toggle("on",on);
-      c.textContent=on?"FOCUS ON":"FOCUS MODE";
+      c.innerHTML='<span class="ci">\u25ce</span>'+(on?"FOCUS ON":"FOCUS MODE");
       c.setAttribute("aria-pressed",on?"true":"false");
       pushSys(on?"focus mode on":"focus mode off");
     });
@@ -16718,7 +16719,24 @@ html[data-ui="v6"] body #chips .chip{border:1px solid rgba(255,255,255,.13)!impo
   display:inline-flex!important;align-items:center!important;gap:7px!important;cursor:pointer;transition:background .18s,border-color .18s,transform .18s}
 html[data-ui="v6"] body #chips .chip:hover{background:rgba(255,255,255,.10)!important;border-color:rgba(255,255,255,.22)!important;
   color:#fff!important;transform:translateY(-1px)}
+html[data-ui="v6"] body #chips .ci{opacity:.6;font-size:11px;line-height:1;letter-spacing:0;font-weight:400;margin-right:6px}
+html[data-ui="v6"] body #chips #chipFocus.on{background:rgba(255,255,255,.14)!important;border-color:rgba(255,255,255,.34)!important;color:#fff!important}
 html[data-ui="v6"] body #chipsMobile,html[data-ui="v6"] body #stageChips{display:none!important}
+/* stop-voice pill: same deck language, parked above the chips by layout() */
+html[data-ui="v6"] body #stopBtn{right:50%!important;transform:translateX(50%)!important;
+  font:600 10.5px var(--ui-sans)!important;letter-spacing:.14em!important;color:#ffd9d9!important;
+  background:rgba(150,30,30,.62)!important;border:1px solid rgba(248,113,113,.6)!important;
+  border-radius:999px!important;padding:9px 18px!important;box-shadow:0 10px 30px rgba(0,0,0,.55)!important;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+html[data-ui="v6"] body #stopBtn:hover{transform:translateX(50%) scale(1.04)!important}
+
+/* settings: accent swatches + inline sliders (reference rows) */
+html[data-ui="v6"] body .v6sw{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+html[data-ui="v6"] body .v6sw button{width:26px;height:26px;border-radius:50%;border:1px solid rgba(255,255,255,.22);
+  cursor:pointer;transition:transform .16s,box-shadow .16s}
+html[data-ui="v6"] body .v6sw button:hover{transform:translateY(-2px)}
+html[data-ui="v6"] body .v6sw button.on{box-shadow:0 0 0 2px rgba(255,255,255,.75),0 0 18px rgba(255,255,255,.35)}
+html[data-ui="v6"] body #settingsMenu input[type="range"]{accent-color:var(--ui-ac)}
 
 /* tools popover */
 html[data-ui="v6"] body #toolPop{position:absolute;left:6px;bottom:calc(100% + 10px);width:min(430px,calc(100vw - 34px));
@@ -16811,7 +16829,10 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
   html[data-ui="v6"] body #topbar #kbtn{padding:7px 10px!important;font-size:11px!important}
   html[data-ui="v6"] body #topbar #clock b{font-size:11.5px!important}
   html[data-ui="v6"] body #q{font-size:15px!important}
-  html[data-ui="v6"] body #chips .chip{padding:6px 11px!important;font-size:11.5px!important}
+  /* the five reference chips have to fit one row on a 390px screen — drop the
+     decorative glyphs rather than wrap the last pill onto its own line */
+  html[data-ui="v6"] body #chips .ci{display:none!important}
+  html[data-ui="v6"] body #chips .chip{padding:6px 10px!important;font-size:11px!important}
 }
 @media(max-width:359px){
   /* the clock is the first thing to go when the header has no room left */
@@ -16849,8 +16870,10 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
     if(!h4)return;
     var h=new Date().getHours();
     var g=h<5?"Good night":h<12?"Good morning":h<17?"Good afternoon":h<21?"Good evening":"Good night";
-    var n="Sourabh",a=$("#authName");
-    if(a&&a.textContent&&!/^(guest|user|admin)$/i.test(a.textContent.trim()))n=a.textContent.trim();
+    var n="Sourabh",a=$("#authName"),ov="";
+    try{ov=(localStorage.getItem("aura_name")||"").trim()}catch(e){}
+    if(ov)n=ov;
+    else if(a&&a.textContent&&!/^(guest|user|admin)$/i.test(a.textContent.trim()))n=a.textContent.trim();
     if(h4.dataset.greet===g+"|"+n)return;
     h4.dataset.greet=g+"|"+n;
     h4.innerHTML='<span class="hg">\u2726</span>'+g+', <i>'+clean(n)+'</i>';
@@ -16934,6 +16957,15 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
     for(var k in props){try{el.style.setProperty(k.replace(/[A-Z]/g,function(m){return "-"+m.toLowerCase()}),props[k],"important")}catch(e){}}
     return el;
   }
+  /* ---- one placeholder per personality, like the reference ---- */
+  function phApply(){
+    var q=$("#q");if(!q)return;
+    var z="aura";
+    try{z=typeof persona==="function"?persona():"aura"}catch(e){}
+    var want=z==="jarvis"?"Command ZEUS — bol, hukm de…":"How can AURA help you today?";
+    if(q.placeholder!==want)q.placeholder=want;
+  }
+
   function layout(){
     try{
       var phone=innerWidth<=760;
@@ -16959,6 +16991,9 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
       }
       setp("conv",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",width:colW,
         top:(th+18)+"px",bottom:(db+dockH+10+chipsH+(phone?14:18))+"px",margin:"0"});
+      /* the stop pill floats in the same stack as the chips, never over the box */
+      setp("stopBtn",{bottom:(db+dockH+10+chipsH+10)+"px",right:"50%"});
+      phApply();
       ["sessPanel","codePage","adminPage"].forEach(function(id){
         setp(id,{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",
           width:(id==="sessPanel"||id==="telemetry")?colW:wideW,top:(th+18)+"px",bottom:phone?"14px":"24px",margin:"0"});
@@ -16983,13 +17018,75 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
       /* the reference keeps them under the card, not inside it */
       try{if(chips&&document.body&&chips.parentNode!==document.body)document.body.appendChild(chips)}catch(e){}
       [].slice.call(chips.querySelectorAll("button.chip")).forEach(function(b){if(b.id!=="chipFocus")b.remove()});
-      var CH=[["Code","write code"],["Diagnostics","run diagnostics"],["Learn","Explain like I'm 5"],["Plan","Plan my week"],["Surprise","tell me a joke"]];
+      var CH=[["Code","write code","\u2039\u203a"],["Diagnostics","run diagnostics","\u2318"],["Learn","Explain like I'm 5","\u25c8"],["Plan","Plan my week","\u25a2"],["Surprise","tell me a joke","\u2727"]];
       CH.forEach(function(c){
         var b=document.createElement("button");
-        b.className="chip";b.type="button";b.setAttribute("data-q",c[1]);b.textContent=c[0];
+        b.className="chip";b.type="button";b.setAttribute("data-q",c[1]);
+        b.innerHTML='<span class="ci">'+c[2]+'</span>'+c[0];
         b.onclick=function(){try{ask(c[1])}catch(e){}};
         chips.appendChild(b);
       });
+      var fc=$("#chipFocus");
+      if(fc)fc.innerHTML='<span class="ci">\u25ce</span>'+(fc.classList.contains("on")?"FOCUS ON":"FOCUS MODE");
+    }
+  }catch(e){}
+
+  /* ---- settings: the reference rows that were missing (name, look, sliders) ---- */
+  try{
+    var card=$("#settingsMenu .tm-card");
+    if(card&&!$("#v6Name")){
+      var fsb=$("#fsBtn"); if(fsb)fsb.style.display="";
+      var closer=$("#setClose2"); var closerRow=closer?closer.closest(".tm-row"):null;
+      var mk=function(html){var d=document.createElement("div");d.className="set-sec";d.innerHTML=html;return d};
+      var secName=mk('<div class="set-h">\u270d YOUR NAME<small>used in the greeting</small></div>'+
+        '<label class="set-row" style="display:flex;align-items:center;gap:10px">'+
+        '<input type="text" id="v6Name" maxlength="24" placeholder="Sourabh" '+
+        'style="flex:1;background:rgba(255,255,255,.05);border:1px solid var(--ui-ln);border-radius:10px;padding:9px 12px;color:inherit;font:500 13px var(--ui-sans);outline:none">'+
+        '</label>');
+      var secLook=mk('<div class="set-h">\ud83c\udfa8 LOOK \u2014 ACCENT<small>one palette for the whole deck</small></div>'+
+        '<div class="v6sw" id="v6Sw"></div>');
+      var secVoice=mk('<div class="set-h">\ud83c\udf9a VOICE \u2014 SPEED &amp; PITCH<small>for the active personality</small></div>'+
+        '<label class="set-row" style="display:flex;align-items:center;gap:10px"><span style="font:500 10px var(--mono);opacity:.55;min-width:44px">SPEED</span>'+
+        '<input type="range" id="v6Rate" min="0.5" max="1.6" step="0.02" style="flex:1"></label>'+
+        '<label class="set-row" style="display:flex;align-items:center;gap:10px"><span style="font:500 10px var(--mono);opacity:.55;min-width:44px">PITCH</span>'+
+        '<input type="range" id="v6Pitch" min="0.5" max="1.6" step="0.02" style="flex:1"></label>');
+      if(closerRow&&closerRow.parentNode){closerRow.parentNode.insertBefore(secName,closerRow);closerRow.parentNode.insertBefore(secLook,closerRow);closerRow.parentNode.insertBefore(secVoice,closerRow);}
+      else{card.appendChild(secName);card.appendChild(secLook);card.appendChild(secVoice)}
+
+      var nameIn=$("#v6Name");
+      try{nameIn.value=localStorage.getItem("aura_name")||""}catch(e){}
+      nameIn.oninput=function(){
+        try{localStorage.setItem("aura_name",nameIn.value.trim().slice(0,24))}catch(e){}
+        h4Reset();paintGreeting();
+      };
+
+      var SW=[["cyan","#22d3ee"],["violet","#a78bfa"],["gold","#e9b949"],["green","#4ade80"],["pink","#fb7185"],["white","#e8edf2"]];
+      var sw=$("#v6Sw");
+      SW.forEach(function(s){
+        var b=document.createElement("button");b.type="button";b.title=s[0];b.setAttribute("data-h",s[0]);
+        b.style.background=s[1];
+        b.onclick=function(){
+          try{if(typeof setHue==="function")setHue(s[0])}catch(e){}
+          try{localStorage.setItem("aura_hue",s[0])}catch(e){}
+          $$("#v6Sw button").forEach(function(x){x.classList.toggle("on",x===b)});
+        };
+        sw.appendChild(b);
+      });
+      var curHue="";try{curHue=localStorage.getItem("aura_hue")||"cyan"}catch(e){}
+      $$("#v6Sw button").forEach(function(x){x.classList.toggle("on",x.getAttribute("data-h")===curHue)});
+
+      var vr=$("#v6Rate"),vp=$("#v6Pitch");
+      var rateVal=function(hi){var d=hi?0.97:1.02,c={};try{c=__voiceCfg()||{}}catch(e){}var v=c[hi?"jarvis":"aura"]||{};return{rate:v.rate>0?v.rate:d,pitch:v.pitch>0?v.pitch:(hi?0.88:1)}};
+      var syncSliders=function(){
+        var hi=false;try{hi=(typeof persona==="function"&&persona()==="jarvis")}catch(e){}
+        var v=rateVal(hi);vr.value=v.rate;vp.value=v.pitch;
+      };
+      var saveSlide=function(){
+        var hi=false;try{hi=(typeof persona==="function"&&persona()==="jarvis")}catch(e){}
+        try{if(typeof __saveVoiceCfg==="function")__saveVoiceCfg(hi?"jarvis":"aura",{rate:parseFloat(vr.value)||1,pitch:parseFloat(vp.value)||1})}catch(e){}
+      };
+      vr.oninput=saveSlide;vp.oninput=saveSlide;syncSliders();
+      setInterval(syncSliders,2500);
     }
   }catch(e){}
 })();
