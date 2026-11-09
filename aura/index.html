@@ -16813,6 +16813,13 @@ html[data-ui="v6"] body .ch2-row{border-radius:14px!important;border:1px solid t
   background:rgba(255,255,255,.03)!important;padding:12px 14px!important;margin-bottom:8px!important;transition:border-color .18s,background .18s!important}
 html[data-ui="v6"] body .ch2-row:hover{border-color:var(--ui-ac)!important;background:rgba(255,255,255,.05)!important}
 html[data-ui="v6"] body .ch2-row.on{border-color:rgba(255,255,255,.18)!important;background:rgba(255,255,255,.06)!important}
+html[data-ui="v6"] body .ch2-title{font:500 14.5px var(--ui-sans)!important;color:#fff!important;letter-spacing:0!important;
+  padding-right:78px!important;line-height:1.25!important}
+html[data-ui="v6"] body .ch2-when{font:400 11px var(--ui-sans)!important;color:rgba(255,255,255,.34)!important;letter-spacing:0!important}
+html[data-ui="v6"] body .ch2-prev{display:block!important;-webkit-line-clamp:unset!important;max-height:none!important;overflow:visible!important;
+  font:400 12.5px var(--ui-sans)!important;color:rgba(255,255,255,.45)!important;line-height:1.5!important;padding-bottom:1px}
+html[data-ui="v6"] body .ch2-group{font:700 10.5px var(--ui-sans)!important;letter-spacing:.2em!important;color:rgba(255,255,255,.38)!important}
+html[data-ui="v6"] body .ch2-ico{width:34px!important;height:34px!important;border-radius:10px!important;flex:0 0 34px!important;font-size:15px!important}
 html[data-ui="v6"] body #sessPrev{padding:22px 26px!important;background:transparent!important;border:0!important;box-shadow:none!important}
 html[data-ui="v6"] body #sessPrev::before{display:none!important}
 html[data-ui="v6"] body #sessPrev .pvsub{border:0!important;padding:0!important;margin-bottom:20px!important}
@@ -17132,18 +17139,20 @@ html[data-ui="v6"] body #sparkCard .grp0,html[data-ui="v6"] body #telemetry .grp
   }catch(e){}
 
   /* ---- on a phone the chat list has no preview column, so a tap opens it ---- */
-  try{
-    var ss=$("#sessScroll");
-    if(ss&&!ss.dataset.v6tap){
-      ss.dataset.v6tap="1";
-      ss.addEventListener("click",function(e){
-        if(innerWidth>760)return;
-        if(e.target.closest(".ch2-acts")||e.target.closest(".ch2-open"))return;
-        var row=e.target.closest(".ch2-row");if(!row)return;
-        var ob=row.querySelector(".ch2-open");if(ob)ob.click();
-      });
-    }
-  }catch(e){}
+  (function(){
+    if(document.documentElement.dataset.v6tap)return;
+    document.documentElement.dataset.v6tap="1";
+    document.addEventListener("click",function(e){
+      if(innerWidth>760)return;
+      if(!document.body||document.body.dataset.tab!=="chats")return;
+      var t=e.target;if(!t||!t.closest)return;
+      if(t.closest(".ch2-acts")||t.closest(".ch2-open"))return;
+      var row=t.closest(".ch2-row");if(!row)return;
+      var id=row.dataset.id;
+      if(id&&typeof openChat2==="function"){openChat2(id);return}
+      var ob=row.querySelector(".ch2-open");if(ob)ob.click();
+    });
+  })();
 
   /* ---- code panel gets the same titled header the other panels have ---- */
   try{
