@@ -16786,6 +16786,100 @@ html[data-ui="v6"] body #adminPage{left:50%!important;right:auto!important;trans
 html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;transform:translateX(-50%)!important;
   width:min(1040px,calc(100vw - 44px))!important;top:88px!important;bottom:24px!important;
   background:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+/* ---------- panels: the deck's one card language ---------- */
+html[data-ui="v6"] body #sessPanel,
+html[data-ui="v6"] body #codePage{
+  background:linear-gradient(180deg,rgba(26,26,29,.90),rgba(13,13,15,.94))!important;
+  border:1px solid var(--ui-ln)!important;border-radius:22px!important;padding:0!important;overflow:hidden!important;
+  box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.05)!important;
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+
+/* — chats — */
+html[data-ui="v6"] body #sessSide{padding:0 18px 16px 22px!important;border-right:1px solid var(--ui-ln)!important;min-height:0!important}
+html[data-ui="v6"] body #sessHead{padding:20px 0 12px!important}
+html[data-ui="v6"] body #sessHead h2,html[data-ui="v6"] body #sessHead h3,html[data-ui="v6"] body #sessPrev h3{
+  font:500 26px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;color:#fff!important;
+  text-transform:none!important;margin:0!important}
+html[data-ui="v6"] body #sessHead p,html[data-ui="v6"] body #sessHead .sub,html[data-ui="v6"] body .pvsub{
+  font:400 13px var(--ui-sans)!important;color:rgba(255,255,255,.42)!important;margin-top:4px!important}
+html[data-ui="v6"] body #sessQ{width:100%!important;background:rgba(0,0,0,.35)!important;border:1px solid var(--ui-ln)!important;
+  border-radius:12px!important;padding:11px 14px!important;font:400 14px var(--ui-sans)!important;color:#fff!important;margin:6px 0 12px!important}
+html[data-ui="v6"] body #sessQ::placeholder{color:rgba(255,255,255,.32)!important}
+html[data-ui="v6"] body .ch2-fchip{border-radius:999px!important;border:1px solid var(--ui-ln)!important;
+  background:rgba(255,255,255,.04)!important;color:rgba(255,255,255,.72)!important;
+  font:500 12px var(--ui-sans)!important;padding:6px 13px!important;letter-spacing:0!important;height:auto!important;min-height:0!important}
+html[data-ui="v6"] body .ch2-fchip.on{background:var(--ui-ac)!important;border-color:transparent!important;color:#0b1014!important;font-weight:600!important}
+html[data-ui="v6"] body .ch2-row{border-radius:14px!important;border:1px solid transparent!important;
+  background:rgba(255,255,255,.03)!important;padding:12px 14px!important;margin-bottom:8px!important;transition:border-color .18s,background .18s!important}
+html[data-ui="v6"] body .ch2-row:hover{border-color:var(--ui-ac)!important;background:rgba(255,255,255,.05)!important}
+html[data-ui="v6"] body .ch2-row.on{border-color:rgba(255,255,255,.18)!important;background:rgba(255,255,255,.06)!important}
+html[data-ui="v6"] body #sessPrev{padding:22px 26px!important;background:transparent!important;border:0!important;box-shadow:none!important}
+html[data-ui="v6"] body #sessPrev::before{display:none!important}
+html[data-ui="v6"] body #sessPrev .pvsub{border:0!important;padding:0!important;margin-bottom:20px!important}
+html[data-ui="v6"] body #sessPrev h3{border-bottom:0!important;padding-bottom:0!important}
+html[data-ui="v6"] body #sessPrev .pvm{border:1px solid var(--ui-ln)!important;background:rgba(255,255,255,.03)!important;
+  border-radius:14px!important;padding:12px 14px!important;font-size:14px!important;max-width:100%!important;line-height:1.6!important}
+
+/* code panel header (the deck titles every panel) */
+html[data-ui="v6"] body #v6CodeHead{padding:20px 20px 0}
+html[data-ui="v6"] body #v6CodeHead h3{font:500 26px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;
+  color:#fff!important;margin:0!important;text-transform:none!important}
+html[data-ui="v6"] body #v6CodeHead small{display:block;font:400 13px var(--ui-sans)!important;color:rgba(255,255,255,.42)!important;margin-top:4px}
+html[data-ui="v6"] body #gal{display:none!important}
+html[data-ui="v6"] body .pvbtn{border-radius:10px!important;border:1px solid var(--ui-ln)!important;
+  background:rgba(255,255,255,.05)!important;font:500 13px var(--ui-sans)!important;padding:9px 16px!important;color:#fff!important}
+html[data-ui="v6"] body .pvbtn.p{background:var(--ui-ac)!important;border:0!important;color:#0b1014!important;font-weight:600!important}
+html[data-ui="v6"] body .pvbtn.danger{color:#ffb4b4!important;border-color:rgba(248,113,113,.35)!important}
+html[data-ui="v6"] body #sessNew2,html[data-ui="v6"] body #ch2NewFolder{border-radius:999px!important;font:500 12.5px var(--ui-sans)!important}
+
+/* — code forge — */
+html[data-ui="v6"] body #codeTop{padding:16px 20px 14px!important;gap:10px!important;border-bottom:1px solid var(--ui-ln)!important;
+  background:transparent!important;flex-wrap:wrap!important}
+html[data-ui="v6"] body #codeTop select,html[data-ui="v6"] body #codeTop input{
+  background:rgba(0,0,0,.35)!important;border:1px solid var(--ui-ln)!important;border-radius:10px!important;
+  padding:8px 11px!important;font:500 12.5px var(--ui-sans)!important;color:#fff!important;height:auto!important}
+html[data-ui="v6"] body #codeTop #codeLang{width:auto!important;min-width:132px!important}
+html[data-ui="v6"] body #codeTop #codeTpl{width:auto!important;min-width:140px!important}
+html[data-ui="v6"] body #codeTop #codePrompt{flex:1 1 220px!important;min-width:180px!important}
+html[data-ui="v6"] body #codeTop #codeGen{background:var(--ui-ac)!important;color:#0b1014!important;border:0!important;
+  border-radius:10px!important;padding:9px 18px!important;font:600 12.5px var(--ui-sans)!important;letter-spacing:.04em!important;
+  box-shadow:0 0 22px rgba(63,210,255,.28)!important}
+html[data-ui="v6"] body #codeFiles{padding:10px 20px!important;border-bottom:1px solid var(--ui-ln)!important}
+html[data-ui="v6"] body .cfiletab{border-radius:8px!important;font:500 12px var(--ui-sans)!important;padding:5px 10px!important}
+html[data-ui="v6"] body #codeSplit{padding:14px 16px 16px!important;gap:14px!important;min-height:0!important}
+html[data-ui="v6"] body #codeEdWrap,html[data-ui="v6"] body #codeOutWrap{
+  border:1px solid var(--ui-ln)!important;border-radius:16px!important;background:rgba(0,0,0,.38)!important;overflow:hidden!important}
+html[data-ui="v6"] body #codeEdWrap h4,html[data-ui="v6"] body #codeOutWrap h4{
+  margin:0!important;padding:11px 14px!important;border-bottom:1px solid var(--ui-ln)!important;
+  font:700 11px var(--ui-sans)!important;letter-spacing:.22em!important;color:rgba(255,255,255,.55)!important;text-transform:uppercase!important}
+html[data-ui="v6"] body #codeEdBody textarea,html[data-ui="v6"] body #codeEditor{
+  background:transparent!important;color:#d9d6d2!important;font:14px/1.55 ui-monospace,Menlo,monospace!important}
+html[data-ui="v6"] body #codeStatus{padding:8px 14px!important;border-top:1px solid var(--ui-ln)!important;
+  font:11px ui-monospace,Menlo,monospace!important;color:rgba(255,255,255,.45)!important;background:rgba(0,0,0,.25)!important}
+html[data-ui="v6"] body #codeOutBody{background:#0b0b0d!important}
+html[data-ui="v6"] body #codeEdWrap .cbtn,html[data-ui="v6"] body #codeOutWrap .cbtn,html[data-ui="v6"] body #codePage .cbtn{
+  border-radius:10px!important;border:1px solid var(--ui-ln)!important;background:rgba(255,255,255,.05)!important;
+  font:500 12px var(--ui-sans)!important;padding:8px 13px!important;color:#fff!important;letter-spacing:0!important;height:auto!important;min-height:0!important}
+
+/* — system — */
+html[data-ui="v6"] body #sysPane h3{font:500 26px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;
+  text-transform:none!important;color:#fff!important;margin:0!important;padding:0!important}
+html[data-ui="v6"] body #sysPane #ssub{font:400 13px var(--ui-sans)!important;color:rgba(255,255,255,.42)!important;margin:2px 0 18px!important}
+html[data-ui="v6"] body #gauges5{gap:12px!important}
+html[data-ui="v6"] body #gauges5 .gz{border:1px solid var(--ui-ln)!important;border-radius:16px!important;
+  background:rgba(255,255,255,.028)!important;padding:16px!important}
+html[data-ui="v6"] body #gauges5 .gl{font:500 11px var(--ui-sans)!important;letter-spacing:.18em!important;color:rgba(255,255,255,.45)!important}
+html[data-ui="v6"] body #sparkCard,html[data-ui="v6"] body #telemetry,html[data-ui="v6"] body #memPanel,
+html[data-ui="v6"] body #syslog,html[data-ui="v6"] body #aboutCard{
+  border:1px solid var(--ui-ln)!important;border-radius:16px!important;background:rgba(255,255,255,.025)!important;
+  box-shadow:none!important;backdrop-filter:none!important}
+html[data-ui="v6"] body #memPanel h3,html[data-ui="v6"] body #syslog h3,html[data-ui="v6"] body #aboutCard h3{
+  font:700 11px var(--ui-sans)!important;letter-spacing:.22em!important;text-transform:uppercase!important;
+  color:var(--ui-ac)!important;margin:0 0 8px!important}
+html[data-ui="v6"] body #telemetry .trow{border-bottom:1px solid rgba(255,255,255,.06)!important;padding:9px 0!important}
+html[data-ui="v6"] body #sparkCard .grp0,html[data-ui="v6"] body #telemetry .grp0{
+  font:700 11px var(--ui-sans)!important;letter-spacing:.22em!important;text-transform:uppercase!important;color:rgba(255,255,255,.5)!important}
+
 /* ---------- phone ---------- */
 @media(max-width:760px){
   html[data-ui="v6"] body #topbar{height:auto!important;min-height:52px!important;padding:9px 12px 8px!important;flex-wrap:wrap!important;gap:8px!important}
@@ -16818,6 +16912,12 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
   /* starter cards would sit on top of the editor on a 390px screen — the
      templates dropdown above still loads the same files */
   html[data-ui="v6"] body #gal{display:none!important}
+  /* chats is one list on a phone; the preview column is desktop furniture */
+  html[data-ui="v6"] body[data-tab="chats"] #sessPrev{display:none!important}
+  html[data-ui="v6"] body #sessSide{border-right:0!important;padding:0 14px 16px!important}
+  html[data-ui="v6"] body #sessHead{padding:18px 0 10px!important}
+  html[data-ui="v6"] body #sessHead h2,html[data-ui="v6"] body #sessHead h3{font-size:24px!important}
+  html[data-ui="v6"] body #sessPanel{border-radius:20px!important}
   /* the tour card becomes a sheet that sits over the composer, not the greeting */
   html[data-ui="v6"] body #tourCard{left:10px!important;right:10px!important;top:auto!important;
     bottom:104px!important;width:auto!important;max-width:none!important}
@@ -17028,6 +17128,30 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
       });
       var fc=$("#chipFocus");
       if(fc)fc.innerHTML='<span class="ci">\u25ce</span>'+(fc.classList.contains("on")?"FOCUS ON":"FOCUS MODE");
+    }
+  }catch(e){}
+
+  /* ---- on a phone the chat list has no preview column, so a tap opens it ---- */
+  try{
+    var ss=$("#sessScroll");
+    if(ss&&!ss.dataset.v6tap){
+      ss.dataset.v6tap="1";
+      ss.addEventListener("click",function(e){
+        if(innerWidth>760)return;
+        if(e.target.closest(".ch2-acts")||e.target.closest(".ch2-open"))return;
+        var row=e.target.closest(".ch2-row");if(!row)return;
+        var ob=row.querySelector(".ch2-open");if(ob)ob.click();
+      });
+    }
+  }catch(e){}
+
+  /* ---- code panel gets the same titled header the other panels have ---- */
+  try{
+    var cp=$("#codePage");
+    if(cp&&!$("#v6CodeHead")){
+      var hd=document.createElement("div");hd.id="v6CodeHead";
+      hd.innerHTML='<h3>Code Forge</h3><small>Describe it, build it, run it \u2014 JavaScript, Python and HTML in a sandbox.</small>';
+      cp.insertBefore(hd,cp.firstChild);
     }
   }catch(e){}
 
