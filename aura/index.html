@@ -16788,11 +16788,11 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
   html[data-ui="v6"] body #stageEmpty{padding:0 0 10px!important}
   html[data-ui="v6"] body #stageEmpty h4{font-size:27px!important;margin-bottom:4px!important}
   html[data-ui="v6"] body #stageEmpty #state,html[data-ui="v6"] body #stageEmpty .sub{font-size:12px!important}
-  html[data-ui="v6"] body #stageEmpty .hero-hint{display:none!important}
+  html[data-ui="v6"] body #stageEmpty .hero-hint{display:block!important;font-size:11px!important;margin-top:6px!important}
   html[data-ui="v6"] body #dock{width:calc(100vw - 18px)!important;bottom:9px!important;border-radius:22px!important;padding:6px 8px 8px!important}
   html[data-ui="v6"] body #q{font-size:16px!important;padding:10px 8px 3px!important}
-  html[data-ui="v6"] body #chips{gap:6px!important;margin:0!important;flex-wrap:nowrap!important;overflow-x:auto!important;
-    justify-content:flex-start!important;scrollbar-width:none}
+  html[data-ui="v6"] body #chips{gap:6px!important;margin:0!important;flex-wrap:wrap!important;overflow:visible!important;
+    justify-content:center!important}
   html[data-ui="v6"] body #chips::-webkit-scrollbar{display:none}
   html[data-ui="v6"] body #chips .chip{flex:0 0 auto;padding:7px 12px!important;font-size:12px!important}
   html[data-ui="v6"] body #sessPanel,html[data-ui="v6"] body #codePage,html[data-ui="v6"] body #adminPage,
@@ -16800,6 +16800,22 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
   /* starter cards would sit on top of the editor on a 390px screen — the
      templates dropdown above still loads the same files */
   html[data-ui="v6"] body #gal{display:none!important}
+  /* the tour card becomes a sheet that sits over the composer, not the greeting */
+  html[data-ui="v6"] body #tourCard{left:10px!important;right:10px!important;top:auto!important;
+    bottom:104px!important;width:auto!important;max-width:none!important}
+  html[data-ui="v6"] body #helpOv{padding:14px!important}
+}
+@media(max-width:420px){
+  /* the reference has five chips; FOCUS MODE is the sixth and would sit alone on a row */
+  html[data-ui="v6"] body #chips #chipFocus{display:none!important}
+  html[data-ui="v6"] body #topbar #kbtn{padding:7px 10px!important;font-size:11px!important}
+  html[data-ui="v6"] body #topbar #clock b{font-size:11.5px!important}
+  html[data-ui="v6"] body #q{font-size:15px!important}
+  html[data-ui="v6"] body #chips .chip{padding:6px 11px!important;font-size:11.5px!important}
+}
+@media(max-width:359px){
+  /* the clock is the first thing to go when the header has no room left */
+  html[data-ui="v6"] body #topbar #clock{display:none!important}
 }
 </style>
 <script id="aura-inner-v6-wire">
@@ -16913,7 +16929,9 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
   /* ---- geometry: inline !important so older layout rules cannot fight it ---- */
   function setp(id,props){
     var el=document.getElementById(id);if(!el)return el;
-    for(var k in props){try{el.style.setProperty(k,props[k],"important")}catch(e){}}
+    /* setProperty only understands kebab-case, so camelCase keys were silently
+       dropped (that is why #sysPane kept its 74px phone padding) */
+    for(var k in props){try{el.style.setProperty(k.replace(/[A-Z]/g,function(m){return "-"+m.toLowerCase()}),props[k],"important")}catch(e){}}
     return el;
   }
   function layout(){
@@ -16947,6 +16965,9 @@ html[data-ui="v6"] body #settingsMenu{left:50%!important;right:auto!important;tr
       });
       setp("settingsMenu",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",
         width:phone?"calc(100vw - 20px)":"min(1040px,calc(100vw - 44px))",top:(th+18)+"px",bottom:phone?"14px":"24px",margin:"0"});
+      /* #sysPane is a padded block in normal flow — its 92px top padding has to
+         clear the real header height, or the phone tab bar eats its title */
+      setp("sysPane",{paddingTop:(th+22)+"px",paddingBottom:"80px"});
     }catch(e){}
   }
   layout();
