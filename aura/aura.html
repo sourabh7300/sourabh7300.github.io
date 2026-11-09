@@ -16745,8 +16745,24 @@ html[data-ui="v6"] body #toolPop{position:absolute;left:6px;bottom:calc(100% + 1
   box-shadow:0 28px 70px rgba(0,0,0,.62);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px)}
 html[data-ui="v6"] body #toolPop.on{display:block}
 html[data-ui="v6"] body #toolPop .tp-h{font:600 10px var(--ui-sans);letter-spacing:.2em;color:rgba(255,255,255,.38);margin:2px 4px 10px}
-html[data-ui="v6"] body #toolPop .tp-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
-html[data-ui="v6"] body #toolPop .tp-quick>*{flex:1 1 auto}
+html[data-ui="v6"] body #toolPop .tp-quick{display:grid!important;grid-template-columns:1fr 1fr;gap:6px!important;margin-bottom:8px!important}
+html[data-ui="v6"] body #toolPop .tp-quick .clipwrap{display:none!important}
+/* settings reads like the other panels, not like a console readout */
+html[data-ui="v6"] body #settingsMenu h3{font:500 24px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;
+  text-transform:none!important;color:#fff!important}
+html[data-ui="v6"] body #settingsMenu .tm-card{border:1px solid var(--ui-ln)!important;border-radius:22px!important;
+  background:linear-gradient(180deg,rgba(26,26,29,.93),rgba(13,13,15,.96))!important;
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+html[data-ui="v6"] body #settingsMenu .set-sec{border:1px solid var(--ui-ln)!important;background:rgba(255,255,255,.025)!important;
+  border-radius:16px!important;box-shadow:none!important}
+html[data-ui="v6"] body #settingsMenu .set-h{font:700 11.5px var(--ui-sans)!important;letter-spacing:.18em!important;
+  color:rgba(255,255,255,.78)!important}
+html[data-ui="v6"] body #settingsMenu .set-h small{font:400 12.5px var(--ui-sans)!important;letter-spacing:0!important;
+  color:rgba(255,255,255,.4)!important;margin-top:3px!important}
+html[data-ui="v6"] body #settingsMenu .tm-btn{border:1px solid var(--ui-ln)!important;background:rgba(255,255,255,.05)!important;
+  color:#fff!important;border-radius:10px!important;font:500 13px var(--ui-sans)!important;letter-spacing:0!important;padding:11px 12px!important}
+html[data-ui="v6"] body #settingsMenu .tm-btn:hover{background:rgba(255,255,255,.1)!important;border-color:rgba(255,255,255,.18)!important}
+html[data-ui="v6"] body #settingsMenu input[type="checkbox"]{accent-color:var(--ui-ac)!important;width:17px!important;height:17px!important}
 html[data-ui="v6"] body #toolPop .tp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 html[data-ui="v6"] body #toolPop .tp-more{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}
 html[data-ui="v6"] body #toolPop .ibtn,html[data-ui="v6"] body #toolPop .qa,html[data-ui="v6"] body #toolPop .qbtn{display:flex!important;align-items:center!important;gap:7px!important;
@@ -16765,6 +16781,9 @@ html[data-ui="v6"] body #personaMenu{position:absolute;right:6px;bottom:calc(100
   background:rgba(22,22,25,.97);border:1px solid rgba(255,255,255,.13);border-radius:16px;padding:6px;
   box-shadow:0 28px 70px rgba(0,0,0,.62);-webkit-backdrop-filter:blur(22px);backdrop-filter:blur(22px)}
 html[data-ui="v6"] body #personaMenu.on{display:block}
+html[data-ui="v6"] body #personaMenu{z-index:130!important;background:#141417!important;
+  bottom:calc(100% + 54px)!important;
+  box-shadow:0 28px 80px rgba(0,0,0,.8),0 0 0 1px rgba(255,255,255,.06)!important}
 html[data-ui="v6"] body #personaMenu button{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:3px;width:100%;
   background:none!important;border:0!important;border-radius:11px;padding:10px 12px!important;color:#fff!important;
   font:600 13px var(--ui-sans)!important;letter-spacing:0!important;cursor:pointer;text-align:left;height:auto!important;min-height:0!important}
@@ -16887,6 +16906,38 @@ html[data-ui="v6"] body #telemetry .trow{border-bottom:1px solid rgba(255,255,25
 html[data-ui="v6"] body #sparkCard .grp0,html[data-ui="v6"] body #telemetry .grp0{
   font:700 11px var(--ui-sans)!important;letter-spacing:.22em!important;text-transform:uppercase!important;color:rgba(255,255,255,.5)!important}
 
+/* ---------- account modal: an opaque sheet, not glass over glass ---------- */
+html[data-ui="v6"] body #authModal{background:rgba(4,5,9,.78)!important;padding:16px!important;
+  -webkit-backdrop-filter:blur(14px)!important;backdrop-filter:blur(14px)!important}
+html[data-ui="v6"] body #authModal .auth-modal-card{background:#101013!important;border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:22px!important;box-shadow:0 40px 110px rgba(0,0,0,.72)!important;
+  width:min(430px,calc(100vw - 28px))!important;max-height:calc(100dvh - 32px)!important;
+  padding:22px 22px 20px!important;gap:10px!important;text-align:left!important;overflow-y:auto!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+html[data-ui="v6"] body #authModal .wiz-head{align-items:flex-start!important;gap:10px!important;text-align:left!important;
+  display:block!important;position:relative!important;padding-right:30px}
+html[data-ui="v6"] body #authModal .wiz-head h2{font:500 22px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;color:#fff!important}
+html[data-ui="v6"] body #authModal .wiz-head p{font:400 13px var(--ui-sans)!important;color:rgba(255,255,255,.45)!important;
+  margin-top:4px!important;line-height:1.5!important}
+html[data-ui="v6"] body #authModal .wiz-x{position:absolute!important;top:-2px!important;right:-4px!important;font-size:18px!important;line-height:1!important;
+  color:rgba(255,255,255,.45)!important;padding:6px!important;flex:none!important}
+html[data-ui="v6"] body #authModal .wiz-x:hover{color:#fff!important}
+html[data-ui="v6"] body #authModal .auth-status-box{border:1px solid var(--ui-ln)!important;background:rgba(255,255,255,.03)!important;
+  border-radius:12px!important;padding:11px 13px!important;font:400 13px/1.55 var(--ui-sans)!important;
+  color:rgba(255,255,255,.6)!important;text-align:center}
+html[data-ui="v6"] body #authModal .auth-btn{border-radius:12px!important;padding:12px!important;
+  font:500 14px var(--ui-sans)!important;letter-spacing:0!important;gap:8px!important}
+html[data-ui="v6"] body #authModal #googleSignInBtn{border-radius:12px!important;padding:12px!important;
+  font:600 14px var(--ui-sans)!important;box-shadow:0 4px 18px rgba(0,0,0,.3)!important}
+html[data-ui="v6"] body #authModal .auth-field label{font:500 10.5px var(--ui-sans)!important;letter-spacing:.16em!important;
+  color:rgba(255,255,255,.45)!important;margin-bottom:6px!important}
+html[data-ui="v6"] body #authModal .auth-field input{border-radius:12px!important;padding:12px 14px!important;
+  font-size:15px!important;color:#fff!important;background:rgba(0,0,0,.4)!important;border:1px solid var(--ui-ln)!important}
+html[data-ui="v6"] body #authModal .auth-who{border:1px solid var(--ui-ln)!important;background:rgba(255,255,255,.03)!important;
+  border-radius:12px!important;padding:10px 12px!important}
+html[data-ui="v6"] body #authModal h3{font:500 19px var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;color:#fff!important}
+html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModal .otp input{border-radius:10px!important}
+
 /* ---------- phone ---------- */
 @media(max-width:760px){
   html[data-ui="v6"] body #topbar{height:auto!important;min-height:52px!important;padding:9px 12px 8px!important;flex-wrap:wrap!important;gap:8px!important}
@@ -16925,6 +16976,12 @@ html[data-ui="v6"] body #sparkCard .grp0,html[data-ui="v6"] body #telemetry .grp
   html[data-ui="v6"] body #sessHead{padding:18px 0 10px!important}
   html[data-ui="v6"] body #sessHead h2,html[data-ui="v6"] body #sessHead h3{font-size:24px!important}
   html[data-ui="v6"] body #sessPanel{border-radius:20px!important}
+  /* the account modal becomes a bottom sheet on a phone */
+  html[data-ui="v6"] body #authModal{align-items:flex-end!important;padding:0!important}
+  html[data-ui="v6"] body #authModal .auth-modal-card{width:100%!important;max-width:none!important;
+    border-radius:22px 22px 0 0!important;max-height:90dvh!important;
+    padding:20px 18px calc(20px + env(safe-area-inset-bottom))!important}
+  html[data-ui="v6"] body #authModal .wiz-head h2{font-size:21px!important}
   /* the tour card becomes a sheet that sits over the composer, not the greeting */
   html[data-ui="v6"] body #tourCard{left:10px!important;right:10px!important;top:auto!important;
     bottom:104px!important;width:auto!important;max-width:none!important}
@@ -17015,6 +17072,16 @@ html[data-ui="v6"] body #sparkCard .grp0,html[data-ui="v6"] body #telemetry .grp
       $$("#dock .iconrow .ibtn").forEach(function(b){grid.appendChild(b)});
       var qa=document.getElementById("quickActions");
       if(qa)more.appendChild(qa);
+      /* the dock's icon rows can repeat the same control — keep one of each */
+      (function(){
+        var seen={};
+        $$("#toolPop .tp-grid .ibtn").forEach(function(b){
+          var k=(b.textContent||"").replace(/\s+/g," ").trim().toUpperCase();
+          if(!k)return;
+          if(seen[k]){b.parentNode&&b.parentNode.removeChild(b);return}
+          seen[k]=1;
+        });
+      })();
 
       plus=document.createElement("button");
       plus.id="plusBtn";plus.type="button";plus.setAttribute("aria-label","Tools");plus.title="Tools & attachments";plus.textContent="+";
