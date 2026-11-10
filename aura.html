@@ -3544,69 +3544,69 @@ html.m-phone body #meshTop{
 <div id="settingsMenu" aria-hidden="true">
   <div class="tm-card">
     <button class="tm-close" id="setX" title="Close settings">✕</button>
-    <h3>⚙ SETTINGS</h3>
+    <h3>Settings</h3>
     <div class="tm-sub">Account, voice, sound, language and look — all in one place.</div>
 
-    <div class="set-sec">
-      <div class="set-h">👤 ACCOUNT / LOGIN<small>guest · sign in · your chats, memory & work on every device</small></div>
-      <div class="set-user" id="setUserLine">Guest session</div>
-      <div class="tm-row">
-        <button class="tm-btn" id="setSignIn">🔑 Sign in / switch user</button>
-        <button class="tm-btn" id="setSignOut">↩ Sign out</button>
+    <div class="sc">
+      <div class="set-row">
+        <div class="set-lab"><b>Account</b><p class="set-user" id="setUserLine">Guest session</p></div>
+        <div class="set-ctl">
+          <button class="tm-btn" id="setSignIn">🔑 Sign in / switch user</button>
+          <button class="tm-btn" id="setSignOut">↩ Sign out</button>
+        </div>
+      </div>
+
+      <div class="set-row">
+        <div class="set-lab"><b>Voice</b><p>AURA / ZEUS reply out loud — pick a voice, tune speed &amp; pitch</p></div>
+        <div class="set-ctl">
+          <button class="ibtn" id="soundBtn">🔊 VOICE: ON</button>
+          <button class="ibtn" id="voiceCfgBtn" title="Voice Studio — pick voices, tune speed &amp; pitch for AURA and ZEUS">🎛 VOICE SET</button>
+          <button class="tm-btn" id="setVoiceTest">▶ Test voice</button>
+        </div>
+      </div>
+
+      <div class="set-row">
+        <div class="set-lab"><b>Mic sensitivity</b><p class="set-note" id="micSensNote">Balanced — normal room, normal voice.</p></div>
+        <div class="set-ctl">
+          <input type="range" id="micSens" min="0" max="100" step="5" value="50">
+          <span class="set-val" id="micSensVal">50</span>
+        </div>
+      </div>
+
+      <div class="set-row">
+        <div class="set-lab"><b>UI sounds</b><p>Button ticks, blips &amp; alerts. VOICE: OFF = total silence — these stay muted too.</p></div>
+        <div class="set-ctl"><label class="set-chk"><input type="checkbox" id="uiSoundChk"> on</label></div>
+      </div>
+
+      <div class="set-row">
+        <div class="set-lab"><b>Language &amp; mode</b><p>Hindi / English (auto) · AURA or ZEUS interface</p></div>
+        <div class="set-ctl">
+          <button class="ibtn" id="langBtn">LANG: ENG</button>
+          <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or ZEUS (owner's tactical protocol)">MODE: AURA</button>
+        </div>
+      </div>
+
+      <div class="set-row">
+        <div class="set-lab"><b>Look &amp; brain</b><p>Theme, fullscreen and your own AI key</p></div>
+        <div class="set-ctl">
+          <button class="ibtn" id="themeBtn" title="Switch interface style: DECK dark / Futuristic cyan / Gold / Classical">🎨 DECK</button>
+          <button class="ibtn" id="fsBtn" style="display:none">FULLSCREEN</button>
+          <button class="ibtn" id="keyBtn" style="display:none">SET AI KEY</button>
+        </div>
+      </div>
+
+      <div class="set-row" id="setInstallSec" hidden>
+        <div class="set-lab"><b>Install app</b><p class="set-note" id="setInstallNote">Home screen · fullscreen · works offline</p></div>
+        <div class="set-ctl"><button class="tm-btn" id="setInstall">Add AURA to home screen</button></div>
+      </div>
+
+      <div class="set-row">
+        <div class="set-lab"><b>Session</b><p>Everything above is saved on this device</p></div>
+        <div class="set-ctl"><button class="tm-btn" id="setClose2">Close</button></div>
       </div>
     </div>
-
-    <div class="set-sec">
-      <div class="set-h">🔊 AUDIO — VOICE<small>how AURA / ZEUS sounds · voice, speed & pitch</small></div>
-      <div class="tm-row set-slot">
-        <button class="ibtn" id="soundBtn" style="position: relative; top: 0; left: 0; margin: 0; display: inline-flex; align-items: center; justify-content: center; z-index: 10;">🔊 VOICE: ON</button>
-        <button class="ibtn" id="voiceCfgBtn" title="Voice Studio — pick voices, tune speed & pitch for AURA and ZEUS">🎛 VOICE SET</button>
-      </div>
-      <div class="tm-row"><button class="tm-btn" id="setVoiceTest">▶ Test voice</button></div>
-    </div>
-
-    <div class="set-sec">
-      <div class="set-h">🎙 HD MIC — SENSITIVITY<small>noisy room? lower it. quiet voice? raise it.</small></div>
-      <label class="set-row" style="display:flex;align-items:center;gap:10px">
-        <input type="range" id="micSens" min="0" max="100" step="5" value="50" style="flex:1;accent-color:var(--g);touch-action:pan-x">
-        <span id="micSensVal" style="min-width:38px;text-align:right;font-family:var(--mono);font-size:11px">50</span>
-      </label>
-      <div class="set-note" id="micSensNote">Balanced — normal room, normal voice.</div>
-    </div>
-
-    <div class="set-sec">
-      <div class="set-h">🔔 SOUND — UI EFFECTS<small>button ticks, blips & alert sounds</small></div>
-      <label class="set-row"><input type="checkbox" id="uiSoundChk"> UI sounds on (ticks & blips)</label>
-      <div class="set-note">VOICE: OFF = total silence — these stay muted too.</div>
-    </div>
-
-    <div class="set-sec">
-      <div class="set-h">🌐 LANGUAGE & MODE<small>hindi / english (auto) · AURA / ZEUS interface</small></div>
-      <div class="tm-row set-slot">
-        <button class="ibtn" id="langBtn">LANG: ENG</button>
-        <button class="ibtn" id="personaBtn" title="Switch interface — AURA (holographic) or ZEUS (owner's tactical protocol)">MODE: AURA</button>
-      </div>
-    </div>
-
-    <div class="set-sec">
-      <div class="set-h">🎨 LOOK &amp; BRAIN<small>theme · fullscreen · AI key</small></div>
-      <div class="tm-row set-slot">
-        <button class="ibtn" id="themeBtn" title="Switch interface style: DECK dark / Futuristic cyan / Gold / Classical">🎨 DECK</button>
-        <button class="ibtn" id="fsBtn" style="display:none">FULLSCREEN</button>
-        <button class="ibtn" id="keyBtn" style="display:none">SET AI KEY</button>
-      </div>
-    </div>
-
-    <div class="set-sec" id="setInstallSec" hidden>
-      <div class="set-h">📲 INSTALL APP<small>home screen · fullscreen · works offline</small></div>
-      <div class="tm-row"><button class="tm-btn" id="setInstall">Add AURA to home screen</button></div>
-      <div class="set-note" id="setInstallNote"></div>
-    </div>
-
-    <div class="tm-row"><button class="tm-btn" id="setClose2">Close</button></div>
   </div>
 </div>
-
 <div id="boot">
   <div id="introBeam"></div>
   <div id="introOrb"></div>
@@ -16777,23 +16777,47 @@ html[data-ui="v6"] body #toolPop.on{display:block}
 html[data-ui="v6"] body #toolPop .tp-h{font:600 10px var(--ui-sans);letter-spacing:.2em;color:rgba(255,255,255,.38);margin:2px 4px 10px}
 html[data-ui="v6"] body #toolPop .tp-quick{display:grid!important;grid-template-columns:1fr 1fr;gap:6px!important;margin-bottom:8px!important}
 html[data-ui="v6"] body #toolPop .tp-quick .clipwrap{display:none!important}
-/* settings reads like the other panels, not like a console readout */
-html[data-ui="v6"] body #settingsMenu h3{font:500 24px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;
-  text-transform:none!important;color:#fff!important}
-html[data-ui="v6"] body #settingsMenu .tm-card{border:1px solid var(--ui-ln)!important;border-radius:22px!important;
+/* settings: one card, one column of hairline rows (reference .pn / .ph / .row) */
+html[data-ui="v6"] body #settingsMenu .tm-card{position:relative;display:flex!important;flex-direction:column!important;
+  grid-template-columns:none!important;width:100%!important;height:100%!important;max-height:none!important;
+  padding:0!important;overflow:hidden!important;border:1px solid var(--ui-ln)!important;border-radius:22px!important;
   background:linear-gradient(180deg,rgba(26,26,29,.93),rgba(13,13,15,.96))!important;
-  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
-html[data-ui="v6"] body #settingsMenu .set-sec{border:1px solid var(--ui-ln)!important;background:rgba(255,255,255,.025)!important;
-  border-radius:16px!important;box-shadow:none!important}
-html[data-ui="v6"] body #settingsMenu .set-h{font:700 11.5px var(--ui-sans)!important;letter-spacing:.18em!important;
-  color:rgba(255,255,255,.78)!important}
-html[data-ui="v6"] body #settingsMenu .set-h small{font:400 12.5px var(--ui-sans)!important;letter-spacing:0!important;
-  color:rgba(255,255,255,.4)!important;margin-top:3px!important}
-html[data-ui="v6"] body #settingsMenu .tm-btn{border:1px solid var(--ui-ln)!important;background:rgba(255,255,255,.05)!important;
-  color:#fff!important;border-radius:10px!important;font:500 13px var(--ui-sans)!important;letter-spacing:0!important;padding:11px 12px!important}
-html[data-ui="v6"] body #settingsMenu .tm-btn:hover{background:rgba(255,255,255,.1)!important;border-color:rgba(255,255,255,.18)!important}
-html[data-ui="v6"] body #settingsMenu .set-sec[hidden]{display:none!important}
-html[data-ui="v6"] body #settingsMenu .set-note{font:400 12px/1.5 var(--ui-sans);color:rgba(255,255,255,.42);margin-top:8px}
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+  box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.05)!important}
+html[data-ui="v6"] body #settingsMenu h3{font:500 28px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;
+  text-transform:none!important;color:#fff!important;margin:0!important;padding:22px 26px 0!important}
+html[data-ui="v6"] body #settingsMenu .tm-sub{font:400 13.5px var(--ui-sans)!important;color:rgba(255,255,255,.42)!important;
+  margin:0!important;padding:4px 26px 14px!important}
+html[data-ui="v6"] body #settingsMenu .sc{display:block;flex:1;min-height:0;overflow-y:auto;padding:0 26px 22px}
+html[data-ui="v6"] body #settingsMenu .set-row{display:flex;justify-content:space-between;align-items:center;gap:16px;
+  padding:15px 0;margin:0;border-bottom:1px solid rgba(255,255,255,.07)}
+html[data-ui="v6"] body #settingsMenu .set-row:last-child{border-bottom:0}
+html[data-ui="v6"] body #settingsMenu .set-row[hidden]{display:none!important}
+html[data-ui="v6"] body #settingsMenu .set-lab{flex:1 1 auto;min-width:0}
+html[data-ui="v6"] body #settingsMenu .set-lab b{font:600 14px var(--ui-sans)!important;color:#fff!important;letter-spacing:0!important}
+html[data-ui="v6"] body #settingsMenu .set-lab p{font:400 13.5px/1.5 var(--ui-sans)!important;color:rgba(255,255,255,.42)!important;margin:3px 0 0!important}
+html[data-ui="v6"] body #settingsMenu .set-lab p.set-user{background:none!important;border:0!important;padding:0!important;
+  border-radius:0!important;font-size:13.5px!important;line-height:1.5!important;word-break:break-word!important}
+html[data-ui="v6"] body #settingsMenu .set-ctl{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;flex-wrap:wrap}
+html[data-ui="v6"] body #settingsMenu .set-ctl .tm-btn{padding:9px 14px!important;min-width:0!important;flex:0 0 auto!important;margin:0!important}
+html[data-ui="v6"] body #settingsMenu .set-ctl .ibtn{position:static!important;margin:0!important;border:1px solid var(--ui-ln)!important;
+  background:rgba(255,255,255,.05)!important;color:#fff!important;border-radius:10px!important;
+  font:500 12.5px var(--ui-sans)!important;letter-spacing:.02em!important;padding:9px 13px!important;height:auto!important;cursor:pointer}
+html[data-ui="v6"] body #settingsMenu .set-ctl .ibtn:hover{background:rgba(255,255,255,.1)!important;border-color:rgba(255,255,255,.18)!important}
+html[data-ui="v6"] body #settingsMenu .set-ctl input[type="range"]{width:190px;accent-color:var(--ui-ac)}
+html[data-ui="v6"] body #settingsMenu .set-val{font:500 12px var(--ui-sans);color:rgba(255,255,255,.55);min-width:28px;text-align:right}
+html[data-ui="v6"] body #settingsMenu .set-chk{display:flex;align-items:center;gap:8px;font:500 13px var(--ui-sans);color:rgba(255,255,255,.7);cursor:pointer}
+@media(max-width:820px){
+html[data-ui="v6"] body #settingsMenu h3{padding:18px 18px 0!important;font-size:24px!important}
+html[data-ui="v6"] body #settingsMenu .tm-sub{padding:3px 18px 12px!important}
+html[data-ui="v6"] body #settingsMenu .sc{padding:0 18px 18px}
+html[data-ui="v6"] body #settingsMenu .set-row{flex-direction:column;align-items:flex-start;gap:10px;padding:13px 0}
+html[data-ui="v6"] body #settingsMenu .set-ctl{width:100%;justify-content:flex-start}
+html[data-ui="v6"] body #settingsMenu .set-ctl input[type="range"]{width:100%}
+html[data-ui="v6"] body #sessSide{padding:0 16px 0 18px!important}
+html[data-ui="v6"] body .ch2-row{padding:12px 2px!important}
+}
+
 /* offline: the wordmark's own subtitle becomes the banner, and the header warms up */
 html[data-ui="v6"] body .wordmark small.v6off{color:#f0cf8a!important;font-weight:700!important;
   letter-spacing:.13em!important;text-transform:uppercase!important;opacity:1!important}
@@ -16860,24 +16884,24 @@ html[data-ui="v6"] body #codePage{
   -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
 
 /* — chats — */
-html[data-ui="v6"] body #sessSide{padding:0 18px 16px 22px!important;border-right:1px solid var(--ui-ln)!important;min-height:0!important}
-html[data-ui="v6"] body #sessHead{padding:20px 0 12px!important}
+html[data-ui="v6"] body #sessSide{padding:0 20px 0 26px!important;border-right:1px solid var(--ui-ln)!important;min-height:0!important}
+html[data-ui="v6"] body #sessHead{padding:22px 0 10px!important}
 html[data-ui="v6"] body #sessHead h2,html[data-ui="v6"] body #sessHead h3,html[data-ui="v6"] body #sessPrev h3{
   font:500 26px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;color:#fff!important;
   text-transform:none!important;margin:0!important}
 html[data-ui="v6"] body #sessHead p,html[data-ui="v6"] body #sessHead .sub,html[data-ui="v6"] body .pvsub{
   font:400 13px var(--ui-sans)!important;color:rgba(255,255,255,.42)!important;margin-top:4px!important}
-html[data-ui="v6"] body #sessQ{width:100%!important;background:rgba(0,0,0,.35)!important;border:1px solid var(--ui-ln)!important;
-  border-radius:12px!important;padding:11px 14px!important;font:400 14px var(--ui-sans)!important;color:#fff!important;margin:6px 0 12px!important}
+html[data-ui="v6"] body #sessQ{width:100%!important;background:rgba(0,0,0,.28)!important;border:1px solid var(--ui-ln)!important;
+  border-radius:10px!important;padding:10px 13px!important;font:400 13.5px var(--ui-sans)!important;color:#fff!important;margin:4px 0 10px!important}
 html[data-ui="v6"] body #sessQ::placeholder{color:rgba(255,255,255,.32)!important}
 html[data-ui="v6"] body .ch2-fchip{border-radius:999px!important;border:1px solid var(--ui-ln)!important;
   background:rgba(255,255,255,.04)!important;color:rgba(255,255,255,.72)!important;
   font:500 12px var(--ui-sans)!important;padding:6px 13px!important;letter-spacing:0!important;height:auto!important;min-height:0!important}
 html[data-ui="v6"] body .ch2-fchip.on{background:var(--ui-ac)!important;border-color:transparent!important;color:#0b1014!important;font-weight:600!important}
-html[data-ui="v6"] body .ch2-row{border-radius:14px!important;border:1px solid transparent!important;
-  background:rgba(255,255,255,.03)!important;padding:12px 14px!important;margin-bottom:8px!important;transition:border-color .18s,background .18s!important}
-html[data-ui="v6"] body .ch2-row:hover{border-color:var(--ui-ac)!important;background:rgba(255,255,255,.05)!important}
-html[data-ui="v6"] body .ch2-row.on{border-color:rgba(255,255,255,.18)!important;background:rgba(255,255,255,.06)!important}
+html[data-ui="v6"] body .ch2-row{border:0!important;border-bottom:1px solid rgba(255,255,255,.07)!important;border-radius:0!important;
+  background:transparent!important;padding:13px 6px!important;margin:0!important;transition:background .16s!important}
+html[data-ui="v6"] body .ch2-row:hover{background:rgba(255,255,255,.04)!important;border-bottom-color:rgba(255,255,255,.16)!important}
+html[data-ui="v6"] body .ch2-row.on{background:rgba(255,255,255,.045)!important;box-shadow:inset 2px 0 0 var(--ui-ac)!important}
 html[data-ui="v6"] body .ch2-title{font:500 14.5px var(--ui-sans)!important;color:#fff!important;letter-spacing:0!important;
   padding-right:78px!important;line-height:1.25!important}
 html[data-ui="v6"] body .ch2-when{font:400 11px var(--ui-sans)!important;color:rgba(255,255,255,.34)!important;letter-spacing:0!important}
@@ -16902,7 +16926,9 @@ html[data-ui="v6"] body .pvbtn{border-radius:10px!important;border:1px solid var
   background:rgba(255,255,255,.05)!important;font:500 13px var(--ui-sans)!important;padding:9px 16px!important;color:#fff!important}
 html[data-ui="v6"] body .pvbtn.p{background:var(--ui-ac)!important;border:0!important;color:#0b1014!important;font-weight:600!important}
 html[data-ui="v6"] body .pvbtn.danger{color:#ffb4b4!important;border-color:rgba(248,113,113,.35)!important}
-html[data-ui="v6"] body #sessNew2,html[data-ui="v6"] body #ch2NewFolder{border-radius:999px!important;font:500 12.5px var(--ui-sans)!important}
+html[data-ui="v6"] body #sessNew2{background:var(--ui-ac)!important;border:0!important;color:#0b1014!important;border-radius:9px!important;
+  font:600 12.5px var(--ui-sans)!important;padding:8px 14px!important;height:auto!important;letter-spacing:0!important}
+html[data-ui="v6"] body #ch2NewFolder{border-radius:999px!important;font:500 12.5px var(--ui-sans)!important}
 
 /* — code forge — */
 html[data-ui="v6"] body #codeTop{padding:16px 20px 14px!important;gap:10px!important;border-bottom:1px solid var(--ui-ln)!important;
@@ -17323,25 +17349,29 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
 
   /* ---- settings: the reference rows that were missing (name, look, sliders) ---- */
   try{
-    var card=$("#settingsMenu .tm-card");
-    if(card&&!$("#v6Name")){
+    var card=$("#settingsMenu .tm-card"), scl=$("#settingsMenu .sc");
+    if(card&&scl&&!$("#v6Name")){
       var fsb=$("#fsBtn"); if(fsb)fsb.style.display="";
-      var closer=$("#setClose2"); var closerRow=closer?closer.closest(".tm-row"):null;
-      var mk=function(html){var d=document.createElement("div");d.className="set-sec";d.innerHTML=html;return d};
-      var secName=mk('<div class="set-h">\u270d YOUR NAME<small>used in the greeting</small></div>'+
-        '<label class="set-row" style="display:flex;align-items:center;gap:10px">'+
+      var mkRow=function(label,desc,ctl){
+        var d=document.createElement("div");d.className="set-row";
+        d.innerHTML='<div class="set-lab"><b>'+label+'</b><p>'+desc+'</p></div><div class="set-ctl">'+ctl+'</div>';
+        return d;
+      };
+      var rowName=mkRow("Your name","Used in the greeting",
         '<input type="text" id="v6Name" maxlength="24" placeholder="Sourabh" '+
-        'style="flex:1;background:rgba(255,255,255,.05);border:1px solid var(--ui-ln);border-radius:10px;padding:9px 12px;color:inherit;font:500 13px var(--ui-sans);outline:none">'+
-        '</label>');
-      var secLook=mk('<div class="set-h">\ud83c\udfa8 LOOK \u2014 ACCENT<small>one palette for the whole deck</small></div>'+
-        '<div class="v6sw" id="v6Sw"></div>');
-      var secVoice=mk('<div class="set-h">\ud83c\udf9a VOICE \u2014 SPEED &amp; PITCH<small>for the active personality</small></div>'+
-        '<label class="set-row" style="display:flex;align-items:center;gap:10px"><span style="font:500 10px var(--mono);opacity:.55;min-width:44px">SPEED</span>'+
-        '<input type="range" id="v6Rate" min="0.5" max="1.6" step="0.02" style="flex:1"></label>'+
-        '<label class="set-row" style="display:flex;align-items:center;gap:10px"><span style="font:500 10px var(--mono);opacity:.55;min-width:44px">PITCH</span>'+
-        '<input type="range" id="v6Pitch" min="0.5" max="1.6" step="0.02" style="flex:1"></label>');
-      if(closerRow&&closerRow.parentNode){closerRow.parentNode.insertBefore(secName,closerRow);closerRow.parentNode.insertBefore(secLook,closerRow);closerRow.parentNode.insertBefore(secVoice,closerRow);}
-      else{card.appendChild(secName);card.appendChild(secLook);card.appendChild(secVoice)}
+        'style="width:190px;background:rgba(0,0,0,.3);border:1px solid var(--ui-ln);border-radius:10px;padding:9px 12px;color:#fff;font:500 13px var(--ui-sans);outline:none">');
+      var rowLook=mkRow("Look \u2014 accent","One palette for the whole deck",'<div class="v6sw" id="v6Sw"></div>');
+      var rowRate=mkRow("Voice speed","How fast AURA / ZEUS speaks",'<input type="range" id="v6Rate" min="0.5" max="1.6" step="0.02">');
+      var rowPitch=mkRow("Voice pitch","Tone of the voice",'<input type="range" id="v6Pitch" min="0.5" max="1.6" step="0.02">');
+      var afterRow=function(id2,node){
+        var host=$("#"+id2);
+        var r=host?host.closest(".set-row"):null;
+        if(r&&r.parentNode)r.parentNode.insertBefore(node,r.nextSibling);else scl.appendChild(node);
+      };
+      afterRow("setUserLine",rowName);
+      afterRow("setVoiceTest",rowRate);
+      afterRow("v6Rate",rowPitch);
+      afterRow("themeBtn",rowLook);
 
       var nameIn=$("#v6Name");
       try{nameIn.value=localStorage.getItem("aura_name")||""}catch(e){}
