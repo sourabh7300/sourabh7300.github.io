@@ -17363,6 +17363,8 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
     try{var tb=$("#tabbar");if(tb)tb.addEventListener("click",function(){setTimeout(function(){try{place()}catch(e){}},320)})}catch(e){}
     addEventListener("online",paintNet);addEventListener("offline",paintNet);
     document.addEventListener("visibilitychange",function(){if(!document.hidden)try{paintNet()}catch(e){}});
+    /* the greeting repaints the hint on a timer, so the truth is re-asserted quietly */
+    setInterval(function(){try{paintNet()}catch(e){}},2000);
   })();
 
   /* ---- install: the real prompt when the browser offers one, honest steps when it does not ---- */
