@@ -29,6 +29,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='52' font-size='52'%3E🤖%3C/text%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="192x192" href="icon-192.png">
 <!-- AURA_THEME_SYNC: early theme apply (runs before first paint) -->
 <script>
   (function(){
@@ -3593,6 +3595,12 @@ html.m-phone body #meshTop{
         <button class="ibtn" id="fsBtn" style="display:none">FULLSCREEN</button>
         <button class="ibtn" id="keyBtn" style="display:none">SET AI KEY</button>
       </div>
+    </div>
+
+    <div class="set-sec" id="setInstallSec" hidden>
+      <div class="set-h">📲 INSTALL APP<small>home screen · fullscreen · works offline</small></div>
+      <div class="tm-row"><button class="tm-btn" id="setInstall">Add AURA to home screen</button></div>
+      <div class="set-note" id="setInstallNote"></div>
     </div>
 
     <div class="tm-row"><button class="tm-btn" id="setClose2">Close</button></div>
@@ -16762,6 +16770,22 @@ html[data-ui="v6"] body #settingsMenu .set-h small{font:400 12.5px var(--ui-sans
 html[data-ui="v6"] body #settingsMenu .tm-btn{border:1px solid var(--ui-ln)!important;background:rgba(255,255,255,.05)!important;
   color:#fff!important;border-radius:10px!important;font:500 13px var(--ui-sans)!important;letter-spacing:0!important;padding:11px 12px!important}
 html[data-ui="v6"] body #settingsMenu .tm-btn:hover{background:rgba(255,255,255,.1)!important;border-color:rgba(255,255,255,.18)!important}
+html[data-ui="v6"] body #settingsMenu .set-sec[hidden]{display:none!important}
+html[data-ui="v6"] body #settingsMenu .set-note{font:400 12px/1.5 var(--ui-sans);color:rgba(255,255,255,.42);margin-top:8px}
+/* offline: the wordmark's own subtitle becomes the banner, and the header warms up */
+html[data-ui="v6"] body .wordmark small.v6off{color:#f0cf8a!important;font-weight:700!important;
+  letter-spacing:.13em!important;text-transform:uppercase!important;opacity:1!important}
+html[data-ui="v6"] body[data-off="1"] #topbar{border-color:rgba(233,185,73,.30)!important}
+html[data-ui="v6"] body[data-off="1"] #tabbar button[data-t].on{border-color:rgba(233,185,73,.34)!important}
+html[data-ui="v6"] body #v6OffBar{display:none;position:fixed;left:50%;transform:translateX(-50%);z-index:150;pointer-events:none;
+  align-items:center;gap:7px;height:28px;padding:0 13px;border-radius:999px;
+  border:1px solid rgba(233,185,73,.40);background:rgba(24,21,13,.94);color:#f0cf8a;
+  font:700 10.5px/1 var(--ui-sans);letter-spacing:.13em;white-space:nowrap;
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 10px 30px rgba(0,0,0,.5)}
+html[data-ui="v6"] body[data-off="1"] #v6OffBar{display:inline-flex}
+html[data-ui="v6"] body #v6OffBar i{width:6px;height:6px;border-radius:50%;background:#e9b949;
+  box-shadow:0 0 0 3px rgba(233,185,73,.18);animation:v6o 2.4s ease-in-out infinite}
+@keyframes v6o{0%,100%{opacity:1}50%{opacity:.35}}
 html[data-ui="v6"] body #settingsMenu input[type="checkbox"]{accent-color:var(--ui-ac)!important;width:17px!important;height:17px!important}
 html[data-ui="v6"] body #toolPop .tp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 html[data-ui="v6"] body #toolPop .tp-more{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)}
@@ -17291,6 +17315,82 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
       setInterval(syncSliders,2500);
     }
   }catch(e){}
+
+  /* ---- offline truth: the wordmark subtitle, the system row and the hero hint ---- */
+  (function(){
+    var net=$("#tNet"),hint=$("#state");
+    var sub=$(".wordmark small"),subTxt=sub?sub.textContent:"Holographic AI assistant";
+    var bar=document.createElement("div");
+    bar.id="v6OffBar";bar.setAttribute("role","status");
+    bar.innerHTML='<i></i>OFFLINE · LOCAL CORE';
+    try{document.body.appendChild(bar)}catch(e){}
+    function place(){
+      try{
+        var anchor=null,chips=$("#chips"),dock=$("#dock");
+        var visTop=function(el){
+          if(!el)return 0;
+          var r=el.getBoundingClientRect();
+          return (r.height>10&&r.width>40&&r.bottom>0&&r.top<innerHeight)?r.top:0;
+        };
+        anchor=visTop(chips)||visTop(dock)||null;
+        if(!anchor)anchor=null;
+        bar.style.bottom=anchor!==null?Math.round(innerHeight-anchor+8)+"px":"calc(16px + env(safe-area-inset-bottom,0px))";
+      }catch(e){}
+    }
+
+    function paintNet(){
+      var off=false;
+      try{off=!navigator.onLine}catch(e){}
+      try{
+        try{document.body.setAttribute("data-off",off?"1":"0")}catch(e){}
+        if(off)place();
+        if(sub){
+          if(off&&!sub.classList.contains("v6off"))subTxt=sub.textContent;
+          if(!off&&sub.classList.contains("v6off"))sub.textContent=subTxt;
+          if(off)sub.textContent="OFFLINE · LOCAL CORE";
+          sub.classList.toggle("v6off",off);
+          sub.title=off?"no uplink — AURA is answering from her local core":"";
+        }
+        if(net){net.textContent=off?"OFFLINE":"ONLINE";net.className=off?"off":"on"}
+        var live=(document.body.classList.contains("listening")?"AURA is listening…":"AURA is online and listening.");
+        if(hint)hint.textContent=off?"AURA is offline — local core active.":live;
+        /* the composer placeholder is repainted by the engine, so the badge and the
+           greeting carry the offline news instead of fighting it */
+      }catch(e){}
+    }
+    try{paintNet()}catch(e){}
+    addEventListener("resize",function(){try{place()}catch(e){}});
+    try{var tb=$("#tabbar");if(tb)tb.addEventListener("click",function(){setTimeout(function(){try{place()}catch(e){}},320)})}catch(e){}
+    addEventListener("online",paintNet);addEventListener("offline",paintNet);
+    document.addEventListener("visibilitychange",function(){if(!document.hidden)try{paintNet()}catch(e){}});
+  })();
+
+  /* ---- install: the real prompt when the browser offers one, honest steps when it does not ---- */
+  (function(){
+    var sec=$("#setInstallSec"),btn=$("#setInstall"),note=$("#setInstallNote");
+    if(!sec||!btn)return;
+    var promised=null;
+    var standalone=false;
+    try{standalone=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true}catch(e){}
+    var ios=false;
+    try{ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1)}catch(e){}
+    var steps=ios?"Safari → Share → Add to Home Screen.":"Chrome menu (⋮) → Install app.";
+    function offer(msg){if(standalone)return;sec.hidden=false;if(note)note.textContent=msg||""}
+    if(!standalone)offer(ios?steps:"One tap — the icon lands on your home screen, no store needed.");
+    addEventListener("beforeinstallprompt",function(e){
+      e.preventDefault();promised=e;offer("One tap — the icon lands on your home screen, no store needed.");
+    });
+    addEventListener("appinstalled",function(){promised=null;standalone=true;sec.hidden=true});
+    btn.onclick=function(){
+      if(promised&&promised.prompt){
+        try{promised.prompt()}catch(e){}
+        promised=null;
+        if(note)note.textContent="installing…";
+        return;
+      }
+      if(note)note.textContent=steps;
+    };
+  })();
 })();
 </script>
 

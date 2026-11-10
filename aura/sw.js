@@ -16,7 +16,7 @@
 
 const CACHE = 'aura-shell-v4';
 const BRAIN = 'https://aura-backend-jomj.onrender.com';
-const SHELL_ASSETS = ['./', './aura.html'];
+const SHELL_ASSETS = ['./', './aura.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 /* precache on install — wait so the very first reload can already boot offline */
 self.addEventListener('install', e => {
