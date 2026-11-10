@@ -17385,9 +17385,13 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
     addEventListener("appinstalled",function(){promised=null;standalone=true;sec.hidden=true});
     btn.onclick=function(){
       if(promised&&promised.prompt){
-        try{promised.prompt()}catch(e){}
-        promised=null;
+        var hit=promised;promised=null;
+        try{hit.prompt()}catch(e){if(note)note.textContent=steps;return}
         if(note)note.textContent="installing…";
+        try{hit.userChoice.then(function(c){
+          if(!note)return;
+          note.textContent=(c&&c.outcome==="accepted")?"installing — the icon appears on your home screen":steps;
+        })}catch(e){}
         return;
       }
       if(note)note.textContent=steps;
