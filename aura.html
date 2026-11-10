@@ -16592,12 +16592,14 @@ html[data-ui="v6"] body #topbar{height:66px!important;padding:0 20px!important;g
   background:linear-gradient(180deg,rgba(6,8,14,.82),rgba(6,8,14,.42))!important;
   -webkit-backdrop-filter:blur(18px) saturate(1.2)!important;backdrop-filter:blur(18px) saturate(1.2)!important;
   border-bottom:1px solid rgba(255,255,255,.07)!important;z-index:80!important;box-shadow:none!important}
-html[data-ui="v6"] body #topbar .wordmark{position:relative!important;padding-left:27px!important;flex:none!important;
-  font-family:var(--ui-sans)!important;font-weight:600!important;font-size:18px!important;letter-spacing:.14em!important;
+html[data-ui="v6"] body #topbar .wordmark{position:relative!important;padding-left:34px!important;flex:none!important;
+  font-family:Georgia,'Iowan Old Style','Times New Roman',serif!important;font-weight:500!important;font-size:24px!important;letter-spacing:.005em!important;
   color:#f7f7f5!important;text-shadow:none!important;line-height:1.05!important;max-width:none!important;
   overflow:visible!important;text-overflow:clip!important;white-space:normal!important}
-html[data-ui="v6"] body #topbar .wordmark::before{content:"\2726";position:absolute;left:0;top:0;font-size:17px;line-height:1.1;
-  color:var(--ui-ac);text-shadow:0 0 18px var(--ui-ac);font-weight:400}
+html[data-ui="v6"] body #topbar .wordmark::before{display:none!important}
+html[data-ui="v6"] body #topbar .wordmark .v6mk{position:absolute;left:0;top:2px;width:26px;height:26px;
+  color:var(--ui-ac);filter:drop-shadow(0 0 10px var(--ui-ac))}
+html[data-ui="v6"] body #topbar .wordmark .v6mk svg{width:100%;height:100%;display:block}
 html[data-ui="v6"] body #topbar .wordmark small{margin-top:4px!important;font:400 10.5px/1.2 var(--ui-sans)!important;letter-spacing:.02em!important;
   color:rgba(255,255,255,.42)!important;text-transform:none!important}
 html[data-ui="v6"] body #topbar #topSlot{display:none!important}
@@ -16650,7 +16652,7 @@ html[data-ui="v6"] body #authBadge #authTag,html[data-ui="v6"] body #authBadge #
 
 /* ---------- chat column ---------- */
 html[data-ui="v6"] body #conv{left:50%!important;right:auto!important;transform:translateX(-50%)!important;
-  width:min(880px,calc(100vw - 44px))!important;top:88px!important;bottom:206px!important;margin:0!important;margin-left:0!important;
+  width:min(820px,calc(100vw - 44px))!important;top:88px!important;bottom:206px!important;margin:0!important;margin-left:0!important;
   padding:0!important;background:none!important;border:0!important;box-shadow:none!important;
   -webkit-backdrop-filter:none!important;backdrop-filter:none!important;border-radius:0!important;z-index:20!important;
   overflow:visible!important}
@@ -16658,6 +16660,9 @@ html[data-ui="v6"] body #conv>h3,html[data-ui="v6"] body #conv #engTag{display:n
 html[data-ui="v6"] body #log{padding:0 6px!important;flex:1 1 auto!important;min-height:0!important}
 html[data-ui="v6"] body #jumpLatest{border-radius:99px!important;font-family:var(--ui-sans)!important;letter-spacing:.06em!important}
 
+/* empty chat: the greeting sits in the middle of the stage, above the card, like the reference */
+html[data-ui="v6"] body[data-empty="1"] #conv{justify-content:center!important}
+html[data-ui="v6"] body[data-empty="1"] #log{flex:0 0 auto!important;overflow:visible!important}
 /* greeting band */
 html[data-ui="v6"] body #stageEmpty{gap:0!important;padding:clamp(8px,4.5vh,52px) 0 18px!important;margin:0 auto 4px!important;max-width:none!important;
   width:100%!important;text-align:center!important;align-items:center!important;justify-content:flex-start!important;
@@ -16665,11 +16670,13 @@ html[data-ui="v6"] body #stageEmpty{gap:0!important;padding:clamp(8px,4.5vh,52px
 html[data-ui="v6"] body #stageEmpty .se-orb{display:none!important}
 html[data-ui="v6"] body #stageEmpty .se-copy{width:100%!important}
 html[data-ui="v6"] body #stageEmpty h4{font-family:Georgia,'Iowan Old Style','Times New Roman',serif!important;font-weight:400!important;
-  font-size:clamp(24px,3vw,38px)!important;line-height:1.14!important;letter-spacing:-.012em!important;
+  font-size:clamp(34px,4.6vw,58px)!important;line-height:1.1!important;letter-spacing:-.012em!important;
   color:#f7f7f4!important;margin:0 0 6px!important;display:block!important}
-html[data-ui="v6"] body #stageEmpty h4 .hg{color:var(--ui-ac);font-size:.62em;margin-right:.32em;vertical-align:.10em;
-  text-shadow:0 0 24px var(--ui-ac);font-family:var(--ui-sans);display:inline-block}
-html[data-ui="v6"] body #stageEmpty h4 i{font-style:italic;font-weight:400;color:#fff}
+html[data-ui="v6"] body #stageEmpty h4 .hg{color:var(--ui-ac);width:.82em;height:.82em;margin-right:.34em;vertical-align:-.06em;
+  filter:drop-shadow(0 0 16px var(--ui-ac));display:inline-flex;flex:none;animation:v6gls 22s linear infinite}
+html[data-ui="v6"] body #stageEmpty h4 .hg svg{width:100%;height:100%;display:block}
+html[data-ui="v6"] body #stageEmpty h4 i{font-style:italic;font-weight:400;color:#9d9a97}
+@keyframes v6gls{to{transform:rotate(360deg)}}
 html[data-ui="v6"] body #stageEmpty #state,
 html[data-ui="v6"] body #stageEmpty .sub{font:400 13px/1.6 var(--ui-sans)!important;letter-spacing:.03em!important;
   color:rgba(255,255,255,.42)!important;margin:0!important}
@@ -16679,57 +16686,72 @@ html[data-ui="v6"] body #auraTyping{font-family:var(--ui-sans)!important;letter-
 
 /* ---------- composer ---------- */
 html[data-ui="v6"] body #dock{left:50%!important;right:auto!important;transform:translateX(-50%)!important;
-  width:min(880px,calc(100vw - 40px))!important;bottom:16px!important;margin:0!important;
-  background:rgba(30,30,32,.74)!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:26px!important;
-  padding:8px 10px 9px!important;gap:0!important;
-  box-shadow:0 20px 60px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06)!important;
-  -webkit-backdrop-filter:blur(24px) saturate(1.15)!important;backdrop-filter:blur(24px) saturate(1.15)!important;
+  width:min(760px,calc(100vw - 40px))!important;bottom:16px!important;margin:0!important;
+  background:none!important;border:0!important;border-radius:0!important;
+  padding:0!important;gap:0!important;box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;backdrop-filter:none!important;
   z-index:60!important;max-height:none!important;overflow:visible!important;height:auto!important}
+/* the card wraps only the input row — the chips and the hint sit under it */
+html[data-ui="v6"] body #dock .v6card{position:relative;padding:18px 20px 14px;
+  background:rgba(27,27,29,.88);border:1px solid rgba(255,255,255,.12);border-radius:26px;
+  box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06);
+  -webkit-backdrop-filter:blur(20px) saturate(1.15);backdrop-filter:blur(20px) saturate(1.15)}
 html[data-ui="v6"] body #inputRow{display:flex!important;flex-wrap:wrap!important;align-items:center!important;gap:2px!important;
   background:none!important;border:0!important;border-radius:0!important;padding:0!important;box-shadow:none!important;
   min-height:0!important;height:auto!important}
 html[data-ui="v6"] body #q{order:1!important;flex:1 1 100%!important;width:100%!important;background:none!important;border:0!important;
-  box-shadow:none!important;padding:12px 10px 4px!important;height:auto!important;min-height:0!important;
-  font:400 16px/1.45 var(--ui-sans)!important;letter-spacing:0!important;color:#f4f5f7!important;caret-color:var(--ui-ac)}
-html[data-ui="v6"] body #q::placeholder{color:rgba(255,255,255,.36)!important;font-weight:400}
-html[data-ui="v6"] body #micWrap{order:2!important;display:flex!important;align-items:center!important;gap:6px!important;
-  flex:1 1 auto!important;min-width:0!important;background:none!important;border:0!important;padding:0!important}
-html[data-ui="v6"] body #micBtn{width:34px!important;height:34px!important;min-width:34px!important;flex:none!important;
-  border-radius:50%!important;padding:0!important;background:rgba(255,255,255,.06)!important;border:1px solid var(--ui-ln)!important;
-  color:rgba(255,255,255,.82)!important;font-size:15px!important;display:grid!important;place-items:center!important;line-height:1}
-html[data-ui="v6"] body #micBtn:hover{background:rgba(255,255,255,.13)!important}
+  box-shadow:none!important;padding:6px 2px 16px!important;height:auto!important;min-height:0!important;
+  font:400 17px/1.45 var(--ui-sans)!important;letter-spacing:0!important;color:#ece9e6!important;caret-color:var(--ui-ac)}
+html[data-ui="v6"] body #q::placeholder{color:#6f6c6a!important;font-weight:400}
+html[data-ui="v6"] body #micWrap{order:4!important;display:flex!important;align-items:center!important;gap:6px!important;
+  flex:0 0 auto!important;min-width:0!important;background:none!important;border:0!important;padding:0!important}
+html[data-ui="v6"] body #micBtn{width:36px!important;height:36px!important;min-width:36px!important;flex:none!important;
+  border-radius:50%!important;padding:0!important;background:none!important;border:0!important;
+  color:rgba(255,255,255,.55)!important;font-size:16px!important;display:grid!important;place-items:center!important;line-height:1;
+  transition:background .2s,color .2s!important}
+html[data-ui="v6"] body #micBtn:hover{background:rgba(255,255,255,.08)!important;color:#fff!important}
 html[data-ui="v6"] body #micHint{display:none!important}
-html[data-ui="v6"] body #plusBtn{width:34px;height:34px;flex:none;border-radius:50%;padding:0 0 2px;display:grid;place-items:center;
-  background:rgba(255,255,255,.06);border:1px solid var(--ui-ln);color:#fff;font-size:19px;line-height:1;cursor:pointer;
-  font-family:var(--ui-sans);transition:background .18s,transform .18s}
-html[data-ui="v6"] body #plusBtn:hover{background:rgba(255,255,255,.14);transform:translateY(-1px)}
-html[data-ui="v6"] body #personaPill{display:flex;align-items:center;gap:6px;height:32px;padding:0 11px;margin-left:auto;flex:none;
-  border-radius:99px;background:rgba(255,255,255,.05);border:1px solid var(--ui-ln);
-  color:rgba(255,255,255,.85);font:500 12px var(--ui-sans);letter-spacing:.02em;cursor:pointer;transition:background .18s}
-html[data-ui="v6"] body #personaPill:hover{background:rgba(255,255,255,.11)}
-html[data-ui="v6"] body #personaPill b{font-weight:600;letter-spacing:.08em}
+html[data-ui="v6"] body #plusBtn{order:2;width:34px;height:34px;flex:none;border-radius:50%;padding:0 0 2px;display:grid;place-items:center;
+  background:none;border:0;color:rgba(255,255,255,.55);font-size:22px;font-weight:300;line-height:1;cursor:pointer;
+  font-family:var(--ui-sans);transition:background .2s,color .2s}
+html[data-ui="v6"] body #plusBtn:hover{background:rgba(255,255,255,.08);color:#fff}
+html[data-ui="v6"] body #personaPill{order:3;display:flex;align-items:center;gap:7px;height:34px;padding:0 12px;margin-left:auto;flex:none;
+  border-radius:10px;background:none;border:0;
+  color:rgba(255,255,255,.55);font:400 14px var(--ui-sans);letter-spacing:0;cursor:pointer;transition:background .2s,color .2s}
+html[data-ui="v6"] body #personaPill:hover{background:rgba(255,255,255,.07);color:#fff}
+html[data-ui="v6"] body #personaPill .pico{width:14px;height:14px;color:var(--ui-ac);flex:none;display:inline-flex}
+html[data-ui="v6"] body #personaPill .pico svg{width:100%;height:100%;display:block}
+html[data-ui="v6"] body #personaPill b{font-weight:500;letter-spacing:0}
 html[data-ui="v6"] body #personaPill .pchev{opacity:.45;font-size:9px;margin-left:1px}
-html[data-ui="v6"] body #sendBtn{order:3!important;flex:none!important;width:38px!important;height:38px!important;min-width:38px!important;
-  border-radius:50%!important;background:var(--ui-ac)!important;color:#08131a!important;border:0!important;
+html[data-ui="v6"] body #sendBtn{order:5!important;flex:none!important;width:36px!important;height:36px!important;min-width:36px!important;
+  border-radius:11px!important;background:var(--ui-ac)!important;color:#00131c!important;border:0!important;
   font-size:17px!important;display:grid!important;place-items:center!important;margin-left:4px!important;
-  box-shadow:0 6px 22px rgba(0,0,0,.4)!important;cursor:pointer}
+  box-shadow:0 0 24px rgba(63,210,255,.35)!important;cursor:pointer;transition:filter .2s,transform .2s}
 html[data-ui="v6"] body #sendBtn:hover{filter:brightness(1.08)}
 html[data-ui="v6"] body #camWrap{bottom:calc(100% + 10px)!important;border-radius:16px!important}
 
-/* chips row (below the composer card, exactly like the reference) */
+/* chips row — inside the composer column, under the card, exactly like the reference */
 html[data-ui="v6"] body #chips{order:0!important;display:flex!important;flex-wrap:wrap!important;justify-content:center!important;
-  gap:8px!important;margin:0!important;padding:0!important;width:100%!important;max-width:none!important;
-  z-index:6;pointer-events:auto}
+  gap:10px!important;margin:18px 0 0!important;padding:0!important;width:100%!important;max-width:none!important;
+  position:static!important;inset:auto!important;transform:none!important;z-index:6;pointer-events:auto}
 html[data-ui="v6"] body:not([data-tab="chat"]) #chips{display:none!important}
-html[data-ui="v6"] body #chips .chip{border:1px solid rgba(255,255,255,.13)!important;background:rgba(255,255,255,.03)!important;
-  color:rgba(255,255,255,.76)!important;border-radius:999px!important;padding:8px 14px!important;
-  font:500 12.5px var(--ui-sans)!important;letter-spacing:.01em!important;line-height:1!important;text-transform:none!important;
-  display:inline-flex!important;align-items:center!important;gap:7px!important;cursor:pointer;transition:background .18s,border-color .18s,transform .18s}
-html[data-ui="v6"] body #chips .chip:hover{background:rgba(255,255,255,.10)!important;border-color:rgba(255,255,255,.22)!important;
-  color:#fff!important;transform:translateY(-1px)}
-html[data-ui="v6"] body #chips .ci{opacity:.6;font-size:11px;line-height:1;letter-spacing:0;font-weight:400;margin-right:6px}
+html[data-ui="v6"] body #chips .chip{border:1px solid rgba(255,255,255,.16)!important;background:rgba(0,0,0,.28)!important;
+  color:#cfcdcb!important;border-radius:12px!important;padding:9px 16px!important;
+  font:400 14px var(--ui-sans)!important;letter-spacing:0!important;line-height:1.2!important;text-transform:none!important;
+  display:inline-flex!important;align-items:center!important;gap:8px!important;cursor:pointer;
+  transition:border-color .25s,color .25s,box-shadow .25s,transform .25s,background .25s;
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+html[data-ui="v6"] body #chips .chip:hover{background:rgba(0,0,0,.34)!important;border-color:var(--ui-ac)!important;
+  color:#fff!important;transform:translateY(-2px);box-shadow:0 0 22px rgba(63,210,255,.16)}
+html[data-ui="v6"] body #chips .chip svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;flex:none}
+html[data-ui="v6"] body #chips .ci{display:none!important}
 html[data-ui="v6"] body #chips #chipFocus.on{background:rgba(255,255,255,.14)!important;border-color:rgba(255,255,255,.34)!important;color:#fff!important}
 html[data-ui="v6"] body #chipsMobile,html[data-ui="v6"] body #stageChips{display:none!important}
+/* hint line — the last thing in the column, like the reference */
+html[data-ui="v6"] body #v6Hint{margin:14px 0 0!important;text-align:center!important;
+  font:400 12px/1.5 var(--ui-sans)!important;letter-spacing:.02em!important;color:#6e6b69!important}
+html[data-ui="v6"] body #v6Hint b{color:var(--ui-ac)!important;font-weight:500}
 /* stop-voice pill: same deck language, parked above the chips by layout() */
 html[data-ui="v6"] body #stopBtn{right:50%!important;transform:translateX(50%)!important;
   font:600 10.5px var(--ui-sans)!important;letter-spacing:.14em!important;color:#ffd9d9!important;
@@ -16915,6 +16937,14 @@ html[data-ui="v6"] body #codeEdWrap .cbtn,html[data-ui="v6"] body #codeOutWrap .
 html[data-ui="v6"] body #sysPane h3{font:500 26px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important;
   text-transform:none!important;color:#fff!important;margin:0!important;padding:0!important}
 html[data-ui="v6"] body #sysPane #ssub{font:400 13px var(--ui-sans)!important;color:rgba(255,255,255,.42)!important;margin:2px 0 18px!important}
+/* system reads on the same card the other panels use */
+html[data-ui="v6"] body #sysPane{position:fixed!important;left:50%!important;right:auto!important;transform:translateX(-50%);
+  width:min(1120px,calc(100vw - 44px))!important;top:88px!important;bottom:24px!important;margin:0!important;
+  padding-left:24px!important;padding-right:24px!important;overflow-y:auto!important;
+  background:linear-gradient(180deg,rgba(26,26,29,.90),rgba(13,13,15,.94))!important;
+  border:1px solid var(--ui-ln)!important;border-radius:22px!important;
+  box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.05)!important;
+  -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
 html[data-ui="v6"] body #gauges5{gap:12px!important}
 html[data-ui="v6"] body #gauges5 .gz{border:1px solid var(--ui-ln)!important;border-radius:16px!important;
   background:rgba(255,255,255,.028)!important;padding:16px!important}
@@ -16980,16 +17010,23 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
   html[data-ui="v6"] body #tabbar button{padding:8px 12px!important;font-size:12.5px!important;flex:0 0 auto!important;height:auto!important;min-height:0!important}
   html[data-ui="v6"] body #conv{left:50%!important;right:auto!important;top:104px!important;bottom:184px!important;width:calc(100vw - 24px)!important}
   html[data-ui="v6"] body #stageEmpty{padding:0 0 10px!important}
-  html[data-ui="v6"] body #stageEmpty h4{font-size:27px!important;margin-bottom:4px!important}
+  html[data-ui="v6"] body #stageEmpty h4{font-size:31px!important;margin-bottom:4px!important}
   html[data-ui="v6"] body #stageEmpty #state,html[data-ui="v6"] body #stageEmpty .sub{font-size:12px!important}
   html[data-ui="v6"] body #stageEmpty .hero-hint{display:block!important;font-size:11px!important;margin-top:6px!important}
-  html[data-ui="v6"] body #dock{width:calc(100vw - 18px)!important;bottom:9px!important;border-radius:22px!important;padding:6px 8px 8px!important}
+  html[data-ui="v6"] body #dock{width:calc(100vw - 18px)!important;bottom:9px!important;padding:0!important}
+  /* the older phone pass paints the dock itself — the card is the row now */
+  html.m-phone[data-ui="v6"] body div#dock{background:none!important;border:0!important;border-radius:0!important;
+    box-shadow:none!important;padding:0!important;min-height:0!important}
+  html[data-ui="v6"] body #dock .v6card{border-radius:22px!important;padding:13px 14px 10px}
+  html.m-phone[data-ui="v6"] body div#sendBtn{border-radius:11px!important;width:36px!important;height:36px!important}
+  html.m-phone[data-ui="v6"] body div#inputRow{height:auto!important;min-height:0!important}
   html[data-ui="v6"] body #q{font-size:16px!important;padding:10px 8px 3px!important}
-  html[data-ui="v6"] body #chips{gap:6px!important;margin:0!important;flex-wrap:wrap!important;overflow:visible!important;
+  html[data-ui="v6"] body #chips{gap:8px!important;margin:14px 0 0!important;flex-wrap:wrap!important;overflow:visible!important;
     justify-content:center!important}
   html[data-ui="v6"] body #chips::-webkit-scrollbar{display:none}
-  html[data-ui="v6"] body #chips .chip{flex:0 0 auto;padding:0 14px!important;font-size:12.5px!important;
-    min-height:34px!important;display:inline-flex!important;align-items:center!important}
+  html[data-ui="v6"] body #chips .chip{flex:0 0 auto;padding:8px 13px!important;font-size:13px!important;
+    min-height:34px!important;display:inline-flex!important;align-items:center!important;gap:7px!important}
+  html[data-ui="v6"] body #v6Hint{margin:11px 0 0!important;font-size:11px!important}
   html[data-ui="v6"] body #chips{gap:7px!important}
   html[data-ui="v6"] body #sessPanel,html[data-ui="v6"] body #codePage,html[data-ui="v6"] body #adminPage,
   html[data-ui="v6"] body #settingsMenu,html[data-ui="v6"] body #telemetry{top:100px!important;bottom:14px!important;width:calc(100vw - 20px)!important;max-height:none!important}
@@ -17019,10 +17056,8 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
   html[data-ui="v6"] body #topbar #kbtn{padding:7px 10px!important;font-size:11px!important}
   html[data-ui="v6"] body #topbar #clock b{font-size:11.5px!important}
   html[data-ui="v6"] body #q{font-size:15px!important}
-  /* the five reference chips have to fit one row on a 390px screen — drop the
-     decorative glyphs rather than wrap the last pill onto its own line */
-  html[data-ui="v6"] body #chips .ci{display:none!important}
-  html[data-ui="v6"] body #chips .chip{padding:6px 10px!important;font-size:11px!important}
+  /* the reference chips keep their 12px corners and 13px label on a small screen */
+  html[data-ui="v6"] body #chips .chip{padding:8px 12px!important;font-size:12.5px!important}
 }
 @media(max-width:359px){
   /* the clock is the first thing to go when the header has no room left */
@@ -17035,6 +17070,13 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
   var $=function(s){return document.querySelector(s)};
   var $$=function(s){return [].slice.call(document.querySelectorAll(s))};
   function clean(n){return String(n||"").replace(/[<>&"']/g,"")}
+  /* the reference's two marks: an eight-spoke star for AURA, a bolt for ZEUS */
+  var GLY_AURA='<svg viewBox="0 0 24 24"><g stroke="currentColor" stroke-width="2.1" stroke-linecap="round">'+'<path d="M12 2.5v6M12 15.5v6M2.5 12h6M15.5 12h6M5.3 5.3l4.2 4.2M14.5 14.5l4.2 4.2M18.7 5.3l-4.2 4.2M9.5 14.5l-4.2 4.2"/></g></svg>';
+  var GLY_ZEUS='<svg viewBox="0 0 24 24"><path d="M13.6 1.8 5 13.6h5.6L9.4 22.2 19 9.6h-5.9z" fill="currentColor"/></svg>';
+  function glyph(){
+    var z=false;try{z=(typeof persona==="function"&&persona()==="jarvis")}catch(e){}
+    return z?GLY_ZEUS:GLY_AURA;
+  }
   try{
     var top=$("#topbar"),tabs=$("#tabbar");
     if(top&&tabs){
@@ -17050,6 +17092,11 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
     }
     var sub=top&&top.querySelector(".wordmark small");
     if(sub)sub.textContent="Holographic AI assistant";
+    var wm=top&&top.querySelector(".wordmark");
+    if(wm&&!wm.querySelector(".v6mk")){
+      var mk=document.createElement("span");mk.className="v6mk";mk.innerHTML=GLY_AURA;
+      wm.insertBefore(mk,wm.firstChild);
+    }
     var acct=$("#authBadge");
     if(acct&&top)top.appendChild(acct);
   }catch(e){}
@@ -17064,9 +17111,10 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
     try{ov=(localStorage.getItem("aura_name")||"").trim()}catch(e){}
     if(ov)n=ov;
     else if(a&&a.textContent&&!/^(guest|user|admin)$/i.test(a.textContent.trim()))n=a.textContent.trim();
-    if(h4.dataset.greet===g+"|"+n)return;
-    h4.dataset.greet=g+"|"+n;
-    h4.innerHTML='<span class="hg">\u2726</span>'+g+', <i>'+clean(n)+'</i>';
+    var key=g+"|"+n+"|"+glyph();
+    if(h4.dataset.greet===key)return;
+    h4.dataset.greet=key;
+    h4.innerHTML='<span class="hg">'+glyph()+'</span>'+g+', <i>'+clean(n)+'</i>';
   }
   paintGreeting();
   setInterval(paintGreeting,15000);
@@ -17077,13 +17125,8 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
   }
   try{new MutationObserver(syncTabs).observe(document.body,{attributes:true,attributeFilter:["data-tab"]});syncTabs()}catch(e){}
   try{
-    var copy=$("#stageEmpty .se-copy");
-    if(copy&&!copy.querySelector(".hero-hint")){
-      var hint=document.createElement("div");
-      hint.className="hero-hint";
-      hint.innerHTML='Say or type <b>activate zeus</b> to switch personality';
-      copy.appendChild(hint);
-    }
+    var oldHint=$("#stageEmpty .hero-hint");
+    if(oldHint&&oldHint.parentNode)oldHint.parentNode.removeChild(oldHint);
   }catch(e){}
 
   /* ---- composer: +, persona, tools ---- */
@@ -17111,7 +17154,7 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
 
       plus=document.createElement("button");
       plus.id="plusBtn";plus.type="button";plus.setAttribute("aria-label","Tools");plus.title="Tools & attachments";plus.textContent="+";
-      if(wrap)wrap.insertBefore(plus,wrap.firstChild);
+      row.appendChild(plus);
       plus.onclick=function(e){e.stopPropagation();if(pm)pm.classList.remove("on");pop.classList.toggle("on")};
 
       pm=document.createElement("div");pm.id="personaMenu";
@@ -17120,12 +17163,16 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
       dock.appendChild(pm);
       pill=document.createElement("button");
       pill.id="personaPill";pill.type="button";pill.title="Switch personality \u2014 AURA / ZEUS";
-      if(wrap)wrap.appendChild(pill);
+      row.appendChild(pill);
+      /* one card around the row; the popovers hang off it, not off the column */
+      var cardEl=dock.querySelector(".v6card");
+      if(!cardEl){cardEl=document.createElement("div");cardEl.className="v6card";dock.insertBefore(cardEl,row)}
+      cardEl.appendChild(row);cardEl.appendChild(pop);cardEl.appendChild(pm);
       var paintPersona=function(){
         var p="aura";
         try{p=(typeof persona==="function"?persona():"aura")}catch(e){}
         var z=p==="jarvis";
-        pill.innerHTML=(z?"\u26a1":"\u2726")+"<b>"+(z?"ZEUS":"AURA")+"</b><span class=\"pchev\">\u25be</span>";
+        pill.innerHTML='<span class="pico">'+glyph()+'</span><b>'+(z?"ZEUS":"AURA")+'</b><span class="pchev">\u25be</span>';
         $$("#personaMenu button").forEach(function(b){b.classList.toggle("on",b.getAttribute("data-p")===p)});
       };
       paintPersona();
@@ -17177,20 +17224,19 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
       var dockH=(dockEl&&dockEl.offsetHeight)||(phone?130:150);
       setp("tabbar",{position:"static",inset:"auto",left:"auto",right:"auto",top:"auto",bottom:"auto",
         width:phone?"100%":"auto",margin:phone?"2px 0 0":"0 auto",order:phone?"3":"0",transform:"none"});
-      var colW=phone?"calc(100vw - 24px)":"min(880px,calc(100vw - 44px))";
+      var colW=phone?"calc(100vw - 24px)":"min(820px,calc(100vw - 44px))";
       var wideW=phone?"calc(100vw - 20px)":"min(1120px,calc(100vw - 44px))";
       var db=phone?9:16, ch=$("#chips");
       setp("dock",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",
-        width:phone?"calc(100vw - 18px)":"min(880px,calc(100vw - 40px))",bottom:db+"px"});
+        width:phone?"calc(100vw - 18px)":"min(760px,calc(100vw - 40px))",bottom:db+"px"});
+      /* the chips and the hint live inside the dock now, so its own height is the whole stack */
       var chipsH=0;
       if(ch){
-        setp("chips",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",
-          width:phone?"calc(100vw - 18px)":"min(880px,calc(100vw - 40px))",
-          bottom:(db+dockH+10)+"px",margin:"0",zIndex:"6"});
-        chipsH=ch.offsetHeight||0;
+        setp("chips",{position:"static",left:"auto",right:"auto",transform:"none",width:"100%",
+          bottom:"auto",margin:phone?"12px 0 0":"18px 0 0",zIndex:"6"});
       }
       setp("conv",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",width:colW,
-        top:(th+18)+"px",bottom:(db+dockH+10+chipsH+(phone?14:18))+"px",margin:"0"});
+        top:(th+18)+"px",bottom:(db+dockH+(phone?12:16))+"px",margin:"0"});
       /* the stop pill floats in the same stack as the chips, never over the box */
       setp("stopBtn",{bottom:(db+dockH+10+chipsH+10)+"px",right:"50%"});
       phApply();
@@ -17202,7 +17248,15 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
         width:phone?"calc(100vw - 20px)":"min(1040px,calc(100vw - 44px))",top:(th+18)+"px",bottom:phone?"14px":"24px",margin:"0"});
       /* #sysPane is a padded block in normal flow — its 92px top padding has to
          clear the real header height, or the phone tab bar eats its title */
-      setp("sysPane",{paddingTop:(th+22)+"px",paddingBottom:"80px"});
+      setp("sysPane",{position:"fixed",top:(th+22)+"px",bottom:phone?"14px":"24px",paddingTop:"20px",paddingBottom:"24px"});
+      /* the engine rewrites the subtitle on boot; the reference words stay put */
+      var sb=$(".wordmark small");
+      if(sb&&!sb.classList.contains("v6off")&&sb.textContent!=="Holographic AI assistant")sb.textContent="Holographic AI assistant";
+      /* empty stage → the hero centres itself, exactly like the reference */
+      try{
+        var turns=$("#log")?$("#log").querySelectorAll(".bmsg.me").length:0;
+        document.body.setAttribute("data-empty",turns?"0":"1");
+      }catch(e){}
     }catch(e){}
   }
   layout();
@@ -17214,20 +17268,30 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
   try{
     var chips=$("#chips");
     if(chips){
-      if(dock)dock.appendChild(chips);
-      /* the reference keeps them under the card, not inside it */
-      try{if(chips&&document.body&&chips.parentNode!==document.body)document.body.appendChild(chips)}catch(e){}
+      /* the reference stacks them under the card, inside the same column */
+      if(dock&&chips.parentNode!==dock)dock.appendChild(chips);
       [].slice.call(chips.querySelectorAll("button.chip")).forEach(function(b){if(b.id!=="chipFocus")b.remove()});
-      var CH=[["Code","write code","\u2039\u203a"],["Diagnostics","run diagnostics","\u2318"],["Learn","Explain like I'm 5","\u25c8"],["Plan","Plan my week","\u25a2"],["Surprise","tell me a joke","\u2727"]];
+      /* the reference's own five chips, stroke icons and all */
+      var CH=[["Code","write code","M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"],
+        ["Diagnostics","run diagnostics","M3 12h4l3-8 4 16 3-8h4"],
+        ["Learn","Explain like I'm 5","M12 3 2 8l10 5 10-5zM6 10.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-5.5"],
+        ["Plan","Plan my week","M5 4h14v16H5zM9 2v4M15 2v4M5 9h14"],
+        ["Surprise","tell me a joke","M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5 18 18M18 6l-2.5 2.5M8.5 15.5 6 18"]];
       CH.forEach(function(c){
         var b=document.createElement("button");
         b.className="chip";b.type="button";b.setAttribute("data-q",c[1]);
-        b.innerHTML='<span class="ci">'+c[2]+'</span>'+c[0];
+        b.innerHTML='<svg viewBox="0 0 24 24"><path d="'+c[2]+'"/></svg>'+c[0];
         b.onclick=function(){try{ask(c[1])}catch(e){}};
         chips.appendChild(b);
       });
       var fc=$("#chipFocus");
-      if(fc)fc.innerHTML='<span class="ci">\u25ce</span>'+(fc.classList.contains("on")?"FOCUS ON":"FOCUS MODE");
+      if(fc)fc.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zm0 5.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7z"/></svg>'+(fc.classList.contains("on")?"FOCUS ON":"FOCUS MODE");
+      /* the hint closes the column, exactly where the reference puts it */
+      if(dock&&!$("#v6Hint")){
+        var hint=document.createElement("div");hint.id="v6Hint";
+        hint.innerHTML='Say or type <b>activate zeus</b> to switch personality';
+        dock.appendChild(hint);
+      }
     }
   }catch(e){}
 
@@ -17326,13 +17390,13 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
     try{document.body.appendChild(bar)}catch(e){}
     function place(){
       try{
-        var anchor=null,chips=$("#chips"),dock=$("#dock");
+        var anchor=null,dock=$("#dock");
         var visTop=function(el){
           if(!el)return 0;
           var r=el.getBoundingClientRect();
           return (r.height>10&&r.width>40&&r.bottom>0&&r.top<innerHeight)?r.top:0;
         };
-        anchor=visTop(chips)||visTop(dock)||null;
+        anchor=visTop(dock)||null;
         if(!anchor)anchor=null;
         bar.style.bottom=anchor!==null?Math.round(innerHeight-anchor+8)+"px":"calc(16px + env(safe-area-inset-bottom,0px))";
       }catch(e){}
