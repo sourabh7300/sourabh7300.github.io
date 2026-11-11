@@ -17267,10 +17267,59 @@ html[data-ui="v6"] body #codeTop{padding:16px 26px 14px!important}
   html[data-ui="v6"] body #settingsMenu .set-ctl{width:100%!important;justify-content:flex-start!important}
   html[data-ui="v6"] body #settingsMenu .set-ctl input[type="range"]{width:100%!important}
 }
+
+/* ============================================================
+   v6.2 — one palette for every panel. The deck theme shipped a
+   gold accent (--g:#e9b949), which is why Settings, the sliders,
+   the send button and the chips all read gold instead of the
+   reference's cyan-on-black. These variables sit on the body, so
+   every panel, row, chip and control inherits the same colour.
+   ============================================================ */
+html[data-ui="v6"] body{
+  --g:#3fd2ff;--g2:#8be9ff;--gr:63,210,255;
+  --t:#ece9e6;--tx:#ece9e6;--m:#8f8c89;--muted:#8f8c89;
+  --ui-ac:#3fd2ff;--ui-txt:#ece9e6;--ui-mut:#8f8c89;
+  --bg:#0b0b0c;--bg2:#131315;--tl:#3fd2ff;
+  --line:rgba(255,255,255,.12);--line2:rgba(255,255,255,.12);
+  --gl:rgba(63,210,255,.05)}
+html[data-ui="v6"] body #sendBtn{background:var(--ui-ac)!important;border:0!important;color:#00131c!important;
+  box-shadow:0 0 18px rgba(63,210,255,.22)!important}
+html[data-ui="v6"] body #sendBtn:hover{filter:brightness(1.08)!important;background:var(--ui-ac)!important}
+html[data-ui="v6"] body #micBtn{background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.12)!important;
+  color:#ece9e6!important;box-shadow:none!important}
+html[data-ui="v6"] body #micBtn:hover{border-color:var(--ui-ac)!important;color:var(--ui-ac)!important}
+html[data-ui="v6"] body #plusBtn{background:none!important;border:1px solid rgba(255,255,255,.12)!important;
+  color:#cfcdcb!important;border-radius:10px!important}
+html[data-ui="v6"] body #plusBtn:hover{border-color:var(--ui-ac)!important;color:#fff!important}
+html[data-ui="v6"] body #personaPill{background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.12)!important;
+  color:#ece9e6!important}
+html[data-ui="v6"] body #personaPill:hover{border-color:var(--ui-ac)!important}
+html[data-ui="v6"] body #chips .chip{background:rgba(255,255,255,.04)!important;border:1px solid rgba(255,255,255,.12)!important;
+  color:#cfcdcb!important}
+html[data-ui="v6"] body #chips .chip:hover{border-color:var(--ui-ac)!important;color:#fff!important;box-shadow:none!important}
+html[data-ui="v6"] body #dock .v6card,html[data-ui="v6"] body #toolPop,html[data-ui="v6"] body #personaMenu{
+  background:rgba(24,24,26,.94)!important;border:1px solid rgba(255,255,255,.12)!important}
+html[data-ui="v6"] body #toolPop .tp-h{color:#8f8c89!important}
+html[data-ui="v6"] body #settingsMenu .set-ctl input[type="range"]{accent-color:var(--ui-ac)!important}
+html[data-ui="v6"] body #settingsMenu .set-ctl input[type="checkbox"]{accent-color:var(--ui-ac)!important}
+html[data-ui="v6"] body #settingsMenu .row,html[data-ui="v6"] body #settingsMenu .set-row{border-color:rgba(255,255,255,.10)!important}
+html[data-ui="v6"] body #settingsMenu .set-lab b{color:#ece9e6!important}
+html[data-ui="v6"] body #settingsMenu .set-lab p{color:#8f8c89!important}
+html[data-ui="v6"] body .sc,html[data-ui="v6"] body .tm-card{background:none!important;border:0!important}
+html[data-ui="v6"] body #sessPanel .sess,html[data-ui="v6"] body #sessPanel .sess.on{background:none!important;border:0!important}
+@media(max-width:900px){}
 </style>
 <script id="aura-inner-v6-wire">
 (function(){
   try{document.documentElement.setAttribute("data-ui","v6")}catch(e){}
+  /* the reference palette is the default look: an older build could leave a gold
+     hue in storage, so it is re-pinned once — the accent picker stays in charge after */
+  try{
+    if(!localStorage.getItem("aura_hue_v2")){
+      localStorage.setItem("aura_hue_v2","1");localStorage.setItem("aura_hue","cyan");
+      if(typeof setHue==="function")setHue("cyan");
+    }
+  }catch(e){}
   var $=function(s){return document.querySelector(s)};
   var $$=function(s){return [].slice.call(document.querySelectorAll(s))};
   function clean(n){return String(n||"").replace(/[<>&"']/g,"")}
