@@ -17090,6 +17090,169 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
   html[data-ui="v6"] body #topbar #clock{display:none!important}
 }
 </style>
+<style id="aura-inner-v6-final">
+html[data-ui="v6"] body #sysPane{width:calc(100vw - 60px)!important}
+@media(max-width:900px){html[data-ui="v6"] body #sysPane{width:calc(100vw - 28px)!important}
+html[data-ui="v6"] body #topbar .wordmark small{display:block!important}}
+html[data-ui="v6"] body #log{overflow-y:auto!important;overflow-x:hidden!important}
+html[data-ui="v6"] body[data-empty="1"] #log{display:none!important}
+/* ============================================================
+   v6.1 — final fidelity pass. Every number below is copied
+   from aura-interface.html (the inner-interface prototype):
+   .top 70px / 30px gutters, .tabs 13.5px, .ib 34px, .wel h2
+   58px, .card 26px, .chips 14px, .lst .it 14px cards, .row.
+   ============================================================ */
+html[data-ui="v6"] body #topbar{height:70px!important;min-height:0!important;padding:0 30px!important;gap:16px!important;
+  background:none!important;border-bottom:0!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html[data-ui="v6"] body #topbar .wordmark{font-size:25px!important;line-height:1!important;letter-spacing:.005em!important;padding-left:37px!important}
+html[data-ui="v6"] body #topbar .wordmark .v6mk{width:26px!important;height:26px!important;top:1px!important}
+html[data-ui="v6"] body #topbar .wordmark small{margin-top:4px!important;font:400 11px/1.2 var(--ui-sans)!important;
+  letter-spacing:.02em!important;color:#8f8c89!important}
+html[data-ui="v6"] body #tabbar{padding:4px!important;gap:2px!important;border-radius:99px!important;
+  background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.12)!important;
+  box-shadow:none!important;backdrop-filter:blur(14px)!important;-webkit-backdrop-filter:blur(14px)!important}
+html[data-ui="v6"] body #tabbar button{padding:8px 17px!important;font:400 13.5px/1 var(--ui-sans)!important;
+  letter-spacing:0!important;color:#8f8c89!important;border-radius:99px!important;background:none!important;
+  transition:color .25s,background .25s!important}
+html[data-ui="v6"] body #tabbar button:hover{color:#fff!important;background:none!important}
+html[data-ui="v6"] body[data-tab="chat"] #tabbar button[data-t="chat"],
+html[data-ui="v6"] body[data-tab="chats"] #tabbar button[data-t="chats"],
+html[data-ui="v6"] body[data-tab="code"] #tabbar button[data-t="code"],
+html[data-ui="v6"] body[data-tab="system"] #tabbar button[data-t="system"],
+html[data-ui="v6"] body[data-tab="admin"] #tabbar button[data-t="admin"],
+html[data-ui="v6"] body[data-tab="settings"] #tabbar button[data-t="settings"]{
+  background:rgba(255,255,255,.13)!important;color:#fff!important;box-shadow:none!important}
+html[data-ui="v6"] body #topbar #kbtn{height:34px!important;min-height:0!important;padding:0 12px!important;border-radius:10px!important;
+  font:400 13px var(--ui-sans)!important;letter-spacing:0!important;color:#8f8c89!important;
+  border:1px solid rgba(255,255,255,.12)!important;background:none!important;gap:8px!important;box-shadow:none!important}
+html[data-ui="v6"] body #topbar #kbtn:hover{color:#fff!important;border-color:rgba(255,255,255,.3)!important;background:none!important}
+html[data-ui="v6"] body #topbar #kbtn kbd{background:none!important;border:0!important;padding:0!important;margin:0!important;
+  font:400 11px var(--ui-sans)!important;color:#6e6b69!important}
+html[data-ui="v6"] body #topbar #clock{font:400 13px var(--ui-sans)!important;letter-spacing:0!important;color:#8f8c89!important;line-height:1.2!important}
+html[data-ui="v6"] body #topbar #clock b{font:400 13px var(--ui-sans)!important;letter-spacing:0!important;color:#8f8c89!important}
+html[data-ui="v6"] body #topbar #authBadge{height:34px!important;min-height:0!important;border-radius:10px!important;padding:0 12px!important;
+  font:400 13px var(--ui-sans)!important;letter-spacing:0!important;color:#8f8c89!important;
+  border:1px solid rgba(255,255,255,.12)!important;background:none!important;box-shadow:none!important;gap:7px!important}
+html[data-ui="v6"] body #topbar #authBadge:hover{color:#fff!important;border-color:rgba(255,255,255,.3)!important;background:none!important}
+
+/* ---------- stage: full-width cards, 30px gutters, 26px floor ---------- */
+html[data-ui="v6"] body #sessPanel,
+html[data-ui="v6"] body #codePage,
+html[data-ui="v6"] body #adminPage,
+html[data-ui="v6"] body #settingsMenu,
+html[data-ui="v6"] body #sysPane{border-radius:22px!important}
+html[data-ui="v6"] body #settingsMenu,
+html[data-ui="v6"] body #sessPanel,
+html[data-ui="v6"] body #codePage,
+html[data-ui="v6"] body #adminPage{background:rgba(27,27,29,.88)!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.05)!important}
+
+/* ---------- chat: hero, column, messages ---------- */
+html[data-ui="v6"] body #log{gap:20px!important;padding:6px 4px!important}
+html[data-ui="v6"] body #stageEmpty{padding:0!important;gap:0!important;margin:0!important}
+html[data-ui="v6"] body #stageEmpty h4{font-size:clamp(34px,4.6vw,58px)!important;line-height:1.1!important;
+  letter-spacing:-.012em!important;margin:0!important;font-weight:500!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;gap:14px!important;flex-wrap:wrap!important}
+html[data-ui="v6"] body #stageEmpty h4 .hg{width:.82em!important;height:.82em!important;margin:0!important}
+html[data-ui="v6"] body #stageEmpty #state,
+html[data-ui="v6"] body #stageEmpty .sub{font:400 14px/1.5 var(--ui-sans)!important;letter-spacing:0!important;
+  color:#8f8c89!important;margin:12px 0 0!important}
+html[data-ui="v6"] body #stageEmpty .hero-hint{font:400 12px/1.5 var(--ui-sans)!important;color:#6e6b69!important;margin-top:8px!important}
+
+/* messages: serif reply, glass bubble for the user, like the reference */
+html[data-ui="v6"] body #log .bmsg.bot{background:none!important;border:0!important;border-radius:0!important;
+  padding:2px 4px!important;max-width:min(720px,92%)!important;
+  font:400 19.5px/1.6 var(--fs,Georgia,serif)!important;color:#ece9e6!important}
+html[data-ui="v6"] body #log .bmsg.me{background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:20px 20px 6px 20px!important;padding:12px 18px!important;
+  font:400 15px/1.5 var(--ui-sans)!important;color:#ece9e6!important;max-width:min(720px,86%)!important}
+html[data-ui="v6"] body #log .bmsg .who,
+html[data-ui="v6"] body #log .bmsg b.who{font:500 11.5px var(--ui-sans)!important;letter-spacing:.05em!important;
+  color:#8f8c89!important;margin-bottom:5px!important;text-transform:none!important}
+
+/* ---------- composer: .card 18/20/14, input 17, 6px row ---------- */
+html[data-ui="v6"] body #dock .v6card{padding:18px 20px 14px!important;border-radius:26px!important;
+  background:rgba(27,27,29,.88)!important;border:1px solid rgba(255,255,255,.12)!important;
+  box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.06)!important}
+html[data-ui="v6"] body #inputRow{gap:6px!important}
+html[data-ui="v6"] body #q{font:400 17px/1.45 var(--ui-sans)!important;padding:6px 2px 16px!important}
+html[data-ui="v6"] body #plusBtn{width:34px!important;height:34px!important;font-size:22px!important;font-weight:300!important;padding:0 0 2px!important}
+html[data-ui="v6"] body #personaPill{height:auto!important;padding:7px 12px!important;border-radius:10px!important;
+  font:400 14px var(--ui-sans)!important;gap:7px!important}
+html[data-ui="v6"] body #micBtn{width:36px!important;height:36px!important;min-width:36px!important}
+html[data-ui="v6"] body #sendBtn{width:36px!important;height:36px!important;min-width:36px!important;border-radius:11px!important}
+
+/* ---------- chats: .lst .it cards (bordered, 14px radius) ---------- */
+html[data-ui="v6"] body #sessHead{padding:20px 0 10px!important}
+html[data-ui="v6"] body #sessHead h2,
+html[data-ui="v6"] body #sessHead h3{font:500 28px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important}
+html[data-ui="v6"] body #sessHead p,
+html[data-ui="v6"] body #sessHead .shsub{font:400 13.5px var(--ui-sans)!important;color:#8f8c89!important;margin-top:4px!important}
+html[data-ui="v6"] body #sessNew2{background:var(--ui-ac)!important;border:0!important;color:#00131c!important;
+  border-radius:10px!important;padding:9px 16px!important;font:600 13px var(--ui-sans)!important;
+  letter-spacing:0!important;box-shadow:0 0 20px rgba(63,210,255,.18)!important;height:auto!important}
+html[data-ui="v6"] body #sessQ{background:rgba(0,0,0,.4)!important;border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:12px!important;padding:11px 13px!important;font:400 14.5px var(--ui-sans)!important}
+html[data-ui="v6"] body .ch2-fchip{border-radius:99px!important;padding:7px 14px!important;font:400 13px var(--ui-sans)!important;
+  background:rgba(0,0,0,.28)!important;border:1px solid rgba(255,255,255,.12)!important;color:#cfcdcb!important}
+html[data-ui="v6"] body .ch2-fchip.on{background:var(--ui-ac)!important;color:#00131c!important;border-color:transparent!important;font-weight:600!important}
+html[data-ui="v6"] body .ch2-group{font:600 11px var(--ui-sans)!important;letter-spacing:.18em!important;color:#8f8c89!important;padding:6px 0 10px!important}
+html[data-ui="v6"] body .ch2-row{border:1px solid rgba(255,255,255,.12)!important;border-radius:14px!important;
+  background:rgba(255,255,255,.03)!important;padding:14px 16px!important;margin:0 0 10px!important;
+  transition:border-color .2s,background .2s!important}
+html[data-ui="v6"] body .ch2-row:hover{border-color:var(--ui-ac)!important;background:rgba(255,255,255,.06)!important}
+html[data-ui="v6"] body .ch2-row.on{background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.24)!important;
+  box-shadow:none!important}
+html[data-ui="v6"] body .ch2-title{font:500 14.5px var(--ui-sans)!important;color:#ece9e6!important;padding-right:78px!important}
+html[data-ui="v6"] body .ch2-prev{font:400 12.5px/1.5 var(--ui-sans)!important;color:#8f8c89!important}
+html[data-ui="v6"] body .ch2-when{font:400 11.5px var(--ui-sans)!important;color:#8f8c89!important}
+html[data-ui="v6"] body .ch2-ico{width:32px!important;height:32px!important;border-radius:9px!important;flex:0 0 32px!important}
+
+/* ---------- settings / forge / system headers: 28px .ph h3 ---------- */
+html[data-ui="v6"] body #settingsMenu h3{font:500 28px/1.15 var(--fs,Georgia,serif)!important}
+html[data-ui="v6"] body #v6CodeHead h3,
+html[data-ui="v6"] body #sysPane h3{font:500 28px/1.15 var(--fs,Georgia,serif)!important;letter-spacing:-.01em!important}
+html[data-ui="v6"] body #v6CodeHead{padding:20px 26px 0!important}
+html[data-ui="v6"] body #v6CodeHead small,
+html[data-ui="v6"] body #sysPane #ssub{font:400 13.5px var(--ui-sans)!important;color:#8f8c89!important}
+html[data-ui="v6"] body #codeTop{padding:16px 26px 14px!important}
+
+/* ---------- ≤900px: the reference phone layout ---------- */
+@media(max-width:900px){
+  html[data-ui="v6"] body #topbar{height:auto!important;min-height:0!important;padding:14px 16px 12px!important;
+    flex-wrap:wrap!important;gap:10px!important;align-items:center!important}
+  html[data-ui="v6"] body #topbar .wordmark{font-size:25px!important;padding-left:37px!important;order:1}
+  html[data-ui="v6"] body #topbar .wordmark small{font-size:10.5px!important}
+  html[data-ui="v6"] body #topbar #kbtn{order:2;margin-left:auto!important;height:34px!important;font-size:12.5px!important}
+  html[data-ui="v6"] body #topbar #kbtn kbd{display:none!important}
+  html[data-ui="v6"] body #topbar #authBadge{order:2;height:34px!important;font-size:12.5px!important}
+  html[data-ui="v6"] body #topbar #clock{display:none!important}
+  html[data-ui="v6"] body #tabbar{order:3;width:100%!important;margin:0!important;justify-content:flex-start!important;
+    overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none;border-radius:99px!important}
+  html[data-ui="v6"] body #tabbar::-webkit-scrollbar{display:none}
+  html[data-ui="v6"] body #tabbar button{padding:8px 15px!important;font-size:13px!important}
+  html[data-ui="v6"] body #stageEmpty h4{font-size:32px!important}
+  html[data-ui="v6"] body #stageEmpty #state,
+  html[data-ui="v6"] body #stageEmpty .sub{font-size:13px!important;margin-top:10px!important}
+  html[data-ui="v6"] body #dock .v6card{border-radius:26px!important;padding:18px 20px 14px!important}
+  html[data-ui="v6"] body #q{font-size:17px!important;padding:6px 2px 14px!important}
+  html[data-ui="v6"] body #chips{margin:18px 0 0!important;gap:10px!important}
+  html[data-ui="v6"] body #chips .chip{padding:9px 16px!important;font-size:14px!important;min-height:0!important}
+  html[data-ui="v6"] body #v6Hint{margin:14px 0 0!important;font-size:12px!important}
+  html[data-ui="v6"] body #sessHead{padding:20px 0 10px!important}
+  html[data-ui="v6"] body #sessHead h2,
+  html[data-ui="v6"] body #sessHead h3{font-size:28px!important}
+  html[data-ui="v6"] body #sessSide{padding:0 26px 22px!important}
+  html[data-ui="v6"] body .ch2-row{padding:14px 16px!important}
+  html[data-ui="v6"] body #settingsMenu h3{padding:20px 26px 0!important;font-size:28px!important}
+  html[data-ui="v6"] body #settingsMenu .tm-sub{padding:4px 26px 14px!important}
+  html[data-ui="v6"] body #settingsMenu .sc{padding:0 26px 22px!important}
+  html[data-ui="v6"] body #settingsMenu .set-row{flex-direction:column!important;align-items:flex-start!important;gap:10px!important;padding:15px 0!important}
+  html[data-ui="v6"] body #settingsMenu .set-ctl{width:100%!important;justify-content:flex-start!important}
+  html[data-ui="v6"] body #settingsMenu .set-ctl input[type="range"]{width:100%!important}
+}
+</style>
 <script id="aura-inner-v6-wire">
 (function(){
   try{document.documentElement.setAttribute("data-ui","v6")}catch(e){}
@@ -17243,16 +17406,16 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
     try{
       var phone=innerWidth<=760;
       var topEl=$("#topbar");
-      setp("topbar",{height:"auto",minHeight:phone?"52px":"66px"});
+      setp("topbar",{height:phone?"auto":"70px",minHeight:phone?"0px":"70px"});
       var th=topEl?topEl.offsetHeight:(phone?96:66);
       var dockEl=$("#dock");
       /* the dock is position:fixed, so offsetParent is null — trust the box */
       var dockH=(dockEl&&dockEl.offsetHeight)||(phone?130:150);
       setp("tabbar",{position:"static",inset:"auto",left:"auto",right:"auto",top:"auto",bottom:"auto",
         width:phone?"100%":"auto",margin:phone?"2px 0 0":"0 auto",order:phone?"3":"0",transform:"none"});
-      var colW=phone?"calc(100vw - 24px)":"min(820px,calc(100vw - 44px))";
-      var wideW=phone?"calc(100vw - 20px)":"min(1120px,calc(100vw - 44px))";
-      var db=phone?9:16, ch=$("#chips");
+      var colW=phone?"calc(100vw - 28px)":"min(820px,calc(100vw - 60px))";
+      var wideW=phone?"calc(100vw - 28px)":"calc(100vw - 60px)";
+      var db=phone?14:26, ch=$("#chips");
       setp("dock",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",
         width:phone?"calc(100vw - 18px)":"min(760px,calc(100vw - 40px))",bottom:db+"px"});
       /* the chips and the hint live inside the dock now, so its own height is the whole stack */
@@ -17261,26 +17424,38 @@ html[data-ui="v6"] body #authModal .otp6 input,html[data-ui="v6"] body #authModa
         setp("chips",{position:"static",left:"auto",right:"auto",transform:"none",width:"100%",
           bottom:"auto",margin:phone?"12px 0 0":"18px 0 0",zIndex:"6"});
       }
-      setp("conv",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",width:colW,
-        top:(th+18)+"px",bottom:(db+dockH+(phone?12:16))+"px",margin:"0"});
+      var turnsN=0;try{turnsN=$("#log")?$("#log").querySelectorAll(".bmsg:not(.sys)").length:0}catch(e){}
+      var emptyNow=!turnsN;
+      if(emptyNow){
+        var heroEl=$("#stageEmpty");
+        var hh=(heroEl&&heroEl.offsetHeight)||(phone?110:150);
+        var gap=26;
+        var top0=th+Math.max(18,Math.round((innerHeight-th-hh-gap-dockH)/2-(innerHeight-th)*0.03));
+        setp("conv",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",width:colW,
+          top:top0+"px",bottom:"auto",height:"auto",margin:"0",justifyContent:"flex-start"});
+        setp("dock",{bottom:Math.max(db,Math.round(innerHeight-(top0+hh+gap+dockH)))+"px"});
+      }else{
+        setp("conv",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",width:colW,
+          top:th+"px",bottom:(db+dockH+12)+"px",margin:"0",justifyContent:""});
+      }
       /* the stop pill floats in the same stack as the chips, never over the box */
       setp("stopBtn",{bottom:(db+dockH+10+chipsH+10)+"px",right:"50%"});
       phApply();
       ["sessPanel","codePage","adminPage"].forEach(function(id){
         setp(id,{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",
-          width:(id==="sessPanel"||id==="telemetry")?colW:wideW,top:(th+18)+"px",bottom:phone?"14px":"24px",margin:"0"});
+          width:(id==="sessPanel"||id==="telemetry")?wideW:wideW,top:th+"px",bottom:phone?"14px":"26px",margin:"0"});
       });
       setp("settingsMenu",{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",
-        width:phone?"calc(100vw - 20px)":"min(1040px,calc(100vw - 44px))",top:(th+18)+"px",bottom:phone?"14px":"24px",margin:"0"});
+        width:phone?"calc(100vw - 28px)":"calc(100vw - 60px)",top:th+"px",bottom:phone?"14px":"26px",margin:"0"});
       /* #sysPane is a padded block in normal flow — its 92px top padding has to
          clear the real header height, or the phone tab bar eats its title */
-      setp("sysPane",{position:"fixed",top:(th+22)+"px",bottom:phone?"14px":"24px",paddingTop:"20px",paddingBottom:"24px"});
+      setp("sysPane",{position:"fixed",top:th+"px",bottom:phone?"14px":"26px",paddingTop:"20px",paddingBottom:"24px"});
       /* the engine rewrites the subtitle on boot; the reference words stay put */
       var sb=$(".wordmark small");
       if(sb&&!sb.classList.contains("v6off")&&sb.textContent!=="Holographic AI assistant")sb.textContent="Holographic AI assistant";
       /* empty stage → the hero centres itself, exactly like the reference */
       try{
-        var turns=$("#log")?$("#log").querySelectorAll(".bmsg.me").length:0;
+        var turns=$("#log")?$("#log").querySelectorAll(".bmsg:not(.sys)").length:0;
         document.body.setAttribute("data-empty",turns?"0":"1");
       }catch(e){}
     }catch(e){}
