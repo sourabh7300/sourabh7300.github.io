@@ -17288,6 +17288,11 @@ html[data-ui="v6"] body #sendBtn:hover{filter:brightness(1.08)!important;backgro
 html[data-ui="v6"] body #micBtn{background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.12)!important;
   color:#ece9e6!important;box-shadow:none!important}
 html[data-ui="v6"] body #micBtn:hover{border-color:var(--ui-ac)!important;color:var(--ui-ac)!important}
+html[data-ui="v6"] body #v6VoiceBtn{width:36px!important;height:36px!important;min-width:36px!important;border-radius:11px!important;
+  background:rgba(255,255,255,.06)!important;border:1px solid rgba(255,255,255,.12)!important;color:#cfcdcb!important;
+  font-size:15px!important;display:grid!important;place-items:center!important;cursor:pointer!important;padding:0!important}
+html[data-ui="v6"] body #v6VoiceBtn:hover{border-color:var(--ui-ac)!important;color:#fff!important}
+html[data-ui="v6"] body #v6VoiceBtn.off{color:#8f8c89!important;border-style:dashed!important}
 html[data-ui="v6"] body #plusBtn{background:none!important;border:1px solid rgba(255,255,255,.12)!important;
   color:#cfcdcb!important;border-radius:10px!important}
 html[data-ui="v6"] body #plusBtn:hover{border-color:var(--ui-ac)!important;color:#fff!important}
@@ -17408,6 +17413,32 @@ html[data-ui="v6"] body #sessPanel .sess,html[data-ui="v6"] body #sessPanel .ses
       plus=document.createElement("button");
       plus.id="plusBtn";plus.type="button";plus.setAttribute("aria-label","Tools");plus.title="Tools & attachments";plus.textContent="+";
       row.appendChild(plus);
+      /* one-tap voice switch in the composer: the master mute used to live only inside
+         Settings, so a silenced AURA looked broken with no obvious way back */
+      var vbtn=document.createElement("button");
+      vbtn.id="v6VoiceBtn";vbtn.type="button";
+      row.appendChild(vbtn);
+      var paintVoice=function(){
+        var on=true;try{on=(typeof canAutoSpeak==="function")?canAutoSpeak():true}catch(e){}
+        vbtn.textContent=on?"\uD83D\uDD0A":"\uD83D\uDD07";
+        vbtn.title=on?"Voice on \u2014 tap to mute":"Voice off \u2014 tap to let AURA and ZEUS speak";
+        vbtn.classList.toggle("off",!on);vbtn.setAttribute("aria-label",vbtn.title);
+      };
+      paintVoice();setInterval(paintVoice,2500);
+      vbtn.onclick=function(e){
+        e.stopPropagation();
+        var on=true;try{on=(typeof canAutoSpeak==="function")?canAutoSpeak():true}catch(err){}
+        try{if(typeof setVoiceConsent==="function")setVoiceConsent(!on)}catch(err){}
+        paintVoice();
+      };
+      /* an older build could leave the master switch muted; the reference behaviour is a
+         speaking assistant, so the switch is re-armed once and stays under the user's control */
+      try{
+        if(!localStorage.getItem("aura_voice_v3")){
+          localStorage.setItem("aura_voice_v3","1");
+          if(localStorage.getItem("aura_voice_consent")==="denied")localStorage.setItem("aura_voice_consent","granted");
+        }
+      }catch(e){}
       plus.onclick=function(e){e.stopPropagation();if(pm)pm.classList.remove("on");pop.classList.toggle("on")};
 
       pm=document.createElement("div");pm.id="personaMenu";
