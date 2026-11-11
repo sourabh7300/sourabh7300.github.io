@@ -17096,6 +17096,21 @@ html[data-ui="v6"] body #sysPane{width:calc(100vw - 60px)!important}
 html[data-ui="v6"] body #topbar .wordmark small{display:block!important}}
 html[data-ui="v6"] body #log{overflow-y:auto!important;overflow-x:hidden!important}
 html[data-ui="v6"] body[data-empty="1"] #log{display:none!important}
+/* once a turn exists the welcome hero steps aside, exactly like .chatw.has .wel */
+html[data-ui="v6"] body[data-empty="0"] #stageEmpty{display:none!important}
+html[data-ui="v6"] body[data-empty="0"] #conv{justify-content:flex-start!important}
+/* the live stage renders .msg user / .msg aura (the older .bmsg skin is not used), so the
+   reference type is pinned to those classes too — a .bmsg-only rule left the stage blank */
+html[data-ui="v6"] body #log .msg.aura{background:none!important;border:0!important;border-radius:0!important;
+  padding:2px 4px!important;max-width:min(720px,92%)!important;align-self:flex-start!important;
+  font:400 19.5px/1.6 var(--fs,Georgia,serif)!important;color:#ece9e6!important;letter-spacing:0!important}
+html[data-ui="v6"] body #log .msg.user{background:rgba(255,255,255,.08)!important;border:1px solid rgba(255,255,255,.12)!important;
+  border-radius:20px 20px 6px 20px!important;padding:12px 18px!important;max-width:min(720px,86%)!important;
+  align-self:flex-end!important;font:400 15px/1.5 var(--ui-sans)!important;color:#ece9e6!important;letter-spacing:0!important}
+html[data-ui="v6"] body #log .msg .who{font:500 11.5px var(--ui-sans)!important;letter-spacing:.05em!important;
+  color:#8f8c89!important;margin-bottom:5px!important;text-transform:none!important}
+html[data-ui="v6"] body #log .msg.sys{font:400 11.5px/1.5 var(--ui-sans)!important;letter-spacing:.02em!important;
+  background:none!important;border:0!important;color:#8f8c89!important;opacity:1!important}
 /* ============================================================
    v6.1 — final fidelity pass. Every number below is copied
    from aura-interface.html (the inner-interface prototype):
@@ -17424,7 +17439,7 @@ html[data-ui="v6"] body #codeTop{padding:16px 26px 14px!important}
         setp("chips",{position:"static",left:"auto",right:"auto",transform:"none",width:"100%",
           bottom:"auto",margin:phone?"12px 0 0":"18px 0 0",zIndex:"6"});
       }
-      var turnsN=0;try{turnsN=$("#log")?$("#log").querySelectorAll(".bmsg:not(.sys)").length:0}catch(e){}
+      var turnsN=0;try{turnsN=$("#log")?$("#log").querySelectorAll(".msg:not(.sys),.bmsg:not(.sys)").length:0}catch(e){}
       var emptyNow=!turnsN;
       if(emptyNow){
         var heroEl=$("#stageEmpty");
@@ -17455,7 +17470,7 @@ html[data-ui="v6"] body #codeTop{padding:16px 26px 14px!important}
       if(sb&&!sb.classList.contains("v6off")&&sb.textContent!=="Holographic AI assistant")sb.textContent="Holographic AI assistant";
       /* empty stage → the hero centres itself, exactly like the reference */
       try{
-        var turns=$("#log")?$("#log").querySelectorAll(".bmsg:not(.sys)").length:0;
+        var turns=$("#log")?$("#log").querySelectorAll(".msg:not(.sys),.bmsg:not(.sys)").length:0;
         document.body.setAttribute("data-empty",turns?"0":"1");
       }catch(e){}
     }catch(e){}
