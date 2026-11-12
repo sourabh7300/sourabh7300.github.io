@@ -561,6 +561,10 @@ app.use(express.json({ limit: "8mb" })); /* room for base64 photos (vision) */
    silently lock the other projects out. */
 const OWN_SITES = [
   "https://sourabh7300.github.io",
+  /* AURA's own published app on Anna (app 803, slug aura-ai) — without this every
+     chat/search preflight from anna.partners came back 403 and the app only had
+     its canned greeting to show. */
+  "https://anna.partners", "https://www.anna.partners",
   "https://aura-live-81185.web.app", "https://aura-live-81185.firebaseapp.com",
   "https://lucid-app-preview.web.app", "https://lucid-app-preview.firebaseapp.com",
   "https://ideaveda-live-app.web.app", "https://ideaveda-live-app.firebaseapp.com",
