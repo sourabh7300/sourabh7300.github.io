@@ -17332,6 +17332,9 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
   /* the phone keeps the composer it had before: no extra speaker, no extra chip —
      voice stays under Settings, so the row is plus / persona / mic / send again */
   html[data-ui="v6"] body #v6VoiceBtn{display:none!important}
+  /* the phone deck is Chat / Chats / Settings only — Code and System are desktop tools */
+  html[data-ui="v6"] body #tabbar button[data-t="code"],
+  html[data-ui="v6"] body #tabbar button[data-t="system"]{display:none!important}
   /* two chip rows, not three: tighter chips + icon-only speaker */
   html[data-ui="v6"] body #chips{gap:8px!important}
   html[data-ui="v6"] body #chips .chip{padding:8px 13px!important;font-size:13px!important}
@@ -17545,6 +17548,14 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
   function layout(){
     try{
       var phone=innerWidth<=760;
+      /* a saved Code/System tab would open a panel with no way back on a phone */
+      if(phone){
+        var curTab=document.body.getAttribute("data-tab");
+        if(curTab==="code"||curTab==="system"){
+          var homeTab=document.querySelector('#tabbar button[data-t="chat"]');
+          if(homeTab)homeTab.click();
+        }
+      }
       var topEl=$("#topbar");
       setp("topbar",{height:phone?"auto":"70px",minHeight:phone?"0px":"70px"});
       var th=topEl?topEl.offsetHeight:(phone?96:66);
