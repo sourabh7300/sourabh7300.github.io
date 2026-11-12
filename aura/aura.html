@@ -17376,6 +17376,30 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
   html[data-ui="v6"] body #toLatest{display:none!important}
 }
 @media(max-width:900px){}
+/* ============================================================
+   v6.3 — the laptop pass. The phone rules above are correct at
+   ≤760px, but three things leaked onto a wide screen:
+   1. the speaker button sat alone above the input, because the
+      reference composer is plus · input · persona · mic · send;
+   2. every reply carried a permanent 👍👎 row the reference does
+      not have (it reads as clutter at 19.5px serif);
+   3. the right side of the header (clock · Search ⌘K · account)
+      overflowed its 30px gutter below ~1320px and clipped.
+   ============================================================ */
+html[data-ui="v6"] body #topbar{overflow:visible!important}
+html[data-ui="v6"] body #topbar>*{min-width:0}
+html[data-ui="v6"] body #topbar #kbtn{flex:0 1 auto!important;overflow:hidden!important;white-space:nowrap!important}
+@media(min-width:761px){
+  html[data-ui="v6"] body #v6VoiceBtn{display:none!important}
+  html[data-ui="v6"] body #log .msg .mact,
+  html[data-ui="v6"] body #log .msg .msg-actions{opacity:0!important;transition:opacity .18s!important}
+  html[data-ui="v6"] body #log .msg:hover .mact,
+  html[data-ui="v6"] body #log .msg:hover .msg-actions,
+  html[data-ui="v6"] body #log .msg:focus-within .mact,
+  html[data-ui="v6"] body #log .msg:focus-within .msg-actions{opacity:1!important}
+}
+@media(max-width:1320px){html[data-ui="v6"] body #topbar #clock{display:none!important}}
+@media(max-width:1480px){html[data-ui="v6"] body #topbar #kbtn kbd{display:none!important}}
 </style>
 <script id="aura-inner-v6-wire">
 (function(){
