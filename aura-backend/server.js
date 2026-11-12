@@ -578,7 +578,11 @@ const ANNA_HOST = /^https:\/\/([a-z0-9-]+\.)*anna\.partners$/i;
 const OWNER_SECRET = process.env.SECRET || "";
 app.use((req, res, next) => {
   const origin = req.headers.origin || "";
-  const okOrigin = ALLOW_ORIGINS.includes(origin) || ANNA_HOST.test(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  /* Anna mounts an app in a sandboxed iframe, where the browser sends `Origin: null`.
+     Without that literal the app's first fetch is rejected and the UI looks dead.
+     The gate is still the rate limit + key bank, and every other path keeps its
+     own allowlist. */
+  const okOrigin = ALLOW_ORIGINS.includes(origin) || ANNA_HOST.test(origin) || origin === "null" || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
   if (req.path === "/health" || req.path === "/" || req.path === "/v1/ping" || req.path === "/v1/squad/beat") {
     /* public paths still need CORS headers or browsers block the boot ping */
     if (okOrigin) { res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Vary", "Origin"); }
