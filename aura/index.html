@@ -17332,6 +17332,9 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
   /* the phone keeps the composer it had before: no extra speaker, no extra chip —
      voice stays under Settings, so the row is plus / persona / mic / send again */
   html[data-ui="v6"] body #v6VoiceBtn{display:none!important}
+  /* composer stays one calm row on a phone: ＋ · input · mic · send */
+  html[data-ui="v6"] body #personaPill{display:none!important}
+  html[data-ui="v6"] body #topbar #kbtn{display:none!important}
   /* the phone deck is Chat / Chats / Settings only — Code and System are desktop tools */
   html[data-ui="v6"] body #tabbar button[data-t="code"],
   html[data-ui="v6"] body #tabbar button[data-t="system"]{display:none!important}
