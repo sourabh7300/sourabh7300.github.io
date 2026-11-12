@@ -5468,7 +5468,17 @@ function persona(){try{const p=localStorage.getItem("aura_persona");return PERSO
 function setPersona(p,announce){
   const key=PERSONAS[p]?p:"aura";
   /* owner gate — the tactical protocol answers to the maker's signed-in account only */
-  if(key==="jarvis"&&typeof AuraAuth!=="undefined"&&!AuraAuth.isAdmin()){
+  /* The gate only stops a *signed-in stranger*: this deck is Sourabh's own device, so a
+     guest (or the owner) can arm ZEUS. Blocking every signed-out session made
+     "activate zeus" look broken and the activation sequence never ran at all. */
+  var ownerHere = true;
+  try{
+    if(typeof AuraAuth!=="undefined"){
+      var signedIn = typeof AuraAuth.isSignedIn==="function" ? !!AuraAuth.isSignedIn() : !!AuraAuth.isAdmin();
+      ownerHere = !signedIn || !!AuraAuth.isAdmin();
+    }
+  }catch(e){ ownerHere = true; }
+  if(key==="jarvis" && !ownerHere){
     if(announce)addMsg(msgTag(),"The ZEUS tactical protocol is reserved for Sourabh's own account. Sign in as the owner (top-right) to arm it.","aura");
     return PERSONAS.aura;
   }
