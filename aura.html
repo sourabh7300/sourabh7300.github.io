@@ -10867,6 +10867,10 @@ function __greetRecap(c){
 }
 function visitorGreeting(){
   try{
+    /* a restored transcript is not a fresh visit — recapping over it buries the last
+       real answer under a greeting the reader already knows */
+    var savedConvo=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();
+    if(savedConvo>0){try{localStorage.setItem("aura_last_seen_v1",String(Date.now()))}catch(e){}return ""}
     const P=PERSONAS[persona()];
     const h=new Date().getHours();
     const zeus=persona()==="jarvis";
