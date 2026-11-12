@@ -17310,6 +17310,7 @@ html[data-ui="v6"] body #settingsMenu .set-ctl input[type="checkbox"]{accent-col
 html[data-ui="v6"] body #settingsMenu .row,html[data-ui="v6"] body #settingsMenu .set-row{border-color:rgba(255,255,255,.10)!important}
 html[data-ui="v6"] body #settingsMenu .set-lab b{color:#ece9e6!important}
 html[data-ui="v6"] body #settingsMenu .set-lab p{color:#8f8c89!important}
+html[data-ui="v6"] body .v6news{font:400 12.5px var(--ui-sans)!important;color:#8f8c89!important;margin-right:10px!important}
 html[data-ui="v6"] body .sc,html[data-ui="v6"] body .tm-card{background:none!important;border:0!important}
 html[data-ui="v6"] body #sessPanel .sess,html[data-ui="v6"] body #sessPanel .sess.on{background:none!important;border:0!important}
 /* the shell's backdrop was a warm gold wash (#1b1608), which is why the page read
@@ -17686,6 +17687,26 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
       afterRow("setVoiceTest",rowRate);
       afterRow("v6Rate",rowPitch);
       afterRow("themeBtn",rowLook);
+      /* the daily-brief cache is real state on this device: show how old it is and let
+         the owner re-pull it without waiting for the 6-hour timer */
+      var rowNews=mkRow("News cache","Headlines AURA keeps on this device for instant answers",
+        '<span id="v6NewsAge" class="v6news">checking…</span><button type="button" class="tm-btn" id="v6NewsRefresh">Refresh now</button>');
+      afterRow("themeBtn",rowNews);
+      var paintNews=function(){
+        var el=document.getElementById("v6NewsAge");if(!el)return;
+        var b=null;try{b=JSON.parse(localStorage.getItem("aura_daily_brief_v1")||"null")}catch(e){}
+        if(!b||!b.items||!b.items.length){el.textContent="empty — pulls on next boot";return}
+        var m=Math.max(0,Math.round((Date.now()-b.at)/60000));
+        el.textContent=b.items.length+" headlines · "+(m<60?m+" min ago":Math.round(m/60)+" h ago");
+      };
+      paintNews();setInterval(paintNews,60000);
+      var nbtn=$("#v6NewsRefresh");
+      if(nbtn)nbtn.onclick=async function(){
+        var old=nbtn.textContent;nbtn.disabled=true;nbtn.textContent="Refreshing…";
+        var ok=false;try{ok=await briefPull()}catch(e){}
+        paintNews();nbtn.disabled=false;nbtn.textContent=ok?"Refreshed ✓":"Try again";
+        setTimeout(function(){nbtn.textContent=old},2600);
+      };
 
       var nameIn=$("#v6Name");
       try{nameIn.value=localStorage.getItem("aura_name")||""}catch(e){}
