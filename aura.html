@@ -17921,6 +17921,85 @@ html[data-ui="v6"] body #topbar #kbtn{flex:0 1 auto!important;overflow:hidden!im
   })();
 })();
 </script>
+<script id="aura-activation-v6">
+/* ============================================================
+   ZEUS / AURA activation — the reference sequence (aura-interface.html):
+   a black curtain, the name resolving out of blur over its accent, the
+   deck zooming in from 1.14, then everything settling. 1.9s, skippable
+   with any tap or key, and it runs on every persona change (command,
+   the composer pill, or the Settings switch) because all of them go
+   through setPersona.
+   ============================================================ */
+(function(){
+  var FS = "Georgia,'Newsreader',serif", SANS = "'Inter',system-ui,sans-serif";
+  var st = document.createElement("style");
+  st.textContent =
+    "@keyframes v6zoomIn{from{transform:scale(1.14);filter:blur(10px);opacity:0}35%{opacity:1}to{transform:none;filter:none}}"+
+    "body.v6act #topbar,body.v6act #conv,body.v6act #dock{animation:v6zoomIn 1.55s cubic-bezier(.16,.8,.2,1) both}"+
+    "@keyframes v6wmIn{from{filter:blur(14px);transform:scale(.92)}to{filter:none;transform:none}}"+
+    "#v6act{position:fixed;inset:0;z-index:9997;display:grid;place-items:center;pointer-events:none;"+
+    "background:#000;opacity:0;transition:opacity .34s ease}"+
+    "#v6act .v6w{display:flex;align-items:center;gap:18px;animation:v6wmIn 1.25s .1s cubic-bezier(.16,.8,.2,1) both}"+
+    "#v6act .v6t{font:500 clamp(54px,9.6vw,120px)/1 "+FS+";letter-spacing:-.01em;color:#fff}"+
+    "#v6act .v6t b{font-weight:700}"+
+    "#v6act .v6x{position:absolute;left:0;right:0;top:calc(50% + clamp(64px,9vw,132px));text-align:center;"+
+    "font:500 clamp(11px,1.1vw,14px) "+SANS+";letter-spacing:.34em;text-transform:uppercase;opacity:.85}";
+  document.head.appendChild(st);
+
+  var running = false, node = null;
+  function overlay(zeus){
+    var ac = zeus ? "#ff4a2e" : "#3fd2ff";
+    if(node){ try{ node.remove(); }catch(e){} }
+    var d = document.createElement("div");
+    d.id = "v6act";
+    d.innerHTML = '<div class="v6w"><span style="font:700 clamp(38px,6vw,74px)/1 ' + SANS + ';color:' + ac +
+      ';text-shadow:0 0 30px ' + ac + '">' + (zeus ? "\u26a1" : "\u2726") + '</span>' +
+      '<span class="v6t" style="text-shadow:0 0 40px ' + ac + '88,0 0 90px ' + ac + '55"><b>' +
+      (zeus ? "ZEUS" : "AURA") + '</b></span></div>' +
+      '<div class="v6x" style="color:' + ac + '">' +
+      (zeus ? "Lord of thunder · command interface" : "Online · calm and precise") + '</div>';
+    document.body.appendChild(d);
+    node = d;
+    requestAnimationFrame(function(){ d.style.opacity = "1"; });
+    return d;
+  }
+
+  window.__auraActivateFx = function(zeus){
+    if(running) return;
+    running = true;
+    var ac = zeus ? "#ff4a2e" : "#3fd2ff";
+    document.body.style.setProperty("--ui-ac", ac);
+    document.body.style.setProperty("--g", ac);
+    var d = overlay(zeus);
+    setTimeout(function(){ document.body.classList.add("v6act"); }, 120);
+    setTimeout(function(){ d.style.opacity = "0"; }, 1150);
+    var done = function(){
+      try{ d.remove(); }catch(e){}
+      node = null;
+      document.body.classList.remove("v6act");
+      running = false;
+      window.removeEventListener("pointerdown", skip, true);
+      window.removeEventListener("keydown", skip, true);
+    };
+    var skip = function(){ done(); };
+    setTimeout(done, 1900);
+    window.addEventListener("pointerdown", skip, true);
+    window.addEventListener("keydown", skip, true);
+  };
+
+  /* one seam: every persona change already funnels through setPersona */
+  var orig = window.setPersona;
+  if(typeof orig === "function"){
+    window.setPersona = function(p){
+      var before = (typeof persona === "function") ? persona() : "aura";
+      var r = orig.apply(this, arguments);
+      var after = (typeof persona === "function") ? persona() : "aura";
+      if(after !== before){ try{ window.__auraActivateFx(after === "jarvis"); }catch(e){} }
+      return r;
+    };
+  }
+})();
+</script>
 
 </body>
 </html>
