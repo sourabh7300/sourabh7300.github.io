@@ -7295,7 +7295,7 @@ let lastTopic="",lastAnswer="",lastSrc="";const HIST_KEY="aura_history_v1";
 const hist={
   load(k){try{return JSON.parse(localStorage.getItem(HIST_KEY)||"{}")[k]}catch(e){return null}},
   save(k,v){try{const d=JSON.parse(localStorage.getItem(HIST_KEY)||"{}");d[k]=v;localStorage.setItem(HIST_KEY,JSON.stringify(d))}catch(e){}},
-  add(role,content){try{const d=JSON.parse(localStorage.getItem(HIST_KEY)||"{}");const h=d.convo||[];h.push({role,content:String(content).slice(0,600)});while(h.length>120)h.shift();d.convo=h;localStorage.setItem(HIST_KEY,JSON.stringify(d))}catch(e){}},
+  add(role,content){try{const t=String(content==null?"":content);if(!t.trim())return; /* never persist a blank turn — it replays as an empty bubble */const d=JSON.parse(localStorage.getItem(HIST_KEY)||"{}");const h=d.convo||[];h.push({role,content:t.slice(0,600)});while(h.length>120)h.shift();d.convo=h;localStorage.setItem(HIST_KEY,JSON.stringify(d))}catch(e){}},
   clear(){try{localStorage.removeItem(HIST_KEY)}catch(e){}}
 };
 /* restore conversation history across reloads */
@@ -7404,7 +7404,10 @@ function replayOnScreen(list){
     log.innerHTML="";
     if(list&&list.length){const hd=addMsg("SYS","— conversation restored —","sys");hd.style.opacity=".55";
       list.slice(-10).forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
-      const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
+      const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;
+      /* fonts settle after the first paint and the height grows — nudge again so the
+         restored thread opens on its newest line, not 45px above it */
+      setTimeout(function(){try{log.scrollTop=log.scrollHeight}catch(e){}},350);}
     try{memRender()}catch(e){}
     const n=memGet().name;const mg=(function(){try{return window.AuraMind?AuraMind.greetingLine():""}catch(e){return""}})();const msg=greetWord()+(n?", "+n:"")+(mg?". "+mg:"")+". Memory loaded — where were we?";
     const el2=addMsg(msgTag(),"","aura");typewrite(el2,msg);
@@ -10913,8 +10916,11 @@ function visitorGreeting(){
   let bootDone=false;const end=()=>{if(bootDone)return;bootDone=true;try{document.body.classList.add("booted")}catch(e){}try{document.body.classList.add("boot-flash");setTimeout(()=>{try{document.body.classList.remove("boot-flash")}catch(e){}},1100)}catch(e){}$("boot").classList.add("gone");
     setTimeout(()=>{try{scheduleDailyBrief()}catch(e){}try{cloudPullAndRestore()}catch(e){}try{sleepConsolidate(false)}catch(e){}try{morningDigest()}catch(e){}try{applyPersonaVisual()}catch(e){}try{applyPersonaTheme()}catch(e){}const n=memGet().name;const P0=PERSONAS[persona()];const histN=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).length}catch(e){return 0}})();const replay=(function(){try{return (JSON.parse(localStorage.getItem("aura_history_v1")||"{}").convo||[]).slice(-6)}catch(e){return []}})();
     if(replay.length){const hd=addMsg("SYS","— previous conversation restored —","sys");hd.style.opacity=".55";
-      replay.forEach(r=>{const el3=r.role==="user"?addMsg("YOU ▸ ",String(r.content).replace(/\s+/g," ").slice(0,220),"user"):addMsg(msgTag(),String(r.content).replace(/\s+/g," ").slice(0,220),"aura");el3.style.opacity=".62"});
-      const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;}
+      replay.forEach(r=>{const txt=String(r&&r.content==null?"":r&&r.content).replace(/\s+/g," ").trim();if(!txt)return; /* an empty saved turn drew a blank AURA bubble that looked like a lost answer */const el3=r.role==="user"?addMsg("YOU ▸ ",txt.slice(0,220),"user"):addMsg(msgTag(),txt.slice(0,220),"aura");el3.style.opacity=".62"});
+      const sep=addMsg("SYS","— live now, memory intact —","sys");sep.style.opacity=".55";log.scrollTop=log.scrollHeight;
+      /* fonts settle after the first paint and the height grows — nudge again so the
+         restored thread opens on its newest line, not 45px above it */
+      setTimeout(function(){try{log.scrollTop=log.scrollHeight}catch(e){}},350);}
     try{memRender()}catch(e){}
     try{visitorGreeting()}catch(e){}},350)};
   const bootElem=$("boot");
