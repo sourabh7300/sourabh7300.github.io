@@ -17334,6 +17334,9 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
   /* two chip rows, not three: tighter chips + icon-only speaker */
   html[data-ui="v6"] body #chips{gap:8px!important}
   html[data-ui="v6"] body #chips .chip{padding:8px 13px!important;font-size:13px!important}
+  /* Code Forge is taller than a phone screen; overflow:hidden cut its run/output panes off */
+  html[data-ui="v6"] body #codePage{overflow-y:auto!important;-webkit-overflow-scrolling:touch!important}
+  html[data-ui="v6"] body #sessPanel{overflow-y:auto!important;-webkit-overflow-scrolling:touch!important}
 }
 /* the phone stage stays calm: the 38px per-message action row and the floating
    "latest" pill were stacking on top of the bubbles — the reference keeps them clean */
