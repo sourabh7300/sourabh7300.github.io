@@ -17312,6 +17312,19 @@ html[data-ui="v6"] body #settingsMenu .set-lab b{color:#ece9e6!important}
 html[data-ui="v6"] body #settingsMenu .set-lab p{color:#8f8c89!important}
 html[data-ui="v6"] body .sc,html[data-ui="v6"] body .tm-card{background:none!important;border:0!important}
 html[data-ui="v6"] body #sessPanel .sess,html[data-ui="v6"] body #sessPanel .sess.on{background:none!important;border:0!important}
+/* the shell's backdrop was a warm gold wash (#1b1608), which is why the page read
+   brown-black instead of the reference's neutral black — one cool, quiet backdrop */
+html[data-ui="v6"] body{background:#0b0b0c!important;background-image:
+  radial-gradient(120% 80% at 72% -12%,rgba(63,210,255,.06),rgba(11,11,12,0) 62%),
+  radial-gradient(90% 60% at 8% 108%,rgba(63,210,255,.035),rgba(11,11,12,0) 60%)!important}
+/* ---------- activation: the stage arrives, and every tab change re-plays it ---------- */
+@keyframes v6In{from{opacity:0}to{opacity:1}}
+@keyframes v6Rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+html[data-ui="v6"] body .v6in{animation:v6In .42s cubic-bezier(.2,.7,.2,1) both}
+html[data-ui="v6"] body #dock .v6card{animation:v6Rise .55s cubic-bezier(.2,.7,.2,1) both}
+html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
+@media(prefers-reduced-motion:reduce){html[data-ui="v6"] body .v6in,
+  html[data-ui="v6"] body #dock .v6card,html[data-ui="v6"] body #log .msg{animation:none!important}}
 @media(max-width:900px){}
 </style>
 <script id="aura-inner-v6-wire">
@@ -17377,9 +17390,17 @@ html[data-ui="v6"] body #sessPanel .sess,html[data-ui="v6"] body #sessPanel .ses
   paintGreeting();
   setInterval(paintGreeting,15000);
   /* one active pill only — the old rail tracked its own .on class */
+  function v6Replay(){
+    var t=document.body.getAttribute("data-tab")||"chat";
+    var map={chat:"conv",chats:"sessPanel",code:"codePage",system:"sysPane",settings:"settingsMenu",admin:"adminPage"};
+    var el=document.getElementById(map[t]||"conv");
+    if(!el)return;
+    el.classList.remove("v6in");void el.offsetWidth;el.classList.add("v6in");
+  }
   function syncTabs(){
     var t=document.body.getAttribute("data-tab")||"chat";
     $$("#tabbar button").forEach(function(b){b.classList.toggle("on",b.getAttribute("data-t")===t)});
+    try{v6Replay()}catch(e){}
   }
   try{new MutationObserver(syncTabs).observe(document.body,{attributes:true,attributeFilter:["data-tab"]});syncTabs()}catch(e){}
   try{
