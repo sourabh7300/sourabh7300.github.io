@@ -572,10 +572,13 @@ const OWN_SITES = [
 const ALLOW_ORIGINS = [...new Set(OWN_SITES.concat(
   (process.env.ALLOW_ORIGINS || "").split(",").map(s => s.trim()).filter(Boolean)
 ))];
+/* Anna serves an app from the dashboard host and from per-app/preview subdomains,
+   so any host under anna.partners is the owner's own surface. */
+const ANNA_HOST = /^https:\/\/([a-z0-9-]+\.)*anna\.partners$/i;
 const OWNER_SECRET = process.env.SECRET || "";
 app.use((req, res, next) => {
   const origin = req.headers.origin || "";
-  const okOrigin = ALLOW_ORIGINS.includes(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  const okOrigin = ALLOW_ORIGINS.includes(origin) || ANNA_HOST.test(origin) || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
   if (req.path === "/health" || req.path === "/" || req.path === "/v1/ping" || req.path === "/v1/squad/beat") {
     /* public paths still need CORS headers or browsers block the boot ping */
     if (okOrigin) { res.setHeader("Access-Control-Allow-Origin", origin); res.setHeader("Vary", "Origin"); }
