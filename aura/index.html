@@ -17311,6 +17311,9 @@ html[data-ui="v6"] body #settingsMenu .row,html[data-ui="v6"] body #settingsMenu
 html[data-ui="v6"] body #settingsMenu .set-lab b{color:#ece9e6!important}
 html[data-ui="v6"] body #settingsMenu .set-lab p{color:#8f8c89!important}
 html[data-ui="v6"] body .v6news{font:400 12.5px var(--ui-sans)!important;color:#8f8c89!important;margin-right:10px!important}
+html[data-ui="v6"] body #tpMore{display:none;width:100%!important;margin:8px 0 0!important;padding:8px 12px!important;border-radius:10px!important;
+  border:1px solid rgba(255,255,255,.12)!important;background:rgba(255,255,255,.04)!important;color:#cfcdcb!important;
+  font:500 12.5px var(--ui-sans)!important;cursor:pointer!important}
 html[data-ui="v6"] body .sc,html[data-ui="v6"] body .tm-card{background:none!important;border:0!important}
 html[data-ui="v6"] body #sessPanel .sess,html[data-ui="v6"] body #sessPanel .sess.on{background:none!important;border:0!important}
 /* the shell's backdrop was a warm gold wash (#1b1608), which is why the page read
@@ -17332,6 +17335,13 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
   /* the phone keeps the composer it had before: no extra speaker, no extra chip —
      voice stays under Settings, so the row is plus / persona / mic / send again */
   html[data-ui="v6"] body #v6VoiceBtn{display:none!important}
+  /* the speaker pill sits above the composer, never across a reply */
+  html[data-ui="v6"] body #stopBtn{right:14px!important;transform:none!important;font-size:10px!important;padding:8px 14px!important}
+  /* one small attach sheet: photo / document / camera. the 17-button grid folds away. */
+  html[data-ui="v6"] body #toolPop .tp-grid,html[data-ui="v6"] body #toolPop .tp-more{display:none!important}
+  html[data-ui="v6"] body #toolPop.more .tp-grid{display:grid!important}
+  html[data-ui="v6"] body #toolPop.more .tp-more{display:block!important}
+  html[data-ui="v6"] body #tpMore{display:flex!important}
   /* composer stays one calm row on a phone: ＋ · input · mic · send */
   html[data-ui="v6"] body #personaPill{display:none!important}
   html[data-ui="v6"] body #topbar #kbtn{display:none!important}
@@ -17444,6 +17454,9 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
       pop.innerHTML='<div class="tp-h">TOOLS</div><div class="tp-quick"></div><div class="tp-grid"></div><div class="tp-more"></div>';
       dock.appendChild(pop);
       var quick=pop.querySelector(".tp-quick"),grid=pop.querySelector(".tp-grid"),more=pop.querySelector(".tp-more");
+      var tpMore=document.createElement("button");tpMore.id="tpMore";tpMore.type="button";tpMore.textContent="More tools \u25be";
+      tpMore.onclick=function(e){e.stopPropagation();pop.classList.toggle("more")};
+      pop.insertBefore(tpMore,quick);
       [document.getElementById("qaAttach"),document.getElementById("qaMesh"),row.querySelector(".clipwrap")].forEach(function(n){if(n)quick.appendChild(n)});
       $$("#dock .iconrow .ibtn").forEach(function(b){grid.appendChild(b)});
       var qa=document.getElementById("quickActions");
@@ -17802,6 +17815,18 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
       }catch(e){}
     }
     try{paintNet()}catch(e){}
+    /* keep the newest turn in view: a reply that lands under the fold is a reply nobody reads */
+    try{
+      var logEl=$("#log");
+      if(logEl){
+        var stickToBottom=true;
+        logEl.addEventListener("scroll",function(){
+          stickToBottom=(logEl.scrollHeight-logEl.scrollTop-logEl.clientHeight)<90;
+        },{passive:true});
+        new MutationObserver(function(){if(stickToBottom)logEl.scrollTop=logEl.scrollHeight;})
+          .observe(logEl,{childList:true,subtree:true,characterData:true});
+      }
+    }catch(e){}
     addEventListener("resize",function(){try{place()}catch(e){}});
     try{var tb=$("#tabbar");if(tb)tb.addEventListener("click",function(){setTimeout(function(){try{place()}catch(e){}},320)})}catch(e){}
     addEventListener("online",paintNet);addEventListener("offline",paintNet);
