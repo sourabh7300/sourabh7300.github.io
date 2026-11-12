@@ -17328,12 +17328,9 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
 /* on a phone the composer row is already full: the speaker moves to the chips strip,
    and only shows up when voice is muted (one tap brings AURA's voice back) */
 @media(max-width:760px){
-  html[data-ui="v6"] body #inputRow #v6VoiceBtn{display:none!important}
-  html[data-ui="v6"] body #chips #v6VoiceBtn{display:none!important;position:static!important;align-items:center!important;justify-content:center!important;
-    width:34px!important;height:34px!important;min-width:34px!important;padding:0!important;border-radius:99px!important;
-    font:400 15px var(--ui-sans)!important;color:#cfcdcb!important;border:1px dashed rgba(255,255,255,.18)!important;
-    background:rgba(255,255,255,.04)!important}
-  html[data-ui="v6"] body #chips #v6VoiceBtn.off{display:inline-flex!important}
+  /* the phone keeps the composer it had before: no extra speaker, no extra chip —
+     voice stays under Settings, so the row is plus / persona / mic / send again */
+  html[data-ui="v6"] body #v6VoiceBtn{display:none!important}
   /* two chip rows, not three: tighter chips + icon-only speaker */
   html[data-ui="v6"] body #chips{gap:8px!important}
   html[data-ui="v6"] body #chips .chip{padding:8px 13px!important;font-size:13px!important}
@@ -17462,7 +17459,7 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
       row.appendChild(vbtn);
       var paintVoice=function(){
         var on=true;try{on=(typeof canAutoSpeak==="function")?canAutoSpeak():true}catch(e){}
-        var phone=innerWidth<=760, home=(phone?document.getElementById("chips"):null)||row;
+        var home=row;
         if(home&&vbtn.parentNode!==home)home.appendChild(vbtn);
         vbtn.textContent=on?"\uD83D\uDD0A":"\uD83D\uDD07";
         vbtn.title=on?"Voice on \u2014 tap to mute":"Voice off \u2014 tap to let AURA and ZEUS speak";
@@ -17478,8 +17475,8 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
       /* an older build could leave the master switch muted; the reference behaviour is a
          speaking assistant, so the switch is re-armed once and stays under the user's control */
       try{
-        if(!localStorage.getItem("aura_voice_v3")){
-          localStorage.setItem("aura_voice_v3","1");
+        if(!localStorage.getItem("aura_voice_v4")){
+          localStorage.setItem("aura_voice_v4","1");
           if(localStorage.getItem("aura_voice_consent")==="denied")localStorage.setItem("aura_voice_consent","granted");
         }
       }catch(e){}
