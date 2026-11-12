@@ -17398,6 +17398,13 @@ html[data-ui="v6"] body #topbar #kbtn{flex:0 1 auto!important;overflow:hidden!im
   html[data-ui="v6"] body #log .msg:focus-within .mact,
   html[data-ui="v6"] body #log .msg:focus-within .msg-actions{opacity:1!important}
 }
+/* the reference header is a 1fr auto 1fr grid, so the tab pill sits dead centre.
+   A flex row left it 46px off at 1440 and drifted with the right-hand group. */
+@media(min-width:901px){
+  html[data-ui="v6"] body #topbar{position:relative!important}
+  html[data-ui="v6"] body #tabbar{position:absolute!important;left:50%!important;right:auto!important;
+    top:50%!important;transform:translate(-50%,-50%)!important;margin:0!important}
+}
 @media(max-width:1320px){html[data-ui="v6"] body #topbar #clock{display:none!important}}
 @media(max-width:1480px){html[data-ui="v6"] body #topbar #kbtn kbd{display:none!important}}
 </style>
