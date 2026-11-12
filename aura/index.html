@@ -17621,8 +17621,13 @@ html[data-ui="v6"] body #topbar #kbtn{flex:0 1 auto!important;overflow:hidden!im
       var dockEl=$("#dock");
       /* the dock is position:fixed, so offsetParent is null — trust the box */
       var dockH=(dockEl&&dockEl.offsetHeight)||(phone?130:150);
-      setp("tabbar",{position:"static",inset:"auto",left:"auto",right:"auto",top:"auto",bottom:"auto",
-        width:phone?"100%":"auto",margin:phone?"2px 0 0":"0 auto",order:phone?"3":"0",transform:"none"});
+      /* the reference header centres the pill on the viewport, not on whatever space the
+         right-hand group leaves: absolute + translate on a wide screen, a full-width row
+         on a phone. Inline !important beats the stylesheet, so the values live here. */
+      setp("tabbar",{position:phone?"static":"absolute",inset:"auto",
+        left:phone?"auto":"50%",right:"auto",top:phone?"auto":"50%",bottom:"auto",
+        width:phone?"100%":"auto",margin:phone?"2px 0 0":"0",order:phone?"3":"0",
+        transform:phone?"none":"translate(-50%,-50%)"});
       var colW=phone?"calc(100vw - 28px)":"min(820px,calc(100vw - 60px))";
       var wideW=phone?"calc(100vw - 28px)":"calc(100vw - 60px)";
       var db=phone?14:26, ch=$("#chips");
