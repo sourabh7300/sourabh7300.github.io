@@ -17606,7 +17606,10 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
           top:th+"px",bottom:(db+dockH+12)+"px",margin:"0",justifyContent:""});
       }
       /* the stop pill floats in the same stack as the chips, never over the box */
-      setp("stopBtn",{bottom:(db+dockH+10+chipsH+10)+"px",right:"50%"});
+      var phoneNow=innerWidth<=760;
+      setp("stopBtn",{bottom:(db+dockH+10+chipsH+10)+"px",
+        right:(phoneNow?"16px":"50%"),transform:(phoneNow?"none":"translateX(50%)"),
+        left:"auto",padding:(phoneNow?"8px 16px":""),fontSize:(phoneNow?"10px":"")});
       phApply();
       ["sessPanel","codePage","adminPage"].forEach(function(id){
         setp(id,{position:"fixed",left:"50%",right:"auto",transform:"translateX(-50%)",
