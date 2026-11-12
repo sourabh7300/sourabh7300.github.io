@@ -17335,6 +17335,13 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
     background:rgba(255,255,255,.04)!important}
   html[data-ui="v6"] body #chips #v6VoiceBtn:not(.off){display:none!important}
 }
+/* the phone stage stays calm: the 38px per-message action row and the floating
+   "latest" pill were stacking on top of the bubbles — the reference keeps them clean */
+@media(max-width:560px){
+  html[data-ui="v6"] body #log .mact,
+  html[data-ui="v6"] body #log .msg-actions,
+  html[data-ui="v6"] body #jumpLatest{display:none!important}
+}
 @media(max-width:900px){}
 </style>
 <script id="aura-inner-v6-wire">
