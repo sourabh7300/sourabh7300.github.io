@@ -17324,6 +17324,8 @@ html[data-ui="v6"] body .v6news{font:400 12.5px var(--ui-sans)!important;color:#
 html[data-ui="v6"] body #tpMore{display:none;width:100%!important;margin:8px 0 0!important;padding:8px 12px!important;border-radius:10px!important;
   border:1px solid rgba(255,255,255,.12)!important;background:rgba(255,255,255,.04)!important;color:#cfcdcb!important;
   font:500 12.5px var(--ui-sans)!important;cursor:pointer!important}
+html[data-ui="v6"] body #tpMore{margin:2px 0 0!important;padding:7px 10px!important;background:transparent!important;
+  border:0!important;color:#8f8c89!important;font-size:11px!important;text-align:left!important}
 html[data-ui="v6"] body .sc,html[data-ui="v6"] body .tm-card{background:none!important;border:0!important}
 html[data-ui="v6"] body #sessPanel .sess,html[data-ui="v6"] body #sessPanel .sess.on{background:none!important;border:0!important}
 /* the shell's backdrop was a warm gold wash (#1b1608), which is why the page read
@@ -17466,7 +17468,7 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
       var quick=pop.querySelector(".tp-quick"),grid=pop.querySelector(".tp-grid"),more=pop.querySelector(".tp-more");
       var tpMore=document.createElement("button");tpMore.id="tpMore";tpMore.type="button";tpMore.textContent="More tools \u25be";
       tpMore.onclick=function(e){e.stopPropagation();pop.classList.toggle("more")};
-      pop.insertBefore(tpMore,quick);
+      pop.appendChild(tpMore);
       [document.getElementById("qaAttach"),document.getElementById("qaMesh"),row.querySelector(".clipwrap")].forEach(function(n){if(n)quick.appendChild(n)});
       $$("#dock .iconrow .ibtn").forEach(function(b){grid.appendChild(b)});
       var qa=document.getElementById("quickActions");
