@@ -792,10 +792,27 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
   try{
     if(typeof chats !== "undefined" && typeof store === "object"){
       if(!Array.isArray(chats)) chats = [];
-      chats = chats.filter(function(c){ return c && Array.isArray(c.msgs) && c.msgs.length; }).map(function(c){
+      /* repair titles in place — nothing is thrown away */
+      chats = chats.filter(function(c){ return c && Array.isArray(c.msgs); }).map(function(c){
         var t = String(c.title || (c.msgs[0] && c.msgs[0].t) || "Chat").slice(0, 48);
-        return { id: c.id || (Date.now() + Math.random()), title: t, msgs: c.msgs, ts: c.ts || Date.now() };
+        return { id: c.id || (Date.now() + Math.random()), title: t, msgs: c.msgs, ts: c.ts || c.at || Date.now() };
       });
+      /* nothing here yet? bring the old engine's saved sessions across, so a device that
+         chatted on the classic deck still opens with its history instead of a blank list */
+      if(!chats.length){
+        try{
+          var old = JSON.parse(localStorage.getItem("aura_sessions_u_default") || "[]");
+          var moved = (Array.isArray(old) ? old : []).map(function(s){
+            var conv = s.convo || s.msgs || s.messages || [];
+            var m = conv.map(function(x){
+              return { r: (x && (x.role === "user" || x.r === "u")) ? "u" : "a", t: String((x && (x.content || x.t)) || "") };
+            }).filter(function(x){ return x.t; });
+            return m.length ? { id: s.created || s.at || (Date.now() + Math.random()),
+              title: String(s.title || m[0].t).slice(0, 48), msgs: m, ts: s.at || Date.now() } : null;
+          }).filter(Boolean);
+          if(moved.length) chats = moved;
+        }catch(e){}
+      }
       store.set("chats", chats);
       if(typeof renderChats === "function") renderChats();
     }
