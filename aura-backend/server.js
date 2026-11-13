@@ -255,6 +255,7 @@ async function visionCall(messages, maxTok, temperature, req) {
     { contents, generationConfig: { maxOutputTokens: 8192, temperature: temperature != null ? temperature : 0.6, thinkingConfig: { thinkingBudget: 0 } } },
     sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
   ));
+  let best = ""; /* a short but finished answer must still be returned, never dropped */
   for (const vmodel of VISION_MODELS) {
     for (const body of [vbody, retryBody]) {
       try {
@@ -268,12 +269,18 @@ async function visionCall(messages, maxTok, temperature, req) {
         const d = await r.json();
         const cand = (d.candidates && d.candidates[0]) || {};
         const t = (cand.content && cand.content.parts || []).map(p => p.text || "").join("").trim();
-        const cut = cand.finishReason === "MAX_TOKENS" || (t && t.length < 60 && !/[.?!:]$/.test(t));
-        if (t && cut) continue; /* stump → same model, bigger budget */
-        if (t) { recordUse(req, "vision", 0); return t; }
+        if (!t) continue;
+        /* only a runaway thinking budget truncates; a genuinely short answer is fine */
+        if (cand.finishReason === "MAX_TOKENS" && t.length < 60) {
+          if (t.length > best.length) best = t;
+          continue; /* same model, bigger budget */
+        }
+        recordUse(req, "vision", 0);
+        return t;
       } catch (e) { /* next model */ }
     }
   }
+  if (best) { recordUse(req, "vision", 0); return best; }
   return null;
 }
 /* Render injects PORT (its default is 10000). Falling back to 3000 on a host means
