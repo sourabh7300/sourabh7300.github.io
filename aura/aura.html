@@ -781,7 +781,7 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     if(typeof FLU === "object" && FLU){
       FLU.tk = 1; FLU.surge = .7;
       setInterval(function(){
-        try{ if(FLU.tk < .32) FLU.tk = .32; if(FLU.surge < .3) FLU.surge = .3; }catch(e){}
+        try{ if(FLU.tk < .9) FLU.tk = .9; if(FLU.surge < .55) FLU.surge = .55; }catch(e){}
       }, 2200);
     }
   }catch(e){}
