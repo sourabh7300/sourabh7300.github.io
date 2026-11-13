@@ -17440,6 +17440,17 @@ html[data-ui="v6"] body[data-persona="jarvis"] #personaPill:hover{border-color:#
 html[data-ui="v6"] body[data-persona="jarvis"] #micBtn:hover{color:#ff4a2e!important;border-color:#ff4a2e!important}
 html[data-ui="v6"] body[data-persona="jarvis"] #log .msg.user{background:rgba(255,74,46,.10)!important;
   border-color:rgba(255,74,46,.28)!important}
+/* the reference card owns its own field and buttons: the input is a bare line inside
+   the card (no pill border), send is a 36px rounded square in the accent, mic 36 round.
+   An older skin kept a 38px circle and a 99px pill field, which read as "phone UI". */
+html[data-ui="v6"] body #q{border:0!important;background:none!important;box-shadow:none!important;
+  border-radius:0!important;outline:none!important}
+html[data-ui="v6"] body #q:focus{box-shadow:none!important;border:0!important}
+html[data-ui="v6"] body #sendBtn{width:36px!important;height:36px!important;min-width:36px!important;
+  border-radius:11px!important;background:var(--ui-ac)!important;color:#00131c!important;
+  border:0!important;box-shadow:0 0 24px rgba(63,210,255,.28)!important}
+html[data-ui="v6"] body #micWrap,html[data-ui="v6"] body #micBtn{width:36px!important;height:36px!important;
+  min-width:36px!important;border-radius:50%!important;background:none!important;border:0!important}
 @media(max-width:1320px){html[data-ui="v6"] body #topbar #clock{display:none!important}}
 @media(max-width:1480px){html[data-ui="v6"] body #topbar #kbtn kbd{display:none!important}}
 </style>
