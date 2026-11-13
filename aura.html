@@ -637,6 +637,9 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
 
   window.AURA_HOOKS = window.AURA_HOOKS || { send: null, run: null };
   window.AURA_HOOKS.send = async function(text, mode){
+    /* a fresh turn must not inherit the previous answer, which the background-tab
+       writer uses to fill the bubble in one go */
+    window.__auraLastReply = null;
     var m = (mode === "zeus") ? "zeus" : "aura";
     var pack = window.__auraAttachPack();
     var asked = askable(text);
@@ -1016,13 +1019,18 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
               /* a background tab throttles the reference's typewriter to about one
                  tick a second, so a 90-char answer looks chopped or stuck. When the
                  tab is hidden the finished text is written in one go instead. */
-              if(document.hidden && window.__auraLastReply && (span.textContent || "").length < String(window.__auraLastReply).length){
+              var want = window.__auraLastReply ? String(window.__auraLastReply).length : 0;
+              if(document.hidden && want && (span.textContent || "").length < want){
                 span.textContent = String(window.__auraLastReply);
               }
               var len = (span.textContent || "").length;
               if(len === lastLen && len > 0) steady++; else steady = 0;
               lastLen = len;
-              if((steady >= 2 && len > 0) || ticks > 60){
+              /* the reply may still be in flight: keep waiting until the hook has one,
+                 otherwise the 21s cutoff fires first and the answer stays half-typed */
+              var pending = !window.__auraLastReply && len > 0;
+              if(pending) return;
+              if((steady >= 2 && len > 0) || ticks > 200){
                 clearInterval(iv);
                 try{ rich(span); }catch(e){}
               }
