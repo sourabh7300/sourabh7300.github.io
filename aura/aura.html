@@ -90,41 +90,92 @@ body.cine .app,body.cine .ov{pointer-events:none}
 #wm.intro{align-content:end;padding-bottom:15vh}#wm.intro .wmx{top:auto;bottom:8vh}
 @media(max-width:700px){#hud{font-size:9.5px}#hud .c{padding:20px}#hud .bar{width:150px}}
 
-#intro{position:fixed;inset:0;z-index:70;background:#030308;overflow:hidden;font-family:var(--fn);color:#eae6ff;display:none}#intro.on{display:block}#intro.fade{opacity:0;transition:opacity 1.1s}
-.ig-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(140,120,255,.09) 1px,transparent 1px),linear-gradient(90deg,rgba(140,120,255,.09) 1px,transparent 1px);background-size:56px 56px;-webkit-mask-image:radial-gradient(ellipse at 50% 50%,#000 20%,transparent 75%);mask-image:radial-gradient(ellipse at 50% 50%,#000 20%,transparent 75%);opacity:0;transition:opacity 1.2s}
-.ig-beam{position:absolute;left:50%;top:-8%;width:70vw;height:110%;transform:translateX(-50%);background:linear-gradient(180deg,rgba(170,150,255,.36),rgba(120,100,255,.1) 55%,transparent);clip-path:polygon(40% 0,60% 0,100% 100%,0 100%);filter:blur(22px);opacity:0;transition:opacity 1.2s}
-.ig-dome{position:absolute;left:50%;bottom:-6%;width:120vmax;height:60vmax;transform:translateX(-50%);background:radial-gradient(closest-side,rgba(150,110,255,.8),rgba(70,110,255,.34) 46%,transparent 72%);filter:blur(20px);opacity:0;transition:opacity 1.4s}
-#igc{position:absolute;inset:0;width:100%;height:100%}.sc{position:absolute;inset:0;display:grid;place-items:center;opacity:0;pointer-events:none}
-.i4{width:1em;height:1em;fill:currentColor;display:block;overflow:visible}[data-star]{display:inline-block;line-height:0}
-.g2{background:linear-gradient(145deg,rgba(150,120,255,.3),rgba(60,90,255,.12));border:1px solid rgba(190,175,255,.5);box-shadow:0 0 60px rgba(110,90,255,.38),inset 0 0 34px rgba(150,130,255,.2);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-radius:22px}
-#s1{place-content:center;justify-items:center}.wmk{display:flex;align-items:center;gap:.26em;font-size:clamp(60px,10vw,132px)}.wmk [data-star]{font-size:.6em;color:#fff;filter:drop-shadow(0 0 22px #9a86ff) drop-shadow(0 0 50px #6a5cff)}
-.wmw{font:600 1em/1 var(--fs);letter-spacing:.07em;background:linear-gradient(100deg,transparent 42%,rgba(255,255,255,.95) 50%,transparent 58%) -200% 0/220% 100% no-repeat,linear-gradient(180deg,#fff 5%,#cdbfff 55%,#8e9bff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 28px rgba(130,110,255,.75));clip-path:inset(0 100% 0 0)}
-.wsub{margin-top:1.2em;font:500 clamp(11px,1.3vw,15px) var(--fn);letter-spacing:.5em;color:#b9b0ff;opacity:0;padding-left:.5em;text-align:center}
-.hd2{position:absolute;top:7vh;left:0;right:0;text-align:center}.hd2 small{display:inline-flex;gap:12px;align-items:center;font:600 12px var(--fn);letter-spacing:.45em;color:#bdb2ff}.hd2 small .sm{font-size:14px;color:#fff}.hd2 b{display:block;margin-top:12px;font:500 clamp(28px,4vw,52px)/1.12 var(--fs);background:linear-gradient(180deg,#fff,#c9bdff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 26px rgba(130,110,255,.6))}
-.win{position:absolute;left:50%;top:32vh;width:min(940px,86vw);height:min(54vh,520px);transform:translateX(-50%);transform-origin:50% 100%;overflow:hidden;will-change:transform;opacity:0}
-.wtop{display:flex;align-items:center;gap:16px;padding:16px 22px;border-bottom:1px solid rgba(190,175,255,.25)}.wtop .wl{display:flex;align-items:center;gap:8px;font:600 18px var(--fs)}.wtop .wl .sm{font-size:15px;color:#fff;filter:drop-shadow(0 0 8px #9a86ff)}.wn{display:flex;gap:6px;margin:0 auto;padding:4px;border-radius:99px;background:rgba(255,255,255,.08)}.wn u{text-decoration:none;padding:6px 14px;border-radius:99px;font-size:12.5px;color:#cfc6ff}.wn u.on{background:rgba(255,255,255,.18);color:#fff}.wsr{padding:7px 16px;border-radius:10px;border:1px solid rgba(190,175,255,.35);font-size:12.5px;color:#cfc6ff}
-.wbody{display:grid;place-content:center;justify-items:center;gap:18px;height:calc(100% - 62px);padding:0 6%}.wbody h3{font:500 clamp(24px,3.4vw,42px) var(--fs);display:flex;align-items:center;gap:12px}.wbody h3 em{font-style:normal;color:#a9a4d4}.wbody h3 .sm{font-size:.8em;color:#cfe8ff;filter:drop-shadow(0 0 10px #7ad)}
-.wcard{width:100%;max-width:620px;padding:16px 18px;border-radius:18px;background:rgba(10,10,30,.55);border:1px solid rgba(190,175,255,.3);display:flex;justify-content:space-between;align-items:center;color:#9a95c8;font-size:15px}.wsend{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#6fe0ff,#8a6bff);color:#04101c;display:grid;place-items:center;font-style:normal;font-weight:700}.wchips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.wchips u{text-decoration:none;padding:8px 16px;border-radius:12px;border:1px solid rgba(190,175,255,.35);font-size:13px;color:#d7d0ff}
-.orbit{--sz:min(700px,92vmin);position:relative;width:var(--sz);aspect-ratio:1}.ring{position:absolute;margin:auto;inset:0;border-radius:50%;background:conic-gradient(rgba(255,255,255,.95),rgba(170,150,255,.1) 38%,rgba(255,255,255,.8) 62%,rgba(170,150,255,.08));-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 2px));filter:drop-shadow(0 0 12px rgba(170,150,255,.7))}.ring.r1{width:62%;height:62%;animation:rotI 18s linear infinite}.ring.r2{width:100%;height:100%;animation:rotI 28s linear infinite reverse}@keyframes rotI{to{transform:rotate(360deg)}}
-.core{position:absolute;inset:0;margin:auto;width:34%;height:34%;border-radius:50%;display:grid;place-content:center;text-align:center;background:radial-gradient(circle at 35% 28%,rgba(225,210,255,.8),rgba(130,100,255,.6) 55%,rgba(60,50,210,.55));box-shadow:0 0 90px rgba(150,120,255,.85),inset 0 0 40px rgba(255,255,255,.35);animation:cpI 3s ease-in-out infinite}.core b{font:600 clamp(26px,4.6vw,52px)/1 var(--fs);color:#fff;text-shadow:0 0 24px rgba(255,255,255,.6)}.core small{font:500 12px var(--fn);letter-spacing:.3em;color:#e9e1ff;margin-top:8px;text-transform:uppercase}@keyframes cpI{50%{transform:scale(1.05)}}
-.orb{position:absolute;inset:0;animation:rotI var(--d) linear infinite}.orb.rv{animation-direction:reverse}.bb{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(var(--a)) translateX(var(--R)) rotate(calc(var(--a)*-1))}.bi{position:absolute;left:-30px;top:-30px;width:60px;height:60px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,rgba(210,190,255,.75),rgba(110,80,255,.55));border:1px solid rgba(220,205,255,.7);box-shadow:0 0 30px rgba(150,120,255,.8),inset 0 0 16px rgba(255,255,255,.3);animation:rotI var(--d) linear infinite reverse}.orb.rv .bi{animation-direction:normal}.bi svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.bi span{position:absolute;top:68px;font:500 12px var(--fn);color:#d7ceff;white-space:nowrap;letter-spacing:.06em}
-.chat{width:min(760px,88vw);display:grid;gap:22px}.urow{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}.av{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#d6c9ff,#7a5cff);box-shadow:0 0 26px rgba(150,120,255,.7);border:1px solid rgba(220,205,255,.7)}.av svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round}.uname{font:500 15px var(--fn);color:#e4defe;margin-bottom:8px}.ubar{padding:14px 18px;min-height:54px;border-radius:14px;font-size:17px;color:#fff}.caret{display:inline-block;width:2px;height:1.05em;background:#bfe7ff;margin-left:2px;vertical-align:-.15em;animation:pu 1s steps(2) infinite}
-.arow{justify-self:end;display:grid;justify-items:end;gap:10px;width:min(580px,100%);opacity:0}.alabel{font:500 14px var(--fn);color:#e4defe;display:flex;gap:10px;align-items:center}.abub{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#fff,#9a86ff);box-shadow:0 0 30px rgba(170,150,255,.9);color:#1c1450;font-size:22px}.apan{padding:18px 22px;text-align:left;width:100%;font-size:15.5px;line-height:1.75;color:#efeaff;min-height:132px}
-.carw{perspective:1500px;width:100%;height:100%;display:grid;place-items:center}.car{position:relative;width:min(240px,34vw);height:min(310px,44vh);transform-style:preserve-3d}.cc{position:absolute;inset:0;padding:22px;display:grid;align-content:start;gap:14px;backface-visibility:hidden;opacity:0}.cc .ci{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,rgba(220,205,255,.8),rgba(110,80,255,.6));box-shadow:0 0 24px rgba(150,120,255,.8)}.cc .ci svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.cc b{font:500 24px var(--fs)}.cc i.l{display:block;height:8px;border-radius:6px;background:rgba(255,255,255,.18)}.cc i.l.s{width:60%}.cc .bt{display:flex;gap:8px;margin-top:6px}.cc .bt u{flex:1;height:26px;border-radius:8px;background:rgba(255,255,255,.14)}
-.rays{position:absolute;left:50%;top:50%;width:160vmax;height:160vmax;margin:-80vmax 0 0 -80vmax;background:conic-gradient(from 0deg,transparent 0 6%,rgba(190,175,255,.28) 8%,transparent 10% 22%,rgba(150,225,255,.24) 24%,transparent 26% 40%,rgba(190,175,255,.28) 42%,transparent 44% 60%,rgba(150,225,255,.24) 62%,transparent 64% 80%,rgba(190,175,255,.28) 82%,transparent 84%);opacity:0;-webkit-mask:radial-gradient(circle,#000 4%,transparent 52%);mask:radial-gradient(circle,#000 4%,transparent 52%)}
-.huge{position:absolute;font-size:min(40vmin,340px);color:#fff;filter:drop-shadow(0 0 40px #fff) drop-shadow(0 0 120px #8a7bff);opacity:0}.fin{position:absolute;display:grid;justify-items:center;gap:16px;opacity:0}.fin .med{font-size:clamp(40px,6vw,76px);color:#fff;filter:drop-shadow(0 0 22px #9a86ff)}.fin b{font:600 clamp(54px,9vw,120px)/1 var(--fs);letter-spacing:.08em;background:linear-gradient(180deg,#fff,#b9b4ff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 30px rgba(130,110,255,.7))}.fin small{font:500 clamp(11px,1.2vw,14px) var(--fn);letter-spacing:.3em;color:#bdb2ff;text-transform:uppercase;text-align:center}
-#introSkip{position:absolute;right:28px;bottom:24px;z-index:5;padding:9px 16px;border-radius:99px;border:1px solid rgba(190,175,255,.4);color:#cfc6ff;font-size:12.5px;background:rgba(10,10,30,.5);backdrop-filter:blur(8px);transition:.2s}#introSkip:hover{color:#fff;border-color:#fff}#igHint{position:absolute;left:28px;bottom:28px;z-index:5;font-size:12.5px;color:#8f86d8;letter-spacing:.06em;animation:pu 2s infinite;pointer-events:none}
+
 @media(max-width:760px){.hd2 b{font-size:26px}.win{top:34vh;height:44vh}.wn{display:none}.ubar{font-size:15px}.apan{font-size:14px}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
+
+/* ================= ADVANCED 3D PARTICLE CORE ================= */
+.core-stage-wrap{
+  position:relative;
+  width:clamp(220px, 28vw, 320px);
+  height:clamp(220px, 28vw, 320px);
+  margin:0 auto 16px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  pointer-events:none;
+}
+#coreCanvas{
+  width:100%;
+  height:100%;
+  display:block;
+  filter:drop-shadow(0 0 35px var(--glow)) drop-shadow(0 0 15px var(--ac));
+  transform-origin:center center;
+  transition:transform 0.4s cubic-bezier(0.2,0.8,0.2,1);
+}
+.core-glow-halo{
+  position:absolute;
+  inset:15%;
+  border-radius:50%;
+  background:radial-gradient(circle, var(--glow) 0%, rgba(0,0,0,0) 72%);
+  opacity:0.6;
+  filter:blur(24px);
+  pointer-events:none;
+  animation:coreHaloPulse 4s ease-in-out infinite alternate;
+}
+@keyframes coreHaloPulse{
+  0%{transform:scale(0.88);opacity:0.45}
+  100%{transform:scale(1.15);opacity:0.85}
+}
+.core-status-pill{
+  position:absolute;
+  bottom:6px;
+  left:50%;
+  transform:translateX(-50%);
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:4px 12px;
+  border-radius:99px;
+  background:rgba(18,22,32,0.75);
+  border:1px solid var(--line);
+  backdrop-filter:blur(10px);
+  font:600 10.5px/1 var(--f2);
+  letter-spacing:0.18em;
+  color:var(--hot);
+  text-transform:uppercase;
+  box-shadow:0 8px 24px rgba(0,0,0,0.5);
+  pointer-events:auto;
+  transition:all .3s ease;
+}
+.core-status-dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--ac);
+  box-shadow:0 0 8px var(--ac);
+  animation:pu 1.4s infinite;
+}
+body[data-mode=zeus] #coreStatusText{color:#ffd9a0}
+body[data-mode=zeus] .core-status-dot{background:#ff4a2e;box-shadow:0 0 8px #ff4a2e}
+
 </style></head><body data-mode="aura">
 <canvas id="bg"></canvas><div class="grain"></div>
-<div class="app hold" id="app" data-mode="aura">
+<div class="app" id="app" data-mode="aura">
 <header class="top"><div class="brandl"><span class="mk" data-g></span><div><b class="bn" id="bn">AURA</b><small id="bs">Holographic AI assistant</small></div></div>
 <nav class="tabs" id="tabs"><button class="on" data-p="chat" data-t="t_chat">Chat</button><button data-p="chats" data-t="t_chats">Chats</button><button data-p="code" data-t="t_code">Code</button><button data-p="sys" data-t="t_sys">System</button><button data-p="admin" data-t="t_admin">Admin</button><button data-p="set" data-t="t_set">Settings</button></nav>
 <div class="topr"><span class="clk" id="clk">--:--</span><button class="ib" id="srch"><span data-t="search">Search</span><kbd>Ctrl K</kbd></button><button class="ib" id="acct">👤 <span id="acn">Guest</span></button></div></header>
 <main class="stage" id="stage">
 <section class="panel on" id="p-chat"><div class="chatw" id="chatw">
-<div class="msgs" id="msgs"><div class="wel" id="wel"><h2><span class="gl" data-g></span><span id="gtx">Good evening,</span> <i id="uname">Sourabh</i></h2><p data-t="wel_p">AURA is online and listening.</p></div></div>
+<div class="msgs" id="msgs"><div class="wel" id="wel">
+  <div class="core-stage-wrap" id="coreStageWrap">
+    <canvas id="coreCanvas" width="460" height="460" aria-label="AURA 3D Core"></canvas>
+    <div class="core-glow-halo"></div>
+    <div class="core-status-pill"><span class="core-status-dot"></span><span id="coreStatusText">CORE ONLINE</span></div>
+  </div>
+  <h2><span class="gl" data-g></span><span id="gtx">Good evening,</span> <i id="uname">Sourabh</i></h2>
+  <p data-t="wel_p">AURA is online and listening.</p>
+</div></div>
 <div class="think" id="think" data-t="think">AURA is thinking…</div>
 <div class="dockw"><div class="card" id="card"><input id="inp" placeholder="How can AURA help you today?" autocomplete="off">
 <div class="crow"><div class="persel"><button class="plus" id="plusbtn" aria-label="Tools">+</button><div class="menu plusmenu" id="plusmenu"><div id="tools"><button data-x="set">⚙ Settings</button><button data-x="cam">📷 Camera</button><button data-x="tools">🧰 Tools</button><button data-x="docs">📚 Docs</button><button data-x="wake" class="tg2">Wake: off</button><button data-x="deep" class="tg2">🧠 Deep</button><button data-x="agent" class="tg2">🤖 Agent</button><button data-x="live" class="tg2">🎙 Live</button><button data-x="remind">⏰ Remind</button><button data-x="robot" class="tg2">🤖 Robot voice</button></div></div></div><span class="sp"></span>
@@ -147,7 +198,7 @@ body.cine .app,body.cine .ov{pointer-events:none}
 <section class="panel" id="p-set"><div class="pn" style="flex:1;display:flex;flex-direction:column;min-height:0"><div class="ph"><h3 data-t="t_set">SETTINGS</h3></div><div class="sc">
 <div class="row"><div><b>Account</b><p>Guest session · sign in to keep chats and memory on every device</p></div><div style="display:flex;gap:8px"><button class="b pr" id="g1">Continue with Google</button><button class="b" id="g2">Phone</button></div></div>
 <div class="row"><div><b>Your name</b><p>Used in the greeting</p></div><input type="text" id="nameIn" style="width:200px" placeholder="Sourabh"></div>
-<div class="row"><div><b>Intro</b><p>Replay the opening animation</p></div><button class="b" id="replayIntro">Replay intro</button></div>
+
 <div class="row"><div><b>Personality</b><p>Plays the activation sequence and switches the whole interface. You can also say or type "activate zeus".</p></div><div class="msw" id="msw2" style="--x:0"><i></i><button data-m="aura">AURA</button><button data-m="zeus">ZEUS ⚡</button></div></div>
 <div class="row"><div><b>Voice</b><p>AURA / ZEUS reply out loud</p></div><button class="tg" id="tv"></button></div>
 <div class="row"><div><b>Voice speed</b><p>Rate of speech</p></div><input type="range" id="vr" min="6" max="16" value="10"></div>
@@ -168,16 +219,6 @@ body.cine .app,body.cine .ov{pointer-events:none}
 <canvas id="fxo"></canvas><div id="curtain"></div><div id="ghost"></div><div id="flash"></div>
 <div id="wm" data-m="aura"><div class="wmi"><span class="wmg" data-g></span><span class="wmt" id="wmt">Aura</span></div><div class="wmx" id="wmx"></div></div>
 <svg width="0" height="0" style="position:absolute"></svg>
-<div id="intro"><div class="ig-grid"></div><div class="ig-beam" id="igBeam"></div><div class="ig-dome" id="igDome"></div><canvas id="igc"></canvas>
-<div class="sc" id="s1"><div class="wmk"><span data-star id="s1star" style="display:inline-flex"></span><span class="wmw" id="s1word">AURA</span></div><div class="wsub" id="s1sub">ADAPTIVE UNIVERSAL REASONING ASSISTANT</div></div>
-<div class="sc" id="s2"><div class="hd2"><small><span data-star class="sm"></span>SMART CONTROL</small><b>Voice, code and memory<br>in one place</b></div>
-<div class="win g2" id="win"><div class="wtop"><span class="wl"><span data-star class="sm"></span>AURA</span><span class="wn"><u class="on">Chat</u><u>Code</u><u>System</u><u>Admin</u></span><span class="wsr">Search</span></div><div class="wbody"><h3><span data-star class="sm"></span>Hello, <em id="inm">Sourabh</em></h3><div class="wcard"><span>How can AURA help you today?</span><i class="wsend">↑</i></div><div class="wchips"><u>Code</u><u>Diagnostics</u><u>Learn</u><u>Plan</u></div></div></div></div>
-<div class="sc" id="s3"><div class="orbit" id="orbit"></div></div>
-<div class="sc" id="s4"><div class="chat"><div class="urow"><div class="av" id="avi"></div><div><div class="uname" id="unm">Sourabh</div><div class="ubar g2"><span id="utxt"></span><i class="caret"></i></div></div></div>
-<div class="arow" id="arow"><div class="alabel"><span>AURA</span><span class="abub" data-star></span></div><div class="apan g2"><div id="b1"></div><div id="b2"></div><div id="b3"></div></div></div></div></div>
-<div class="sc" id="s5"><div class="carw"><div class="car" id="car"></div></div></div>
-<div class="sc" id="s6"><div class="rays" id="rays"></div><span class="huge" id="bigstar" data-star></span><div class="fin" id="fin"><span data-star class="med"></span><b>AURA</b><small>Say "activate Zeus" to switch personality</small></div></div>
-<div id="igHint">Click anywhere for sound</div><button id="introSkip">Skip intro</button></div>
 <script>
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],B=document.body,sleep=ms=>new Promise(r=>setTimeout(r,ms)),cl=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),ease=p=>1-Math.pow(1-p,3),sm=(a,b,t)=>{const k=cl((t-a)/(b-a));return k*k*(3-2*k)};
 let mode='aura',lang='ENG',busy=false,vOn=false,sOn=false,tab='chat',state='idle',started=false,curChat=null,cineSkip=false;
@@ -202,11 +243,7 @@ zeusBuild(){nz(1.9,.7,70,'lowpass',1100,.3);[0,.55,1,1.3,1.5,1.7].forEach((d,i)=
 zeusBoom(){nz(.1,1,5200,'highpass');tn(72,1.8,.95,'sine',26,.3);nz(3.4,.9,520,'lowpass',40,.9);brass()},hit(){tn(85,.32,.85,'sine',34,.3);nz(.12,.6,1800,'bandpass')},
 auraDust(){nz(1.6,.4,3500,'bandpass',200,.8,3);[1760,1320,990,740,555].forEach((f,i)=>tn(f,1.2,.03,'sine',f*.5,.8,i*.12))},
 auraBloom(){[220,277.18,329.63,440,554.37,659.25,880,1108.7].forEach((f,i)=>tn(f,1,.05,'sine',null,.85,i*.11));nz(1.2,.3,300,'bandpass',5000,.6,2)},auraChord(){[220,277.18,329.63,440,554.37].forEach(f=>tn(f,3,.06,'sine',null,.9))}};
-function startBed(m){const c=ac();if(!c)return;stopBed();const g=c.createGain();g.gain.value=0;route(g,.5);g.gain.linearRampToValueAtTime(.85,c.currentTime+2.5);const src=[],tm=[];
-const osc=(f,type,gain,det,filt,lfo)=>{const o=c.createOscillator(),og=c.createGain();o.type=type;o.frequency.value=f;o.detune.value=det||0;og.gain.value=gain;o.connect(og);let node=og;if(filt){const fl=c.createBiquadFilter();fl.type='lowpass';fl.frequency.value=filt;og.connect(fl);node=fl;if(lfo){const l=c.createOscillator(),lg=c.createGain();l.frequency.value=lfo;lg.gain.value=filt*.5;l.connect(lg);lg.connect(fl.frequency);l.start();src.push(l)}}node.connect(g);o.start();src.push(o)};
-if(m=='aura'){[110,164.81,220,277.18,329.63].forEach((f,i)=>osc(f,i%2?'triangle':'sine',.04,(i-2)*5,900,.05+i*.02));const pent=[440,493.88,554.37,659.25,739.99,880,987.77];tm.push(setInterval(()=>{if(AU.bed&&sOn)tn(pent[Math.random()*pent.length|0]*(Math.random()<.3?2:1),1.8,.045,'sine',null,.9)},2300))}
-else{[36.71,55,73.42].forEach((f,i)=>osc(f,'sawtooth',.1,(i-1)*7,170,.08));osc(146.83,'sawtooth',.025,0,480,.05);let beat=0;tm.push(setInterval(()=>{if(!sOn||!AU.bed)return;const st=beat%4==0;tn(95,.22,st?.9:.5,'sine',38);nz(.08,st?.5:.25,600,'lowpass');if(beat%4==2)tn(70,.18,.4,'sine',35,.2);beat++},1150));const th=()=>{if(AU.bed&&sOn)nz(3.2,.35,300,'lowpass',50,.8);tm.push(setTimeout(th,7000+Math.random()*8000))};tm.push(setTimeout(th,5000))}
-AU.bed={g,src,tm,m}}
+function startBed(m){ return; }
 function stopBed(){const b=AU.bed;if(!b)return;AU.bed=null;const c=AU.ctx;b.tm.forEach(t=>{clearInterval(t);clearTimeout(t)});b.g.gain.cancelScheduledValues(c.currentTime);b.g.gain.setValueAtTime(b.g.gain.value,c.currentTime);b.g.gain.linearRampToValueAtTime(0,c.currentTime+1.2);setTimeout(()=>b.src.forEach(o=>{try{o.stop()}catch(e){}}),1400)}
 /* voices */
 let vr=1,vp=1;function pickVoice(z){if(!window.speechSynthesis)return null;const vs=speechSynthesis.getVoices(),re=z?/male|david|daniel|alex|ravi|rishi|google uk english male/i:/female|zira|samantha|heera|veena|google uk english female|google us english/i;return vs.find(v=>re.test(v.name)&&(z?!/female/i.test(v.name):true))||vs.find(v=>/^en/i.test(v.lang))||null}
@@ -262,7 +299,7 @@ for(const w of m=='zeus'?['Speak','Build','Strike']:['Listen','Create','Remember
 const cr=$('#card').getBoundingClientRect();Object.assign(ghost.style,{left:cr.left+'px',top:cr.top+'px',width:cr.width+'px',height:cr.height+'px'});setTimeout(()=>ghost.classList.add('on'),500);
 FXD.push(ribbonScene(m,performance.now(),{x:(cr.left+cr.width/2)*dpr,y:(cr.top+cr.height/2)*dpr}));nz(1.7,.3,400,'bandpass',3500,.5,2);wm.classList.add('gone');wm.classList.remove('show');
 await wait(1800);
-FLU.tk=1;FLU.surge=.7;ghost.classList.remove('on');curtain.classList.remove('on');app.classList.remove('hold');app.classList.add('zoomin');B.classList.add('reveal');startBed(m);tn(m=='zeus'?110:880,1.2,.08,'sine',null,.8);
+FLU.tk=1;FLU.surge=.7;ghost.classList.remove('on');curtain.classList.remove('on');app.classList.remove('hold');app.classList.add('zoomin');B.classList.add('reveal');{};tn(m=='zeus'?110:880,1.2,.08,'sine',null,.8);
 await wait(1700);app.classList.remove('zoomin');B.classList.remove('reveal','cine');wm.classList.remove('gone');setState('idle')}
 async function activate(m){if(busy)return;if(m==mode&&started){toast(m.toUpperCase()+' is already active');say(m=='zeus'?'I am already here.':'Aura is already active.',m);return}busy=true;auInit();try{await playActivation(m,false)}catch(e){console.error(e)}busy=false;B.classList.remove('cine');app.classList.remove('hold','out','zoomin')}
 const setMode=activate;
@@ -382,42 +419,443 @@ $('#orbit').innerHTML=`<div class="ring r1"></div><div class="ring r2"></div><di
 $('#car').innerHTML=[['chat','Chat'],['code','Code'],['pulse','System'],['shield','Admin'],['gear','Settings']].map((c,i)=>`<div class="cc g2"><div class="ci"><svg viewBox="0 0 24 24">${IC[c[0]]}</svg></div><b>${c[1]}</b><i class="l"></i><i class="l s"></i><div class="bt"><u></u><u></u></div></div>`).join('');
 ['#s1','#s2','#s3','#s4','#s5','#s6'].forEach(i=>{$(i).style.opacity=0});['.ig-grid','#igBeam','#igDome'].forEach(i=>$(i).style.opacity=0);$('#s1word').style.clipPath='inset(0 100% 0 0)';$('#s1sub').style.opacity=0;$('#win').style.opacity=0;$('#arow').style.opacity=0;$('#fin').style.opacity=0;$('#bigstar').style.opacity=0;$('#rays').style.opacity=0;['#b1','#b2','#b3','#utxt'].forEach(i=>$(i).textContent='')}
 async function typeTo(el,text,ms){for(let i=1;i<=text.length;i++){if(cineSkip)return;el.textContent=text.slice(0,i);if(i%2==0)tn(2300+Math.random()*500,.012,.01,'square');await sleep(ms)}}
-async function runIntro(){if(started)return;started=true;busy=true;cineSkip=false;B.classList.add('cine');const I=$('#intro');buildIntro();I.className='on';INTRO.on=true;app.classList.add('hold');$('#igHint').style.display=AU.ctx&&AU.ctx.state=='running'?'none':'block';
-const step=async ms=>{await wait(ms);if(cineSkip)throw'skip'},A=(sel,kf,o)=>{const e=typeof sel=='string'?$(sel):sel;if(!e)return;return e.animate(kf,{fill:'forwards',easing:'cubic-bezier(.2,.8,.2,1)',...o})},AA=(sel,kf,o,st)=>$$(sel).forEach((e,i)=>A(e,kf,{...o,delay:(o.delay||0)+i*(st||0)})),out=sel=>A(sel,[{opacity:1},{opacity:0}],{duration:600,easing:'ease'});
-try{
-/* scene 1: wordmark */
-$('.ig-grid').style.opacity=1;$('#s1').style.opacity=1;A('#s1star',[{transform:'translateX(-70px) scale(.2) rotate(-120deg)',opacity:0},{transform:'none',opacity:1}],{duration:1000});A('#s1word',[{clipPath:'inset(0 100% 0 0)'},{clipPath:'inset(0 0 0 0)'}],{duration:1100,delay:300});A('#s1word',[{backgroundPosition:'-200% 0,0 0'},{backgroundPosition:'300% 0,0 0'}],{duration:1400,delay:900,easing:'ease'});A('#s1sub',[{opacity:0,letterSpacing:'.95em'},{opacity:.85,letterSpacing:'.5em'}],{duration:1100,delay:800});SFX.whoosh();tn(880,1.2,.05,'sine',null,.8,.3);tn(1320,1,.03,'sine',null,.8,.5);
-await step(2000);
-/* scene 2: dashboard rises */
-out('#s1');$('#igBeam').style.opacity=1;$('#igDome').style.opacity=.95;$('#s2').style.opacity=1;A('.hd2',[{opacity:0,transform:'translateY(-18px)'},{opacity:1,transform:'none'}],{duration:900,delay:200});
-A('#win',[{opacity:0,transform:'translateX(-50%) translateY(70vh) perspective(1600px) rotateX(28deg) scale(.9)'},{opacity:1,transform:'translateX(-50%) translateY(0) perspective(1600px) rotateX(8deg)'}],{duration:1500,delay:100});SFX.whoosh();tn(520,1.2,.04,'triangle',null,.7);
-await step(2100);
-/* scene 3: orbit */
-out('#s2');$('#igBeam').style.opacity=0;$('#s3').style.opacity=1;A('#orbit',[{opacity:0,transform:'scale(.55)'},{opacity:1,transform:'none'}],{duration:1200});AA('.bi',[{opacity:0,transform:'scale(.1)'},{opacity:1,transform:'scale(1)'}],{duration:600,delay:500},130);[0,1,2,3,4,5].forEach(i=>tn(660+i*110,.5,.035,'sine',null,.8,.5+i*.13));
-await step(2100);
-/* scene 4: conversation */
-out('#s3');$('#igDome').style.opacity=.55;$('#s4').style.opacity=1;A('.urow',[{opacity:0,transform:'translateY(20px)'},{opacity:1,transform:'none'}],{duration:700});await step(700);
-await typeTo($('#utxt'),'Hello AURA, what can you do?',34);await step(350);
-A('#arow',[{opacity:0,transform:'translate(60px,10px)'},{opacity:1,transform:'none'}],{duration:800});A('.abub',[{transform:'scale(.2) rotate(-180deg)'},{transform:'none'}],{duration:900});tn(1000,.5,.05,'sine',null,.8);await step(600);
-await typeTo($('#b1'),'• Speaks and listens, in your voice',16);await typeTo($('#b2'),'• Writes, runs and fixes your code',16);await typeTo($('#b3'),'• Remembers what matters to you',16);await step(500);
-/* scene 5: carousel */
-out('#s4');$('#s5').style.opacity=1;$('#igBeam').style.opacity=1;const cc=$$('#car .cc');SFX.whoosh();
-cc.forEach((c,i)=>A(c,[{opacity:0,transform:`rotateY(${i*72}deg) translateZ(60px) scale(.6)`},{opacity:1,transform:`rotateY(${i*72}deg) translateZ(340px)`}],{duration:900,delay:i*80}));
-A('#car',[{transform:'rotateX(-10deg) rotateY(0deg)'},{transform:'rotateX(-10deg) rotateY(-360deg)'}],{duration:2300,easing:'cubic-bezier(.45,0,.2,1)'});
-await step(1900);cc.forEach((c,i)=>A(c,[{opacity:1,transform:`rotateY(${i*72}deg) translateZ(340px)`},{opacity:0,transform:`rotateY(${i*72}deg) translateZ(0px) scale(.1)`}],{duration:520,easing:'ease-in'}));SFX.auraBloom();
-await step(520);
-/* scene 6: star + lockup */
-out('#s5');$('#s6').style.opacity=1;$('#igBeam').style.opacity=1;$('#igDome').style.opacity=1;A('#rays',[{opacity:0,transform:'rotate(0deg)'},{opacity:1,transform:'rotate(50deg)'}],{duration:2000,easing:'ease-out'});
-A('#bigstar',[{opacity:1,transform:'scale(.05) rotate(-140deg)'},{opacity:1,transform:'scale(1.2) rotate(0deg)',offset:.7},{opacity:1,transform:'scale(1) rotate(0deg)'}],{duration:900});flashW('rgba(200,190,255,.55)',900);SFX.auraChord();
-await step(950);A('#bigstar',[{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.3)'}],{duration:500,easing:'ease-in'});A('#fin',[{opacity:0,transform:'translateY(22px)'},{opacity:1,transform:'none'}],{duration:800,delay:250});say('Aura online. How can I help?','aura');
-await step(1500)}catch(e){if(e!=='skip')console.error(e)}
-/* finish: hand over to the interface */
-I.getAnimations({subtree:true}).forEach(a=>{if(cineSkip)a.cancel()});I.classList.add('fade');app.classList.remove('hold');app.classList.add('zoomin');B.classList.add('reveal');FLU.tk=1;FLU.surge=.7;startBed('aura');flashW('rgba(160,200,255,.45)',900);
-await sleep(1100);I.className='';INTRO.on=false;I.getAnimations({subtree:true}).forEach(a=>a.cancel());await sleep(700);app.classList.remove('hold','zoomin');B.classList.remove('reveal','cine');busy=false;setState('idle');if(location.hash=='#zeus')setTimeout(()=>activate('zeus'),500)}
+function runIntro(){
+  FLU.tk = 1; FLU.surge = 0.7;
+
+  started = true;
+  busy = false;
+  INTRO.on = false;
+  app.classList.remove('hold', 'zoomin');
+  document.body.classList.remove('cine');
+  setState('idle');
+  if(location.hash === '#zeus') setTimeout(() => activate('zeus'), 500);
+}
 $('#introSkip').onclick=e=>{e.stopPropagation();skipNow()};$('#intro').addEventListener('pointerdown',e=>{if(!e.target.closest('#introSkip')){auInit();$('#igHint').style.display='none'}});addEventListener('keydown',e=>{if(e.key=='Escape'&&INTRO.on)skipNow()});
-['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{auInit();if(started&&!AU.bed&&!busy)startBed(mode)}));
+['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{auInit();if(started&&!AU.bed&&!busy){}}));
 $('#replayIntro').onclick=()=>toast('Intro is disabled');
 /* opening cinematic disabled by owner request */try{document.getElementById('intro').remove();app.classList.remove('hold');B.classList.add('reveal');setTimeout(()=>B.classList.remove('reveal'),1600)}catch(e){}
+
+/* ================= NEXT-GEN 3D PARTICLE CORE ENGINE ================= */
+(function(){
+  const cv = document.getElementById('coreCanvas');
+  if(!cv) return;
+  const cx = cv.getContext('2d');
+  
+  // 560 particles on Fibonacci sphere
+  const N = 560;
+  const pts = [];
+  for(let i = 0; i < N; i++){
+    const y = 1 - 2 * (i + 0.5) / N;
+    const r = Math.sqrt(1 - y * y);
+    const phi = i * 2.399963229728653; // Golden angle
+    pts.push({
+      x: Math.cos(phi) * r,
+      y: y,
+      z: Math.sin(phi) * r,
+      baseX: Math.cos(phi) * r,
+      baseY: y,
+      baseZ: Math.sin(phi) * r,
+      size: 1.1 + (i % 3) * 0.45,
+      halo: (i % 4 === 0),
+      seed: Math.random() * Math.PI * 2
+    });
+  }
+
+  // Inner orbital rings
+  const ringPts = [];
+  for(let r = 0; r < 3; r++){
+    const count = 48;
+    const tilt = (r - 1) * 0.45;
+    for(let j = 0; j < count; j++){
+      const a = (j / count) * Math.PI * 2;
+      ringPts.push({
+        rIndex: r,
+        angle: a,
+        tilt: tilt,
+        spd: (r % 2 === 0 ? 1 : -1) * (1.2 + r * 0.4)
+      });
+    }
+  }
+
+  // Core motion states:
+  // idle: smooth calm breathing & floating
+  // typing: active dynamic agitation & quick responsiveness to keystrokes
+  // thinking: rapid intense gyroscopic spin (zor se ghume)
+  // speaking: energetic audio-reactive pulsing & soundwave deformation
+  let coreState = 'idle'; // idle | typing | thinking | speaking
+  let rotX = 0.2, rotY = 0;
+  let spinSpd = 0.8;
+  let targetSpinSpd = 0.8;
+  let wavePhase = 0;
+  let heart = 0;
+  let pulseAmp = 0;
+  let targetPulseAmp = 0;
+  let typeAgitation = 0;
+  let audioVol = 0;
+  let lastTypeTime = 0;
+
+  // Real-time audio analyser for microphone
+  let micAC = null, micAnalyser = null, micStream = null, micBuf = null;
+
+  function initMicVisualizer(){
+    if(micStream) return;
+    try{
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+      navigator.mediaDevices.getUserMedia({audio:true}).then(st => {
+        micStream = st;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        micAC = AU.ctx || new AC();
+        if(micAC.state === 'suspended') micAC.resume();
+        const src = micAC.createMediaStreamSource(st);
+        micAnalyser = micAC.createAnalyser();
+        micAnalyser.fftSize = 128;
+        src.connect(micAnalyser);
+        micBuf = new Uint8Array(micAnalyser.frequencyBinCount);
+      }).catch(()=>{});
+    }catch(e){}
+  }
+
+  function stopMicVisualizer(){
+    try{
+      if(micStream){
+        micStream.getTracks().forEach(t=>t.stop());
+        micStream = null;
+      }
+    }catch(e){}
+  }
+
+  // External controller API
+  window.AURA_CORE = {
+    setState: function(st){
+      coreState = st;
+      const statusTxt = document.getElementById('coreStatusText');
+      if(statusTxt){
+        if(st === 'thinking') statusTxt.textContent = mode === 'zeus' ? 'STORM GATHERING' : 'NEURAL PROCESSING';
+        else if(st === 'speaking') statusTxt.textContent = mode === 'zeus' ? 'ZEUS PROCLAIMING' : 'VOICE SYNTHESIS';
+        else if(st === 'typing') statusTxt.textContent = 'INTERFACING';
+        else statusTxt.textContent = mode === 'zeus' ? 'OLYMPUS READY' : 'CORE ONLINE';
+      }
+      if(st === 'speaking' || st === 'listening'){
+        initMicVisualizer();
+      }
+    },
+    onTyping: function(){
+      lastTypeTime = performance.now();
+      typeAgitation = Math.min(2.5, typeAgitation + 0.45);
+      targetSpinSpd = 2.4;
+      if(coreState === 'idle'){
+        this.setState('typing');
+      }
+    },
+    pulse: function(val){
+      pulseAmp = Math.max(pulseAmp, val || 0.8);
+    }
+  };
+
+  // Wire typing detection onto #inp and any other inputs
+  const inp = document.getElementById('inp');
+  if(inp){
+    inp.addEventListener('input', () => {
+      window.AURA_CORE.onTyping();
+    });
+    inp.addEventListener('keydown', () => {
+      window.AURA_CORE.onTyping();
+    });
+  }
+
+  // Hook into mic button
+  const micBtn = document.getElementById('mic');
+  if(micBtn){
+    micBtn.addEventListener('click', () => {
+      setTimeout(() => {
+        if(micBtn.classList.contains('rec')){
+          initMicVisualizer();
+          window.AURA_CORE.setState('listening');
+        } else {
+          stopMicVisualizer();
+        }
+      }, 50);
+    });
+  }
+
+  // Hook into speech synthesis (AURA/ZEUS speaking)
+  const origSay = window.say;
+  if(typeof say === 'function'){
+    window.say = function(t, who, cb){
+      window.AURA_CORE.setState('speaking');
+      return origSay(t, who, function(){
+        window.AURA_CORE.setState('idle');
+        stopMicVisualizer();
+        if(cb) cb();
+      });
+    };
+  }
+
+  // Hook into setState function in aura.html
+  const origSetState = window.setState;
+  if(typeof setState === 'function'){
+    window.setState = function(s){
+      origSetState(s);
+      if(s === 'thinking'){
+        window.AURA_CORE.setState('thinking');
+      } else if(s === 'speaking'){
+        window.AURA_CORE.setState('speaking');
+      } else if(s === 'listening'){
+        window.AURA_CORE.setState('listening');
+      } else if(s === 'idle'){
+        window.AURA_CORE.setState('idle');
+      }
+    };
+  }
+
+  // Projection math & Renderer
+  const PERSP = 3.4;
+  let lastT = performance.now();
+
+  function renderCore(now){
+    requestAnimationFrame(renderCore);
+    const dt = Math.min(0.08, (now - lastT) / 1000);
+    lastT = now;
+
+    // Reset typing state if stopped typing for > 600ms
+    if(coreState === 'typing' && now - lastTypeTime > 650){
+      window.AURA_CORE.setState('idle');
+    }
+
+    // Audio level polling
+    if(micAnalyser && micBuf){
+      micAnalyser.getByteFrequencyData(micBuf);
+      let sum = 0;
+      for(let i = 0; i < micBuf.length; i++) sum += micBuf[i];
+      const avg = sum / (micBuf.length * 255);
+      audioVol += (avg - audioVol) * 0.25;
+    } else if(coreState === 'speaking'){
+      // Simulated realistic vocal modulation if speech synth doesn't expose stream
+      audioVol += ((0.35 + 0.35 * Math.sin(now * 0.015) + 0.2 * Math.cos(now * 0.027)) - audioVol) * 0.15;
+    } else {
+      audioVol *= 0.85;
+    }
+
+    // Target speeds and amplitudes based on user specification:
+    // "jab koi typing kre tab movement kre dhang se or ache se"
+    // "jab aura think krti hai jor se ghumee fir stop hojayee jab auraa answere dede fir uske baad bapis chalne lag jaye"
+    // "jab mic pr baat kre jab answers de auraa toh bhi yeh hilnaa chhaiyee"
+    if(coreState === 'thinking'){
+      targetSpinSpd = 6.8;       // Zor se ghumee! (Rapid spin during thinking)
+      targetPulseAmp = 0.55;
+    } else if(coreState === 'speaking'){
+      targetSpinSpd = 1.4;
+      targetPulseAmp = 0.65 + audioVol * 1.8; // audio reactive
+    } else if(coreState === 'listening'){
+      targetSpinSpd = 1.8;
+      targetPulseAmp = 0.5 + audioVol * 2.2;
+    } else if(coreState === 'typing'){
+      targetSpinSpd = 2.4;
+      targetPulseAmp = 0.3 + typeAgitation * 0.25;
+    } else {
+      targetSpinSpd = 0.75;      // Normal smooth graceful flow
+      targetPulseAmp = 0.15;
+    }
+
+    // Smooth interpolations
+    spinSpd += (targetSpinSpd - spinSpd) * (coreState === 'thinking' ? 0.08 : 0.05);
+    pulseAmp += (targetPulseAmp - pulseAmp) * 0.1;
+    typeAgitation *= 0.94;
+
+    rotY += dt * spinSpd * 1.7;
+    rotX = 0.22 + Math.sin(now * 0.001) * 0.08 + (coreState === 'typing' ? Math.sin(now * 0.008) * 0.15 : 0);
+    wavePhase += dt * (coreState === 'speaking' ? 12 : coreState === 'thinking' ? 18 : 3.5);
+    heart += dt * (coreState === 'thinking' ? 7 : 2.2);
+
+    // Canvas dimensions & high DPI scaling
+    const w = cv.width = 460;
+    const h = cv.height = 460;
+    cx.clearRect(0, 0, w, h);
+
+    const CX = w / 2;
+    const CY = h / 2;
+    const baseR = 110;
+    const breathe = 1 + Math.sin(heart) * 0.035 + pulseAmp * 0.14;
+    const R = baseR * breathe;
+
+    const isZeus = (mode === 'zeus');
+    const pColor1 = isZeus ? 'rgba(255,100,50,' : 'rgba(92,225,255,';
+    const pColor2 = isZeus ? 'rgba(255,200,120,' : 'rgba(212,247,255,';
+    const ringColor = isZeus ? 'rgba(255,74,46,' : 'rgba(63,210,255,';
+
+    cx.save();
+    cx.translate(CX, CY);
+
+    // 1. Central Energy Halo & Nucleus
+    const nPulse = 0.5 + 0.5 * Math.sin(heart * 1.5) + pulseAmp * 0.5;
+    const coreGlow = cx.createRadialGradient(0, 0, 0, 0, 0, R * (1.1 + pulseAmp * 0.2));
+    coreGlow.addColorStop(0, isZeus ? `rgba(255,80,30,${0.28 + nPulse * 0.2})` : `rgba(63,210,255,${0.22 + nPulse * 0.18})`);
+    coreGlow.addColorStop(0.45, isZeus ? 'rgba(255,40,10,0.08)' : 'rgba(63,210,255,0.06)');
+    coreGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = coreGlow;
+    cx.beginPath();
+    cx.arc(0, 0, R * 1.2, 0, Math.PI * 2);
+    cx.fill();
+
+    // Hot central eye
+    const eyeGrad = cx.createRadialGradient(0, 0, 0, 0, 0, 24 + nPulse * 10);
+    eyeGrad.addColorStop(0, isZeus ? 'rgba(255,255,240,0.95)' : 'rgba(235,252,255,0.95)');
+    eyeGrad.addColorStop(0.35, isZeus ? 'rgba(255,160,60,0.6)' : 'rgba(103,232,249,0.6)');
+    eyeGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = eyeGrad;
+    cx.beginPath();
+    cx.arc(0, 0, 24 + nPulse * 10, 0, Math.PI * 2);
+    cx.fill();
+
+    // 2. Gyroscopic Rotating Rings
+    cx.save();
+    const ringRadii = [R * 1.25, R * 1.48, R * 1.72];
+    ringRadii.forEach((rr, ri) => {
+      cx.save();
+      const spdMult = (ri % 2 === 0 ? 1 : -1) * (1 + ri * 0.35);
+      cx.rotate(rotY * spdMult * 0.4 + ri * 0.8);
+      const ringTilt = (ri - 1) * 0.32 + Math.sin(wavePhase * 0.3) * 0.1;
+      cx.beginPath();
+      cx.ellipse(0, 0, rr, rr * Math.abs(0.28 + ringTilt * 0.2), ringTilt, 0, Math.PI * 2);
+      cx.strokeStyle = ringColor + (0.16 + (coreState === 'thinking' ? 0.35 : 0.1) + pulseAmp * 0.2) + ')';
+      cx.lineWidth = 1.3;
+      cx.stroke();
+
+      // Orbital energy sparks along rings
+      const sparkCount = 3 + ri;
+      for(let k = 0; k < sparkCount; k++){
+        const sa = rotY * spdMult + (k / sparkCount) * Math.PI * 2;
+        const sx = Math.cos(sa) * rr;
+        const sy = Math.sin(sa) * rr * (0.28 + ringTilt * 0.2);
+        cx.fillStyle = isZeus ? '#ffd9a0' : '#ffffff';
+        cx.shadowColor = ringColor + '1)';
+        cx.shadowBlur = 10;
+        cx.beginPath();
+        cx.arc(sx, sy, 2 + (k % 2) * 1.2, 0, Math.PI * 2);
+        cx.fill();
+        cx.shadowBlur = 0;
+      }
+      cx.restore();
+    });
+    cx.restore();
+
+    // 3. Shockwave ripples during speaking / voice
+    if(coreState === 'speaking' || coreState === 'listening'){
+      for(let w = 0; w < 3; w++){
+        const prog = ((heart * 0.6 + w / 3) % 1);
+        const ripR = R * (1 + prog * 0.7);
+        cx.strokeStyle = ringColor + (0.45 * (1 - prog) * (0.4 + pulseAmp)) + ')';
+        cx.lineWidth = 1.6;
+        cx.beginPath();
+        cx.arc(0, 0, ripR, 0, Math.PI * 2);
+        cx.stroke();
+      }
+    }
+
+    // 4. 3D Projecting Particles (Fibonacci Sphere with 3D Matrix)
+    const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+
+    // Transform and sort for realistic volumetric depth
+    const projected = [];
+    for(let i = 0; i < N; i++){
+      const p = pts[i];
+      // Dynamic deformation during typing / speaking / thinking
+      let px = p.x, py = p.y, pz = p.z;
+
+      if(coreState === 'speaking'){
+        const deform = 1 + Math.sin(wavePhase + py * 6 + i * 0.1) * 0.09 * (pulseAmp + audioVol);
+        px *= deform; py *= deform; pz *= deform;
+      } else if(coreState === 'thinking'){
+        const jiggle = Math.sin(wavePhase * 2.5 + i) * 0.04;
+        px += jiggle; pz += Math.cos(wavePhase * 2.5 + i) * 0.04;
+      } else if(coreState === 'typing'){
+        const typeJolt = Math.sin(wavePhase * 4 + i * 0.3) * 0.05 * typeAgitation;
+        px += typeJolt; py += typeJolt * 0.6;
+      }
+
+      // Rotate around Y
+      let x1 = px * cosY - pz * sinY;
+      let z1 = px * sinY + pz * cosY;
+      // Rotate around X
+      let y2 = py * cosX - z1 * sinX;
+      let z2 = py * sinX + z1 * cosX;
+
+      const sc = PERSP / (PERSP + z2);
+      const sx = x1 * R * sc;
+      const sy = y2 * R * sc;
+
+      projected.push({
+        sx, sy, z: z2, sc,
+        halo: p.halo,
+        baseSize: p.size,
+        alpha: Math.max(0.08, Math.min(1, (sc - 0.55) * 1.5))
+      });
+    }
+
+    // Depth sort: back particles first, front particles on top
+    projected.sort((a, b) => a.z - b.z);
+
+    // Render particles
+    for(let i = 0; i < N; i++){
+      const p = projected[i];
+      const sz = Math.max(0.6, p.baseSize * p.sc * breathe);
+      const bright = p.sc > 1.05;
+      const col = bright ? pColor2 : pColor1;
+      const alpha = p.alpha * (0.65 + pulseAmp * 0.35);
+
+      cx.fillStyle = col + alpha + ')';
+      cx.beginPath();
+      cx.arc(p.sx, p.sy, sz, 0, Math.PI * 2);
+      cx.fill();
+
+      // Front-most glow halo
+      if(p.halo && p.sc > 1.15){
+        cx.fillStyle = col + (alpha * 0.35) + ')';
+        cx.beginPath();
+        cx.arc(p.sx, p.sy, sz * 2.6, 0, Math.PI * 2);
+        cx.fill();
+      }
+    }
+
+    // 5. Connecting Neural Core Lattice lines (nearest pairs among top front particles)
+    cx.lineWidth = 0.7;
+    for(let i = N - 65; i < N; i += 2){
+      const p1 = projected[i];
+      if(!p1 || p1.sc < 1.08) continue;
+      for(let j = i + 1; j < Math.min(N, i + 8); j++){
+        const p2 = projected[j];
+        if(!p2 || p2.sc < 1.08) continue;
+        const dx = p1.sx - p2.sx;
+        const dy = p1.sy - p2.sy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if(dist < 38){
+          const lineAlpha = (1 - dist / 38) * 0.32 * (p1.sc - 1.05);
+          cx.strokeStyle = pColor1 + lineAlpha + ')';
+          cx.beginPath();
+          cx.moveTo(p1.sx, p1.sy);
+          cx.lineTo(p2.sx, p2.sy);
+          cx.stroke();
+        }
+      }
+    }
+
+    // 6. Anamorphic horizontal lens flare streak
+    const flareAlpha = 0.08 + pulseAmp * 0.16 + (coreState === 'thinking' ? 0.2 : 0);
+    const flareGrad = cx.createLinearGradient(-R * 1.8, 0, R * 1.8, 0);
+    flareGrad.addColorStop(0, 'rgba(0,0,0,0)');
+    flareGrad.addColorStop(0.5, ringColor + flareAlpha + ')');
+    flareGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = flareGrad;
+    cx.fillRect(-R * 1.8, -1.2, R * 3.6, 2.4);
+
+    cx.restore();
+  }
+
+  // Start the 3D particle core render loop
+  requestAnimationFrame(renderCore);
+})();
+
 </script><script id="aura-engine-hook">
 /* The interface is the reference file, untouched. This block is the only addition:
    1. plugs AURA's real backend into the reference's own hook (window.AURA_HOOKS.send)
