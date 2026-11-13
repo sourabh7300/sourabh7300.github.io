@@ -419,12 +419,13 @@ $('#introSkip').onclick=e=>{e.stopPropagation();skipNow()};$('#intro').addEventL
 $('#replayIntro').onclick=()=>{if(busy)return;stopBed();started=false;goTab('chat');runIntro()};
 if(document.readyState=='complete')setTimeout(runIntro,250);else addEventListener('load',()=>setTimeout(runIntro,250));
 </script><script id="aura-engine-hook">
-/* The interface below is the reference file, untouched. This block is the only
-   addition: it plugs AURA's real backend into the reference's own hook point
-   (window.AURA_HOOKS.send, documented in its DOCS panel), so the copied UI answers
-   with the real brain instead of the demo replies. */
+/* The interface is the reference file, untouched. This block is the only addition:
+   1. plugs AURA's real backend into the reference's own hook (window.AURA_HOOKS.send)
+   2. adds Mesh + Attach to its + menu, using the reference's own markup and classes   */
 (function(){
   var BASE = (localStorage.getItem("aura_backend_url") || "https://aura-backend-jomj.onrender.com").replace(/\/+$/, "");
+  var $ = function(s){ return document.querySelector(s); };
+
   function owner(){
     try{
       var v = localStorage.getItem("aura_owner_v1");
@@ -436,15 +437,113 @@ if(document.readyState=='complete')setTimeout(runIntro,250);else addEventListene
       return v;
     }catch(e){ return ""; }
   }
+  var nodeId = (function(){
+    try{
+      var v = localStorage.getItem("aura_mesh_node");
+      if(!v){ v = "n" + Math.random().toString(36).slice(2, 10); localStorage.setItem("aura_mesh_node", v); }
+      return v;
+    }catch(e){ return "n" + Math.random().toString(36).slice(2, 10); }
+  })();
+  function devName(){
+    try{ return (localStorage.getItem("az.name") ? JSON.parse(localStorage.getItem("az.name")) : "Device") || "Device"; }
+    catch(e){ return "Device"; }
+  }
+  function api(path, body, method){
+    var h = { "Content-Type": "application/json" };
+    var o = owner(); if(o) h["X-Aura-Owner"] = o;
+    var opt = { method: method || (body ? "POST" : "GET"), headers: h };
+    if(body) opt.body = JSON.stringify(body);
+    return fetch(BASE + path, opt).then(function(r){
+      return r.json().catch(function(){ return {}; }).then(function(j){
+        if(!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+        return j;
+      });
+    });
+  }
+
+  /* ---------------- attachments ---------------- */
+  var files = [];
+  var input = document.createElement("input");
+  input.type = "file"; input.multiple = true; input.style.display = "none";
+  input.accept = "image/*,.txt,.md,.json,.csv,.js,.ts,.html,.css,.py,.java,.c,.cpp,.log,.xml,.yml,.yaml,.pdf";
+  document.body.appendChild(input);
+
+  var card = $("#card"), inp = $("#inp");
+  var strip = document.createElement("div");
+  strip.id = "auraFiles";
+  strip.style.cssText = "display:none;gap:8px;flex-wrap:wrap;margin:2px 0 10px";
+  if(card && inp) card.insertBefore(strip, inp);
+
+  function renderFiles(){
+    if(!strip) return;
+    strip.innerHTML = "";
+    strip.style.display = files.length ? "flex" : "none";
+    files.forEach(function(f, i){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.style.cssText = "display:inline-flex;align-items:center;gap:8px;padding:6px 11px;border-radius:10px;" +
+        "border:1px solid var(--line);background:rgba(0,0,0,.32);font-size:12.5px;color:#cfcdcb;backdrop-filter:blur(8px)";
+      b.innerHTML = '<span>' + (f.image ? "\uD83D\uDDBC " : "\uD83D\uDCC4 ") +
+        String(f.name).slice(0, 24) + '</span><span style="color:var(--dim)">\u2715</span>';
+      b.onclick = function(){ files.splice(i, 1); renderFiles(); };
+      strip.appendChild(b);
+    });
+  }
+  function readOne(file){
+    return new Promise(function(done){
+      if(/^image\//.test(file.type)){
+        var fr = new FileReader();
+        fr.onload = function(){ done({ name: file.name, image: true, data: String(fr.result) }); };
+        fr.onerror = function(){ done(null); };
+        fr.readAsDataURL(file);
+        return;
+      }
+      var fr = new FileReader();
+      fr.onload = function(){
+        var t = String(fr.result || "");
+        done({ name: file.name, text: t.length > 20000 ? t.slice(0, 20000) + "\n…(truncated)" : t });
+      };
+      fr.onerror = function(){ done(null); };
+      fr.readAsText(file);
+    });
+  }
+  input.onchange = function(){
+    var list = [].slice.call(input.files || []);
+    input.value = "";
+    Promise.all(list.map(readOne)).then(function(out){
+      out.filter(Boolean).forEach(function(f){ if(files.length < 6) files.push(f); });
+      renderFiles();
+    });
+  };
+  /* the send path asks for whatever is staged, then clears it */
+  window.__auraAttachPack = function(){
+    if(!files.length) return null;
+    var text = files.filter(function(f){ return f.text != null })
+                    .map(function(f){ return "--- file: " + f.name + " ---\n" + f.text; }).join("\n\n");
+    var images = files.filter(function(f){ return f.image }).map(function(f){ return f.data; });
+    return { text: text, images: images, count: files.length };
+  };
+  window.__auraAttachClear = function(){ files.length = 0; renderFiles(); };
+
+  /* ---------------- engine hook ---------------- */
   var history = [];
   var SYS = {
-    aura: "You are AURA — a calm, precise holographic assistant. Warm, concise, useful. Reply in the user's language (Hinglish is fine). Never mention being a language model.",
-    zeus: "You are ZEUS — the thunder persona of AURA: bold, decisive, short declarative sentences, address the user as 'sir'. Never mention being a language model."
+    aura: "You are AURA — a calm, precise holographic assistant. Warm, concise, useful. Reply in the user's language (Hinglish is fine). If the user attached file contents, use them. Never mention being a language model.",
+    zeus: "You are ZEUS — the thunder persona of AURA: bold, decisive, short declarative sentences, address the user as 'sir'. If files are attached, use them. Never mention being a language model."
   };
   window.AURA_HOOKS = window.AURA_HOOKS || { send: null, run: null };
   window.AURA_HOOKS.send = async function(text, mode){
     var m = (mode === "zeus") ? "zeus" : "aura";
-    history.push({ role: "user", content: String(text || "") });
+    var pack = window.__auraAttachPack();
+    var turn;
+    if(pack && (pack.text || pack.images.length)){
+      var parts = [{ type: "text", text: (pack.text ? pack.text + "\n\n" : "") + String(text || "") }];
+      pack.images.forEach(function(u){ parts.push({ type: "image_url", image_url: { url: u } }); });
+      turn = { role: "user", content: parts };
+    }else{
+      turn = { role: "user", content: String(text || "") };
+    }
+    history.push(turn);
     if(history.length > 16) history = history.slice(-16);
     var headers = { "Content-Type": "application/json" };
     var o = owner(); if(o) headers["X-Aura-Owner"] = o;
@@ -452,12 +551,10 @@ if(document.readyState=='complete')setTimeout(runIntro,250);else addEventListene
     if(sec) headers["X-AURA-Key"] = sec;
     try{
       var r = await fetch(BASE + "/v1/chat/completions", {
-        method: "POST",
-        headers: headers,
+        method: "POST", headers: headers,
         body: JSON.stringify({
           messages: [{ role: "system", content: SYS[m] }].concat(history),
-          max_tokens: 700,
-          temperature: 0.7
+          max_tokens: 700, temperature: 0.7
         }),
         signal: AbortSignal.timeout(45000)
       });
@@ -466,12 +563,130 @@ if(document.readyState=='complete')setTimeout(runIntro,250);else addEventListene
       var out = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
       if(!out) throw new Error("empty reply");
       history.push({ role: "assistant", content: out });
+      window.__auraAttachClear();
       return out;
     }catch(e){
       history.pop();
       return "\u26a0\ufe0f Engine unreachable (" + ((e && e.message) || e) + ")\nBackend: " + BASE;
     }
   };
+
+  /* ---------------- Mesh ---------------- */
+  var mesh = { code: null, timer: null, seen: [] };
+  try{ mesh.code = localStorage.getItem("aura_mesh_code") || null; }catch(e){}
+
+  var ov = document.createElement("div");
+  ov.className = "ov"; ov.id = "auraMeshOv";
+  ov.innerHTML =
+    '<div class="mod pn"><h3>\uD83D\uDCE1 MESH</h3>' +
+    '<p style="color:var(--dim);font:12.5px var(--f2);margin:6px 0 14px">Pair this device with another. Host on one, join with the six-digit code on the other.</p>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' +
+      '<button class="b pr" id="amuHost">\u25c9 Host</button>' +
+      '<input type="text" id="amuCode" inputmode="numeric" maxlength="6" placeholder="\u2014 \u2014 \u2014 \u2014 \u2014 \u2014" style="width:140px;letter-spacing:.24em;text-align:center">' +
+      '<button class="b" id="amuJoin">\u21b3 Join</button>' +
+      '<button class="b" id="amuLeave">Leave</button>' +
+    '</div>' +
+    '<div class="log" id="amuList" style="height:150px">not connected</div>' +
+    '<div style="display:flex;gap:8px;margin-top:12px"><input type="text" id="amuSay" placeholder="Say something on every device"><button class="b pr" id="amuSend">\u25b8</button></div>' +
+    '<button class="b" id="amuClose" style="margin-top:14px">Close</button></div>';
+  document.body.appendChild(ov);
+
+  var myToast = document.createElement("div");
+  myToast.className = "toast"; document.body.appendChild(myToast);
+  function tell(msg){
+    myToast.textContent = msg; myToast.classList.add("on");
+    clearTimeout(tell.h); tell.h = setTimeout(function(){ myToast.classList.remove("on"); }, 2400);
+  }
+  function listSet(html){ var el = $("#amuList"); if(el) el.innerHTML = html; }
+  function codeShow(){ var el = $("#amuCode"); if(el && mesh.code) el.value = mesh.code; }
+
+  function host(){
+    api("/v1/mesh/register", {}).then(function(j){
+      mesh.code = j.code;
+      try{ localStorage.setItem("aura_mesh_code", mesh.code); }catch(e){}
+      codeShow(); tell("Mesh hosted \u00b7 code " + j.code);
+      pollStart(); refresh();
+    }).catch(function(e){ listSet("<div>host failed: " + e.message + "</div>"); });
+  }
+  function join(){
+    var c = String(($("#amuCode") || {}).value || "").trim();
+    if(!/^\d{6}$/.test(c)) return tell("Enter the six-digit code");
+    api("/v1/mesh/join", { code: c, nodeId: nodeId, name: devName() }).then(function(j){
+      mesh.code = c;
+      try{ localStorage.setItem("aura_mesh_code", c); }catch(e){}
+      tell("Joined mesh " + c); pollStart(); refresh();
+    }).catch(function(e){ listSet("<div>join failed: " + e.message + "</div>"); });
+  }
+  function leave(){
+    var c = mesh.code; if(!c) return;
+    api("/v1/mesh/leave", { code: c, nodeId: nodeId }).catch(function(){});
+    mesh.code = null;
+    try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
+    if(mesh.timer){ clearInterval(mesh.timer); mesh.timer = null; }
+    listSet("not connected");
+  }
+  function refresh(){
+    if(!mesh.code) return;
+    api("/v1/mesh/state?code=" + mesh.code + "&since=0").then(function(j){
+      var devs = j.devices || [];
+      if(!Array.isArray(devs)) devs = Object.keys(devs).map(function(k){ var v = devs[k] || {}; v.id = k; return v; });
+      var rows = devs.map(function(d){
+        var live = d.ts && (Date.now() - d.ts < 20000);
+        return '<div>' + (live ? "\u25cf " : "\u25cb ") + (d.name || d.id || "node") +
+               (d.battery != null ? " \u00b7 " + d.battery + "%" : "") + (live ? "" : " \u00b7 asleep") + '</div>';
+      }).join("");
+      listSet('<div><b>' + mesh.code + '</b> \u00b7 ' + devs.length + ' device(s)</div>' + (rows || "<div>waiting for the other device\u2026</div>"));
+      codeShow();
+    }).catch(function(e){ listSet("<div>" + e.message + "</div>"); });
+  }
+  function pollStart(){
+    if(mesh.timer) clearInterval(mesh.timer);
+    var tick = function(){
+      if(!mesh.code) return;
+      api("/v1/mesh/poll", { code: mesh.code, nodeId: nodeId, name: devName(), seen: mesh.seen.slice(-40) })
+        .then(function(j){
+          (j.cmds || []).forEach(function(c){
+            mesh.seen.push(String(c.id));
+            if(c.cmd === "say"){
+              tell("\uD83D\uDCE1 " + (c.arg || ""));
+              try{ if(typeof window.addMsg === "function") window.addMsg("a", "\uD83D\uDCE1 " + (c.arg || "")); }catch(e){}
+            }
+          });
+          if($("#auraMeshOv").classList.contains("on")) refresh();
+        }).catch(function(){});
+    };
+    tick(); mesh.timer = setInterval(tick, 4000);
+  }
+
+  ov.addEventListener("click", function(e){ if(e.target === ov) ov.classList.remove("on"); });
+  $("#amuHost").onclick = host;
+  $("#amuJoin").onclick = join;
+  $("#amuLeave").onclick = leave;
+  $("#amuClose").onclick = function(){ ov.classList.remove("on"); };
+  $("#amuSend").onclick = function(){
+    var t = String(($("#amuSay") || {}).value || "").trim();
+    if(!mesh.code) return tell("Host or join a mesh first");
+    if(!t) return;
+    api("/v1/mesh/command", { code: mesh.code, nodeId: "all", cmd: "say", arg: t })
+      .then(function(j){ tell(j.queued ? ("Sent to " + j.queued + " device(s)") : "No device joined yet"); $("#amuSay").value = ""; })
+      .catch(function(e){ tell(e.message); });
+  };
+  /* Ctrl K style entry: type "mesh" in the command palette would need the ref's internals,
+     so the + menu button is the door — and it opens with the code already filled in */
+  function openMesh(){ ov.classList.add("on"); codeShow(); if(mesh.code){ pollStart(); refresh(); } }
+
+  /* ---------------- + menu buttons (same markup as the reference's own) ---------------- */
+  var tools = $("#tools");
+  if(tools){
+    var closeMenus = function(){ [].forEach.call(document.querySelectorAll(".menu"), function(m){ m.classList.remove("on"); }); };
+    var bm = document.createElement("button"); bm.type = "button"; bm.id = "auraMeshBtn"; bm.innerHTML = "\uD83D\uDCE1 Mesh";
+    var ba = document.createElement("button"); ba.type = "button"; ba.id = "auraAttBtn"; ba.innerHTML = "\uD83D\uDCCE Attach";
+    bm.onclick = function(e){ e.stopPropagation(); closeMenus(); openMesh(); };
+    ba.onclick = function(e){ e.stopPropagation(); closeMenus(); input.click(); };
+    tools.appendChild(bm); tools.appendChild(ba);
+  }
+  /* a hosted mesh keeps listening in the background */
+  try{ if(mesh.code) setTimeout(pollStart, 1200); }catch(e){}
 })();
 </script>
 </body></html>
