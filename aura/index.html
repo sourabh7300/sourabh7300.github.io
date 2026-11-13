@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="99e1ce97c6cf"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="f358570f9704"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1449,17 +1449,17 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     var adminPanel = document.getElementById('p-admin');
     var ADMIN_KEY = 'aura_admin_session';
 
+    var adminNav = adminTab ? adminTab.parentNode : null;
+    var adminStage = adminPanel ? adminPanel.parentNode : null;
     function adminHide(){
-      if(adminTab) adminTab.style.display = 'none';
-      if(adminPanel){
-        var wasOn = adminPanel.classList.contains('on');
-        adminPanel.style.display = 'none';
-        if(wasOn){ var c = document.querySelector('#tabs button[data-p="chat"]'); if(c) c.click(); }
-      }
+      /* taken out of the DOM, not just hidden — nothing in devtools hints at it */
+      if(adminPanel && adminPanel.classList.contains('on')){ var c = document.querySelector('#tabs button[data-p="chat"]'); if(c) c.click(); }
+      if(adminTab && adminTab.parentNode) adminTab.parentNode.removeChild(adminTab);
+      if(adminPanel && adminPanel.parentNode) adminPanel.parentNode.removeChild(adminPanel);
     }
     function adminShow(){
-      if(adminTab) adminTab.style.display = '';
-      if(adminPanel) adminPanel.style.display = '';
+      if(adminTab && adminNav && !adminTab.parentNode) adminNav.appendChild(adminTab);
+      if(adminPanel && adminStage && !adminPanel.parentNode) adminStage.appendChild(adminPanel);
     }
     function adminSession(){
       try{ var s = JSON.parse(localStorage.getItem(ADMIN_KEY) || 'null'); if(s && s.exp > Date.now()) return s; }catch(e){}
@@ -1607,6 +1607,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }
 
       window.AURA_CORE = {
+        state: function(){ return { ex: ex, amp: amp }; },
         excite: function(k){ ex = Math.min(2.6, ex + (k == null ? 1 : k)); },
         listen: startAudio,
         stop: stopAudio
