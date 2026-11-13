@@ -17655,9 +17655,31 @@ html[data-ui="v6"] body #dock #micBtn{width:36px!important;height:36px!important
     if(q.placeholder!==want)q.placeholder=want;
   }
 
+  /* ---- device sensor: a laptop opens the laptop layout, a phone the phone one ----
+     Width alone lies (a maximised window on a 13" laptop can be 900px; a large phone is
+     430px). So the deck reads the real signals: touch points, pointer type, UA and the
+     short side of the screen, and remembers them as data-device for CSS to key off. */
+  function detectDevice(){
+    try{
+      var ua=navigator.userAgent||"";
+      var touches=navigator.maxTouchPoints||0;
+      var coarse=false; try{coarse=matchMedia("(pointer: coarse)").matches}catch(e){}
+      var noHover=false; try{noHover=matchMedia("(hover: none)").matches}catch(e){}
+      var shortSide=Math.min(screen.width||innerWidth,screen.height||innerHeight);
+      var mobileUA=/Android|iPhone|iPod|Windows Phone|Mobile/i.test(ua)||(/iPad|Tablet/i.test(ua));
+      var touchOnly=touches>0&&(coarse||noHover);
+      if(mobileUA&&touchOnly) return shortSide<=820?"phone":"tablet";
+      if(touchOnly&&shortSide<=820&&!ua.match(/Macintosh|Windows NT|X11|CrOS/i)) return "phone";
+      return "laptop";
+    }catch(e){return innerWidth<=760?"phone":"laptop"}
+  }
   function layout(){
     try{
-      var phone=innerWidth<=760;
+      var dev=detectDevice();
+      try{document.documentElement.setAttribute("data-device",dev)}catch(e){}
+      /* a phone gets the phone deck even in landscape (900px); everything else is the
+         laptop deck, and only a genuinely narrow window drops to the compact one */
+      var phone=(dev==="phone")?innerWidth<=900:innerWidth<=760;
       /* html.m-phone is what the legacy phone skin keys off. It was set once at boot
          and never cleared, so a window that started narrow kept the phone composer
          (38px round send, 479px input) after it was resized — the "desktop looks like
@@ -18017,12 +18039,28 @@ html[data-ui="v6"] body #dock #micBtn{width:36px!important;height:36px!important
     return d;
   }
 
-  window.__auraActivateFx = function(zeus){
-    if(running) return;
-    running = true;
+  /* the send button is painted inline by an older script, so a CSS rule cannot repaint
+     it on a persona switch — the accent is written here in both directions */
+  function paintAccent(zeus){
     var ac = zeus ? "#ff4a2e" : "#3fd2ff";
+    var ink = zeus ? "#1a0500" : "#00131c";
     document.body.style.setProperty("--ui-ac", ac);
     document.body.style.setProperty("--g", ac);
+    var s = document.getElementById("sendBtn");
+    if(s){
+      s.style.setProperty("background", ac, "important");
+      s.style.setProperty("color", ink, "important");
+      s.style.setProperty("box-shadow", "0 0 24px " + (zeus ? "rgba(255,74,46,.35)" : "rgba(63,210,255,.28)"), "important");
+    }
+  }
+  window.__auraPaintAccent = function(){
+    try{ paintAccent(document.body.dataset.persona === "jarvis"); }catch(e){}
+  };
+
+  window.__auraActivateFx = function(zeus){
+    paintAccent(zeus);
+    if(running) return;
+    running = true;
     var d = overlay(zeus);
     setTimeout(function(){ document.body.classList.add("v6act"); }, 120);
     setTimeout(function(){ d.style.opacity = "0"; }, 1150);
@@ -18041,6 +18079,10 @@ html[data-ui="v6"] body #dock #micBtn{width:36px!important;height:36px!important
   };
 
   /* one seam: every persona change already funnels through setPersona */
+  /* a deck that boots straight into ZEUS must open red, not cyan */
+  setTimeout(function(){ try{ window.__auraPaintAccent(); }catch(e){} }, 600);
+  setTimeout(function(){ try{ window.__auraPaintAccent(); }catch(e){} }, 2500);
+
   var orig = window.setPersona;
   if(typeof orig === "function"){
     window.setPersona = function(p){
@@ -18048,6 +18090,7 @@ html[data-ui="v6"] body #dock #micBtn{width:36px!important;height:36px!important
       var r = orig.apply(this, arguments);
       var after = (typeof persona === "function") ? persona() : "aura";
       if(after !== before){ try{ window.__auraActivateFx(after === "jarvis"); }catch(e){} }
+      else { try{ window.__auraPaintAccent(); }catch(e){} }
       return r;
     };
   }
