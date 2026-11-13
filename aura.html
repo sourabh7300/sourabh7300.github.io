@@ -17642,6 +17642,11 @@ html[data-ui="v6"] body[data-persona="jarvis"] #log .msg.user{background:rgba(25
   function layout(){
     try{
       var phone=innerWidth<=760;
+      /* html.m-phone is what the legacy phone skin keys off. It was set once at boot
+         and never cleared, so a window that started narrow kept the phone composer
+         (38px round send, 479px input) after it was resized — the "desktop looks like
+         a phone" complaint. Layout now owns the class in both directions. */
+      try{document.documentElement.classList.toggle("m-phone",phone)}catch(e){}
       /* a saved Code/System tab would open a panel with no way back on a phone */
       if(phone){
         var curTab=document.body.getAttribute("data-tab");
