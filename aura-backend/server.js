@@ -2353,7 +2353,7 @@ function warmHealth() {
   try { ghCheck().catch(() => {}); } catch (e) {}
   try { researchProbe().catch(() => {}); } catch (e) {}
 }
-app.get("/v1/vision/debug", (req, res) => res.json({ attempts: visionDebug }));
+app.get("/v1/vision/debug", (req, res) => res.json({ attempts: visionDebug, alts: visionAltCache }));
 app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
