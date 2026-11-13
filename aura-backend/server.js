@@ -298,7 +298,36 @@ async function visionCall(messages, maxTok, temperature, req) {
     }
   }
   if (best) { recordUse(req, "vision", 0); return best; }
+  /* SECOND EYES — Gemini's free quota answers 429 often enough that an image must
+     not die with it. Groq's Llama 4 Scout is multimodal and speaks the same
+     OpenAI shape, so the same messages go straight through. */
+  const alt = await groqVision(messages, maxTok, req);
+  if (alt) { recordUse(req, "vision", 0); return alt; }
   return null;
+}
+async function groqVision(messages, maxTok, req) {
+  const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
+  if (!key) return null;
+  const model = "meta-llama/llama-4-scout-17b-16e-instruct";
+  try {
+    const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok || 900, 2000), temperature: 0.4 }),
+      signal: AbortSignal.timeout(45_000)
+    });
+    if (!r.ok) {
+      if (visionDebug.length > 5) visionDebug.shift();
+      let why = "";
+      try { why = (await r.text()).slice(0, 240); } catch (e) {}
+      visionDebug.push({ model: "groq:" + model, status: r.status, why });
+      return null;
+    }
+    const d = await r.json();
+    const t = String((((d.choices || [])[0] || {}).message || {}).content || "").trim();
+    if (t) visionDebug.push({ model: "groq:" + model, ok: true, len: t.length });
+    return t || null;
+  } catch (e) { return null; }
 }
 /* Render injects PORT (its default is 10000). Falling back to 3000 on a host means
    the platform scans and scans and never sees an open port — "No open ports
