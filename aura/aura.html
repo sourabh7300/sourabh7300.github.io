@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="c6ef1b8870eb"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="c2bfed307784"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1472,6 +1472,34 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     })();
   }catch(e){}
 
+  /* ---------------- a search control where the thumb is ----------------
+     On phones the header Search button is far from the composer, so it is hidden and
+     this one sits in the input toolbar, opening the same command palette. */
+  try{
+    (function phoneSearch(){
+      var plus = document.getElementById('plusbtn');
+      if(!plus || document.getElementById('auraSearchBtn')) return;
+      var row = plus.parentNode;
+      var b = document.createElement('button');
+      b.id = 'auraSearchBtn';
+      b.type = 'button';
+      b.title = 'Search';
+      b.innerHTML = '\uD83D\uDD0D';
+      b.style.cssText = 'display:none;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#cfe9ff;font-size:15px;cursor:pointer;flex:none';
+      row.insertBefore(b, plus);
+      b.onclick = function(e){
+        e.stopPropagation();
+        var s = document.getElementById('srch');
+        if(s) s.click();
+      };
+      function place(){
+        b.style.display = window.innerWidth < 900 ? 'inline-flex' : 'none';
+      }
+      place();
+      window.addEventListener('resize', place);
+    })();
+  }catch(e){}
+
   /* ---------------- PANELS MUST NEVER BE BLANK ----------------
      The three data panels (Chats list, System rail/log/memory, Admin squad) are filled
      by the reference's own render functions. One throw — a saved chat with an odd
@@ -1533,6 +1561,15 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         '.tabs{gap:2px;padding:2px;scrollbar-width:none;justify-content:flex-start}' +
         '.tabs::-webkit-scrollbar{display:none}' +
         '.tabs button{flex:0 0 auto;font-size:12.5px;height:34px;padding:0 10px;letter-spacing:.01em;white-space:nowrap}' +
+        /* phones keep three tabs: chat, history, settings */ +
+        '#tabs button[data-p="code"],#tabs button[data-p="sys"]{display:none!important}' +
+        /* the welcome screen stays calm: no suggestion chips, no tip line, small core */ +
+        '#wel .chips{display:none!important}' +
+        '[data-t="hint"],.tip{display:none!important}' +
+        '#coreStageWrap{width:168px!important;height:168px!important;margin-bottom:4px!important}' +
+        '#coreStageWrap > div:last-child{display:none!important}' +
+        '#srch{display:none!important}' +
+        '#msgs{padding-bottom:6px}#card{margin-top:auto}' +
         '#auraCoreWrap{display:none!important}' +
         '#auraTour{left:12px!important;right:12px!important;width:auto!important;padding:14px!important}' +
       '}' +
