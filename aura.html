@@ -674,20 +674,40 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
       var msgs = [{ role: "system", content: sys }];
       if(withWeb && hits.length) msgs.push({ role: "system", content: webBlock(hits) });
       msgs = msgs.concat(history);
-      var r = await fetch(BASE + "/v1/chat/completions", {
-        method: "POST", headers: hdrs(),
-        body: JSON.stringify({
-          model: "openai/gpt-oss-120b",
-          messages: msgs,
-          max_tokens: 1400, temperature: 0.45
-        }),
-        signal: AbortSignal.timeout(55000)
-      });
-      if(!r.ok) throw new Error("HTTP " + r.status);
-      var j = await r.json();
-      var t = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
-      if(!t) throw new Error("empty reply");
-      return t;
+      /* A long prompt plus a busy key used to end as a 55s abort that read as
+         "engine unreachable". One retry with the same payload, and a second with
+         a trimmed history, keeps a slow lane from losing the question. */
+      async function post(list){
+        var r = await fetch(BASE + "/v1/chat/completions", {
+          method: "POST", headers: hdrs(),
+          body: JSON.stringify({
+            model: "openai/gpt-oss-120b",
+            messages: list,
+            max_tokens: 1400, temperature: 0.45
+          }),
+          signal: AbortSignal.timeout(75000)
+        });
+        if(!r.ok) throw new Error("HTTP " + r.status);
+        var j = await r.json();
+        var t = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
+        if(!t) throw new Error("empty reply");
+        return t;
+      }
+      var t0 = Date.now(), firstErr = null;
+      try{
+        var out1 = await post(msgs);
+        if(window.console) console.info("[aura] chat ok", Date.now() - t0 + "ms", (msgs.length) + " msgs");
+        return out1;
+      }catch(e){ firstErr = e; }
+      try{
+        var lean = msgs.slice(0, 2).concat(history.slice(-2));
+        var out2 = await post(lean);
+        if(window.console) console.info("[aura] chat recovered on retry", Date.now() - t0 + "ms", firstErr && firstErr.message);
+        return out2;
+      }catch(e2){
+        if(window.console) console.info("[aura] chat failed", Date.now() - t0 + "ms", (firstErr && firstErr.message), "then", e2.message);
+        throw e2;
+      }
     }
 
     try{
