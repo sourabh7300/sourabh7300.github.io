@@ -464,7 +464,11 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
   /* ---------------- attachments ---------------- */
   var files = [];
   var input = document.createElement("input");
-  input.type = "file"; input.multiple = true; input.style.display = "none";
+  input.type = "file"; input.multiple = true;
+  /* display:none kept the picker from opening on iOS Safari; an off-screen 1px input
+     that is still rendered opens everywhere */
+  input.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
+  input.setAttribute("aria-hidden", "true");
   input.accept = "image/*,.txt,.md,.json,.csv,.js,.ts,.html,.css,.py,.java,.c,.cpp,.log,.xml,.yml,.yaml";
   document.body.appendChild(input);
 
@@ -510,8 +514,15 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
   input.onchange = function(){
     var list = [].slice.call(input.files || []);
     input.value = "";
-    Promise.all(list.map(readOne)).then(function(out){
-      out.filter(Boolean).forEach(function(f){ if(files.length < 6) files.push(f); });
+    if(!list.length) return;
+    var big = list.filter(function(f){ return f.size > 12 * 1024 * 1024; });
+    if(big.length) tell(big.length + " file(s) skipped \u2014 12 MB se bada");
+    var ok = list.filter(function(f){ return f.size <= 12 * 1024 * 1024; });
+    Promise.all(ok.map(readOne)).then(function(out){
+      var added = 0;
+      out.filter(Boolean).forEach(function(f){ if(files.length < 6){ files.push(f); added++; } });
+      if(list.length && !added) tell("6 files tak hi attach ho sakti hain");
+      else if(added) tell(added + " file attached \u2014 ab sawaal poocho");
       renderFiles();
     });
   };
@@ -851,7 +862,7 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     var bm = document.createElement("button"); bm.type = "button"; bm.id = "auraMeshBtn"; bm.innerHTML = "\uD83D\uDCE1 Mesh";
     var ba = document.createElement("button"); ba.type = "button"; ba.id = "auraAttBtn"; ba.innerHTML = "\uD83D\uDCCE Attach";
     bm.onclick = function(e){ e.stopPropagation(); closeMenus(); openMesh(); };
-    ba.onclick = function(e){ e.stopPropagation(); closeMenus(); input.click(); };
+    ba.onclick = function(e){ e.stopPropagation(); closeMenus(); tell("File chuno\u2026"); try{ input.click(); }catch(err){ tell("Picker blocked \u2014 browser permission"); } };
     tools.appendChild(bm); tools.appendChild(ba);
   }
   /* The orb's colour lives in FLU (kick/surge). Only the intro used to prime it, so
