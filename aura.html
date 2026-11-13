@@ -1358,6 +1358,16 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           'color:#e8f4ff;font:14px/1.55 Inter,system-ui,sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.55);backdrop-filter:blur(14px)';
         document.body.appendChild(tourEl);
       }
+      /* sit above the composer, never on top of it (mobile included) */
+      try{
+        var _inp = document.getElementById('inp');
+        var _b = 96;
+        if(_inp){
+          var _t = _inp.getBoundingClientRect().top;
+          if(_t > 40 && _t < innerHeight - 30) _b = Math.max(20, innerHeight - _t + 16);
+        }
+        tourEl.style.bottom = _b + 'px';
+      }catch(e){}
       tourEl.innerHTML =
         '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">' +
           '<b style="font-size:14.5px">' + s.title + '</b>' +
