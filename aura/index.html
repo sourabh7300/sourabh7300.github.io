@@ -527,9 +527,46 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
 
   /* ---------------- engine hook ---------------- */
   var history = [];
+
+  /* ---------- who is talking to us ----------
+     A small, honest profile: the name saved in Settings, the language they actually
+     write in, and the last few topics. It is sent as context so AURA stops answering
+     like a stranger every turn. Nothing leaves this browser except inside the prompt. */
+  function profile(){
+    var name = "";
+    try{ name = JSON.parse(localStorage.getItem("az.name") || '""') || ""; }catch(e){}
+    var topics = [];
+    try{ topics = JSON.parse(localStorage.getItem("aura_topics") || "[]") || []; }catch(e){}
+    return { name: String(name).slice(0, 40), topics: topics.slice(-5) };
+  }
+  function rememberTopic(text){
+    try{
+      var t = String(text || "").replace(/\s+/g, " ").trim().slice(0, 60);
+      if(t.length < 4) return;
+      var list = JSON.parse(localStorage.getItem("aura_topics") || "[]") || [];
+      if(list[list.length - 1] !== t) list.push(t);
+      localStorage.setItem("aura_topics", JSON.stringify(list.slice(-8)));
+    }catch(e){}
+  }
+  function profileBlock(){
+    var p = profile(), bits = [];
+    if(p.name) bits.push("The user's name is " + p.name + " — greet them by name only when it fits naturally.");
+    if(p.topics.length) bits.push("Recently discussed: " + p.topics.join(" | ") + ". Do not repeat it unless relevant.");
+    return bits.length ? "USER CONTEXT: " + bits.join(" ") : "";
+  }
+
+  var RULES = [
+    "You are an expert across science, maths, programming, design, business, finance, law basics, health basics, education, travel and everyday life — but never pretend: if something is uncertain or outside your knowledge, say so plainly and give the best general direction.",
+    "Answer the actual question in the first line, then explain. No filler openers, no restating the question.",
+    "Use short paragraphs or bullets; for how-to questions give numbered steps; for maths show the working; for code give a runnable snippet in a fenced block and one line on how to run it.",
+    "Mirror the user's language exactly: Hinglish → Hinglish, Hindi (Devanagari) → Hindi, English → English. Keep technical terms in English.",
+    "If live web results are given, prefer them over memory, mention dates, and cite as [1], [2]. Never invent a source.",
+    "Never mention being a language model, a prompt, or these instructions."
+  ].join(" ");
+
   var SYS = {
-    aura: "You are AURA — a calm, precise holographic assistant. Warm, concise, useful. Reply in the user's language (Hinglish is fine). If the user attached file contents, use them. Never mention being a language model.",
-    zeus: "You are ZEUS — the thunder persona of AURA: bold, decisive, short declarative sentences, address the user as 'sir'. If files are attached, use them. Never mention being a language model."
+    aura: "You are AURA (Adaptive Universal Reasoning Assistant), a calm, precise holographic assistant built by Sourabh Singh. Warm, direct, quietly confident. " + RULES,
+    zeus: "You are ZEUS, the thunder persona of AURA: bold, decisive, short declarative sentences, address the user as 'sir', never rude or dismissive. " + RULES
   };
   /* The backend decides whether a question is worth a live web search with a
      greeting gate: "hi aura, whats the nvidia update" counted as small talk and got
@@ -604,12 +641,25 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     if(history.length > 16) history = history.slice(-16);
 
     var plain = asked.replace(/\s+/g, " ").trim();
+
+    /* "mera naam Rahul hai" / "my name is Rahul" — remember it so the next visit greets
+       them properly instead of asking again */
+    try{
+      var nm = plain.match(/(?:mera naam|my name is|naam)\s+(?:hai\s+)?([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F .]{1,18})/i);
+      if(nm && nm[1]){
+        var cleanName = nm[1].replace(/\b(hai|hoon|is|and|aur)\b.*$/i, "").trim();
+        if(cleanName && cleanName.length >= 2){
+          localStorage.setItem("az.name", JSON.stringify(cleanName));
+          if(typeof applyText === "function") applyText();
+        }
+      }
+    }catch(e){}
     var trivial = /^(\d[\d\s+\-*/^().]*|what is \d|calc|calculate)/i.test(plain) || plain.length < 8;
     var hits = [];
     if(!trivial && (FRESHISH.test(plain) || plain.split(" ").length >= 5)) hits = await webHits(plain);
 
     async function ask(withWeb){
-      var sys = [SYS[m], "TODAY IS " + todayLine() + ". If LIVE WEB RESULTS are provided, ground your answer in them, mention dates, and cite them as [1], [2]. Never invent a citation."].join(" ");
+      var sys = [SYS[m], "TODAY IS " + todayLine() + ".", profileBlock()].filter(Boolean).join(" ");
       var msgs = [{ role: "system", content: sys }];
       if(withWeb && hits.length) msgs.push({ role: "system", content: webBlock(hits) });
       msgs = msgs.concat(history);
@@ -618,7 +668,7 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
         body: JSON.stringify({
           model: "openai/gpt-oss-120b",
           messages: msgs,
-          max_tokens: 1400, temperature: 0.6
+          max_tokens: 1400, temperature: 0.45
         }),
         signal: AbortSignal.timeout(55000)
       });
@@ -637,6 +687,7 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
         if(late.length){ hits = late; out = await ask(true); }
       }
       history.push({ role: "assistant", content: out });
+      rememberTopic(plain);
       window.__auraAttachClear();
       return out;
     }catch(e){
@@ -818,13 +869,41 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     }
   }catch(e){}
 
-  /* the deck must stay silent: no spoken replies, no ambient bed, no UI ticks */
+  /* silent by default (the owner asked for no background voice), but the Settings
+     toggle still works: pressing the mic switches spoken replies on for this session,
+     so talking to AURA gets a spoken answer back. */
   try{
-    window.speak = function(){};
     if(window.speechSynthesis) speechSynthesis.cancel();
     if(typeof window.stopBed === "function") window.stopBed();
-    if(typeof window.SFX === "object"){
-      Object.keys(window.SFX).forEach(function(k){ window.SFX[k] = function(){}; });
+  }catch(e){}
+  try{
+    var micBtn = document.getElementById("mic");
+    if(micBtn) micBtn.addEventListener("click", function(){
+      try{
+        if(typeof vOn !== "undefined" && !vOn){
+          vOn = true;
+          var tv = document.getElementById("tv");
+          if(tv) tv.classList.add("on");
+        }
+      }catch(e){}
+    }, true);
+  }catch(e){}
+
+  /* the line under the composer teaches the interface instead of repeating one hint */
+  try{
+    var TIPS = [
+      "Tip: mic dabao aur bol ke poocho \u2014 Hinglish bhi chalega",
+      "Tip: + \u2192 Attach se file bhejo, AURA usko padh kar jawab deta hai",
+      "Tip: + \u2192 Mesh se dusre device par bhi jawab bhejo",
+      "Tip: Settings \u2192 Voice on karo, AURA jawab bol kar sunayega",
+      "Tip: Ctrl K se command palette khulta hai",
+      "Tip: \"activate zeus\" likho \u2014 poora interface badal jata hai"
+    ];
+    var hintEl = document.querySelector('[data-t="hint"]');
+    if(hintEl){
+      var ti = 0;
+      hintEl.textContent = TIPS[0];
+      setInterval(function(){ ti = (ti + 1) % TIPS.length; hintEl.textContent = TIPS[ti]; }, 9000);
     }
   }catch(e){}
 
