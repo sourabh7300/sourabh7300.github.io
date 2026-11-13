@@ -116,7 +116,7 @@ body.cine .app,body.cine .ov{pointer-events:none}
 #introSkip{position:absolute;right:28px;bottom:24px;z-index:5;padding:9px 16px;border-radius:99px;border:1px solid rgba(190,175,255,.4);color:#cfc6ff;font-size:12.5px;background:rgba(10,10,30,.5);backdrop-filter:blur(8px);transition:.2s}#introSkip:hover{color:#fff;border-color:#fff}#igHint{position:absolute;left:28px;bottom:28px;z-index:5;font-size:12.5px;color:#8f86d8;letter-spacing:.06em;animation:pu 2s infinite;pointer-events:none}
 @media(max-width:760px){.hd2 b{font-size:26px}.win{top:34vh;height:44vh}.wn{display:none}.ubar{font-size:15px}.apan{font-size:14px}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
-@keyframes cPulse{0%{transform:scale(.88);opacity:.4}100%{transform:scale(1.14);opacity:.82}}
+@keyframes corePulse{0%{transform:scale(.86);opacity:.35}100%{transform:scale(1.15);opacity:.75}}
 </style></head><body data-mode="aura">
 <canvas id="bg"></canvas><div class="grain"></div>
 <div class="app" id="app" data-mode="aura">
@@ -126,12 +126,12 @@ body.cine .app,body.cine .ov{pointer-events:none}
 <main class="stage" id="stage">
 <section class="panel on" id="p-chat"><div class="chatw" id="chatw">
 <div class="msgs" id="msgs"><div class="wel" id="wel">
-  <div id="coreStageWrap" style="position:relative;width:clamp(190px,24vw,290px);height:clamp(190px,24vw,290px);margin:0 auto 10px;display:flex;align-items:center;justify-content:center;">
-    <canvas id="coreCanvas" width="600" height="600" style="width:100%;height:100%;display:block;border-radius:50%;filter:drop-shadow(0 0 32px var(--glow)) drop-shadow(0 0 12px var(--ac));"></canvas>
-    <div style="position:absolute;inset:12%;border-radius:50%;background:radial-gradient(circle,var(--glow) 0%,transparent 70%);opacity:.55;filter:blur(22px);pointer-events:none;animation:cPulse 4s ease-in-out infinite alternate;"></div>
-    <div style="position:absolute;bottom:4px;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:99px;background:rgba(10,14,22,.82);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px);font:600 10px/1 'Inter',sans-serif;letter-spacing:.18em;color:var(--hot);text-transform:uppercase;white-space:nowrap;">
-      <span id="coreStatusDot" style="width:5px;height:5px;border-radius:50%;background:var(--ac);box-shadow:0 0 7px var(--ac);animation:pu 1.4s infinite;flex:none;"></span>
-      <span id="coreStatusText">CORE ONLINE</span>
+  <div id="coreStageWrap" style="position:relative;width:clamp(220px,28vw,320px);height:clamp(220px,28vw,320px);margin:0 auto 12px;display:flex;align-items:center;justify-content:center;">
+    <canvas id="coreCanvas" width="640" height="640" style="width:100%;height:100%;display:block;filter:drop-shadow(0 0 28px var(--glow)) drop-shadow(0 0 10px var(--ac));"></canvas>
+    <div style="position:absolute;inset:15%;border-radius:50%;background:radial-gradient(circle,var(--glow) 0%,transparent 70%);opacity:.5;filter:blur(20px);pointer-events:none;animation:corePulse 3.5s ease-in-out infinite alternate;"></div>
+    <div style="position:absolute;bottom:0px;left:50%;transform:translateX(-50%);display:inline-flex;align-items:center;gap:7px;padding:4px 12px;border-radius:99px;background:rgba(8,12,20,.85);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(10px);box-shadow:0 4px 16px rgba(0,0,0,.4);font:600 10px/1 'Inter',system-ui,sans-serif;letter-spacing:.18em;color:var(--hot);text-transform:uppercase;white-space:nowrap;user-select:none;">
+      <span id="coreStatusDot" style="width:6px;height:6px;border-radius:50%;background:var(--ac);box-shadow:0 0 8px var(--ac);animation:pu 1.4s infinite;flex:none;"></span>
+      <span id="coreStatusText">3D NEURAL CORE ACTIVE</span>
     </div>
   </div>
   <h2><span class="gl" data-g></span><span id="gtx">Good evening,</span> <i id="uname">Sourabh</i></h2>
@@ -373,254 +373,310 @@ applyAccent();applyText();applyMC();setState('idle');renderMem();slog('<b>BOOT</
 const INTRO={on:false},STAR_P='M12 0c.9 7.3 4.7 11.1 12 12-7.3.9-11.1 4.7-12 12-.9-7.3-4.7-11.1-12-12 7.3-.9 11.1-4.7 12-12z',STAR=`<svg class="i4" viewBox="0 0 24 24"><path d="${STAR_P}"/></svg>`;
 const IC={mic:'<rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',code:'<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/>',cam:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',mem:'<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/>',bell:'<path d="M6 17V11a6 6 0 0 1 12 0v6l2 2H4zM10 21h4"/>',pulse:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',chat:'<path d="M4 5h16v11H9l-5 4z"/>',gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>'};
 const IG={dots:[...Array(70)].map(()=>({x:Math.random(),y:Math.random(),r:.6+Math.random()*1.7,v:.008+Math.random()*.03,p:Math.random()*6.28,c:Math.random()<.2}))};
-function igDraw(now,dt){const c=$('#igc'),x=c.getContext('2d'),w=c.width=innerWidth*dpr|0,h=c.height=innerHeight*dpr|0;x.clearRect(0,0,w,h);x.globalCompositeOperation='lighter';IG.dots.forEach(d=>{d.y-=d.v*dt/1000;if(d.y<-.02)d.y=1.02;const a=.25+.55*Math.pow(Math.sin(now/800+d.p),2),px=d.x*w,py=d.y*h;if(d.c){const r=d.r*5*dpr;x.fillStyle=`rgba(210,200,255,${a})`;x.beginPath();x.moveTo(px,py-r);x.quadraticCurveTo(px,py,px+r,py);x.quadraticCurveTo(px,py,px,py+r);x.quadraticCurveTo(px,py,px-r,py);x.quadraticCurveTo(px,py,px,py-r);x.fill()}else{x.fillStyle=`rgba(170,160,255,${a})`;x.beginPath();x.arc(px,py,d.r*dpr,0,6.283);x.fill()}});x.globalCompositeOperation='source-over'}
-function buildIntro(){$$('#intro [data-star]').forEach(e=>e.innerHTML=STAR);const nm=store.get('name','Sourabh');$('#inm').textContent=nm;$('#unm').textContent=nm;$('#avi').innerHTML='<svg viewBox="0 0 24 24">'+IC.user+'</svg>';
-const bub=(a,R,i,l)=>`<div class="bb" style="--a:${a}deg;--R:${R}"><div class="bi"><svg viewBox="0 0 24 24">${IC[i]}</svg><span>${l}</span></div></div>`,r1='calc(var(--sz)*.31)',r2='calc(var(--sz)*.5)';
-$('#orbit').innerHTML=`<div class="ring r1"></div><div class="ring r2"></div><div class="core"><b>Core</b><small>online</small></div><div class="orb" style="--d:24s">${bub(0,r1,'mic','Voice')}${bub(120,r1,'code','Code')}${bub(240,r1,'cam','Vision')}</div><div class="orb rv" style="--d:34s">${bub(60,r2,'mem','Memory')}${bub(180,r2,'bell','Alerts')}${bub(300,r2,'pulse','System')}</div>`;
-$('#car').innerHTML=[['chat','Chat'],['code','Code'],['pulse','System'],['shield','Admin'],['gear','Settings']].map((c,i)=>`<div class="cc g2"><div class="ci"><svg viewBox="0 0 24 24">${IC[c[0]]}</svg></div><b>${c[1]}</b><i class="l"></i><i class="l s"></i><div class="bt"><u></u><u></u></div></div>`).join('');
-['#s1','#s2','#s3','#s4','#s5','#s6'].forEach(i=>{$(i).style.opacity=0});['.ig-grid','#igBeam','#igDome'].forEach(i=>$(i).style.opacity=0);$('#s1word').style.clipPath='inset(0 100% 0 0)';$('#s1sub').style.opacity=0;$('#win').style.opacity=0;$('#arow').style.opacity=0;$('#fin').style.opacity=0;$('#bigstar').style.opacity=0;$('#rays').style.opacity=0;['#b1','#b2','#b3','#utxt'].forEach(i=>$(i).textContent='')}
-async function typeTo(el,text,ms){for(let i=1;i<=text.length;i++){if(cineSkip)return;el.textContent=text.slice(0,i);if(i%2==0)tn(2300+Math.random()*500,.012,.01,'square');await sleep(ms)}}
-async function runIntro(){if(started)return;started=true;busy=true;cineSkip=false;B.classList.add('cine');const I=$('#intro');buildIntro();I.className='on';INTRO.on=true;app.classList.add('hold');$('#igHint').style.display=AU.ctx&&AU.ctx.state=='running'?'none':'block';
-const step=async ms=>{await wait(ms);if(cineSkip)throw'skip'},A=(sel,kf,o)=>{const e=typeof sel=='string'?$(sel):sel;if(!e)return;return e.animate(kf,{fill:'forwards',easing:'cubic-bezier(.2,.8,.2,1)',...o})},AA=(sel,kf,o,st)=>$$(sel).forEach((e,i)=>A(e,kf,{...o,delay:(o.delay||0)+i*(st||0)})),out=sel=>A(sel,[{opacity:1},{opacity:0}],{duration:600,easing:'ease'});
-try{
-/* scene 1: wordmark */
-$('.ig-grid').style.opacity=1;$('#s1').style.opacity=1;A('#s1star',[{transform:'translateX(-70px) scale(.2) rotate(-120deg)',opacity:0},{transform:'none',opacity:1}],{duration:1000});A('#s1word',[{clipPath:'inset(0 100% 0 0)'},{clipPath:'inset(0 0 0 0)'}],{duration:1100,delay:300});A('#s1word',[{backgroundPosition:'-200% 0,0 0'},{backgroundPosition:'300% 0,0 0'}],{duration:1400,delay:900,easing:'ease'});A('#s1sub',[{opacity:0,letterSpacing:'.95em'},{opacity:.85,letterSpacing:'.5em'}],{duration:1100,delay:800});SFX.whoosh();tn(880,1.2,.05,'sine',null,.8,.3);tn(1320,1,.03,'sine',null,.8,.5);
-await step(2000);
-/* scene 2: dashboard rises */
-out('#s1');$('#igBeam').style.opacity=1;$('#igDome').style.opacity=.95;$('#s2').style.opacity=1;A('.hd2',[{opacity:0,transform:'translateY(-18px)'},{opacity:1,transform:'none'}],{duration:900,delay:200});
-A('#win',[{opacity:0,transform:'translateX(-50%) translateY(70vh) perspective(1600px) rotateX(28deg) scale(.9)'},{opacity:1,transform:'translateX(-50%) translateY(0) perspective(1600px) rotateX(8deg)'}],{duration:1500,delay:100});SFX.whoosh();tn(520,1.2,.04,'triangle',null,.7);
-await step(2100);
-/* scene 3: orbit */
-out('#s2');$('#igBeam').style.opacity=0;$('#s3').style.opacity=1;A('#orbit',[{opacity:0,transform:'scale(.55)'},{opacity:1,transform:'none'}],{duration:1200});AA('.bi',[{opacity:0,transform:'scale(.1)'},{opacity:1,transform:'scale(1)'}],{duration:600,delay:500},130);[0,1,2,3,4,5].forEach(i=>tn(660+i*110,.5,.035,'sine',null,.8,.5+i*.13));
-await step(2100);
-/* scene 4: conversation */
-out('#s3');$('#igDome').style.opacity=.55;$('#s4').style.opacity=1;A('.urow',[{opacity:0,transform:'translateY(20px)'},{opacity:1,transform:'none'}],{duration:700});await step(700);
-await typeTo($('#utxt'),'Hello AURA, what can you do?',34);await step(350);
-A('#arow',[{opacity:0,transform:'translate(60px,10px)'},{opacity:1,transform:'none'}],{duration:800});A('.abub',[{transform:'scale(.2) rotate(-180deg)'},{transform:'none'}],{duration:900});tn(1000,.5,.05,'sine',null,.8);await step(600);
-await typeTo($('#b1'),'• Speaks and listens, in your voice',16);await typeTo($('#b2'),'• Writes, runs and fixes your code',16);await typeTo($('#b3'),'• Remembers what matters to you',16);await step(500);
-/* scene 5: carousel */
-out('#s4');$('#s5').style.opacity=1;$('#igBeam').style.opacity=1;const cc=$$('#car .cc');SFX.whoosh();
-cc.forEach((c,i)=>A(c,[{opacity:0,transform:`rotateY(${i*72}deg) translateZ(60px) scale(.6)`},{opacity:1,transform:`rotateY(${i*72}deg) translateZ(340px)`}],{duration:900,delay:i*80}));
-A('#car',[{transform:'rotateX(-10deg) rotateY(0deg)'},{transform:'rotateX(-10deg) rotateY(-360deg)'}],{duration:2300,easing:'cubic-bezier(.45,0,.2,1)'});
-await step(1900);cc.forEach((c,i)=>A(c,[{opacity:1,transform:`rotateY(${i*72}deg) translateZ(340px)`},{opacity:0,transform:`rotateY(${i*72}deg) translateZ(0px) scale(.1)`}],{duration:520,easing:'ease-in'}));SFX.auraBloom();
-await step(520);
-/* scene 6: star + lockup */
-out('#s5');$('#s6').style.opacity=1;$('#igBeam').style.opacity=1;$('#igDome').style.opacity=1;A('#rays',[{opacity:0,transform:'rotate(0deg)'},{opacity:1,transform:'rotate(50deg)'}],{duration:2000,easing:'ease-out'});
-A('#bigstar',[{opacity:1,transform:'scale(.05) rotate(-140deg)'},{opacity:1,transform:'scale(1.2) rotate(0deg)',offset:.7},{opacity:1,transform:'scale(1) rotate(0deg)'}],{duration:900});flashW('rgba(200,190,255,.55)',900);SFX.auraChord();
-await step(950);A('#bigstar',[{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.3)'}],{duration:500,easing:'ease-in'});A('#fin',[{opacity:0,transform:'translateY(22px)'},{opacity:1,transform:'none'}],{duration:800,delay:250});say('Aura online. How can I help?','aura');
-await step(1500)}catch(e){if(e!=='skip')console.error(e)}
-/* finish: hand over to the interface */
-I.getAnimations({subtree:true}).forEach(a=>{if(cineSkip)a.cancel()});I.classList.add('fade');app.classList.remove('hold');app.classList.add('zoomin');B.classList.add('reveal');FLU.tk=1;FLU.surge=.7;startBed('aura');flashW('rgba(160,200,255,.45)',900);
-await sleep(1100);I.className='';INTRO.on=false;I.getAnimations({subtree:true}).forEach(a=>a.cancel());await sleep(700);app.classList.remove('hold','zoomin');B.classList.remove('reveal','cine');busy=false;setState('idle');if(location.hash=='#zeus')setTimeout(()=>activate('zeus'),500)}
-$('#introSkip').onclick=e=>{e.stopPropagation();skipNow()};$('#intro').addEventListener('pointerdown',e=>{if(!e.target.closest('#introSkip')){auInit();$('#igHint').style.display='none'}});addEventListener('keydown',e=>{if(e.key=='Escape'&&INTRO.on)skipNow()});
-['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{auInit();}));
-$('#replayIntro').onclick=()=>toast('Intro is disabled');
-/* opening cinematic disabled by owner request */try{document.getElementById('intro').remove();app.classList.remove('hold');B.classList.add('reveal');setTimeout(()=>B.classList.remove('reveal'),1600)}catch(e){}
+/* ===== CLEAN BOOT (INTRO REPLACED BY 3D CORE) ===== */
+started = true;
+busy = false;
+cineSkip = false;
+app.classList.remove("hold", "zoomin");
+document.body.classList.remove("cine");
+B.classList.add("reveal");
+setTimeout(function(){ B.classList.remove("reveal"); setState("idle"); }, 1200);
+try{ var ri = document.getElementById("replayIntro"); if(ri) ri.onclick = function(){ toast("Intro disabled · 3D Core active"); }; }catch(e){}
+if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
 
-/* ===== AURA 3D PARTICLE CORE v2 ===== */
-(function initAURACore(){
-  var cv=document.getElementById("coreCanvas");
-  if(!cv){ setTimeout(initAURACore,120); return; }
-  var X=cv.getContext("2d");
-  var N=560, pts=[];
-  for(var i=0;i<N;i++){
-    var yy=1-2*(i+.5)/N, rr=Math.sqrt(1-yy*yy), ph=i*2.399963229728653;
-    pts.push({x:Math.cos(ph)*rr, y:yy, z:Math.sin(ph)*rr, sz:1.1+(i%3)*.45, halo:(i%4===0)});
+/* ===== NEXT-GEN 3D HOLOGRAPHIC PARTICLE CORE ===== */
+(function init3DParticleCore(){
+  var cv = document.getElementById("coreCanvas");
+  if(!cv){ setTimeout(init3DParticleCore, 80); return; }
+  var ctx = cv.getContext("2d");
+  var N = 560, pts = [];
+  for(var i = 0; i < N; i++){
+    var yy = 1 - 2 * (i + 0.5) / N;
+    var rr = Math.sqrt(Math.max(0, 1 - yy * yy));
+    var ph = i * 2.399963229728653;
+    pts.push({
+      x: Math.cos(ph) * rr,
+      y: yy,
+      z: Math.sin(ph) * rr,
+      sz: 1.1 + (i % 3) * 0.45,
+      halo: (i % 4 === 0)
+    });
   }
-  var PERSP=3.4, rotY=0, rotX=.22;
-  var spinSpd=.75, tgtSpin=.75, waveP=0, heart=0;
-  var pAmp=0, tgtPAmp=0, typeAgt=0, lastType=0, aVol=0;
-  var micAn=null, micBuf=null, micStr=null;
-  var coreState="idle", lastAppState="idle";
+  var PERSP = 3.4, rotY = 0, rotX = 0.22;
+  var spinSpd = 0.8, tgtSpin = 0.8, waveP = 0, heart = 0;
+  var pAmp = 0, tgtPAmp = 0, typeAgt = 0, lastType = 0, aVol = 0;
+  var micAn = null, micBuf = null, micStr = null;
+  var coreState = "idle", lastAppState = "idle";
 
   function setCoreState(s){
-    coreState=s;
-    var el=document.getElementById("coreStatusText");
-    var dot=document.getElementById("coreStatusDot");
-    var z=(typeof mode!=="undefined"&&mode==="zeus");
+    coreState = s;
+    var el = document.getElementById("coreStatusText");
+    var dot = document.getElementById("coreStatusDot");
+    var z = (typeof mode !== "undefined" && mode === "zeus");
     if(el){
-      if(s==="thinking") el.textContent=z?"STORM GATHERING":"NEURAL PROCESSING";
-      else if(s==="speaking") el.textContent=z?"ZEUS PROCLAIMING":"VOICE SYNTHESIS";
-      else if(s==="typing") el.textContent="INTERFACING";
-      else el.textContent=z?"OLYMPUS READY":"CORE ONLINE";
+      if(s === "thinking") el.textContent = z ? "STORM GATHERING" : "NEURAL PROCESSING";
+      else if(s === "speaking") el.textContent = z ? "ZEUS PROCLAIMING" : "VOICE SYNTHESIS";
+      else if(s === "listening") el.textContent = z ? "AWAITING COMMAND" : "LISTENING ACTIVELY";
+      else if(s === "typing") el.textContent = "SYNAPSE INTERFACING";
+      else el.textContent = z ? "OLYMPUS ONLINE" : "3D NEURAL CORE ACTIVE";
     }
     if(dot){
-      if(s==="thinking"){ dot.style.background="#ffb84d"; dot.style.boxShadow="0 0 8px #ffb84d"; }
-      else if(s==="speaking"){ dot.style.background="#5cf0a8"; dot.style.boxShadow="0 0 8px #5cf0a8"; }
-      else if(s==="typing"){ dot.style.background="#7a5cff"; dot.style.boxShadow="0 0 8px #7a5cff"; }
-      else{ dot.style.background="var(--ac)"; dot.style.boxShadow="0 0 7px var(--ac)"; }
+      if(s === "thinking"){ dot.style.background = "#ffb84d"; dot.style.boxShadow = "0 0 10px #ffb84d"; }
+      else if(s === "speaking"){ dot.style.background = "#5cf0a8"; dot.style.boxShadow = "0 0 10px #5cf0a8"; }
+      else if(s === "listening"){ dot.style.background = "#ff5588"; dot.style.boxShadow = "0 0 10px #ff5588"; }
+      else if(s === "typing"){ dot.style.background = "#a78bfa"; dot.style.boxShadow = "0 0 10px #a78bfa"; }
+      else{ dot.style.background = "var(--ac)"; dot.style.boxShadow = "0 0 8px var(--ac)"; }
     }
   }
-  window.AURA_CORE={setState:setCoreState};
 
+  // Real microphone reactivity
   function startMic(){
     if(micStr) return;
-    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) return;
-    navigator.mediaDevices.getUserMedia({audio:true,video:false}).then(function(st){
-      micStr=st;
-      var AC=window.AudioContext||window.webkitAudioContext;
-      var ac2=(typeof AU!=="undefined"&&AU&&AU.ctx)?AU.ctx:new AC();
-      try{ if(ac2.state==="suspended") ac2.resume(); }catch(e){}
-      var src=ac2.createMediaStreamSource(st);
-      micAn=ac2.createAnalyser(); micAn.fftSize=128;
-      src.connect(micAn); micBuf=new Uint8Array(micAn.frequencyBinCount);
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(function(st){
+      micStr = st;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      var ac2 = (typeof AU !== "undefined" && AU && AU.ctx) ? AU.ctx : new AC();
+      try{ if(ac2.state === "suspended") ac2.resume(); }catch(e){}
+      var src = ac2.createMediaStreamSource(st);
+      micAn = ac2.createAnalyser();
+      micAn.fftSize = 128;
+      src.connect(micAn);
+      micBuf = new Uint8Array(micAn.frequencyBinCount);
     }).catch(function(){});
   }
   function stopMic(){
-    try{ if(micStr){ micStr.getTracks().forEach(function(t){t.stop()}); micStr=null; micAn=null; } }catch(e){}
+    try{ if(micStr){ micStr.getTracks().forEach(function(t){ t.stop(); }); micStr = null; micAn = null; } }catch(e){}
   }
 
-  // Wire typing to input box
-  var inp2=document.getElementById("inp");
-  if(inp2){
-    inp2.addEventListener("input",function(){ lastType=performance.now(); typeAgt=Math.min(2.5,typeAgt+.5); if(coreState==="idle") setCoreState("typing"); });
-    inp2.addEventListener("keydown",function(){ lastType=performance.now(); typeAgt=Math.min(2.4,typeAgt+.35); if(coreState==="idle") setCoreState("typing"); });
+  // Typing listener on the chat input box
+  var inpEl = document.getElementById("inp");
+  if(inpEl){
+    inpEl.addEventListener("input", function(){
+      lastType = performance.now();
+      typeAgt = Math.min(2.8, typeAgt + 0.6);
+      if(coreState === "idle") setCoreState("typing");
+    });
+    inpEl.addEventListener("keydown", function(){
+      lastType = performance.now();
+      typeAgt = Math.min(2.8, typeAgt + 0.4);
+      if(coreState === "idle") setCoreState("typing");
+    });
   }
 
-  // Poll the app global state variable each frame
+  // Poll and react to AURA global state
   function pollState(){
-    var s=(typeof state!=="undefined")?state:"idle";
-    if(s!==lastAppState){
-      lastAppState=s;
-      if(s==="thinking"){ setCoreState("thinking"); }
-      else if(s==="speaking"){ setCoreState("speaking"); startMic(); }
-      else if(s==="listening"){ setCoreState("listening"); startMic(); }
-      else{ setCoreState("idle"); stopMic(); }
+    var s = (typeof state !== "undefined") ? state : "idle";
+    if(s !== lastAppState){
+      lastAppState = s;
+      if(s === "thinking"){ setCoreState("thinking"); }
+      else if(s === "speaking"){ setCoreState("speaking"); startMic(); }
+      else if(s === "listening"){ setCoreState("listening"); startMic(); }
+      else { setCoreState("idle"); stopMic(); }
     }
   }
 
-  var W=600, H=600, CX=300, CY=300, lastNow=performance.now();
+  var W = 640, H = 640, CX = 320, CY = 320, lastNow = performance.now();
 
   function render(now){
     requestAnimationFrame(render);
-    var dt=Math.min(.07,(now-lastNow)/1000); lastNow=now;
+    var dt = Math.min(0.07, (now - lastNow) / 1000);
+    lastNow = now;
     pollState();
-    if(coreState==="typing"&&now-lastType>700) setCoreState("idle");
+    if(coreState === "typing" && now - lastType > 650) setCoreState("idle");
 
-    // Audio level
-    if(micAn&&micBuf){
+    // Sound / Voice volume analysis
+    if(micAn && micBuf){
       micAn.getByteFrequencyData(micBuf);
-      var sum=0; for(var k=0;k<micBuf.length;k++) sum+=micBuf[k];
-      aVol+=(sum/(micBuf.length*255)-aVol)*.22;
-    } else if(coreState==="speaking"||coreState==="listening"){
-      aVol+=(.3+.28*Math.sin(now*.014)+.14*Math.cos(now*.029)-aVol)*.12;
-    } else { aVol*=.9; }
+      var sum = 0;
+      for(var k = 0; k < micBuf.length; k++) sum += micBuf[k];
+      aVol += (sum / (micBuf.length * 255) - aVol) * 0.25;
+    } else if(coreState === "speaking" || coreState === "listening"){
+      aVol += (0.35 + 0.3 * Math.sin(now * 0.015) + 0.15 * Math.cos(now * 0.031) - aVol) * 0.14;
+    } else {
+      aVol *= 0.88;
+    }
 
-    // Target states
-    if(coreState==="thinking"){ tgtSpin=7.5; tgtPAmp=.52; }
-    else if(coreState==="speaking"){ tgtSpin=1.6; tgtPAmp=.5+aVol*1.6; }
-    else if(coreState==="listening"){ tgtSpin=2.0; tgtPAmp=.42+aVol*2.0; }
-    else if(coreState==="typing"){ tgtSpin=2.8; tgtPAmp=.25+typeAgt*.2; }
-    else { tgtSpin=.75; tgtPAmp=.12; }
+    // Dynamic state parameters (spin speeds and wave amplitudes)
+    if(coreState === "thinking"){
+      tgtSpin = 8.2;       // Jor se ghume jab think kare
+      tgtPAmp = 0.55;
+    } else if(coreState === "speaking"){
+      tgtSpin = 1.6;
+      tgtPAmp = 0.5 + aVol * 1.8;
+    } else if(coreState === "listening"){
+      tgtSpin = 2.2;
+      tgtPAmp = 0.45 + aVol * 2.2;
+    } else if(coreState === "typing"){
+      tgtSpin = 3.2;       // Movement on typing
+      tgtPAmp = 0.28 + typeAgt * 0.22;
+    } else {
+      tgtSpin = 0.8;       // Calm floating idle
+      tgtPAmp = 0.12;
+    }
 
-    var sk=(coreState==="thinking")?.09:.05;
-    spinSpd+=(tgtSpin-spinSpd)*sk;
-    pAmp+=(tgtPAmp-pAmp)*.1;
-    typeAgt*=.93;
-    rotY+=dt*spinSpd*1.75;
-    rotX=.22+Math.sin(now*.0009)*.07;
-    waveP+=dt*(coreState==="speaking"?11:(coreState==="thinking"?20:3.2));
-    heart+=dt*(coreState==="thinking"?7:2.1);
+    var spinLerp = (coreState === "thinking") ? 0.09 : 0.05;
+    spinSpd += (tgtSpin - spinSpd) * spinLerp;
+    pAmp += (tgtPAmp - pAmp) * 0.1;
+    typeAgt *= 0.92;
+    rotY += dt * spinSpd * 1.75;
+    rotX = 0.22 + Math.sin(now * 0.0009) * 0.08;
+    waveP += dt * (coreState === "speaking" ? 12 : (coreState === "thinking" ? 22 : 3.5));
+    heart += dt * (coreState === "thinking" ? 7.5 : 2.2);
 
-    var breathe=1+Math.sin(heart)*.035+pAmp*.12;
-    var R=Math.min(CX,CY)*.82*breathe;
-    var isZ=(typeof mode!=="undefined"&&mode==="zeus");
-    var pc1=isZ?"rgba(255,100,50,":"rgba(92,225,255,";
-    var pc2=isZ?"rgba(255,210,130,":"rgba(212,247,255,";
-    var rc=isZ?"rgba(255,74,46,":"rgba(63,210,255,";
+    var breathe = 1 + Math.sin(heart) * 0.035 + pAmp * 0.12;
+    var R = Math.min(CX, CY) * 0.52 * breathe;
+    var isZ = (typeof mode !== "undefined" && mode === "zeus");
+    var pc1 = isZ ? "rgba(255,100,50," : "rgba(92,225,255,";
+    var pc2 = isZ ? "rgba(255,210,130," : "rgba(212,247,255,";
+    var rc = isZ ? "rgba(255,74,46," : "rgba(63,210,255,";
 
-    X.clearRect(0,0,W,H);
-    X.save();
-    X.translate(CX,CY);
+    ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(CX, CY);
 
-    // Central halo
-    var nP=.5+.5*Math.sin(heart*1.5)+pAmp*.4;
-    var grd=X.createRadialGradient(0,0,0,0,0,R*(1.05+pAmp*.18));
-    grd.addColorStop(0,isZ?"rgba(255,80,30,"+(.28+nP*.18)+")":"rgba(63,210,255,"+(.22+nP*.16)+")");
-    grd.addColorStop(.5,isZ?"rgba(255,40,10,.05)":"rgba(63,210,255,.04)");
-    grd.addColorStop(1,"rgba(0,0,0,0)");
-    X.fillStyle=grd; X.beginPath(); X.arc(0,0,R*1.08,0,Math.PI*2); X.fill();
+    // 1. Central Ambient Halo
+    var nP = 0.5 + 0.5 * Math.sin(heart * 1.5) + pAmp * 0.4;
+    var grd = ctx.createRadialGradient(0, 0, 0, 0, 0, R * (1.15 + pAmp * 0.2));
+    grd.addColorStop(0, isZ ? "rgba(255,80,30," + (0.3 + nP * 0.2) + ")" : "rgba(63,210,255," + (0.24 + nP * 0.18) + ")");
+    grd.addColorStop(0.55, isZ ? "rgba(255,40,10,0.06)" : "rgba(63,210,255,0.05)");
+    grd.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grd;
+    ctx.beginPath();
+    ctx.arc(0, 0, R * 1.2, 0, Math.PI * 2);
+    ctx.fill();
 
-    // Orbital rings
-    for(var ri=0;ri<3;ri++){
-      var rr2=[R*1.22,R*1.44,R*1.68][ri];
-      var sdir=(ri%2===0?1:-1)*(1+ri*.35);
-      X.save(); X.rotate(rotY*sdir*.4+ri*.9);
-      var tilt=(ri-1)*.3+Math.sin(waveP*.25)*.08;
-      var ra=.14+(coreState==="thinking"?.38:.08)+pAmp*.18;
-      X.strokeStyle=rc+Math.min(.9,ra)+")"; X.lineWidth=1.2;
-      X.beginPath(); X.ellipse(0,0,rr2,rr2*Math.abs(.28+tilt*.22),tilt,0,Math.PI*2); X.stroke();
-      for(var si=0;si<3+ri;si++){
-        var sa=rotY*sdir+(si/(3+ri))*Math.PI*2;
-        X.fillStyle=isZ?"rgba(255,220,160,.95)":"rgba(255,255,255,.9)";
-        X.shadowColor=rc+"1)"; X.shadowBlur=10;
-        X.beginPath(); X.arc(Math.cos(sa)*rr2,Math.sin(sa)*rr2*Math.abs(.28+tilt*.22),2+(si%2),0,Math.PI*2); X.fill();
-        X.shadowBlur=0;
+    // 2. Gyroscopic Counter-Rotating 3D Orbital Rings
+    for(var ri = 0; ri < 3; ri++){
+      var rr2 = [R * 1.28, R * 1.52, R * 1.76][ri];
+      var sdir = (ri % 2 === 0 ? 1 : -1) * (1 + ri * 0.35);
+      ctx.save();
+      ctx.rotate(rotY * sdir * 0.38 + ri * 0.9);
+      var tilt = (ri - 1) * 0.3 + Math.sin(waveP * 0.25) * 0.08;
+      var ra = 0.16 + (coreState === "thinking" ? 0.42 : 0.08) + pAmp * 0.2;
+      ctx.strokeStyle = rc + Math.min(0.95, ra) + ")";
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rr2, rr2 * Math.abs(0.28 + tilt * 0.22), tilt, 0, Math.PI * 2);
+      ctx.stroke();
+      // Orbital energy nodes
+      for(var si = 0; si < 3 + ri; si++){
+        var sa = rotY * sdir + (si / (3 + ri)) * Math.PI * 2;
+        ctx.fillStyle = isZ ? "rgba(255,225,170,0.95)" : "rgba(255,255,255,0.95)";
+        ctx.shadowColor = rc + "1)";
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(Math.cos(sa) * rr2, Math.sin(sa) * rr2 * Math.abs(0.28 + tilt * 0.22), 2.2 + (si % 2), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
       }
-      X.restore();
+      ctx.restore();
     }
 
-    // Shockwaves
-    if(coreState==="speaking"||coreState==="listening"){
-      for(var sw=0;sw<3;sw++){
-        var prog=((heart*.58+sw/3)%1);
-        X.strokeStyle=rc+((.42*(1-prog)*(0.4+pAmp))+")"); X.lineWidth=1.5;
-        X.beginPath(); X.arc(0,0,R*(1+prog*.72),0,Math.PI*2); X.stroke();
-      }
-    }
-
-    // 560 particles
-    var cosY=Math.cos(rotY),sinY=Math.sin(rotY),cosX=Math.cos(rotX),sinX=Math.sin(rotX);
-    var proj=[];
-    for(var pi=0;pi<N;pi++){
-      var p=pts[pi], px=p.x, py=p.y, pz=p.z;
-      if(coreState==="speaking"){ var df=1+Math.sin(waveP+py*6+pi*.1)*.09*(pAmp+aVol); px*=df; py*=df; pz*=df; }
-      else if(coreState==="thinking"){ var jg=Math.sin(waveP*2.5+pi)*.04; px+=jg; pz+=Math.cos(waveP*2.5+pi)*.04; }
-      else if(coreState==="typing"){ var tj=Math.sin(waveP*4+pi*.3)*.05*typeAgt; px+=tj; py+=tj*.5; }
-      var x1=px*cosY-pz*sinY, z1=px*sinY+pz*cosY;
-      var y1=py*cosX-z1*sinX, z2=py*sinX+z1*cosX;
-      var sc3=PERSP/(PERSP+z2);
-      proj.push({sx:x1*R*sc3, sy:y1*R*sc3, z:z2, sc:sc3, halo:p.halo, bsz:p.sz});
-    }
-    proj.sort(function(a,b){return a.z-b.z;});
-    for(var di=0;di<N;di++){
-      var d=proj[di], dsz=Math.max(.5,d.bsz*d.sc*breathe);
-      var dal=Math.max(.06,Math.min(1,(d.sc-.5)*1.6))*(0.6+pAmp*.35);
-      X.fillStyle=(d.sc>1.05?pc2:pc1)+dal+")";
-      X.beginPath(); X.arc(d.sx,d.sy,dsz,0,Math.PI*2); X.fill();
-      if(d.halo&&d.sc>1.14){ X.fillStyle=(d.sc>1.05?pc2:pc1)+(dal*.28)+")"; X.beginPath(); X.arc(d.sx,d.sy,dsz*2.5,0,Math.PI*2); X.fill(); }
-    }
-
-    // Neural lattice
-    X.lineWidth=.65;
-    for(var li=N-60;li<N;li+=2){
-      var la=proj[li]; if(!la||la.sc<1.1) continue;
-      for(var lj=li+1;lj<Math.min(N,li+9);lj++){
-        var lb=proj[lj]; if(!lb||lb.sc<1.1) continue;
-        var ldx=la.sx-lb.sx, ldy=la.sy-lb.sy, ld2=Math.sqrt(ldx*ldx+ldy*ldy);
-        if(ld2<36){ X.strokeStyle=pc1+((1-ld2/36)*.28*(la.sc-1.08))+")"; X.beginPath(); X.moveTo(la.sx,la.sy); X.lineTo(lb.sx,lb.sy); X.stroke(); }
+    // 3. Audio Shockwave Ripples (during voice output / input)
+    if(coreState === "speaking" || coreState === "listening"){
+      for(var sw = 0; sw < 3; sw++){
+        var prog = ((heart * 0.58 + sw / 3) % 1);
+        ctx.strokeStyle = rc + (0.45 * (1 - prog) * (0.4 + pAmp)) + ")";
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(0, 0, R * (1 + prog * 0.75), 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
 
-    // Hot nucleus
-    var nl=.5+.5*Math.sin(heart*1.4)+pAmp*.35;
-    var ng=X.createRadialGradient(0,0,0,0,0,22+nl*9);
-    ng.addColorStop(0,isZ?"rgba(255,255,220,"+(.9+nl*.08)+")":"rgba(220,250,255,"+(.88+nl*.1)+")");
-    ng.addColorStop(.4,isZ?"rgba(255,160,60,.5)":"rgba(103,232,249,.5)"); ng.addColorStop(1,"rgba(0,0,0,0)");
-    X.fillStyle=ng; X.beginPath(); X.arc(0,0,22+nl*9,0,Math.PI*2); X.fill();
-    X.fillStyle=isZ?"rgba(255,240,180,"+(.85+nl*.12)+")":"rgba(220,252,255,"+(.85+nl*.12)+")";
-    X.beginPath(); X.arc(0,0,4+nl*2,0,Math.PI*2); X.fill();
+    // 4. Volumetric 3D Fibonacci Sphere (560 Particles)
+    var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+    var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+    var proj = [];
+    for(var pi = 0; pi < N; pi++){
+      var p = pts[pi], px = p.x, py = p.y, pz = p.z;
+      if(coreState === "speaking"){
+        var df = 1 + Math.sin(waveP + py * 6 + pi * 0.1) * 0.09 * (pAmp + aVol);
+        px *= df; py *= df; pz *= df;
+      } else if(coreState === "thinking"){
+        var jg = Math.sin(waveP * 2.5 + pi) * 0.045;
+        px += jg; pz += Math.cos(waveP * 2.5 + pi) * 0.045;
+      } else if(coreState === "typing"){
+        var tj = Math.sin(waveP * 4.2 + pi * 0.3) * 0.055 * typeAgt;
+        px += tj; py += tj * 0.5;
+      }
+      var x1 = px * cosY - pz * sinY;
+      var z1 = px * sinY + pz * cosY;
+      var y1 = py * cosX - z1 * sinX;
+      var z2 = py * sinX + z1 * cosX;
+      var sc3 = PERSP / (PERSP + z2);
+      proj.push({ sx: x1 * R * sc3, sy: y1 * R * sc3, z: z2, sc: sc3, halo: p.halo, bsz: p.sz });
+    }
 
-    // Lens flare streak
-    var fa=.07+pAmp*.14+(coreState==="thinking"?.18:0);
-    var fg=X.createLinearGradient(-R*1.75,0,R*1.75,0);
-    fg.addColorStop(0,"rgba(0,0,0,0)"); fg.addColorStop(.5,rc+fa+")"); fg.addColorStop(1,"rgba(0,0,0,0)");
-    X.fillStyle=fg; X.fillRect(-R*1.75,-1.1,R*3.5,2.2);
-    X.restore();
+    // Depth sort: back to front
+    proj.sort(function(a, b){ return a.z - b.z; });
+
+    for(var di = 0; di < N; di++){
+      var d = proj[di];
+      var dsz = Math.max(0.6, d.bsz * d.sc * breathe);
+      var dal = Math.max(0.08, Math.min(1, (d.sc - 0.48) * 1.6)) * (0.65 + pAmp * 0.35);
+      ctx.fillStyle = (d.sc > 1.05 ? pc2 : pc1) + dal + ")";
+      ctx.beginPath();
+      ctx.arc(d.sx, d.sy, dsz, 0, Math.PI * 2);
+      ctx.fill();
+      if(d.halo && d.sc > 1.12){
+        ctx.fillStyle = (d.sc > 1.05 ? pc2 : pc1) + (dal * 0.3) + ")";
+        ctx.beginPath();
+        ctx.arc(d.sx, d.sy, dsz * 2.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // 5. Dynamic Neural Synapse Connections between foreground particles
+    ctx.lineWidth = 0.75;
+    for(var li = N - 65; li < N; li += 2){
+      var la = proj[li];
+      if(!la || la.sc < 1.08) continue;
+      for(var lj = li + 1; lj < Math.min(N, li + 8); lj++){
+        var lb = proj[lj];
+        if(!lb || lb.sc < 1.08) continue;
+        var ldx = la.sx - lb.sx, ldy = la.sy - lb.sy;
+        var ld2 = Math.sqrt(ldx * ldx + ldy * ldy);
+        if(ld2 < 38){
+          ctx.strokeStyle = pc1 + ((1 - ld2 / 38) * 0.32 * (la.sc - 1.06)) + ")";
+          ctx.beginPath();
+          ctx.moveTo(la.sx, la.sy);
+          ctx.lineTo(lb.sx, lb.sy);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // 6. Glowing Quantum Core Nucleus
+    var nl = 0.5 + 0.5 * Math.sin(heart * 1.4) + pAmp * 0.35;
+    var ng = ctx.createRadialGradient(0, 0, 0, 0, 0, 24 + nl * 10);
+    ng.addColorStop(0, isZ ? "rgba(255,255,220," + (0.92 + nl * 0.08) + ")" : "rgba(225,252,255," + (0.9 + nl * 0.1) + ")");
+    ng.addColorStop(0.42, isZ ? "rgba(255,160,60,0.52)" : "rgba(103,232,249,0.52)");
+    ng.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = ng;
+    ctx.beginPath();
+    ctx.arc(0, 0, 24 + nl * 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = isZ ? "rgba(255,245,200," + (0.88 + nl * 0.12) + ")" : "rgba(230,253,255," + (0.88 + nl * 0.12) + ")";
+    ctx.beginPath();
+    ctx.arc(0, 0, 4.5 + nl * 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 7. Holographic Lens Flare Streak
+    var fa = 0.08 + pAmp * 0.15 + (coreState === "thinking" ? 0.2 : 0);
+    var fg = ctx.createLinearGradient(-R * 1.8, 0, R * 1.8, 0);
+    fg.addColorStop(0, "rgba(0,0,0,0)");
+    fg.addColorStop(0.5, rc + fa + ")");
+    fg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = fg;
+    ctx.fillRect(-R * 1.8, -1.2, R * 3.6, 2.4);
+
+    ctx.restore();
   }
   requestAnimationFrame(render);
 })();
-/* ===== END AURA 3D CORE ===== */
+/* ===== END 3D HOLOGRAPHIC CORE ===== */
 </script><script id="aura-engine-hook">
 /* The interface is the reference file, untouched. This block is the only addition:
    1. plugs AURA's real backend into the reference's own hook (window.AURA_HOOKS.send)
@@ -893,7 +949,13 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
           }),
           signal: AbortSignal.timeout(75000)
         });
-        if(!r.ok) throw new Error("HTTP " + r.status);
+        if(!r.ok){
+          var why = "";
+          try{ var ej = await r.json(); why = (ej && (ej.message || ej.error)) || ""; }catch(e){}
+          var err = new Error(why || ("HTTP " + r.status));
+          err.status = r.status;
+          throw err;
+        }
         var j = await r.json();
         var t = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
         if(!t) throw new Error("empty reply");
@@ -930,7 +992,11 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
       return out;
     }catch(e){
       history.pop();
-      return "\u26a0\ufe0f Engine unreachable (" + ((e && e.message) || e) + ")\nBackend: " + BASE;
+      var msg = String((e && e.message) || e);
+      /* a 502 with a readable reason (image brain out of quota, model busy) is an
+         answer to show, not a dead backend to blame */
+      if(e && e.status === 502 && msg && !/^HTTP/.test(msg)) return "\u26a0\ufe0f " + msg;
+      return "\u26a0\ufe0f Engine unreachable (" + msg + ")\nBackend: " + BASE;
     }
   };
 
@@ -1242,6 +1308,99 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
         });
       }).observe(box, { childList: true });
     }
+  }catch(e){}
+
+  /* ---------------- first-run tour ----------------
+     Four things a new user never finds on their own: speak instead of typing, send a
+     file, pair a second device, and the voice switch. Shown once, skippable, and
+     replayable from Settings. It only points at the reference's own controls. */
+  try{
+    var TOUR = [
+      { sel: '#mic', title: '\uD83C\uDFA4 Bol ke poocho', body: 'Mic dabao aur Hindi ya English mein bolo. AURA sunti hai, samajhti hai, aur jawab deti hai. Voice default band hai \u2014 mic dabane se hi on hoti hai.' },
+      { sel: '#plusbtn', title: '\uD83D\uDCCE File ya screenshot bhejo', body: 'Plus \u2192 Attach se text ya code file, ya koi image. File ka poora content AURA padh leta hai, photo se colour aur likha hua text bhi bata deta hai.' },
+      { sel: '#auraMeshBtn', title: '\uD83D\uDCF6 Mesh \u2014 doosra device jodo', body: 'Host dabao \u2192 6-digit code milega. Doosre phone/laptop par Join karke wahi code daalo. Dono ek hi chat mein jud jaate hain.' },
+      { sel: '#tv', title: '\uD83D\uDD0A Awaaz on/off', body: 'Ye switch AURA ki bolne ki awaaz control karta hai. Band = sirf text, on = bol kar bhi jawab degi.' }
+    ];
+    var TOUR_KEY = 'aura_tour_v1';
+    var tourEl = null, tourStep = 0, tourRing = null;
+
+    function ringOn(sel){
+      ringOff();
+      var el = document.querySelector(sel);
+      if(!el) return;
+      tourRing = el;
+      el.style.outline = '2px solid rgba(120,215,255,.85)';
+      el.style.outlineOffset = '4px';
+      el.style.boxShadow = '0 0 0 6px rgba(120,215,255,.18), 0 0 24px rgba(120,215,255,.45)';
+      el.style.transition = 'box-shadow .25s, outline-color .25s';
+    }
+    function ringOff(){
+      if(!tourRing) return;
+      tourRing.style.outline = '';
+      tourRing.style.outlineOffset = '';
+      tourRing.style.boxShadow = '';
+      tourRing = null;
+    }
+    function tourClose(done){
+      ringOff();
+      if(tourEl && tourEl.parentNode) tourEl.parentNode.removeChild(tourEl);
+      tourEl = null;
+      try{ localStorage.setItem(TOUR_KEY, done ? 'done' : 'skipped'); }catch(e){}
+    }
+    function tourDraw(){
+      var s = TOUR[tourStep];
+      if(!s){ tourClose(true); return; }
+      if(!tourEl){
+        tourEl = document.createElement('div');
+        tourEl.id = 'auraTour';
+        tourEl.style.cssText = 'position:fixed;z-index:99999;left:18px;bottom:96px;width:min(360px,calc(100vw - 36px));' +
+          'background:rgba(10,14,22,.93);border:1px solid rgba(120,215,255,.25);border-radius:16px;padding:16px 16px 12px;' +
+          'color:#e8f4ff;font:14px/1.55 Inter,system-ui,sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.55);backdrop-filter:blur(14px)';
+        document.body.appendChild(tourEl);
+      }
+      tourEl.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">' +
+          '<b style="font-size:14.5px">' + s.title + '</b>' +
+          '<button type="button" id="auraTourX" style="background:none;border:0;color:#7f8b9a;font-size:16px;cursor:pointer;line-height:1">\u2715</button>' +
+        '</div>' +
+        '<p style="margin:0 0 12px;color:#b9c6d4">' + s.body + '</p>' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
+          '<span style="color:#6f7c8b;font-size:12px">' + (tourStep + 1) + ' / ' + TOUR.length + '</span>' +
+          '<span>' +
+            '<button type="button" id="auraTourSkip" style="background:none;border:0;color:#7f8b9a;font-size:12.5px;cursor:pointer;margin-right:8px">Skip</button>' +
+            '<button type="button" id="auraTourNext" style="background:rgba(120,215,255,.16);border:1px solid rgba(120,215,255,.4);color:#dff4ff;font-size:12.5px;padding:6px 14px;border-radius:9px;cursor:pointer">' +
+              (tourStep === TOUR.length - 1 ? 'Done' : 'Next') + '</button>' +
+          '</span>' +
+        '</div>';
+      document.getElementById('auraTourX').onclick = function(){ tourClose(false); };
+      document.getElementById('auraTourSkip').onclick = function(){ tourClose(false); };
+      document.getElementById('auraTourNext').onclick = function(){
+        tourStep++;
+        if(tourStep >= TOUR.length) tourClose(true); else tourDraw();
+      };
+      ringOn(s.sel);
+    }
+    window.__auraTour = function(){
+      tourStep = 0;
+      try{ localStorage.removeItem(TOUR_KEY); }catch(e){}
+      tourDraw();
+    };
+    /* replay row in Settings, next to the other preferences */
+    setTimeout(function(){
+      var pan = document.getElementById('p-set');
+      if(!pan || document.getElementById('auraTourRow')) return;
+      var row = document.createElement('div');
+      row.id = 'auraTourRow';
+      row.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;gap:12px';
+      row.innerHTML = '<span>Quick tour \u00b7 mic, attach, mesh, voice</span>' +
+        '<button type="button" id="auraTourAgain" style="background:rgba(120,215,255,.12);border:1px solid rgba(120,215,255,.32);color:#dff4ff;padding:6px 12px;border-radius:9px;font-size:12.5px;cursor:pointer">Show tour</button>';
+      pan.appendChild(row);
+      document.getElementById('auraTourAgain').onclick = function(){ window.__auraTour(); };
+    }, 900);
+
+    var seen = '';
+    try{ seen = localStorage.getItem(TOUR_KEY) || ''; }catch(e){}
+    if(!seen) setTimeout(function(){ tourStep = 0; tourDraw(); }, 1400);
   }catch(e){}
 
   /* a hosted mesh keeps listening in the background */
