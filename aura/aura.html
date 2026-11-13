@@ -935,6 +935,9 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
           out += esc(seg)
             .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
             .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+            /* a lone $...$ is LaTeX the model loves for big-O — show it as code */
+            .replace(/\$([^$\n]{1,40})\$/g, "<code>$1</code>")
+            .replace(/\n[ \t]*[*-][ \t]+/g, "<br>\u2022 ")
             .replace(/\n/g, "<br>");
         }
       });
