@@ -720,6 +720,7 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
       history.push({ role: "assistant", content: out });
       rememberTopic(plain);
       window.__auraAttachClear();
+      window.__auraLastReply = out; /* lets the background-tab path finish the typing at once */
       return out;
     }catch(e){
       history.pop();
@@ -1012,6 +1013,12 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
             var span = n.lastChild, lastLen = -1, steady = 0, ticks = 0;
             var iv = setInterval(function(){
               ticks++;
+              /* a background tab throttles the reference's typewriter to about one
+                 tick a second, so a 90-char answer looks chopped or stuck. When the
+                 tab is hidden the finished text is written in one go instead. */
+              if(document.hidden && window.__auraLastReply && (span.textContent || "").length < String(window.__auraLastReply).length){
+                span.textContent = String(window.__auraLastReply);
+              }
               var len = (span.textContent || "").length;
               if(len === lastLen && len > 0) steady++; else steady = 0;
               lastLen = len;
