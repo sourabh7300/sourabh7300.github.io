@@ -305,7 +305,60 @@ async function visionCall(messages, maxTok, temperature, req) {
   if (alt) { recordUse(req, "vision", 0); return alt; }
   return null;
 }
+let visionAltCache = { at: 0, groq: [], nvidia: [] };
+async function visionAltModels() {
+  if (visionAltCache.groq.length && Date.now() - visionAltCache.at < 3600_000) return visionAltCache;
+  const pick = async (base, key, re) => {
+    if (!key) return [];
+    try {
+      const r = await fetch(base + "/models", { headers: { Authorization: "Bearer " + key }, signal: AbortSignal.timeout(8_000) });
+      if (!r.ok) return [];
+      const d = await r.json();
+      return (d.data || []).map(m => m.id).filter(id => re.test(id)).slice(0, 3);
+    } catch (e) { return []; }
+  };
+  const groqKey = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
+  const groq = await pick("https://api.groq.com/openai/v1", groqKey, /llama-4|maverick|scout|vision|vl/i);
+  const nvidia = await pick("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, /llama-4|maverick|scout|vision|vl|nemotron.*vl/i);
+  visionAltCache = { at: Date.now(), groq, nvidia };
+  return visionAltCache;
+}
+async function openAiVision(base, key, model, messages, maxTok) {
+  try {
+    const r = await fetch(base + "/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+      body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok || 900, 2000), temperature: 0.4 }),
+      signal: AbortSignal.timeout(45_000)
+    });
+    if (!r.ok) {
+      if (visionDebug.length > 5) visionDebug.shift();
+      let why = "";
+      try { why = (await r.text()).slice(0, 160); } catch (e) {}
+      visionDebug.push({ model: model, status: r.status, why });
+      return null;
+    }
+    const d = await r.json();
+    const t = String((((d.choices || [])[0] || {}).message || {}).content || "").trim();
+    if (t) visionDebug.push({ model: model, ok: true, len: t.length });
+    return t || null;
+  } catch (e) { return null; }
+}
 async function groqVision(messages, maxTok, req) {
+  const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
+  if (!key) return null;
+  const list = (await visionAltModels()).groq;
+  for (const model of list) {
+    const t = await openAiVision("https://api.groq.com/openai/v1", key, model, messages, maxTok);
+    if (t) return t;
+  }
+  for (const model of (await visionAltModels()).nvidia) {
+    const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, messages, maxTok);
+    if (t) return t;
+  }
+  return null;
+}
+async function groqVisionUnused(messages, maxTok, req) {
   const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
   if (!key) return null;
   const model = "meta-llama/llama-4-scout-17b-16e-instruct";
