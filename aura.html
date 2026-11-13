@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="f18b33a6bc2b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="bbf7aa4ebf25"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -684,6 +684,31 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
 (function(){
   var BASE = (localStorage.getItem("aura_backend_url") || "https://aura-backend-jomj.onrender.com").replace(/\/+$/, "");
   var $ = function(s){ return document.querySelector(s); };
+
+  /* ---------------- BOOT RESCUE ----------------
+     The reference hides the whole app with .hold{visibility:hidden} until its own
+     boot finishes. One thrown error before that line leaves a black page where only
+     an overlay (Docs, Mesh, a menu) is visible — exactly the "kuch nahi dikh raha"
+     report. The intro is gone, so the app never needs to stay hidden: drop .hold now,
+     again over the next seconds, and on any uncaught error. */
+  (function rescueApp(){
+    var app = document.getElementById('app');
+    function show(){
+      try{
+        if(!app) app = document.getElementById('app');
+        if(!app) return;
+        app.classList.remove('hold');
+        if(getComputedStyle(app).visibility === 'hidden') app.style.visibility = 'visible';
+        document.body.classList.remove('leaving');
+      }catch(e){}
+    }
+    show();
+    setTimeout(show, 250);
+    setTimeout(show, 900);
+    setTimeout(show, 2200);
+    window.addEventListener('error', show);
+    window.addEventListener('unhandledrejection', show);
+  })();
 
   function owner(){
     try{
@@ -1450,6 +1475,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     var mq = document.createElement('style');
     mq.id = 'aura-mobile-clean';
     mq.textContent =
+      /* a modal should dim the page, not black it out — you must still see AURA */ +
+      '.ov{background:rgba(0,0,0,.58)!important;backdrop-filter:blur(5px)!important}' +
       '@media(max-width:900px){' +
         '.tabs{gap:2px;padding:2px;scrollbar-width:none;justify-content:flex-start}' +
         '.tabs::-webkit-scrollbar{display:none}' +
