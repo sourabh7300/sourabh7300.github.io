@@ -326,7 +326,7 @@ const keyCool = new Map();
 const PUBLIC_KEYS = KEY_POOL.length > 1 ? KEY_POOL.slice(0, KEY_POOL.length - 1) : KEY_POOL;
 /* public chat prefers lighter, higher-quota models; the flagship stays at the
    tail as a last-resort fallback. The maker always gets the full flagship list. */
-const PUBLIC_MODELS = (process.env.PUBLIC_MODELS || "meta-llama/llama-4-scout-17b-16e-instruct,openai/gpt-oss-20b,qwen/qwen3.8-27b,openai/gpt-oss-120b").split(",").map(s => s.trim()).filter(Boolean);
+const PUBLIC_MODELS = (process.env.PUBLIC_MODELS || "openai/gpt-oss-120b,meta-llama/llama-4-scout-17b-16e-instruct,openai/gpt-oss-20b,qwen/qwen3.8-27b").split(",").map(s => s.trim()).filter(Boolean);
 function pickKey(reserve) {
   const now = Date.now();
   const pool = reserve ? KEY_POOL : PUBLIC_KEYS;
