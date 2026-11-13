@@ -661,7 +661,16 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
       }).join("");
       listSet('<div><b>' + mesh.code + '</b> \u00b7 ' + devs.length + ' device(s)</div>' + (rows || "<div>waiting for the other device\u2026</div>"));
       codeShow();
-    }).catch(function(e){ listSet("<div>" + e.message + "</div>"); });
+    }).catch(function(e){ if(gone(e)) forget(); else listSet("<div>" + e.message + "</div>"); });
+  }
+  /* a code kept from an old session outlives the mesh it pointed at, and polling it
+     returned 404 every four seconds forever. A dead code now tears itself down. */
+  function gone(e){ return /404|not found|mesh-closed|No mesh/i.test(String((e && e.message) || e)); }
+  function forget(){
+    mesh.code = null; mesh.seen = [];
+    if(mesh.timer){ clearInterval(mesh.timer); mesh.timer = null; }
+    try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
+    listSet("not connected");
   }
   function pollStart(){
     if(mesh.timer) clearInterval(mesh.timer);
@@ -677,7 +686,7 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
             }
           });
           if($("#auraMeshOv").classList.contains("on")) refresh();
-        }).catch(function(){});
+        }).catch(function(e){ if(gone(e)) forget(); });
     };
     tick(); mesh.timer = setInterval(tick, 4000);
   }
