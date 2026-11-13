@@ -17359,6 +17359,14 @@ html[data-ui="v6"] body #log .msg{animation:v6Rise .38s ease both}
   html[data-ui="v6"] body #v6VoiceBtn{display:none!important}
   /* the speaker pill sits above the composer, never across a reply */
   html[data-ui="v6"] body #stopBtn{right:14px!important;transform:none!important;font-size:10px!important;padding:8px 14px!important}
+  /* the attach sheet sat at 94% alpha with a see-through body, so the transcript behind
+     it looked printed on top of ATTACH / MESH ON. Fully opaque, above the log, and the
+     quick row shares the width evenly instead of clipping the first label. */
+  html[data-ui="v6"] body #toolPop{background:#141416!important;border:1px solid rgba(255,255,255,.14)!important;
+    box-shadow:0 22px 52px rgba(0,0,0,.62)!important;z-index:95!important;padding:10px!important}
+  html[data-ui="v6"] body #toolPop .tp-quick{display:flex!important;gap:8px!important}
+  html[data-ui="v6"] body #toolPop .tp-quick>*{flex:1 1 0!important;min-width:0!important;
+    justify-content:center!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
   /* one small attach sheet: photo / document / camera. the 17-button grid folds away. */
   html[data-ui="v6"] body #toolPop .tp-grid,html[data-ui="v6"] body #toolPop .tp-more{display:none!important}
   html[data-ui="v6"] body #toolPop.more .tp-grid{display:grid!important}
