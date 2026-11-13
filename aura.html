@@ -769,9 +769,11 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     api("/v1/mesh/state?code=" + mesh.code + "&since=0").then(function(j){
       var devs = j.devices || [];
       if(!Array.isArray(devs)) devs = Object.keys(devs).map(function(k){ var v = devs[k] || {}; v.id = k; return v; });
-      var live = devs.filter(function(d){ return d.ts && (Date.now() - d.ts < 20000); }).length;
+      /* this tab is by definition awake — a host that never polls must not look asleep */
+      function alive(d){ return String(d.id || "") === nodeId || (d.ts && (Date.now() - d.ts < 20000)); }
+      var live = devs.filter(alive).length;
       var rows = devs.map(function(d){
-        var on = d.ts && (Date.now() - d.ts < 20000);
+        var on = alive(d);
         var me = String(d.id || "") === nodeId ? " \u00b7 this device" : "";
         return '<div>' + (on ? "\u25cf " : "\u25cb ") + (d.name || "Device") + me +
                (d.battery != null ? " \u00b7 " + d.battery + "%" : "") + (on ? "" : " \u00b7 asleep") + '</div>';
