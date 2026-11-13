@@ -18079,6 +18079,14 @@ html[data-ui="v6"] body #dock #micBtn{width:36px!important;height:36px!important
   };
 
   /* one seam: every persona change already funnels through setPersona */
+  /* persona can change through the command line, the pill, the settings menu or a
+     restored session — watching the attribute catches every one of them, so the accent
+     can never be left on the wrong colour */
+  try{
+    new MutationObserver(function(){ try{ window.__auraPaintAccent(); }catch(e){} })
+      .observe(document.body,{attributes:true,attributeFilter:["data-persona"]});
+  }catch(e){}
+
   /* a deck that boots straight into ZEUS must open red, not cyan */
   setTimeout(function(){ try{ window.__auraPaintAccent(); }catch(e){} }, 600);
   setTimeout(function(){ try{ window.__auraPaintAccent(); }catch(e){} }, 2500);
