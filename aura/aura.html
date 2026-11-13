@@ -416,7 +416,7 @@ I.getAnimations({subtree:true}).forEach(a=>{if(cineSkip)a.cancel()});I.classList
 await sleep(1100);I.className='';INTRO.on=false;I.getAnimations({subtree:true}).forEach(a=>a.cancel());await sleep(700);app.classList.remove('hold','zoomin');B.classList.remove('reveal','cine');busy=false;setState('idle');if(location.hash=='#zeus')setTimeout(()=>activate('zeus'),500)}
 $('#introSkip').onclick=e=>{e.stopPropagation();skipNow()};$('#intro').addEventListener('pointerdown',e=>{if(!e.target.closest('#introSkip')){auInit();$('#igHint').style.display='none'}});addEventListener('keydown',e=>{if(e.key=='Escape'&&INTRO.on)skipNow()});
 ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{auInit();if(started&&!AU.bed&&!busy)startBed(mode)}));
-$('#replayIntro').onclick=()=>{if(busy)return;stopBed();started=false;goTab('chat');runIntro()};
+$('#replayIntro').onclick=()=>toast('Intro is disabled');
 /* opening cinematic disabled by owner request */try{document.getElementById('intro').remove();app.classList.remove('hold');B.classList.add('reveal');setTimeout(()=>B.classList.remove('reveal'),1600)}catch(e){}
 </script><script id="aura-engine-hook">
 /* The interface is the reference file, untouched. This block is the only addition:
@@ -588,6 +588,12 @@ $('#replayIntro').onclick=()=>{if(busy)return;stopBed();started=false;goTab('cha
       return "\u26a0\ufe0f Engine unreachable (" + ((e && e.message) || e) + ")\nBackend: " + BASE;
     }
   };
+
+  /* the opening cinematic is gone, so its Settings row goes too */
+  try{
+    var ri = document.getElementById("replayIntro");
+    if(ri){ var row = ri.closest(".row"); if(row){ row.style.display = "none"; row.id = "introRowHidden"; } }
+  }catch(e){}
 
   /* ---------------- Mesh ---------------- */
   var mesh = { code: null, timer: null, seen: [] };
