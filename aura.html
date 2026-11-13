@@ -1128,7 +1128,13 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
           }),
           signal: AbortSignal.timeout(75000)
         });
-        if(!r.ok) throw new Error("HTTP " + r.status);
+        if(!r.ok){
+          var why = "";
+          try{ var ej = await r.json(); why = (ej && (ej.message || ej.error)) || ""; }catch(e){}
+          var err = new Error(why || ("HTTP " + r.status));
+          err.status = r.status;
+          throw err;
+        }
         var j = await r.json();
         var t = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
         if(!t) throw new Error("empty reply");
@@ -1165,7 +1171,11 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
       return out;
     }catch(e){
       history.pop();
-      return "\u26a0\ufe0f Engine unreachable (" + ((e && e.message) || e) + ")\nBackend: " + BASE;
+      var msg = String((e && e.message) || e);
+      /* a 502 with a readable reason (image brain out of quota, model busy) is an
+         answer to show, not a dead backend to blame */
+      if(e && e.status === 502 && msg && !/^HTTP/.test(msg)) return "\u26a0\ufe0f " + msg;
+      return "\u26a0\ufe0f Engine unreachable (" + msg + ")\nBackend: " + BASE;
     }
   };
 
