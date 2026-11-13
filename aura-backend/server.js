@@ -242,22 +242,26 @@ async function visionCall(messages, maxTok, temperature, req) {
         }).filter(x => x.text !== "" || x.inlineData)
       : [{ text: String(m.content) }]
   }));
-  const vbody = JSON.stringify(Object.assign(
-    /* thinkingBudget:0 — a thinking model burns the output allowance on hidden
-       reasoning and returns a chopped first phrase ("Is image ka back"). geminiChat
-       already carries this fix; visionCall was missing it. */
-    { contents, generationConfig: { maxOutputTokens: maxTok, temperature: temperature != null ? temperature : 0.6, thinkingConfig: { thinkingBudget: 0 } } },
-    sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
-  ));
-  /* A truncated vision answer (finishReason MAX_TOKENS, or a stump like "Is imag")
-     is worthless, so the same model is retried once with a large budget. */
-  const retryBody = JSON.stringify(Object.assign(
-    { contents, generationConfig: { maxOutputTokens: 8192, temperature: temperature != null ? temperature : 0.6, thinkingConfig: { thinkingBudget: 0 } } },
-    sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
-  ));
+  /* THINKING TOKENS COUNT AGAINST maxOutputTokens. Gemini 3.x ignores the legacy
+     thinkingBudget and defaults to heavy thinking, which is why every image answer
+     came back chopped ("Is image ka back"): the budget was spent before the reply.
+     Gemini 3.x wants thinkingLevel:"minimal"; 2.5 wants thinkingBudget:0. */
+  function gcFor(budget){
+    const gc = { maxOutputTokens: budget, temperature: temperature != null ? temperature : 0.6 };
+    return gc;
+  }
+  function bodyFor(vmodel, budget){
+    const gc = gcFor(budget);
+    gc.thinkingConfig = /gemini-[34]/.test(vmodel) ? { thinkingLevel: "minimal" } : { thinkingBudget: 0 };
+    return JSON.stringify(Object.assign(
+      { contents, generationConfig: gc },
+      sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
+    ));
+  }
   let best = ""; /* a short but finished answer must still be returned, never dropped */
   for (const vmodel of VISION_MODELS) {
-    for (const body of [vbody, retryBody]) {
+    for (const budget of [Math.max(maxTok, 2048), 8192]) {
+      const body = bodyFor(vmodel, budget);
       try {
         const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
           method: "POST",
