@@ -272,7 +272,13 @@ async function visionCall(messages, maxTok, temperature, req) {
           body,
           signal: AbortSignal.timeout(60_000)
         });
-        if (!r.ok) break; /* busy/overloaded model → next one */
+        if (!r.ok) {
+          if (visionDebug.length > 5) visionDebug.shift();
+          let why = "";
+          try { why = (await r.text()).slice(0, 240); } catch (e) {}
+          visionDebug.push({ model: vmodel, budget, status: r.status, why });
+          break; /* busy/overloaded model → next one */
+        }
         const d = await r.json();
         const cand = (d.candidates && d.candidates[0]) || {};
         const t = (cand.content && cand.content.parts || []).map(p => p.text || "").join("").trim();
