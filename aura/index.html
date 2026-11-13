@@ -547,6 +547,46 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     return q || String(t || "").trim();
   }
 
+  /* ---------- live grounding ----------
+     The backend serves visitors a light model and only searches for a fixed keyword
+     list, so "jensen huang ke bare me kya hua" was answered from a frozen cutoff.
+     Here the page does the same job the owner's engine did: today's date goes in every
+     request, time-sensitive questions get real web hits first, and a vague answer is
+     retried once with those hits attached. */
+  var FRESHISH = /(latest|today|tonight|now|current|news|update|recent|new|price|rate|score|result|schedule|when|kab|kab\s|aaj|abhi|202[5-9]|winner|won|jeet|kaun|kon|match|election|weather|stock|ipo|launch|release|trending|kitna|kya\s*hua|what\s*happened|resign|ceo|announce)/i;
+  var VAGUE = /(nahi pata|pata nahi|don'?t (know|have)|no information|not aware|cannot (access|find)|can'?t (access|find)|mere (paas|pass) (koi )?(latest )?(information|update) nahi|training cutoff|knowledge cutoff|mujhe .{0,30}nahi pata)/i;
+  function todayLine(){
+    try{
+      var d = new Date();
+      return d.toLocaleDateString("en-IN", { weekday:"long", year:"numeric", month:"long", day:"numeric" });
+    }catch(e){ return new Date().toDateString(); }
+  }
+  function hdrs(){
+    var h = { "Content-Type": "application/json" };
+    var o = owner(); if(o) h["X-Aura-Owner"] = o;
+    var s = (localStorage.getItem("aura_backend_secret") || "").trim();
+    if(s) h["X-AURA-Key"] = s;
+    return h;
+  }
+  async function webHits(q){
+    try{
+      var r = await fetch(BASE + "/v1/websearch", {
+        method: "POST", headers: hdrs(),
+        body: JSON.stringify({ question: q }), signal: AbortSignal.timeout(14000)
+      });
+      if(!r.ok) return [];
+      var j = await r.json();
+      return (j.results || []).filter(function(x){ return x && x.title; }).slice(0, 5);
+    }catch(e){ return []; }
+  }
+  function webBlock(hits){
+    if(!hits.length) return "";
+    return "LIVE WEB RESULTS (fetched " + todayLine() + "):\n" + hits.map(function(h, i){
+      return "[" + (i + 1) + "] " + h.title + (h.extract && h.extract !== h.title ? " — " + String(h.extract).slice(0, 300) : "") +
+             (h.url ? "\n    " + h.url : "");
+    }).join("\n");
+  }
+
   window.AURA_HOOKS = window.AURA_HOOKS || { send: null, run: null };
   window.AURA_HOOKS.send = async function(text, mode){
     var m = (mode === "zeus") ? "zeus" : "aura";
@@ -562,24 +602,40 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     }
     history.push(turn);
     if(history.length > 16) history = history.slice(-16);
-    var headers = { "Content-Type": "application/json" };
-    var o = owner(); if(o) headers["X-Aura-Owner"] = o;
-    var sec = (localStorage.getItem("aura_backend_secret") || "").trim();
-    if(sec) headers["X-AURA-Key"] = sec;
-    try{
+
+    var plain = asked.replace(/\s+/g, " ").trim();
+    var trivial = /^(\d[\d\s+\-*/^().]*|what is \d|calc|calculate)/i.test(plain) || plain.length < 8;
+    var hits = [];
+    if(!trivial && (FRESHISH.test(plain) || plain.split(" ").length >= 5)) hits = await webHits(plain);
+
+    async function ask(withWeb){
+      var sys = [SYS[m], "TODAY IS " + todayLine() + ". If LIVE WEB RESULTS are provided, ground your answer in them, mention dates, and cite them as [1], [2]. Never invent a citation."].join(" ");
+      var msgs = [{ role: "system", content: sys }];
+      if(withWeb && hits.length) msgs.push({ role: "system", content: webBlock(hits) });
+      msgs = msgs.concat(history);
       var r = await fetch(BASE + "/v1/chat/completions", {
-        method: "POST", headers: headers,
+        method: "POST", headers: hdrs(),
         body: JSON.stringify({
           model: "openai/gpt-oss-120b",
-          messages: [{ role: "system", content: SYS[m] }].concat(history),
+          messages: msgs,
           max_tokens: 1400, temperature: 0.6
         }),
-        signal: AbortSignal.timeout(45000)
+        signal: AbortSignal.timeout(55000)
       });
       if(!r.ok) throw new Error("HTTP " + r.status);
       var j = await r.json();
-      var out = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
-      if(!out) throw new Error("empty reply");
+      var t = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
+      if(!t) throw new Error("empty reply");
+      return t;
+    }
+
+    try{
+      var out = await ask(true);
+      /* the light visitor model still sometimes says "I don't know" — one grounded retry */
+      if(VAGUE.test(out) && !hits.length && !trivial){
+        var late = await webHits(plain + " " + new Date().getFullYear());
+        if(late.length){ hits = late; out = await ask(true); }
+      }
       history.push({ role: "assistant", content: out });
       window.__auraAttachClear();
       return out;
