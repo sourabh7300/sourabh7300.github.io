@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="52cc88d540de"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="fc51883a1a7f"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1624,9 +1624,10 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }catch(e){}
 
       var t0 = performance.now();
-      function frame(now){
-        requestAnimationFrame(frame);
-        if(document.hidden) return;
+      function frame(now, once){
+        if(!once) requestAnimationFrame(frame);
+        /* a tab that loads in the background still gets one finished frame */
+        if(document.hidden && window.__auraCorePainted) return;
         var dt = Math.min(48, now - t0); t0 = now;
         if(analyser && micBuf){
           analyser.getByteFrequencyData(micBuf);
@@ -1643,6 +1644,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         var w = cv.width, h = cv.height;
         var cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.31 * (1 + ex * 0.05 + amp * 0.28);
         ctx.clearRect(0, 0, w, h);
+        window.__auraCorePainted = 1;
 
         var cosY = Math.cos(rotY), sinY = Math.sin(rotY), cosX = Math.cos(rotX), sinX = Math.sin(rotX);
         var proj = [];
@@ -1709,6 +1711,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         }
       }
       requestAnimationFrame(frame);
+      setTimeout(function(){ try{ frame(performance.now(), true); }catch(e){} }, 800);
 
       /* keep the core out of the way on narrow screens */
       function layout(){
