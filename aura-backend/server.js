@@ -253,7 +253,9 @@ async function visionCall(messages, maxTok, temperature, req) {
   }
   function bodyFor(vmodel, budget){
     const gc = gcFor(budget);
-    gc.thinkingConfig = /gemini-[34]/.test(vmodel) ? { thinkingLevel: "minimal" } : { thinkingBudget: 0 };
+    /* thinkingBudget:0 is the one shape every model on this key accepts — sending
+       thinkingLevel instead returns 400 on these ids and the image fails outright. */
+    gc.thinkingConfig = { thinkingBudget: 0 };
     return JSON.stringify(Object.assign(
       { contents, generationConfig: gc },
       sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
