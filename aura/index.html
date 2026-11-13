@@ -17418,6 +17418,28 @@ html[data-ui="v6"] body #topbar #kbtn{flex:0 1 auto!important;overflow:hidden!im
      right by it — the first item claims the free space instead */
   html[data-ui="v6"] body #topbar #kbtn{margin-left:auto!important}
 }
+/* ---------- ZEUS mode, exactly as aura-interface.html paints it ----------
+   Reference: body[data-mode=zeus]{--ac:#ff4a2e;--ac2:#ff9a3c;--glow:rgba(255,64,32,.55);
+   --hot:#ffd9a0;--hl:rgba(255,74,46,.16)} and .app[data-mode=zeus] .m.a gets a red
+   left rule. Without this the deck stayed cyan-on-black after activation. */
+html[data-ui="v6"] body[data-persona="jarvis"]{
+  --g:#ff4a2e!important;--g2:#ff9a3c!important;--gr:255,74,46!important;
+  --ui-ac:#ff4a2e!important;--tl:#ff4a2e!important;--gl:rgba(255,74,46,.06)!important;
+  background-image:
+    radial-gradient(120% 80% at 72% -12%,rgba(255,74,46,.09),rgba(11,11,12,0) 62%),
+    radial-gradient(90% 60% at 8% 108%,rgba(255,154,60,.05),rgba(11,11,12,0) 60%)!important}
+html[data-ui="v6"] body[data-persona="jarvis"] #sendBtn{background:#ff4a2e!important;color:#1a0500!important;
+  box-shadow:0 0 24px rgba(255,74,46,.35)!important}
+html[data-ui="v6"] body[data-persona="jarvis"] #topbar .wordmark,
+html[data-ui="v6"] body[data-persona="jarvis"] #log .msg.aura{color:#ece9e6!important}
+html[data-ui="v6"] body[data-persona="jarvis"] #log .msg.aura{border-left:2px solid #ff4a2e!important;
+  padding-left:16px!important;font-weight:500!important}
+html[data-ui="v6"] body[data-persona="jarvis"] #stageEmpty h4{font-weight:600!important}
+html[data-ui="v6"] body[data-persona="jarvis"] #chips .chip:hover,
+html[data-ui="v6"] body[data-persona="jarvis"] #personaPill:hover{border-color:#ff4a2e!important}
+html[data-ui="v6"] body[data-persona="jarvis"] #micBtn:hover{color:#ff4a2e!important;border-color:#ff4a2e!important}
+html[data-ui="v6"] body[data-persona="jarvis"] #log .msg.user{background:rgba(255,74,46,.10)!important;
+  border-color:rgba(255,74,46,.28)!important}
 @media(max-width:1320px){html[data-ui="v6"] body #topbar #clock{display:none!important}}
 @media(max-width:1480px){html[data-ui="v6"] body #topbar #kbtn kbd{display:none!important}}
 </style>
@@ -17944,8 +17966,8 @@ html[data-ui="v6"] body #topbar #kbtn{flex:0 1 auto!important;overflow:hidden!im
   var FS = "Georgia,'Newsreader',serif", SANS = "'Inter',system-ui,sans-serif";
   var st = document.createElement("style");
   st.textContent =
-    "@keyframes v6zoomIn{from{transform:scale(1.14);filter:blur(10px);opacity:0}35%{opacity:1}to{transform:none;filter:none}}"+
-    "body.v6act #topbar,body.v6act #conv,body.v6act #dock{animation:v6zoomIn 1.55s cubic-bezier(.16,.8,.2,1) both}"+
+    "@keyframes v6zoomIn{from{transform:scale(1.22);filter:blur(12px);opacity:0}35%{opacity:1}to{transform:none;filter:none}}"+
+    "body.v6act #topbar,body.v6act #conv,body.v6act #dock{animation:v6zoomIn 1.9s cubic-bezier(.16,.8,.2,1) both}"+
     "@keyframes v6wmIn{from{filter:blur(14px);transform:scale(.92)}to{filter:none;transform:none}}"+
     "#v6act{position:fixed;inset:0;z-index:9997;display:grid;place-items:center;pointer-events:none;"+
     "background:#000;opacity:0;transition:opacity .34s ease}"+
