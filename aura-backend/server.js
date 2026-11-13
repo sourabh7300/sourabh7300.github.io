@@ -243,7 +243,10 @@ async function visionCall(messages, maxTok, temperature, req) {
       : [{ text: String(m.content) }]
   }));
   const vbody = JSON.stringify(Object.assign(
-    { contents, generationConfig: { maxOutputTokens: maxTok, temperature: temperature != null ? temperature : 0.6 } },
+    /* thinkingBudget:0 — a thinking model burns the output allowance on hidden
+       reasoning and returns a chopped first phrase ("Is image ka back"). geminiChat
+       already carries this fix; visionCall was missing it. */
+    { contents, generationConfig: { maxOutputTokens: maxTok, temperature: temperature != null ? temperature : 0.6, thinkingConfig: { thinkingBudget: 0 } } },
     sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
   ));
   for (const vmodel of VISION_MODELS) {
