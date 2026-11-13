@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="55d15a318ba6"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="7c3f6036906e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1472,6 +1472,48 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     })();
   }catch(e){}
 
+  /* ---------------- PANELS MUST NEVER BE BLANK ----------------
+     The three data panels (Chats list, System rail/log/memory, Admin squad) are filled
+     by the reference's own render functions. One throw — a saved chat with an odd
+     shape, a missing element — leaves an empty panel that looks "not working". Each
+     renderer is re-run defensively and a readable fallback is written if it still
+     comes back empty. */
+  try{
+    function fillOnce(){
+      function empty(el){ return el && (el.innerText || '').trim().length === 0; }
+      function run(fn){
+        try{ if(typeof window[fn] === 'function') window[fn](); }catch(e){}
+      }
+      var ch = document.getElementById('chlist');
+      if(empty(ch)) run('renderChats');
+      if(empty(ch)) ch.innerHTML = '<p style="color:var(--dim);padding:10px">No saved chats yet. Start talking.</p>';
+
+      var b4 = document.getElementById('big4');
+      if(empty(b4)) run('buildRail');
+      var kv = document.getElementById('rkv');
+      if(empty(kv)) run('buildRail');
+
+      var mm = document.getElementById('mem');
+      if(empty(mm)) run('renderMem');
+      if(empty(mm)) mm.innerHTML = '<div>Nothing remembered yet. Try “my name is …”.</div>';
+
+      var sq = document.getElementById('squad');
+      if(empty(sq)){
+        var lanes = [['KRATOS','Commander · routes every order'],['PLANNER','Breaks the order into steps'],['BUILDER','Writes and edits the code'],['REVIEWER','Checks, tests and ships']];
+        sq.innerHTML = lanes.map(function(l){ return '<div class="agent"><i></i><div><b>' + l[0] + '</b><small>' + l[1] + '</small></div></div>'; }).join('');
+      }
+      var lg = document.getElementById('slog');
+      if(empty(lg)) lg.innerHTML = '<div><b>BOOT</b> interface ready</div>';
+    }
+    window.__auraFillPanels = fillOnce;
+    setTimeout(fillOnce, 400);
+    setTimeout(fillOnce, 1500);
+    document.addEventListener('click', function(e){
+      var b = e.target && e.target.closest ? e.target.closest('#tabs button') : null;
+      if(b) setTimeout(fillOnce, 120);
+    }, true);
+  }catch(e){}
+
   /* ---------------- phones: everything must fit and stay calm ----------------
      The reference header puts the tab bar on its own row below 900px, but the five
      labels are wider than a 390px screen: Settings sat off the right edge and the
@@ -1793,6 +1835,165 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }
       layout();
       window.addEventListener('resize', layout);
+    })();
+  }catch(e){}
+
+  /* ---------------- AURA IRIS — replaces the spinning ball on the welcome screen ----
+     A solid orb reads as a generic sphere and fights the interface's thin hairlines.
+     This is an iris: a vertical lens of light held inside three tilted rings with a
+     slow dust veil. Same slot as the old orb, same reactions (mic, typing, message). */
+  try{
+    (function iris(){
+      var wrap = document.getElementById('coreStageWrap');
+      if(!wrap){ setTimeout(iris, 150); return; }
+      var old = document.getElementById('coreCanvas');
+      if(old) old.style.opacity = '0';
+      var cv = document.getElementById('auraIris');
+      if(!cv){
+        cv = document.createElement('canvas');
+        cv.id = 'auraIris';
+        cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;filter:drop-shadow(0 0 26px rgba(120,215,255,.35))';
+        wrap.appendChild(cv);
+      }
+      var ctx = cv.getContext('2d');
+      var dpr = Math.min(2, window.devicePixelRatio || 1);
+      var dust = [], N = 110;
+      for(var i = 0; i < N; i++){
+        dust.push({ a: Math.random() * Math.PI * 2, r: 0.62 + Math.random() * 0.5, sp: 0.15 + Math.random() * 0.5, s: 0.5 + Math.random() * 1.1, w: Math.random() * 6.28 });
+      }
+      var t = 0, ex = 0, amp = 0, painted = 0;
+
+      function size(){
+        var b = wrap.getBoundingClientRect();
+        cv.width = Math.max(1, Math.round(b.width * dpr));
+        cv.height = Math.max(1, Math.round(b.height * dpr));
+      }
+      size();
+      window.addEventListener('resize', size);
+
+      function level(){
+        try{
+          if(window.AURA_CORE && window.AURA_CORE.state){
+            var s = window.AURA_CORE.state();
+            ex = Math.max(ex, s.ex || 0);
+            amp = Math.max(amp, s.amp || 0);
+          }
+        }catch(e){}
+      }
+
+      function draw(dt, once){
+        level();
+        t += dt * 0.001;
+        var w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
+        var R = Math.min(w, h) * 0.30 * (1 + ex * 0.04 + amp * 0.22);
+        ctx.clearRect(0, 0, w, h);
+
+        /* dust veil on a tilted plane */
+        for(var i = 0; i < dust.length; i++){
+          var p = dust[i];
+          var a = p.a + t * p.sp;
+          var wob = Math.sin(t * 1.6 + p.w) * 0.03;
+          var rr = R * (p.r + wob + ex * 0.05);
+          var x = Math.cos(a) * rr;
+          var z = Math.sin(a) * rr;
+          var y = z * 0.30;
+          var per = 2.6 / (2.6 + z / R);
+          var alpha = 0.10 + (z < 0 ? 0.34 : 0.06) + amp * 0.10;
+          ctx.beginPath();
+          ctx.arc(cx + x * per, cy + y * per, Math.max(0.35, p.s * per * dpr * 0.7), 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(150,225,255,' + alpha.toFixed(3) + ')';
+          ctx.fill();
+        }
+
+        /* three tilted rings */
+        for(var k = 0; k < 3; k++){
+          var rx = R * (0.60 + k * 0.17);
+          var ry = rx * (0.20 + k * 0.055);
+          var rot = t * (0.28 + k * 0.16) * (k % 2 ? -1 : 1);
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate(-0.42 + k * 0.42 + rot * 0.25);
+          for(var seg = 0; seg < 2; seg++){
+            ctx.beginPath();
+            ctx.ellipse(0, 0, rx, ry, 0, seg * Math.PI + rot, seg * Math.PI + rot + Math.PI * 0.86);
+            ctx.strokeStyle = 'rgba(130,220,255,' + (0.10 + k * 0.05 + ex * 0.05).toFixed(3) + ')';
+            ctx.lineWidth = (0.8 + (2 - k) * 0.35) * dpr;
+            ctx.stroke();
+          }
+          /* one bright arc that travels around the ring */
+          var ha = rot * 1.7;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, rx, ry, 0, ha, ha + 0.55);
+          ctx.strokeStyle = 'rgba(200,245,255,' + (0.35 + ex * 0.25).toFixed(3) + ')';
+          ctx.lineWidth = 1.5 * dpr;
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        /* the iris — a vertical lens of light */
+        var ih = R * 0.86, iw = R * 0.20 * (1 + ex * 0.10 + amp * 0.35);
+        var g = ctx.createLinearGradient(cx, cy - ih / 2, cx, cy + ih / 2);
+        g.addColorStop(0, 'rgba(180,240,255,0)');
+        g.addColorStop(0.42, 'rgba(225,252,255,' + (0.85 + amp * 0.15) + ')');
+        g.addColorStop(0.58, 'rgba(150,225,255,0.95)');
+        g.addColorStop(1, 'rgba(120,200,255,0)');
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - ih / 2);
+        ctx.bezierCurveTo(cx + iw, cy - ih * 0.18, cx + iw, cy + ih * 0.18, cx, cy + ih / 2);
+        ctx.bezierCurveTo(cx - iw, cy + ih * 0.18, cx - iw, cy - ih * 0.18, cx, cy - ih / 2);
+        ctx.closePath();
+        ctx.fillStyle = g;
+        ctx.shadowColor = 'rgba(140,225,255,.85)';
+        ctx.shadowBlur = 26 * dpr;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        /* soft halo behind the iris */
+        var halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.95);
+        halo.addColorStop(0, 'rgba(130,215,255,' + (0.10 + amp * 0.22 + ex * 0.07).toFixed(3) + ')');
+        halo.addColorStop(1, 'rgba(130,215,255,0)');
+        ctx.fillStyle = halo;
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.95, 0, Math.PI * 2); ctx.fill();
+
+        /* a breath on every message / voiced word */
+        if(ex > 0.3){
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, R * (0.72 + (2.4 - ex) * 0.35), R * (0.72 + (2.4 - ex) * 0.35) * 0.42, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(190,240,255,' + Math.min(0.45, ex * 0.22).toFixed(3) + ')';
+          ctx.lineWidth = 1.4 * dpr;
+          ctx.stroke();
+        }
+        ex *= 0.94; amp *= 0.94;
+        painted = 1;
+      }
+
+      var last = performance.now();
+      function loop(now){
+        requestAnimationFrame(loop);
+        if(document.hidden && painted) return;
+        var dt = Math.min(60, now - last);
+        last = now;
+        try{ draw(dt); }catch(e){}
+      }
+      requestAnimationFrame(loop);
+      setTimeout(function(){ try{ draw(16); }catch(e){} }, 350);
+    })();
+  }catch(e){}
+
+  /* the floating core is a chat-time companion only — the welcome screen has the iris */
+  try{
+    (function floatOnlyInChat(){
+      var host = document.getElementById('auraCoreWrap');
+      var chatw = document.getElementById('chatw');
+      if(!host || !chatw) return;
+      function sync(){
+        var inChat = chatw.classList.contains('has');
+        host.style.display = (!inChat && window.innerWidth >= 900) ? 'none' : '';
+        if(!inChat && window.innerWidth < 900) host.style.display = 'none';
+      }
+      sync();
+      new MutationObserver(sync).observe(chatw, { attributes: true, attributeFilter: ['class'] });
+      window.addEventListener('resize', sync);
     })();
   }catch(e){}
 
