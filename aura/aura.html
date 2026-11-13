@@ -149,10 +149,10 @@ body.cine .app,body.cine .ov{pointer-events:none}
 <div class="row"><div><b>Your name</b><p>Used in the greeting</p></div><input type="text" id="nameIn" style="width:200px" placeholder="Sourabh"></div>
 <div class="row"><div><b>Intro</b><p>Replay the opening animation</p></div><button class="b" id="replayIntro">Replay intro</button></div>
 <div class="row"><div><b>Personality</b><p>Plays the activation sequence and switches the whole interface. You can also say or type "activate zeus".</p></div><div class="msw" id="msw2" style="--x:0"><i></i><button data-m="aura">AURA</button><button data-m="zeus">ZEUS ⚡</button></div></div>
-<div class="row"><div><b>Voice</b><p>AURA / ZEUS reply out loud</p></div><button class="tg on" id="tv"></button></div>
+<div class="row"><div><b>Voice</b><p>AURA / ZEUS reply out loud</p></div><button class="tg" id="tv"></button></div>
 <div class="row"><div><b>Voice speed</b><p>Rate of speech</p></div><input type="range" id="vr" min="6" max="16" value="10"></div>
 <div class="row"><div><b>Voice pitch</b><p>Pitch of speech</p></div><input type="range" id="vp" min="2" max="18" value="10"></div>
-<div class="row"><div><b>UI sounds</b><p>Ticks, blips, thunder</p></div><button class="tg on" id="ts"></button></div>
+<div class="row"><div><b>UI sounds</b><p>Ticks, blips, thunder</p></div><button class="tg" id="ts"></button></div>
 <div class="row"><div><b>Language</b><p>Speech recognition language</p></div><button class="b" id="lg">English</button></div>
 <div class="row"><div><b>Look</b><p>Accent colour for this mode</p></div><div class="sw" id="sws"></div></div>
 <div class="row"><div><b>Test voice</b><p>Hear the current voice</p></div><div style="display:flex;gap:8px"><button class="b" id="tt">▶ Test</button><button class="b" id="fs">Fullscreen</button></div></div></div></div></section>
@@ -180,7 +180,7 @@ body.cine .app,body.cine .ov{pointer-events:none}
 <div id="igHint">Click anywhere for sound</div><button id="introSkip">Skip intro</button></div>
 <script>
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],B=document.body,sleep=ms=>new Promise(r=>setTimeout(r,ms)),cl=(v,a=0,b=1)=>Math.max(a,Math.min(b,v)),ease=p=>1-Math.pow(1-p,3),sm=(a,b,t)=>{const k=cl((t-a)/(b-a));return k*k*(3-2*k)};
-let mode='aura',lang='ENG',busy=false,vOn=true,sOn=true,tab='chat',state='idle',started=false,curChat=null,cineSkip=false;
+let mode='aura',lang='ENG',busy=false,vOn=false,sOn=false,tab='chat',state='idle',started=false,curChat=null,cineSkip=false;
 const store={get:(k,d)=>{try{const v=JSON.parse(localStorage.getItem('az.'+k));return v??d}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem('az.'+k,JSON.stringify(v))}catch(e){}}};
 window.AURA_HOOKS=window.AURA_HOOKS||{send:null,run:null};
 const T={aura:{sub:'Holographic AI assistant',status:'System online',search:'Search',t_chat:'Chat',t_chats:'Chats',t_code:'Code',t_sys:'System',t_admin:'Admin',t_set:'Settings',wel_p:'AURA is online and listening.',think:'AURA is thinking…',ph:'How can AURA help you today?',forge:'Code Forge',tele:'Telemetry',neural:'Neural link',you:'You',bot:'AURA',hint:'Say or type <b>activate zeus</b> to switch personality'},
@@ -417,7 +417,7 @@ await sleep(1100);I.className='';INTRO.on=false;I.getAnimations({subtree:true}).
 $('#introSkip').onclick=e=>{e.stopPropagation();skipNow()};$('#intro').addEventListener('pointerdown',e=>{if(!e.target.closest('#introSkip')){auInit();$('#igHint').style.display='none'}});addEventListener('keydown',e=>{if(e.key=='Escape'&&INTRO.on)skipNow()});
 ['pointerdown','keydown'].forEach(ev=>addEventListener(ev,()=>{auInit();if(started&&!AU.bed&&!busy)startBed(mode)}));
 $('#replayIntro').onclick=()=>{if(busy)return;stopBed();started=false;goTab('chat');runIntro()};
-if(document.readyState=='complete')setTimeout(runIntro,250);else addEventListener('load',()=>setTimeout(runIntro,250));
+/* opening cinematic disabled by owner request */try{document.getElementById('intro').remove();app.classList.remove('hold');B.classList.add('reveal');setTimeout(()=>B.classList.remove('reveal'),1600)}catch(e){}
 </script><script id="aura-engine-hook">
 /* The interface is the reference file, untouched. This block is the only addition:
    1. plugs AURA's real backend into the reference's own hook (window.AURA_HOOKS.send)
@@ -531,17 +531,34 @@ if(document.readyState=='complete')setTimeout(runIntro,250);else addEventListene
     aura: "You are AURA — a calm, precise holographic assistant. Warm, concise, useful. Reply in the user's language (Hinglish is fine). If the user attached file contents, use them. Never mention being a language model.",
     zeus: "You are ZEUS — the thunder persona of AURA: bold, decisive, short declarative sentences, address the user as 'sir'. If files are attached, use them. Never mention being a language model."
   };
+  /* The backend decides whether a question is worth a live web search with a
+     greeting gate: "hi aura, whats the nvidia update" counted as small talk and got
+     answered from the model's frozen cutoff. Strip the greeting before the request
+     so a real question is treated as one — the message the user sees is unchanged. */
+  function askable(t){
+    var q = String(t || "");
+    for(var i = 0; i < 3; i++){
+      var before = q;
+      q = q.replace(/^\s*(hi+|hello+|hey+|yo|namaste|good\s*(morning|evening|afternoon|night))\b[\s,!.\-]*/i, "");
+      q = q.replace(/^\s*(aura|zeus|bhai|bro)\b[\s,!.\-]*/i, "");
+      if(q === before) break;
+    }
+    q = q.trim();
+    return q || String(t || "").trim();
+  }
+
   window.AURA_HOOKS = window.AURA_HOOKS || { send: null, run: null };
   window.AURA_HOOKS.send = async function(text, mode){
     var m = (mode === "zeus") ? "zeus" : "aura";
     var pack = window.__auraAttachPack();
+    var asked = askable(text);
     var turn;
     if(pack && (pack.text || pack.images.length)){
-      var parts = [{ type: "text", text: (pack.text ? pack.text + "\n\n" : "") + String(text || "") }];
+      var parts = [{ type: "text", text: (pack.text ? pack.text + "\n\n" : "") + asked }];
       pack.images.forEach(function(u){ parts.push({ type: "image_url", image_url: { url: u } }); });
       turn = { role: "user", content: parts };
     }else{
-      turn = { role: "user", content: String(text || "") };
+      turn = { role: "user", content: asked };
     }
     history.push(turn);
     if(history.length > 16) history = history.slice(-16);
@@ -553,8 +570,9 @@ if(document.readyState=='complete')setTimeout(runIntro,250);else addEventListene
       var r = await fetch(BASE + "/v1/chat/completions", {
         method: "POST", headers: headers,
         body: JSON.stringify({
+          model: "openai/gpt-oss-120b",
           messages: [{ role: "system", content: SYS[m] }].concat(history),
-          max_tokens: 700, temperature: 0.7
+          max_tokens: 1400, temperature: 0.6
         }),
         signal: AbortSignal.timeout(45000)
       });
@@ -685,6 +703,16 @@ if(document.readyState=='complete')setTimeout(runIntro,250);else addEventListene
     ba.onclick = function(e){ e.stopPropagation(); closeMenus(); input.click(); };
     tools.appendChild(bm); tools.appendChild(ba);
   }
+  /* the deck must stay silent: no spoken replies, no ambient bed, no UI ticks */
+  try{
+    window.speak = function(){};
+    if(window.speechSynthesis) speechSynthesis.cancel();
+    if(typeof window.stopBed === "function") window.stopBed();
+    if(typeof window.SFX === "object"){
+      Object.keys(window.SFX).forEach(function(k){ window.SFX[k] = function(){}; });
+    }
+  }catch(e){}
+
   /* a hosted mesh keeps listening in the background */
   try{ if(mesh.code) setTimeout(pollStart, 1200); }catch(e){}
 })();
