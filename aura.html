@@ -743,7 +743,7 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
       codeShow(); setStatus("Hosting \u00b7 code " + j.code + " \u00b7 waiting for a device");
       tell("Mesh hosted \u00b7 code " + j.code);
       pollStart(); refresh();
-    }).catch(function(e){ listSet("<div>host failed: " + e.message + "</div>"); });
+    }).catch(function(e){ listSet("<div>host failed: " + e.message + "</div>"); tell("Host failed \u00b7 " + e.message); });
   }
   function join(){
     var c = String(($("#amuCode") || {}).value || "").trim();
@@ -753,7 +753,7 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
       try{ localStorage.setItem("aura_mesh_code", c); }catch(e){}
       setStatus("Joined \u00b7 code " + c);
       tell("Joined mesh " + c); pollStart(); refresh();
-    }).catch(function(e){ listSet("<div>join failed: " + e.message + "</div>"); });
+    }).catch(function(e){ listSet("<div>join failed: " + e.message + "</div>"); tell("Join failed \u00b7 " + e.message); });
   }
   function leave(){
     var c = mesh.code; if(!c) return;
