@@ -703,14 +703,15 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
   }catch(e){}
 
   /* ---------------- Mesh ---------------- */
-  var mesh = { code: null, timer: null, seen: [] };
+  var mesh = { code: null, timer: null, seen: [], role: null };
   try{ mesh.code = localStorage.getItem("aura_mesh_code") || null; }catch(e){}
 
   var ov = document.createElement("div");
   ov.className = "ov"; ov.id = "auraMeshOv";
   ov.innerHTML =
     '<div class="mod pn"><h3>\uD83D\uDCE1 MESH</h3>' +
-    '<p style="color:var(--dim);font:12.5px var(--f2);margin:6px 0 14px">Pair this device with another. Host on one, join with the six-digit code on the other.</p>' +
+    '<p style="color:var(--dim);font:12.5px var(--f2);margin:6px 0 10px">Pair this device with another. Host on one, join with the six-digit code on the other.</p>' +
+    '<p id="amuStatus" style="font:12.5px var(--f2);color:var(--dim);margin:0 0 14px">not connected</p>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' +
       '<button class="b pr" id="amuHost">\u25c9 Host</button>' +
       '<input type="text" id="amuCode" inputmode="numeric" maxlength="6" placeholder="\u2014 \u2014 \u2014 \u2014 \u2014 \u2014" style="width:140px;letter-spacing:.24em;text-align:center">' +
@@ -719,7 +720,10 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     '</div>' +
     '<div class="log" id="amuList" style="height:150px">not connected</div>' +
     '<div style="display:flex;gap:8px;margin-top:12px"><input type="text" id="amuSay" placeholder="Say something on every device"><button class="b pr" id="amuSend">\u25b8</button></div>' +
-    '<button class="b" id="amuClose" style="margin-top:14px">Close</button></div>';
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
+      '<button class="b" id="amuCopy">\u29c9 Copy code</button>' +
+      '<button class="b" id="amuRefresh">\u21bb Refresh</button>' +
+      '<button class="b" id="amuClose">Close</button></div></div>';
   document.body.appendChild(ov);
 
   var myToast = document.createElement("div");
@@ -730,12 +734,14 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
   }
   function listSet(html){ var el = $("#amuList"); if(el) el.innerHTML = html; }
   function codeShow(){ var el = $("#amuCode"); if(el && mesh.code) el.value = mesh.code; }
+  function setStatus(t){ var el = $("#amuStatus"); if(el) el.textContent = t; }
 
   function host(){
     api("/v1/mesh/register", {}).then(function(j){
-      mesh.code = j.code;
+      mesh.code = j.code; mesh.role = "host";
       try{ localStorage.setItem("aura_mesh_code", mesh.code); }catch(e){}
-      codeShow(); tell("Mesh hosted \u00b7 code " + j.code);
+      codeShow(); setStatus("Hosting \u00b7 code " + j.code + " \u00b7 waiting for a device");
+      tell("Mesh hosted \u00b7 code " + j.code);
       pollStart(); refresh();
     }).catch(function(e){ listSet("<div>host failed: " + e.message + "</div>"); });
   }
@@ -743,29 +749,35 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     var c = String(($("#amuCode") || {}).value || "").trim();
     if(!/^\d{6}$/.test(c)) return tell("Enter the six-digit code");
     api("/v1/mesh/join", { code: c, nodeId: nodeId, name: devName() }).then(function(j){
-      mesh.code = c;
+      mesh.code = c; mesh.role = "node";
       try{ localStorage.setItem("aura_mesh_code", c); }catch(e){}
+      setStatus("Joined \u00b7 code " + c);
       tell("Joined mesh " + c); pollStart(); refresh();
     }).catch(function(e){ listSet("<div>join failed: " + e.message + "</div>"); });
   }
   function leave(){
     var c = mesh.code; if(!c) return;
     api("/v1/mesh/leave", { code: c, nodeId: nodeId }).catch(function(){});
-    mesh.code = null;
+    mesh.code = null; mesh.role = null; mesh.seen = [];
     try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
     if(mesh.timer){ clearInterval(mesh.timer); mesh.timer = null; }
-    listSet("not connected");
+    var ci = $("#amuCode"); if(ci) ci.value = "";
+    setStatus("not connected"); listSet("not connected");
   }
   function refresh(){
     if(!mesh.code) return;
     api("/v1/mesh/state?code=" + mesh.code + "&since=0").then(function(j){
       var devs = j.devices || [];
       if(!Array.isArray(devs)) devs = Object.keys(devs).map(function(k){ var v = devs[k] || {}; v.id = k; return v; });
+      var live = devs.filter(function(d){ return d.ts && (Date.now() - d.ts < 20000); }).length;
       var rows = devs.map(function(d){
-        var live = d.ts && (Date.now() - d.ts < 20000);
-        return '<div>' + (live ? "\u25cf " : "\u25cb ") + (d.name || d.id || "node") +
-               (d.battery != null ? " \u00b7 " + d.battery + "%" : "") + (live ? "" : " \u00b7 asleep") + '</div>';
+        var on = d.ts && (Date.now() - d.ts < 20000);
+        var me = String(d.id || "") === nodeId ? " \u00b7 this device" : "";
+        return '<div>' + (on ? "\u25cf " : "\u25cb ") + (d.name || "Device") + me +
+               (d.battery != null ? " \u00b7 " + d.battery + "%" : "") + (on ? "" : " \u00b7 asleep") + '</div>';
       }).join("");
+      setStatus((mesh.role === "host" ? "Hosting" : "Joined") + " \u00b7 code " + mesh.code +
+        " \u00b7 " + devs.length + " device(s), " + live + " live");
       listSet('<div><b>' + mesh.code + '</b> \u00b7 ' + devs.length + ' device(s)</div>' + (rows || "<div>waiting for the other device\u2026</div>"));
       codeShow();
     }).catch(function(e){ if(gone(e)) forget(); else listSet("<div>" + e.message + "</div>"); });
@@ -774,10 +786,10 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
      returned 404 every four seconds forever. A dead code now tears itself down. */
   function gone(e){ return /404|not found|mesh-closed|No mesh/i.test(String((e && e.message) || e)); }
   function forget(){
-    mesh.code = null; mesh.seen = [];
+    mesh.code = null; mesh.role = null; mesh.seen = [];
     if(mesh.timer){ clearInterval(mesh.timer); mesh.timer = null; }
     try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
-    listSet("not connected");
+    setStatus("not connected"); listSet("not connected");
   }
   function pollStart(){
     if(mesh.timer) clearInterval(mesh.timer);
@@ -795,7 +807,14 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
           if($("#auraMeshOv").classList.contains("on")) refresh();
         }).catch(function(e){ if(gone(e)) forget(); });
     };
-    tick(); mesh.timer = setInterval(tick, 4000);
+    tick();
+    /* a host only needs the list while the panel is open; a joined device keeps
+       listening in the background so it can receive what the host sends */
+    mesh.timer = setInterval(function(){
+      if(document.hidden) return;
+      if(mesh.role === "host" && !$("#auraMeshOv").classList.contains("on")) return;
+      tick();
+    }, 4000);
   }
 
   ov.addEventListener("click", function(e){ if(e.target === ov) ov.classList.remove("on"); });
@@ -803,6 +822,14 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
   $("#amuJoin").onclick = join;
   $("#amuLeave").onclick = leave;
   $("#amuClose").onclick = function(){ ov.classList.remove("on"); };
+  $("#amuRefresh").onclick = function(){ if(!mesh.code) return tell("Host or join first"); refresh(); tell("Refreshed"); };
+  $("#amuCopy").onclick = function(){
+    if(!mesh.code) return tell("Host or join first");
+    try{
+      navigator.clipboard.writeText(mesh.code).then(function(){ tell("Code copied \u00b7 " + mesh.code); },
+        function(){ tell("Code: " + mesh.code); });
+    }catch(e){ tell("Code: " + mesh.code); }
+  };
   $("#amuSend").onclick = function(){
     var t = String(($("#amuSay") || {}).value || "").trim();
     if(!mesh.code) return tell("Host or join a mesh first");
