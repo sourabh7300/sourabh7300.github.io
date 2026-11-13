@@ -249,19 +249,30 @@ async function visionCall(messages, maxTok, temperature, req) {
     { contents, generationConfig: { maxOutputTokens: maxTok, temperature: temperature != null ? temperature : 0.6, thinkingConfig: { thinkingBudget: 0 } } },
     sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
   ));
+  /* A truncated vision answer (finishReason MAX_TOKENS, or a stump like "Is imag")
+     is worthless, so the same model is retried once with a large budget. */
+  const retryBody = JSON.stringify(Object.assign(
+    { contents, generationConfig: { maxOutputTokens: 8192, temperature: temperature != null ? temperature : 0.6, thinkingConfig: { thinkingBudget: 0 } } },
+    sys ? { systemInstruction: { parts: [{ text: sys }] } } : {}
+  ));
   for (const vmodel of VISION_MODELS) {
-    try {
-      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: vbody,
-        signal: AbortSignal.timeout(60_000)
-      });
-      if (!r.ok) continue; /* busy/overloaded model → next one */
-      const d = await r.json();
-      const t = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || []).map(p => p.text || "").join("").trim();
-      if (t) { recordUse(req, "vision", 0); return t; }
-    } catch (e) { /* next model */ }
+    for (const body of [vbody, retryBody]) {
+      try {
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal: AbortSignal.timeout(60_000)
+        });
+        if (!r.ok) break; /* busy/overloaded model → next one */
+        const d = await r.json();
+        const cand = (d.candidates && d.candidates[0]) || {};
+        const t = (cand.content && cand.content.parts || []).map(p => p.text || "").join("").trim();
+        const cut = cand.finishReason === "MAX_TOKENS" || (t && t.length < 60 && !/[.?!:]$/.test(t));
+        if (t && cut) continue; /* stump → same model, bigger budget */
+        if (t) { recordUse(req, "vision", 0); return t; }
+      } catch (e) { /* next model */ }
+    }
   }
   return null;
 }
