@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="1ee1eb288c7b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="99e1ce97c6cf"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -899,6 +899,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     /* a fresh turn must not inherit the previous answer, which the background-tab
        writer uses to fill the bubble in one go */
     window.__auraLastReply = null;
+    try{ if(window.AURA_CORE) window.AURA_CORE.excite(1); }catch(e){}
     var m = (mode === "zeus") ? "zeus" : "aura";
     var pack = window.__auraAttachPack();
     var asked = askable(text);
@@ -989,6 +990,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       rememberTopic(plain);
       window.__auraAttachClear();
       window.__auraLastReply = out; /* lets the background-tab path finish the typing at once */
+      try{ if(window.AURA_CORE) window.AURA_CORE.excite(1.5); }catch(e){}
       return out;
     }catch(e){
       history.pop();
@@ -1435,6 +1437,291 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           })
           .catch(function(){});
       }, 2500);
+    })();
+  }catch(e){}
+
+  /* ---------------- ADMIN IS INVISIBLE UNTIL GOOGLE SIGN-IN ----------------
+     Nobody sees the Admin tab, its panel, or any hint that it exists. The only
+     way in is a staff Google account whose role the backend confirms (maker/ceo).
+     Hidden entry: Ctrl+Shift+A, "?admin=1", or five quick taps on the brand. */
+  try{
+    var adminTab = document.querySelector('#tabs button[data-p="admin"]');
+    var adminPanel = document.getElementById('p-admin');
+    var ADMIN_KEY = 'aura_admin_session';
+
+    function adminHide(){
+      if(adminTab) adminTab.style.display = 'none';
+      if(adminPanel){
+        var wasOn = adminPanel.classList.contains('on');
+        adminPanel.style.display = 'none';
+        if(wasOn){ var c = document.querySelector('#tabs button[data-p="chat"]'); if(c) c.click(); }
+      }
+    }
+    function adminShow(){
+      if(adminTab) adminTab.style.display = '';
+      if(adminPanel) adminPanel.style.display = '';
+    }
+    function adminSession(){
+      try{ var s = JSON.parse(localStorage.getItem(ADMIN_KEY) || 'null'); if(s && s.exp > Date.now()) return s; }catch(e){}
+      return null;
+    }
+    function adminSignOut(){
+      try{ localStorage.removeItem(ADMIN_KEY); }catch(e){}
+      adminHide();
+      if(window.__auraAdminApp){ try{ window.__auraAdminApp.auth().signOut(); }catch(e){} }
+    }
+    function loadScript(src){
+      return new Promise(function(ok, no){
+        var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s);
+      });
+    }
+    function adminSheet(msg){
+      var old = document.getElementById('auraAdminSheet');
+      if(old) old.parentNode.removeChild(old);
+      var d = document.createElement('div');
+      d.id = 'auraAdminSheet';
+      d.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(3,6,12,.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px';
+      d.innerHTML =
+        '<div style="width:min(380px,100%);background:rgba(10,14,22,.97);border:1px solid rgba(120,215,255,.22);border-radius:18px;padding:22px;color:#e8f4ff;font:14px/1.6 Inter,system-ui,sans-serif">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+            '<b style="font-size:15px">Staff access</b>' +
+            '<button type="button" id="auraAdminX" style="background:none;border:0;color:#7f8b9a;font-size:16px;cursor:pointer">\u2715</button></div>' +
+          '<p style="color:#b9c6d4;margin:0 0 14px" id="auraAdminMsg">' + (msg || 'Sign in with the owner Google account to open the admin console.') + '</p>' +
+          '<button type="button" id="auraAdminGoogle" style="width:100%;padding:11px 14px;border-radius:11px;border:1px solid rgba(120,215,255,.35);background:rgba(120,215,255,.14);color:#dff4ff;font:600 13.5px Inter,system-ui,sans-serif;cursor:pointer">Continue with Google</button>' +
+        '</div>';
+      document.body.appendChild(d);
+      document.getElementById('auraAdminX').onclick = function(){ d.remove(); };
+      d.onclick = function(e){ if(e.target === d) d.remove(); };
+
+      document.getElementById('auraAdminGoogle').onclick = async function(){
+        var btn = this, m = document.getElementById('auraAdminMsg');
+        btn.disabled = true; btn.textContent = 'Checking\u2026';
+        try{
+          var cfg = null;
+          try{
+            var h = await fetch(BASE + '/health', { cache: 'no-store' });
+            var hj = await h.json();
+            cfg = hj.firebaseWebConfig || null;
+          }catch(e){}
+          if(!cfg || !cfg.apiKey){
+            m.textContent = 'Google sign-in is not configured yet \u2014 the owner must add Firebase web config on the server.';
+            btn.textContent = 'Continue with Google'; btn.disabled = false; return;
+          }
+          try{ await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js'); }catch(e){}
+          try{ await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js'); }catch(e){}
+          if(!window.firebase || !firebase.auth) throw new Error('auth library blocked');
+          var app = window.__auraAdminApp || firebase.initializeApp(cfg, 'aura-admin');
+          window.__auraAdminApp = app;
+          var provider = new firebase.auth.GoogleAuthProvider();
+          var cred = await app.auth().signInWithPopup(provider);
+          var tok = await cred.user.getIdToken();
+          var me = await fetch(BASE + '/v1/me', { headers: Object.assign({ Authorization: 'Bearer ' + tok }, hdrs()) });
+          if(!me.ok) throw new Error('session not accepted');
+          var u = await me.json();
+          if(!/^(maker|ceo|admin|owner)$/i.test(u.role || '')){
+            try{ await app.auth().signOut(); }catch(e){}
+            m.textContent = 'This account (' + (u.email || 'signed in') + ') is not an admin.';
+            btn.textContent = 'Continue with Google'; btn.disabled = false; return;
+          }
+          try{ localStorage.setItem(ADMIN_KEY, JSON.stringify({ token: tok, email: u.email, role: u.role, exp: Date.now() + 45 * 60_000 })); }catch(e){}
+          adminShow();
+          d.remove();
+          if(adminTab) adminTab.click();
+        }catch(err){
+          m.textContent = 'Sign-in failed: ' + (err && err.message ? err.message : 'unknown') + '. Try again.';
+          btn.textContent = 'Continue with Google'; btn.disabled = false;
+        }
+      };
+    }
+    window.__auraAdmin = function(){ adminSession() ? adminShow() : adminSheet(); };
+
+    adminHide();
+    if(adminSession()) adminShow();
+
+    document.addEventListener('keydown', function(e){
+      if(e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')){ e.preventDefault(); window.__auraAdmin(); }
+    });
+    try{ if(/[?&]admin=1/.test(location.search)) setTimeout(window.__auraAdmin, 600); }catch(e){}
+    var brand = document.getElementById('bn'), taps = 0, tapT = 0;
+    if(brand) brand.addEventListener('click', function(){
+      var now = Date.now();
+      taps = (now - tapT < 900) ? taps + 1 : 1; tapT = now;
+      if(taps >= 5){ taps = 0; window.__auraAdmin(); }
+    });
+  }catch(e){}
+
+  /* ---------------- THE CORE -------------
+     A live 3D particle nucleus that stays on screen while you chat: it turns,
+     breathes with the microphone, fires a shockwave when a message leaves or
+     arrives, and pulses with the voice while AURA speaks. Pure canvas 2D, no libs. */
+  try{
+    (function core(){
+      var host = document.getElementById('auraCoreWrap');
+      if(!host){
+        host = document.createElement('div');
+        host.id = 'auraCoreWrap';
+        host.style.cssText = 'position:fixed;z-index:1;pointer-events:none;right:2.2vw;top:50%;transform:translateY(-50%);' +
+          'width:clamp(200px,22vw,340px);height:clamp(200px,22vw,340px);opacity:.9';
+        host.innerHTML = '<canvas id="auraCore" style="width:100%;height:100%;display:block"></canvas>';
+        document.body.appendChild(host);
+      }
+      var cv = host.querySelector('canvas');
+      var ctx = cv.getContext('2d');
+      var dpr = Math.min(2, window.devicePixelRatio || 1);
+
+      var N = 420, pts = [];
+      for(var i = 0; i < N; i++){
+        var y = 1 - 2 * (i + 0.5) / N;
+        var r = Math.sqrt(Math.max(0, 1 - y * y));
+        var th = i * 2.399963229728653;
+        pts.push({ x: Math.cos(th) * r, y: y, z: Math.sin(th) * r, s: 0.6 + (i % 5) * 0.16, hot: i % 11 === 0 });
+      }
+      var rotY = 0, rotX = 0.26, ex = 0, amp = 0, phase = 0;
+      var micStream = null, analyser = null, micBuf = null;
+
+      function resize(){
+        var b = cv.getBoundingClientRect();
+        cv.width = Math.max(1, Math.round(b.width * dpr));
+        cv.height = Math.max(1, Math.round(b.height * dpr));
+      }
+      resize();
+      window.addEventListener('resize', resize);
+
+      function startAudio(){
+        if(analyser || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(st){
+          micStream = st;
+          var AC = window.AudioContext || window.webkitAudioContext;
+          if(!AC) return;
+          var ac = window.__auraAC || (window.__auraAC = new AC());
+          if(ac.state === 'suspended') ac.resume().catch(function(){});
+          var src = ac.createMediaStreamSource(st);
+          analyser = ac.createAnalyser();
+          analyser.fftSize = 256;
+          src.connect(analyser);
+          micBuf = new Uint8Array(analyser.frequencyBinCount);
+        }).catch(function(){});
+      }
+      function stopAudio(){
+        try{ if(micStream){ micStream.getTracks().forEach(function(t){ t.stop(); }); micStream = null; analyser = null; } }catch(e){}
+      }
+
+      window.AURA_CORE = {
+        excite: function(k){ ex = Math.min(2.6, ex + (k == null ? 1 : k)); },
+        listen: startAudio,
+        stop: stopAudio
+      };
+
+      /* mic button starts the real analyser; speech synthesis drives the pulse */
+      var micBtn = document.getElementById('mic');
+      if(micBtn) micBtn.addEventListener('click', function(){ startAudio(); window.AURA_CORE.excite(0.7); });
+      try{
+        if(window.speechSynthesis){
+          speechSynthesis.addEventListener('start', function(){ window.AURA_CORE.excite(1.1); });
+          speechSynthesis.addEventListener('boundary', function(){ window.AURA_CORE.excite(0.35); });
+        }
+      }catch(e){}
+
+      var t0 = performance.now();
+      function frame(now){
+        requestAnimationFrame(frame);
+        if(document.hidden) return;
+        var dt = Math.min(48, now - t0); t0 = now;
+        if(analyser && micBuf){
+          analyser.getByteFrequencyData(micBuf);
+          var sum = 0;
+          for(var i = 0; i < micBuf.length; i++) sum += micBuf[i];
+          amp = (sum / micBuf.length) / 255;
+        }else{
+          amp *= 0.94;
+        }
+        ex *= 0.93;
+        phase += dt * 0.0012;
+        rotY += dt * 0.00016 + ex * 0.0012;
+
+        var w = cv.width, h = cv.height;
+        var cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.31 * (1 + ex * 0.05 + amp * 0.28);
+        ctx.clearRect(0, 0, w, h);
+
+        var cosY = Math.cos(rotY), sinY = Math.sin(rotY), cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+        var proj = [];
+        for(var j = 0; j < pts.length; j++){
+          var p = pts[j];
+          var bx = p.x, by = p.y, bz = p.z;
+          var wob = 1 + Math.sin(phase * 2 + j * 0.35) * 0.035 * (1 + ex * 2 + amp * 3);
+          bx *= wob; by *= wob; bz *= wob;
+          var x1 = bx * cosY - bz * sinY;
+          var z1 = bx * sinY + bz * cosY;
+          var y1 = by * cosX - z1 * sinX;
+          var z2 = by * sinX + z1 * cosX;
+          var persp = 2.9 / (2.9 + z2);
+          proj.push({ x: cx + x1 * R * persp, y: cy + y1 * R * persp, z: z2, s: p.s * persp * dpr, hot: p.hot });
+        }
+        proj.sort(function(a, b){ return a.z - b.z; });
+
+        /* orbital rings */
+        for(var ring = 0; ring < 2; ring++){
+          ctx.beginPath();
+          var rr = R * (1.18 + ring * 0.22);
+          var tilt = 0.34 + ring * 0.1;
+          for(var a = 0; a <= 64; a++){
+            var ang = (a / 64) * Math.PI * 2 + rotY * (ring ? -0.6 : 1) + phase * 0.2;
+            var px = Math.cos(ang) * rr;
+            var pz = Math.sin(ang) * rr;
+            var py = Math.sin(ang) * rr * tilt;
+            var persp2 = 2.9 / (2.9 + pz / R);
+            var X = cx + px * persp2, Y = cy + py * persp2;
+            if(a === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+          }
+          ctx.strokeStyle = 'rgba(120,215,255,' + (0.06 + ex * 0.05 + ring * 0.02) + ')';
+          ctx.lineWidth = 1 * dpr;
+          ctx.stroke();
+        }
+
+        /* particles */
+        for(var k = 0; k < proj.length; k++){
+          var q = proj[k];
+          var alpha = 0.16 + (1 - (q.z + 1) / 2) * 0.66 + ex * 0.12;
+          ctx.beginPath();
+          ctx.arc(q.x, q.y, Math.max(0.4, q.s), 0, Math.PI * 2);
+          ctx.fillStyle = q.hot
+            ? 'rgba(150,240,255,' + Math.min(1, alpha + 0.2) + ')'
+            : 'rgba(120,200,255,' + alpha + ')';
+          ctx.fill();
+        }
+
+        /* nucleus glow */
+        var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.9);
+        g.addColorStop(0, 'rgba(160,235,255,' + (0.1 + amp * 0.3 + ex * 0.12) + ')');
+        g.addColorStop(0.55, 'rgba(90,170,255,0.05)');
+        g.addColorStop(1, 'rgba(90,170,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.95, 0, Math.PI * 2); ctx.fill();
+
+        /* shockwave on a message / voice burst */
+        if(ex > 0.35){
+          ctx.beginPath();
+          ctx.arc(cx, cy, R * (1.05 + (2.4 - ex) * 0.2), 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(150,240,255,' + Math.min(0.5, ex * 0.22) + ')';
+          ctx.lineWidth = 1.6 * dpr;
+          ctx.stroke();
+        }
+      }
+      requestAnimationFrame(frame);
+
+      /* keep the core out of the way on narrow screens */
+      function layout(){
+        if(window.innerWidth < 720){
+          host.style.width = '128px'; host.style.height = '128px';
+          host.style.right = '10px'; host.style.top = '86px'; host.style.transform = 'none'; host.style.opacity = '.55';
+        }else{
+          host.style.width = 'clamp(200px,22vw,340px)'; host.style.height = 'clamp(200px,22vw,340px)';
+          host.style.right = '2.2vw'; host.style.top = '50%'; host.style.transform = 'translateY(-50%)'; host.style.opacity = '.9';
+        }
+        resize();
+      }
+      layout();
+      window.addEventListener('resize', layout);
     })();
   }catch(e){}
 
