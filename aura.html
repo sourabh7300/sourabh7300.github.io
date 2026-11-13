@@ -17453,6 +17453,10 @@ html[data-ui="v6"] body #dock #sendBtn{width:36px!important;height:36px!importan
   border:0!important;box-shadow:0 0 24px rgba(63,210,255,.28)!important}
 html[data-ui="v6"] body[data-persona="jarvis"] #dock #sendBtn{background:#ff4a2e!important;
   color:#1a0500!important;box-shadow:0 0 24px rgba(255,74,46,.35)!important}
+/* the composer re-renders its send node, which drops inline styles; literal colours here
+   make the button correct even before the repaint tick reaches the new node */
+html[data-ui="v6"] body[data-persona="jarvis"] #inputRow #sendBtn{background-color:#ff4a2e!important}
+html[data-ui="v6"] body:not([data-persona="jarvis"]) #inputRow #sendBtn{background-color:#3fd2ff!important}
 html[data-ui="v6"] body #dock #micWrap,
 html[data-ui="v6"] body #dock #micBtn{width:36px!important;height:36px!important;
   min-width:36px!important;border-radius:50%!important;background:none!important;border:0!important}
@@ -18056,6 +18060,9 @@ html[data-ui="v6"] body #dock #micBtn{width:36px!important;height:36px!important
   window.__auraPaintAccent = function(){
     try{ paintAccent(document.body.dataset.persona === "jarvis"); }catch(e){}
   };
+  /* the send node is rebuilt on every composer state change, taking inline paint with it,
+     so the accent is re-asserted on a slow tick (cheap: three properties, one lookup) */
+  try{ setInterval(function(){ try{ window.__auraPaintAccent(); }catch(e){} }, 700); }catch(e){}
 
   window.__auraActivateFx = function(zeus){
     paintAccent(zeus);
