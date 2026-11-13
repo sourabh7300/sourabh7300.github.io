@@ -907,6 +907,62 @@ $('#replayIntro').onclick=()=>toast('Intro is disabled');
     }
   }catch(e){}
 
+  /* ---------- readable answers ----------
+     The reference writes the reply with textContent, so ```python blocks, **bold** and
+     `inline code` arrived as raw characters. Once the typing stops, the bubble is
+     re-rendered as light markdown — text is escaped first, so nothing can inject HTML. */
+  try{
+    var st = document.createElement("style");
+    st.id = "auraRichCss";
+    st.textContent = "#msgs .m.a code{font:13px ui-monospace,Menlo,monospace;background:rgba(0,0,0,.45);" +
+      "padding:1px 5px;border-radius:5px;color:#9fe6ff}#msgs .m.a pre{margin:10px 0;padding:12px 14px;" +
+      "border-radius:12px;background:rgba(0,0,0,.5);border:1px solid var(--line);overflow:auto;" +
+      "font:13px/1.55 ui-monospace,Menlo,monospace;color:#d9f6ff;white-space:pre-wrap}" +
+      "#msgs .m.a pre code{background:none;padding:0;color:inherit;font-size:13px}" +
+      "#msgs .m.a b{font-weight:600;color:#fff}#msgs .m.a ol,#msgs .m.a ul{margin:8px 0 8px 20px}";
+    document.head.appendChild(st);
+
+    function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+    function rich(el){
+      var txt = el.textContent || "";
+      if(!/```|\*\*|`/.test(txt)) return;
+      var out = "", parts = txt.split(/```/);
+      parts.forEach(function(seg, i){
+        if(i % 2 === 1){
+          var body = seg.replace(/^[A-Za-z0-9+#._-]*\r?\n/, "");
+          out += "<pre>" + esc(body.replace(/\s+$/, "")) + "</pre>";
+        }else{
+          out += esc(seg)
+            .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+            .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+            .replace(/\n/g, "<br>");
+        }
+      });
+      el.innerHTML = out;
+    }
+    var box = document.getElementById("msgs");
+    if(box && window.MutationObserver){
+      new MutationObserver(function(muts){
+        muts.forEach(function(mu){
+          [].forEach.call(mu.addedNodes, function(n){
+            if(!n || n.nodeType !== 1 || !n.classList.contains("a")) return;
+            var span = n.lastChild, lastLen = -1, steady = 0, ticks = 0;
+            var iv = setInterval(function(){
+              ticks++;
+              var len = (span.textContent || "").length;
+              if(len === lastLen && len > 0) steady++; else steady = 0;
+              lastLen = len;
+              if((steady >= 2 && len > 0) || ticks > 60){
+                clearInterval(iv);
+                try{ rich(span); }catch(e){}
+              }
+            }, 350);
+          });
+        });
+      }).observe(box, { childList: true });
+    }
+  }catch(e){}
+
   /* a hosted mesh keeps listening in the background */
   try{ if(mesh.code) setTimeout(pollStart, 1200); }catch(e){}
 })();
