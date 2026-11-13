@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e61340fde3db"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="f18b33a6bc2b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1362,11 +1362,11 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }
       /* sit above the composer, never on top of it (mobile included) */
       try{
-        var _inp = document.getElementById('inp');
+        var _box = document.getElementById('card') || document.getElementById('inp');
         var _b = 96;
-        if(_inp){
-          var _t = _inp.getBoundingClientRect().top;
-          if(_t > 40 && _t < innerHeight - 30) _b = Math.max(20, innerHeight - _t + 16);
+        if(_box){
+          var _t = _box.getBoundingClientRect().top;
+          if(_t > 40 && _t < innerHeight - 30) _b = Math.max(20, innerHeight - _t + 12);
         }
         tourEl.style.bottom = _b + 'px';
       }catch(e){}
