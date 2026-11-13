@@ -228,6 +228,7 @@ async function geminiChat(messages, maxTok, temperature, req) {
   geminiCool = Date.now() + 60_000; /* 1 min: a retired id must not freeze the fast lane */
   return null;
 }
+const visionDebug = []; /* last attempts: model, finish reason, thought/output tokens */
 async function visionCall(messages, maxTok, temperature, req) {
   if (!GEMINI_API_KEY) return null;
   const sys = messages.filter(m => m.role === "system").map(m => typeof m.content === "string" ? m.content : "").join("\n").trim();
@@ -276,9 +277,13 @@ async function visionCall(messages, maxTok, temperature, req) {
         if (!t) continue;
         /* only a runaway thinking budget truncates; a genuinely short answer is fine */
         if (cand.finishReason === "MAX_TOKENS" && t.length < 60) {
+          if (visionDebug.length > 5) visionDebug.shift();
+          visionDebug.push({ model: vmodel, budget, finish: cand.finishReason, cut: true, thoughts: (d.usageMetadata && d.usageMetadata.thoughtsTokenCount) || 0, out: (d.usageMetadata && d.usageMetadata.candidatesTokenCount) || 0, len: t.length });
           if (t.length > best.length) best = t;
           continue; /* same model, bigger budget */
         }
+        if (visionDebug.length > 5) visionDebug.shift();
+        visionDebug.push({ model: vmodel, budget, finish: cand.finishReason || null, thoughts: (d.usageMetadata && d.usageMetadata.thoughtsTokenCount) || 0, out: (d.usageMetadata && d.usageMetadata.candidatesTokenCount) || 0, len: t.length });
         recordUse(req, "vision", 0);
         return t;
       } catch (e) { /* next model */ }
@@ -2258,6 +2263,7 @@ function warmHealth() {
   try { ghCheck().catch(() => {}); } catch (e) {}
   try { researchProbe().catch(() => {}); } catch (e) {}
 }
+app.get("/v1/vision/debug", (req, res) => res.json({ attempts: visionDebug }));
 app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
