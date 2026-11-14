@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="51006981d1ab"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="848c8d16087c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1660,6 +1660,14 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
          Chats / Settings page is fully transparent: "page hi nahi dikh raha".
          The panel is the content; the fade is optional, so it is pinned visible. */
       '.panel.on{opacity:1!important;transform:none!important;animation:none!important}' +
+      /* The interface reuses the class .sc for two unrelated things: the scrolling
+         body of a panel (.sc{flex:1;overflow:auto}) and a full-screen overlay
+         (.sc{position:absolute;opacity:0;pointer-events:none}). The overlay rule
+         lands on the panel body too, so Chats and Settings render as a transparent
+         grid with no scroll: the page looks empty. The panel body is restored here. */
+      '.panel .sc{position:static!important;inset:auto!important;display:block!important;' +
+        'opacity:1!important;pointer-events:auto!important;place-items:normal!important;' +
+        'flex:1!important;min-height:0!important;overflow:auto!important;padding:0 18px 22px!important}' +
       '@media(prefers-reduced-motion:reduce){#msgs .m{opacity:1!important;animation:none!important;transform:none!important}}' +
       /* a modal should dim the page, not black it out — you must still see AURA */
       '.ov{background:rgba(0,0,0,.58)!important;backdrop-filter:blur(5px)!important}' +
