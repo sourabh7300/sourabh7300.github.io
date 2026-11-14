@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="da052f406a63"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ddc326a83fa3"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -683,6 +683,17 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
    2. adds Mesh + Attach to its + menu, using the reference's own markup and classes   */
 (function(){
   var BASE = (localStorage.getItem("aura_backend_url") || "https://aura-backend-jomj.onrender.com").replace(/\/+$/, "");
+
+  /* The reference reveals every answer one character at a time (~35 ms each), so an
+     ordinary paragraph still took eight seconds to appear after the engine had already
+     answered. By the time the hook returns, the text is whole — show it whole. The
+     async shape is kept because the caller awaits it. */
+  try{
+    window.typeInto = async function(el, text){
+      if(!el) return;
+      el.textContent = String(text == null ? "" : text);
+    };
+  }catch(e){}
   var $ = function(s){ return document.querySelector(s); };
 
   /* ---------------- BOOT RESCUE ----------------
@@ -1077,12 +1088,12 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       try{
         hits = await Promise.race([
           webHits(plain).catch(function(){ return []; }),
-          new Promise(function(r){ setTimeout(function(){ r([]); }, 4500); })
+          new Promise(function(r){ setTimeout(function(){ r([]); }, 2800); })
         ]);
       }catch(e){ hits = []; }
     }
 
-    async function ask(withWeb){
+    async function ask(withWeb, onDelta){
       var sys = [SYS[m], "TODAY IS " + todayLine() + ".", profileBlock()].filter(Boolean).join(" ");
       var msgs = [{ role: "system", content: sys }];
       if(withWeb && hits.length) msgs.push({ role: "system", content: webBlock(hits) });
@@ -1090,14 +1101,19 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       /* A long prompt plus a busy key used to end as a 55s abort that read as
          "engine unreachable". One retry with the same payload, and a second with
          a trimmed history, keeps a slow lane from losing the question. */
-      async function post(list){
+      /* A short question does not need a 2400-token ceiling — a lower cap finishes
+         sooner on the same upstream. "Explain …" keeps the long budget. */
+      var wantLong = /\b(explain|detail|detailed|steps|guide|essay|compare|why|kaise|kyun|kyu|samjha|samjhao|poora|pura|step by step)\b/i.test(plain) || plain.length > 140;
+      var capTok = wantLong ? 2400 : 900;
+
+      async function post(list, onDelta){
         var r = await fetch(BASE + "/v1/chat/completions", {
           method: "POST", headers: hdrs(),
           body: JSON.stringify({
             model: "openai/gpt-oss-120b",
             messages: list,
-            /* long "explain in detail" answers were being cut at 1400 tokens */
-            max_tokens: 2400, temperature: 0.45
+            max_tokens: capTok, temperature: 0.45,
+            stream: !!onDelta
           }),
           signal: AbortSignal.timeout(75000)
         });
@@ -1108,6 +1124,30 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           err.status = r.status;
           throw err;
         }
+        /* the backend streams SSE; showing the first words while the rest is still
+           being written is the difference between "slow" and "instant" */
+        var ct = r.headers.get("content-type") || "";
+        if(onDelta && r.body && /event-stream/i.test(ct)){
+          var rd = r.body.getReader(), dec = new TextDecoder(), buf = "", full = "";
+          while(true){
+            var step = await rd.read();
+            if(step.done) break;
+            buf += dec.decode(step.value, { stream: true });
+            var chunks = buf.split("\n\n");
+            buf = chunks.pop() || "";
+            for(var ci = 0; ci < chunks.length; ci++){
+              var line = chunks[ci].trim();
+              if(line.indexOf("data:") !== 0) continue;
+              var payload = line.slice(5).trim();
+              if(!payload || payload === "[DONE]") continue;
+              var ev; try{ ev = JSON.parse(payload); }catch(e){ continue; }
+              var d = ev.delta || (ev.choices && ev.choices[0] && ev.choices[0].delta && ev.choices[0].delta.content) || "";
+              if(d){ full += d; onDelta(full); }
+            }
+          }
+          if(!full.trim()) throw new Error("empty reply");
+          return full.trim();
+        }
         var j = await r.json();
         var t = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
         if(!t) throw new Error("empty reply");
@@ -1115,13 +1155,13 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }
       var t0 = Date.now(), firstErr = null;
       try{
-        var out1 = await post(msgs);
+        var out1 = await post(msgs, onDelta);
         if(window.console) console.info("[aura] chat ok", Date.now() - t0 + "ms", (msgs.length) + " msgs");
         return out1;
       }catch(e){ firstErr = e; }
       try{
         var lean = msgs.slice(0, 2).concat(history.slice(-2));
-        var out2 = await post(lean);
+        var out2 = await post(lean, onDelta);
         if(window.console) console.info("[aura] chat recovered on retry", Date.now() - t0 + "ms", firstErr && firstErr.message);
         return out2;
       }catch(e2){
@@ -1130,12 +1170,23 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }
     }
 
+    /* words appear in the thinking line as they arrive, so a slow lane still looks
+       like it is answering instead of hanging */
+    var thinkEl = document.getElementById("think");
+    function live(txt){
+      try{
+        if(!thinkEl) return;
+        var tail = String(txt || "").replace(/\s+/g, " ").trim().slice(-90);
+        if(tail) thinkEl.textContent = "AURA \u00b7 " + tail + "\u2026";
+      }catch(e){}
+    }
+
     try{
-      var out = await ask(true);
+      var out = await ask(true, live);
       /* the light visitor model still sometimes says "I don't know" — one grounded retry */
       if(VAGUE.test(out) && !hits.length && !trivial){
         var late = await webHits(plain + " " + new Date().getFullYear());
-        if(late.length){ hits = late; out = await ask(true); }
+        if(late.length){ hits = late; out = await ask(true, live); }
       }
       history.push({ role: "assistant", content: out });
       rememberTopic(plain);
