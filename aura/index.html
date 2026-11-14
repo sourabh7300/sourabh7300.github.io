@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="609d17328589"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ee88791b332a"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -770,23 +770,53 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
   strip.style.cssText = "display:none;gap:8px;flex-wrap:wrap;margin:2px 0 10px";
   if(card && inp) card.insertBefore(strip, inp);
 
+  function kb(n){
+    if(!n) return "";
+    return n < 1024 ? n + " B" : (n < 1048576 ? Math.round(n / 1024) + " KB" : (n / 1048576).toFixed(1) + " MB");
+  }
+  function ext(name){
+    var m = String(name || "").match(/\.([A-Za-z0-9]{1,4})$/);
+    return m ? m[1].toUpperCase() : "FILE";
+  }
+  /* a real preview card, not a text chip: you should recognise the picture you are
+     about to send before it leaves the composer */
   function renderFiles(){
     if(!strip) return;
     strip.innerHTML = "";
     strip.style.display = files.length ? "flex" : "none";
+    strip.style.cssText = "display:" + (files.length ? "flex" : "none") +
+      ";gap:8px;flex-wrap:wrap;margin:2px 0 10px";
     files.forEach(function(f, i){
-      var b = document.createElement("button");
-      b.type = "button";
-      b.style.cssText = "display:inline-flex;align-items:center;gap:8px;padding:6px 11px;border-radius:10px;" +
-        "border:1px solid var(--line);background:rgba(0,0,0,.32);font-size:12.5px;color:#cfcdcb;backdrop-filter:blur(8px)";
-      var thumb = f.image
-        ? '<img src="' + String(f.data).replace(/"/g, "&quot;") + '" alt="" style="width:22px;height:22px;border-radius:5px;object-fit:cover;flex:none">'
-        : "\uD83D\uDCC4 ";
-      b.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;min-width:0">' + thumb +
-        '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">' +
-        String(f.name).slice(0, 24) + '</span></span><span style="color:var(--dim)">\u2715</span>';
-      b.onclick = function(){ files.splice(i, 1); renderFiles(); };
-      strip.appendChild(b);
+      var card = document.createElement("div");
+      card.style.cssText = "position:relative;display:flex;align-items:center;gap:9px;padding:7px 30px 7px 7px;" +
+        "border-radius:12px;border:1px solid rgba(120,215,255,.22);background:rgba(8,14,24,.72);" +
+        "backdrop-filter:blur(10px);max-width:216px;min-width:0";
+      var art;
+      if(f.image){
+        art = '<img alt="" src="' + String(f.data).replace(/"/g, "&quot;") + '" ' +
+          'style="width:48px;height:48px;border-radius:9px;object-fit:cover;flex:none;border:1px solid rgba(255,255,255,.12)">';
+      } else {
+        art = '<span style="width:48px;height:48px;border-radius:9px;flex:none;display:flex;align-items:center;' +
+          'justify-content:center;font:700 11px/1 ui-monospace,monospace;letter-spacing:.5px;' +
+          'color:#a9e3ff;background:linear-gradient(160deg,rgba(0,162,255,.22),rgba(120,80,255,.16));' +
+          'border:1px solid rgba(120,215,255,.2)">' + ext(f.name) + '</span>';
+      }
+      var meta = f.image ? ("Image \u00b7 " + (kb(f.bytes) || "ready")) : (ext(f.name) + " \u00b7 " + (kb(f.bytes) || "text"));
+      var label = '<span style="min-width:0;display:block">' +
+        '<span style="display:block;font-size:12.5px;color:#e6f4ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:132px">' +
+        String(f.name).replace(/[<>&]/g, "") + '</span>' +
+        '<span style="display:block;margin-top:2px;font-size:11px;color:rgba(190,215,235,.6)">' + meta + '</span></span>';
+      card.innerHTML = art + label;
+      var x = document.createElement("button");
+      x.type = "button";
+      x.setAttribute("aria-label", "Remove " + String(f.name));
+      x.textContent = "\u2715";
+      x.style.cssText = "position:absolute;top:2px;right:2px;width:22px;height:22px;border-radius:50%;border:0;" +
+        "background:rgba(0,0,0,.5);color:#cfe9ff;font-size:11px;line-height:1;cursor:pointer;display:flex;" +
+        "align-items:center;justify-content:center";
+      x.onclick = function(e){ e.stopPropagation(); files.splice(i, 1); renderFiles(); };
+      card.appendChild(x);
+      strip.appendChild(card);
     });
   }
   function readOne(file){
@@ -803,7 +833,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
             try{
               var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
               var k = Math.min(1, 1280 / Math.max(w, h));
-              if(k >= 0.999 && src.length < 900000){ done({ name: file.name, image: true, data: src }); return; }
+              if(k >= 0.999 && src.length < 900000){ done({ name: file.name, image: true, bytes: file.size, data: src }); return; }
               var cv = document.createElement("canvas");
               cv.width = Math.max(1, Math.round(w * k));
               cv.height = Math.max(1, Math.round(h * k));
@@ -812,10 +842,10 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
               ctx.fillRect(0, 0, cv.width, cv.height);
               ctx.drawImage(img, 0, 0, cv.width, cv.height);
               var out = cv.toDataURL("image/jpeg", 0.82);
-              done({ name: file.name, image: true, data: (out && out.length < src.length) ? out : src });
-            }catch(e){ done({ name: file.name, image: true, data: src }); }
+              done({ name: file.name, image: true, bytes: file.size, data: (out && out.length < src.length) ? out : src });
+            }catch(e){ done({ name: file.name, image: true, bytes: file.size, data: src }); }
           };
-          img.onerror = function(){ done({ name: file.name, image: true, data: src }); };
+          img.onerror = function(){ done({ name: file.name, image: true, bytes: file.size, data: src }); };
           img.src = src;
         };
         fr.onerror = function(){ done(null); };
@@ -825,7 +855,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       var fr = new FileReader();
       fr.onload = function(){
         var t = String(fr.result || "");
-        done({ name: file.name, text: t.length > 20000 ? t.slice(0, 20000) + "\n…(truncated)" : t });
+        done({ name: file.name, bytes: file.size, text: t.length > 20000 ? t.slice(0, 20000) + "\n…(truncated)" : t });
       };
       fr.onerror = function(){ done(null); };
       fr.readAsText(file);
