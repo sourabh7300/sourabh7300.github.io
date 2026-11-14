@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="6b851f4f3b79"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="c759742a8329"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1346,49 +1346,38 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       });
       el.innerHTML = out;
     }
-    var box = document.getElementById("msgs");
-    if(box && window.MutationObserver){
-      new MutationObserver(function(muts){
-        muts.forEach(function(mu){
-          [].forEach.call(mu.addedNodes, function(n){
-            if(!n || n.nodeType !== 1 || !n.classList.contains("a")) return;
-            var span = n.lastChild, lastLen = -1, steady = 0, ticks = 0;
-            var iv = setInterval(function(){
-              ticks++;
-              /* a background tab throttles the reference's typewriter to about one
-                 tick a second, so a 90-char answer looks chopped or stuck. When the
-                 tab is hidden the finished text is written in one go instead. */
-              var want = window.__auraLastReply ? String(window.__auraLastReply).length : 0;
-              if(document.hidden && want && (span.textContent || "").length < want){
-                span.textContent = String(window.__auraLastReply);
-              }
-              /* a long answer should not crawl out one character at a time: after a
-                 short beat it is written whole, so the reader never waits on typing */
-              if(want > 90 && ticks > 3 && (span.textContent || "").length < want){
-                span.textContent = String(window.__auraLastReply);
-              }
-              var len = (span.textContent || "").length;
-              if(len === lastLen && len > 0) steady++; else steady = 0;
-              lastLen = len;
-              /* the reply may still be in flight: keep waiting until the hook has one,
-                 otherwise the 21s cutoff fires first and the answer stays half-typed */
-              var pending = !window.__auraLastReply && len > 0;
-              if(pending) return;
-              if((steady >= 2 && len > 0) || ticks > 200){
-                clearInterval(iv);
-                try{ rich(span); }catch(e){}
-                /* the message bubble also fades in by animation; if that animation
-                   never advances the text exists but is invisible */
-                setTimeout(function(){
-                  var o = parseFloat(getComputedStyle(n).opacity);
-                  if(!(o > 0.05)){ n.style.animation = 'none'; n.style.opacity = '1'; n.style.transform = 'none'; }
-                }, 60);
-              }
-            }, 350);
-          });
-        });
-      }).observe(box, { childList: true });
-    }
+    /* The reference writes the answer into a bubble character by character. Racing it
+       with a per-bubble timer left answers half-typed and markdown unrendered, so a
+       single loop keeps the newest bubble in sync with the finished text: after a
+       short beat the whole answer is simply present, and the markdown is applied once. */
+    var rendered = (typeof WeakSet === "function") ? new WeakSet() : null;
+    (function watchReplies(){
+      setInterval(function(){
+        try{
+          var box = document.getElementById("msgs");
+          if(!box) return;
+          var last = box.lastElementChild;
+          if(!last || !last.classList || !last.classList.contains("a")) return;
+          var span = last.lastElementChild;
+          if(!span || !span.textContent) return;
+          if(!window.__auraLastReply) return;
+          var want = String(window.__auraLastReply);
+          if(span.__t0 === undefined) span.__t0 = Date.now();
+          var cur = span.textContent || "";
+          /* nothing should ever crawl for more than a beat */
+          if(cur.length < want.length && Date.now() - span.__t0 > 1100) span.textContent = want;
+          if((span.textContent || "") === want && (!rendered || !rendered.has(span))){
+            if(rendered) rendered.add(span);
+            try{ rich(span); }catch(e){}
+            /* the bubble fades in by animation; if it never advances the text is invisible */
+            setTimeout(function(){
+              var o = parseFloat(getComputedStyle(last).opacity);
+              if(!(o > 0.05)){ last.style.animation = 'none'; last.style.opacity = '1'; last.style.transform = 'none'; }
+            }, 60);
+          }
+        }catch(e){}
+      }, 400);
+    })();
   }catch(e){}
 
   /* ---------------- first-run tour ----------------
