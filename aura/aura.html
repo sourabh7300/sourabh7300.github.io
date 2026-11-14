@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="4363920542b7"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="2ee1591c108d"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -779,8 +779,12 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       b.type = "button";
       b.style.cssText = "display:inline-flex;align-items:center;gap:8px;padding:6px 11px;border-radius:10px;" +
         "border:1px solid var(--line);background:rgba(0,0,0,.32);font-size:12.5px;color:#cfcdcb;backdrop-filter:blur(8px)";
-      b.innerHTML = '<span>' + (f.image ? "\uD83D\uDDBC " : "\uD83D\uDCC4 ") +
-        String(f.name).slice(0, 24) + '</span><span style="color:var(--dim)">\u2715</span>';
+      var thumb = f.image
+        ? '<img src="' + String(f.data).replace(/"/g, "&quot;") + '" alt="" style="width:22px;height:22px;border-radius:5px;object-fit:cover;flex:none">'
+        : "\uD83D\uDCC4 ";
+      b.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;min-width:0">' + thumb +
+        '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">' +
+        String(f.name).slice(0, 24) + '</span></span><span style="color:var(--dim)">\u2715</span>';
       b.onclick = function(){ files.splice(i, 1); renderFiles(); };
       strip.appendChild(b);
     });
@@ -789,7 +793,31 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     return new Promise(function(done){
       if(/^image\//.test(file.type)){
         var fr = new FileReader();
-        fr.onload = function(){ done({ name: file.name, image: true, data: String(fr.result) }); };
+        fr.onload = function(){
+          var src = String(fr.result || "");
+          /* a phone photo is 3-8 MB. Shrinking it to 1280 px JPEG before upload makes
+             the request small enough to actually go through on mobile data, and the
+             vision model reads it just as well. */
+          var img = new Image();
+          img.onload = function(){
+            try{
+              var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+              var k = Math.min(1, 1280 / Math.max(w, h));
+              if(k >= 0.999 && src.length < 900000){ done({ name: file.name, image: true, data: src }); return; }
+              var cv = document.createElement("canvas");
+              cv.width = Math.max(1, Math.round(w * k));
+              cv.height = Math.max(1, Math.round(h * k));
+              var ctx = cv.getContext("2d");
+              ctx.fillStyle = "#fff";
+              ctx.fillRect(0, 0, cv.width, cv.height);
+              ctx.drawImage(img, 0, 0, cv.width, cv.height);
+              var out = cv.toDataURL("image/jpeg", 0.82);
+              done({ name: file.name, image: true, data: (out && out.length < src.length) ? out : src });
+            }catch(e){ done({ name: file.name, image: true, data: src }); }
+          };
+          img.onerror = function(){ done({ name: file.name, image: true, data: src }); };
+          img.src = src;
+        };
         fr.onerror = function(){ done(null); };
         fr.readAsDataURL(file);
         return;
@@ -803,21 +831,54 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       fr.readAsText(file);
     });
   }
-  input.onchange = function(){
-    var list = [].slice.call(input.files || []);
-    input.value = "";
+  /* one intake for picker, drag & drop and paste */
+  function takeFiles(list){
+    list = [].slice.call(list || []);
     if(!list.length) return;
     var big = list.filter(function(f){ return f.size > 12 * 1024 * 1024; });
     if(big.length) tell(big.length + " file(s) skipped \u2014 12 MB se bada");
     var ok = list.filter(function(f){ return f.size <= 12 * 1024 * 1024; });
+    if(!ok.length) return;
     Promise.all(ok.map(readOne)).then(function(out){
       var added = 0;
       out.filter(Boolean).forEach(function(f){ if(files.length < 6){ files.push(f); added++; } });
-      if(list.length && !added) tell("6 files tak hi attach ho sakti hain");
-      else if(added) tell(added + " file attached \u2014 ab sawaal poocho");
+      if(!added) tell("6 files tak hi attach ho sakti hain \u2014 pehle koi hataao");
+      else tell(added + " file attached \u2014 ab sawaal poocho");
       renderFiles();
     });
+  }
+  input.onchange = function(){
+    var list = [].slice.call(input.files || []);
+    input.value = "";            /* so the same file can be picked again */
+    takeFiles(list);
   };
+  /* desktop: drop a file on the composer, or paste a screenshot */
+  try{
+    if(card){
+      ["dragenter", "dragover"].forEach(function(ev){
+        card.addEventListener(ev, function(e){
+          e.preventDefault();
+          card.style.outline = "1px dashed rgba(120,215,255,.55)";
+        });
+      });
+      card.addEventListener("dragleave", function(){ card.style.outline = ""; });
+      card.addEventListener("drop", function(e){
+        e.preventDefault();
+        card.style.outline = "";
+        if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) takeFiles(e.dataTransfer.files);
+      });
+    }
+    document.addEventListener("paste", function(e){
+      var cd = e.clipboardData;
+      if(!cd || !cd.items) return;
+      var picked = [];
+      for(var i = 0; i < cd.items.length; i++){
+        var it = cd.items[i];
+        if(it.kind === "file"){ var f = it.getAsFile(); if(f) picked.push(f); }
+      }
+      if(picked.length) takeFiles(picked);
+    });
+  }catch(e){}
   /* the send path asks for whatever is staged, then clears it */
   window.__auraAttachPack = function(){
     if(!files.length) return null;
