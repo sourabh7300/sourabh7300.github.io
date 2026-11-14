@@ -440,6 +440,36 @@ if (!KEY_POOL.length) {
 }
 /* per-key cooldowns after 429 (10 min) — a cooled key re-enters the pool later */
 const keyCool = new Map();
+/* KEY HEALTH — the bank used to be tried in the order the env vars happened to be
+   written, so a weak or slow key served every request until it finally 429'd. Now
+   each key keeps a score: failures weigh heavily, latency lightly, and the freshest
+   healthy key wins. A key that fails is cooled on the spot and the next one takes
+   over on the very next call. */
+const keyStat = new Map();
+function keyInfo(k) {
+  let s = keyStat.get(k);
+  if (!s) { s = { fail: 0, ms: 900, used: 0 }; keyStat.set(k, s); }
+  return s;
+}
+function noteKeyOk(k, ms) {
+  if (!k) return;
+  const s = keyInfo(k);
+  s.fail = Math.max(0, s.fail - 1);
+  s.ms = Math.round(s.ms * 0.7 + Math.max(60, ms || 900) * 0.3);
+  s.used = Date.now();
+}
+function noteKeyFail(k, ms) {
+  if (!k) return;
+  const s = keyInfo(k);
+  s.fail = Math.min(50, s.fail + 3);
+  s.used = Date.now();
+  if (ms) coolKey(k, Date.now() + ms);
+}
+const coolKey = (k, ms) => noteKeyFail(k, ms || 70_000);
+function keyScore(k) {
+  const s = keyInfo(k);
+  return s.fail * 20000 + s.ms;
+}
 /* PUBLIC vs MAKER pools — the LAST key in the bank is RESERVED for the maker's
    admin brain (staff/plan/build/agent missions), so visitors can never drain the
    quota her self-upgrades depend on. Public chat shares the remaining keys. */
@@ -450,8 +480,20 @@ const PUBLIC_MODELS = (process.env.PUBLIC_MODELS || "openai/gpt-oss-120b,meta-ll
 function pickKey(reserve) {
   const now = Date.now();
   const pool = reserve ? KEY_POOL : PUBLIC_KEYS;
-  for (const k of pool) if (!(keyCool.get(k) > now)) return k;
-  if (reserve) { for (const k of PUBLIC_KEYS) if (!(keyCool.get(k) > now)) return k; } /* maker may borrow when his reserved key cools */
+  const live = pool.filter(k => !(keyCool.get(k) > now));
+  if (live.length) {
+    /* healthiest first; on a tie the one used longest ago, so load spreads */
+    live.sort(function (a, b) {
+      const d = keyScore(a) - keyScore(b);
+      if (Math.abs(d) > 50) return d;
+      return (keyInfo(a).used || 0) - (keyInfo(b).used || 0);
+    });
+    return live[0];
+  }
+  if (reserve) {
+    const borrow = PUBLIC_KEYS.filter(k => !(keyCool.get(k) > now));
+    if (borrow.length) return borrow[0]; /* maker may borrow when his reserved key cools */
+  }
   return null; // every usable key is cooling = daily allowance exhausted
 }
 
@@ -498,8 +540,8 @@ async function laneCall(laneName, laneKey, mistralModels, messages, maxTok, temp
       if (!r.ok) {
         const bodyTxt = await r.text().catch(() => "");
         const detail = (bodyTxt.match(/"(message|type|detail)"\s*:\s*"([^"]{3,140})"/) || [])[2] || bodyTxt.slice(0, 100);
-        if (r.status === 429) { laneErr[laneName] = "429 on " + model + ": " + detail + " — trying next model"; keyCool.set(laneKey, Date.now() + 20_000); continue; }
-        if (r.status === 401) { keyCool.set(laneKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "401 key invalid — check AI_KEY_" + laneName.toUpperCase() + ": " + detail; return null; }
+        if (r.status === 429) { laneErr[laneName] = "429 on " + model + ": " + detail + " — trying next model"; coolKey(laneKey, Date.now() + 20_000); continue; }
+        if (r.status === 401) { coolKey(laneKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "401 key invalid — check AI_KEY_" + laneName.toUpperCase() + ": " + detail; return null; }
         laneErr[laneName] = "HTTP " + r.status + " on " + model + ": " + detail;
         continue;
       }
@@ -508,7 +550,7 @@ async function laneCall(laneName, laneKey, mistralModels, messages, maxTok, temp
       if (t && t.trim()) { laneErr[laneName] = ""; recordUse(req, laneKey, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
     } catch (e) { laneErr[laneName] = "network: " + (e.message || String(e)); }
   }
-  keyCool.set(laneKey, Date.now() + 70_000); /* whole chain failed — rest the key */
+  coolKey(laneKey, Date.now() + 70_000); /* whole chain failed — rest the key */
   return null;
 }
 
@@ -531,8 +573,8 @@ async function streamLane(opts) {
         signal: AbortSignal.timeout(30_000)
       });
     } catch (e) { laneErr[laneName] = "network: " + (e.message || String(e)); continue; }
-    if (r.status === 429) { laneErr[laneName] = "429 on " + model + " — trying next model"; keyCool.set(apiKey, Date.now() + 20_000); continue; }
-    if (r.status === 401) { keyCool.set(apiKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key invalid (401) — check AI_KEY_" + laneName.toUpperCase(); return "miss"; }
+    if (r.status === 429) { laneErr[laneName] = "429 on " + model + " — trying next model"; coolKey(apiKey, Date.now() + 20_000); continue; }
+    if (r.status === 401) { coolKey(apiKey, Date.now() + 24 * 3600_000); laneErr[laneName] = "key invalid (401) — check AI_KEY_" + laneName.toUpperCase(); return "miss"; }
     if (r.status === 403) { laneErr[laneName] = "model " + model + " not allowed on this key's plan (403) — trying the next Mistral model"; continue; }
     if (!r.ok || !r.body) { laneErr[laneName] = "model " + model + " unavailable (HTTP " + r.status + ")"; continue; }
     let full = "", announced = false;
@@ -637,6 +679,7 @@ function keyLabel(k) {
 }
 function recordUse(req, key, tokens, model) {
   try {
+    noteKeyOk(key, 600);
     const day = TODAY();
     const kl = keyLabel(key);
     const rec = keyUse.get(kl) || { day, calls: 0, tokens: 0 };
@@ -1114,8 +1157,8 @@ app.post("/v1/staff/brain", async (req, res) => {
             signal: AbortSignal.timeout(30_000) /* connect + first response headers only */
           });
         } catch (e) { continue; }
-        if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); continue; }
-        if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); continue; }
+        if (r.status === 429) { coolKey(key, Date.now() + 70_000); continue; }
+        if (r.status === 401 || r.status === 403) { coolKey(key, Date.now() + 24 * 3600_000); continue; }
         if (!r.ok || !r.body) continue;
         let full = "", announced = false;
         try {
@@ -1174,8 +1217,8 @@ app.post("/v1/staff/brain", async (req, res) => {
         body: JSON.stringify({ model, messages, max_tokens: mt, temperature: body.temperature != null ? body.temperature : 0.3, reasoning_effort: __effort }),
         signal: AbortSignal.timeout(60_000)
       });
-      if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); continue; }
-      if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); continue; }
+      if (r.status === 429) { coolKey(key, Date.now() + 70_000); continue; }
+      if (r.status === 401 || r.status === 403) { coolKey(key, Date.now() + 24 * 3600_000); continue; }
       if (!r.ok) continue; /* one model hiccuping must not kill the loop — try the next brain */
       const d = await r.json();
       const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
@@ -1488,10 +1531,10 @@ const SQUAD_MODELS = (process.env.SQUAD_MODELS || "openai/gpt-oss-120b,openai/gp
           /* "Request too large / tokens per minute" is about the SIZE of this call,
              not the key — shrink the reservation and retry the same model */
           if (/too large|tokens per minute|\bTPM\b|context.length/i.test(msg)) continue;
-          keyCool.set(key, Date.now() + 20_000);
+          coolKey(key, Date.now() + 20_000);
           break;
         }
-        if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); notes.push(model + ": key rejected (" + r.status + ")"); break; }
+        if (r.status === 401 || r.status === 403) { coolKey(key, Date.now() + 24 * 3600_000); notes.push(model + ": key rejected (" + r.status + ")"); break; }
         if (!r.ok) { notes.push(model + ": HTTP " + r.status); break; }
         const d = await r.json();
         const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
@@ -3225,8 +3268,8 @@ app.post("/v1/chat/completions", async (req, res) => {
         }),
         signal: AbortSignal.timeout(45_000)
       });
-      if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); sawLimit = true; pushErr(model + " 429"); continue; }
-      if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); sawLimit = true; pushErr("key " + r.status); continue; } // dead key → reserve will cover
+      if (r.status === 429) { coolKey(key, Date.now() + 70_000); sawLimit = true; pushErr(model + " 429"); continue; }
+      if (r.status === 401 || r.status === 403) { coolKey(key, Date.now() + 24 * 3600_000); sawLimit = true; pushErr("key " + r.status); continue; } // dead key → reserve will cover
       if (r.status === 404 || r.status === 400) {
         /* keep the upstream sentence, not just the code: "model_not_found" and
            "request too large (TPM)" both arrive as 400 and need opposite fixes */
@@ -3366,7 +3409,7 @@ function llm1(messages, maxTok, req) {
           body: JSON.stringify({ model, messages, max_tokens: Math.min(maxTok || 700, 4000), temperature: 0.3 }),
           signal: AbortSignal.timeout(45_000)
         });
-      if (!r.ok) { if (r.status === 429) keyCool.set(key, Date.now() + 70_000); continue; }
+      if (!r.ok) { if (r.status === 429) coolKey(key, Date.now() + 70_000); continue; }
         const d = await r.json();
         const t = d.choices && d.choices[0] && d.choices[0].message && d.choices[0].message.content;
         if (t && t.trim()) { recordUse(req, key, (d.usage && d.usage.total_tokens) || Math.round(t.length / 4), model); return t.trim(); }
@@ -4117,8 +4160,8 @@ app.post("/v1/chat/stream", async (req, res) => {
           }),
           signal: AbortSignal.timeout(120_000)
         });
-        if (r.status === 429) { keyCool.set(key, Date.now() + 70_000); sawLimit = true; pushErr(model + " 429"); continue; }
-        if (r.status === 401 || r.status === 403) { keyCool.set(key, Date.now() + 24 * 3600_000); sawLimit = true; pushErr("key " + r.status); continue; }
+        if (r.status === 429) { coolKey(key, Date.now() + 70_000); sawLimit = true; pushErr(model + " 429"); continue; }
+        if (r.status === 401 || r.status === 403) { coolKey(key, Date.now() + 24 * 3600_000); sawLimit = true; pushErr("key " + r.status); continue; }
         if (r.status === 404 || r.status === 400) {
           let em = ""; try { const eb = await r.json(); em = (eb && eb.error && eb.error.message) || ""; } catch (e) {}
           pushErr(model + " " + r.status + (em ? ": " + String(em).slice(0, 110) : ""));
@@ -4341,7 +4384,7 @@ const orpheusTTS = async (input, voice) => {
       body: JSON.stringify({ model: "canopylabs/orpheus-v1-english", voice, input }),
       signal: AbortSignal.timeout(60_000)
     });
-    if (!r.ok) { await r.text().catch(() => ""); if (r.status === 429) keyCool.set(key, Date.now() + 70_000); return null; }
+    if (!r.ok) { await r.text().catch(() => ""); if (r.status === 429) coolKey(key, Date.now() + 70_000); return null; }
     const buf = Buffer.from(await r.arrayBuffer());
     if (!buf.length) return null;
     return { buf: buf, type: "audio/wav" };
