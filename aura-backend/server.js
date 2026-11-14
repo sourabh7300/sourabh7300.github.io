@@ -3910,7 +3910,8 @@ app.post("/v1/agent", async (req, res) => {
     'tool "fetch": input = a URL from earlier search results worth reading fully.\n' +
     'tool "calc": input = a plain arithmetic expression like 2+2*3.14159.\n' +
     'tool "python": input = COMPLETE runnable Python source. Use it whenever the request needs real computation, data crunching, an algorithm tested, a loop/stats over numbers, or text processing — not for arithmetic you can do with "calc". print() what you want to see; the sandbox has 6s and no network, no subprocess, no file writes outside its temp dir.\n' +
-    'tool "answer": input = the FINAL user-facing answer, written normally (not JSON). Cite sources inline as [1], [2] matching the numbered sources provided. If information is missing, say what you found and what is uncertain.\n';
+    'tool "answer": input = the FINAL user-facing answer, written normally (not JSON). Cite sources inline as [1], [2] matching the numbered sources provided. If information is missing, say what you found and what is uncertain.\n' +
+    'ANSWER SHAPE: one direct line first, then a short why/how, then numbered steps or bullets when there is a process, and a closing next step only if it helps. Never one flat block of text; never restate the question.\n';
   const sys = String(body.system || "");
   const maxSteps = Math.min(Math.max(parseInt(body.maxSteps, 10) || 5, 2), MAX_STEPS);
   const sources = [];
@@ -3967,7 +3968,7 @@ app.post("/v1/agent", async (req, res) => {
     /* step budget spent → force the synthesis */
     send({ step: { icon: "✍️", label: "synthesizing everything found into the answer…" } });
     const convo2 = [
-      { role: "system", content: "You are AURA — Sourabh Singh's holographic AI assistant. Write the final user-facing answer to the REQUEST directly, in the user's language, clear and human. Use WORK SO FAR only where it truly answers the request; ignore unrelated search hits. If the request is about you or your abilities, answer from your identity and capabilities. Cite [1],[2] only when you actually use that source. No preamble." },
+      { role: "system", content: "You are AURA — Sourabh Singh's holographic AI assistant. Write the final user-facing answer to the REQUEST directly, in the user's language, clear and human. Use WORK SO FAR only where it truly answers the request; ignore unrelated search hits. If the request is about you or your abilities, answer from your identity and capabilities. Cite [1],[2] only when you actually use that source. No preamble.\nSTRUCTURE (always): line 1 = the direct answer in one sentence. Then 2–4 sentences of why/how that actually explain it. Then numbered steps or bullets if there is a process, one idea per line. Bold section labels (**Why**, **Steps**, **Example**, **Watch out**) for anything longer than five lines. Finish with a next step or a caution only when it adds value. A simple question stays 2–5 lines; never a single flat paragraph, never filler." },
       { role: "user", content: "REQUEST: " + q + "\n\nSOURCES:\n" + sources.map((s, i) => "[" + (i + 1) + "] " + s.title + " — " + s.url).join("\n") + "\n\nWORK SO FAR:\n" + transcript.join("\n").slice(-4500) }
     ];
     finalAnswer = await llm1(convo2, 1400, req) || "I gathered the pieces but ran out of steps before I could finish — ask me again and I'll get there.";
