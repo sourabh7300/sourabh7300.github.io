@@ -3093,52 +3093,88 @@ const COPILOT_PROMPT = [
   'or {"action":"SUGGEST","short_voice_line":"<max 12 words, spoken out loud>","detailed_fix":"<markdown, max 120 words, concrete steps>"}.'
 ].join(" ");
 
+function copilotParse(text, model) {
+  const json = String(text || "").match(/\{[\s\S]*\}/);
+  if (!json) return null;
+  let parsed;
+  try { parsed = JSON.parse(json[0]); } catch (e) { return null; }
+  const action = String(parsed.action || "").toUpperCase();
+  if (action !== "SUGGEST") return { action: "IGNORE", model };
+  const line = String(parsed.short_voice_line || "").replace(/\s+/g, " ").trim().slice(0, 90);
+  const fix = String(parsed.detailed_fix || "").trim().slice(0, 1200);
+  if (!line || !fix) return { action: "IGNORE", model };
+  return { action: "SUGGEST", short_voice_line: line, detailed_fix: fix, model };
+}
+
 async function copilotAnalyze(image, mode) {
-  if (!GEMINI_API_KEY) return null;
   const m = String(image).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/);
   if (!m) return null;
   const mimeType = m[1];
   const data = m[2].replace(/\s+/g, "");
   if (data.length < 500 || data.length > 5_500_000) return null;
   const instruction = COPILOT_PROMPT + (mode ? "\nActive mode: " + String(mode).slice(0, 20) + "." : "");
-  /* keep the request minimal: some Gemini ids reject thinkingConfig or a forced
-     responseMimeType with a 400, and a 400 here looked exactly like "no read" */
-  const parts = [{ text: instruction }, { inlineData: { mimeType, data } }];
-  const body = JSON.stringify({
-    contents: [{ role: "user", parts }],
-    generationConfig: { temperature: 0.15, maxOutputTokens: 320 }
-  });
-  let chain = [...VISION_MODELS];
-  try { const live = await geminiModels(); if (live && live.length) chain = [...live, ...chain]; } catch (e) {}
-  chain = [...new Set(chain.filter(Boolean))].slice(0, 3);
-  for (const vmodel of chain) {
-    try {
-      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body,
-        signal: AbortSignal.timeout(12_000)
-      });
-      if (!r.ok) {
-        let eb = ""; try { const ej = await r.json(); eb = (ej && ej.error && ej.error.message) || ""; } catch (e) {}
-        copilotStats.lastErr = vmodel + " HTTP " + r.status + (eb ? ": " + String(eb).slice(0, 100) : "");
-        continue;
-      }
-      const d = await r.json();
-      const text = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [])
-        .filter(p => p && !p.thought).map(p => p.text || "").join("").trim();
-      const json = text.match(/\{[\s\S]*\}/);
-      if (!json) continue;
-      let parsed;
-      try { parsed = JSON.parse(json[0]); } catch (e) { continue; }
-      const action = String(parsed.action || "").toUpperCase();
-      if (action !== "SUGGEST") return { action: "IGNORE", model: vmodel };
-      const line = String(parsed.short_voice_line || "").replace(/\s+/g, " ").trim().slice(0, 90);
-      const fix = String(parsed.detailed_fix || "").trim().slice(0, 1200);
-      if (!line || !fix) return { action: "IGNORE", model: vmodel };
-      return { action: "SUGGEST", short_voice_line: line, detailed_fix: fix, model: vmodel };
-    } catch (e) { copilotStats.lastErr = vmodel + " " + (e.message || "failed"); }
+
+  /* 1. Gemini — best reading of a screen, but its quota is shared with the chat
+        vision lane and returns 429 as soon as that lane is busy. */
+  if (GEMINI_API_KEY) {
+    /* keep the request minimal: some ids reject thinkingConfig or a forced
+       responseMimeType with a 400, and a 400 here looked exactly like "no read" */
+    const body = JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: instruction }, { inlineData: { mimeType, data } }] }],
+      generationConfig: { temperature: 0.15, maxOutputTokens: 320 }
+    });
+    let chain = [...VISION_MODELS, "gemini-2.5-flash"];
+    try { const live = await geminiModels(); if (live && live.length) chain = [...live, ...chain]; } catch (e) {}
+    chain = [...new Set(chain.filter(Boolean))].slice(0, 3);
+    for (const vmodel of chain) {
+      try {
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body,
+          signal: AbortSignal.timeout(9_000)
+        });
+        if (!r.ok) {
+          let eb = ""; try { const ej = await r.json(); eb = (ej && ej.error && ej.error.message) || ""; } catch (e) {}
+          copilotStats.lastErr = vmodel + " HTTP " + r.status + (eb ? ": " + String(eb).slice(0, 90) : "");
+          continue;
+        }
+        const d = await r.json();
+        const text = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [])
+          .filter(p => p && !p.thought).map(p => p.text || "").join("").trim();
+        const parsed = copilotParse(text, vmodel);
+        if (parsed) return parsed;
+      } catch (e) { copilotStats.lastErr = vmodel + " " + (e.message || "failed"); }
+    }
   }
+
+  /* 2. Groq / NVIDIA vision — slower to reason but the keys are alive when Gemini is
+        out of quota, so the co-pilot keeps answering. */
+  try {
+    const msgs = [
+      { role: "system", content: instruction },
+      { role: "user", content: [
+        { type: "text", text: "Is the user stuck on this screen frame? Reply with the JSON described." },
+        { type: "image_url", image_url: { url: "data:" + mimeType + ";base64," + data } }
+      ] }
+    ];
+    const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
+    const alt = await visionAltModels();
+    for (const model of (alt.groq || [])) {
+      const t = await openAiVision("https://api.groq.com/openai/v1", key, model, msgs, 320);
+      if (!t) continue;
+      const parsed = copilotParse(t, "groq/" + model);
+      if (parsed) { copilotStats.lastErr = ""; return parsed; }
+    }
+    for (const model of (alt.nvidia || [])) {
+      if (!NVIDIA_NIM_KEY) break;
+      const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, 320);
+      if (!t) continue;
+      const parsed = copilotParse(t, "nvidia/" + model);
+      if (parsed) { copilotStats.lastErr = ""; return parsed; }
+    }
+  } catch (e) { copilotStats.lastErr = "alt " + (e.message || "failed"); }
+
   return null;
 }
 
