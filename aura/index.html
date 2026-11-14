@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e1d03cf12014"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="51006981d1ab"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1352,6 +1352,12 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
               if((steady >= 2 && len > 0) || ticks > 200){
                 clearInterval(iv);
                 try{ rich(span); }catch(e){}
+                /* the message bubble also fades in by animation; if that animation
+                   never advances the text exists but is invisible */
+                setTimeout(function(){
+                  var o = parseFloat(getComputedStyle(n).opacity);
+                  if(!(o > 0.05)){ n.style.animation = 'none'; n.style.opacity = '1'; n.style.transform = 'none'; }
+                }, 60);
               }
             }, 350);
           });
@@ -1565,6 +1571,34 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     })();
   }catch(e){}
 
+  /* ---------------- NOTHING STAYS TRANSPARENT ----------------
+     Several blocks enter with a fade animation that starts at opacity:0. If the
+     animation is throttled (hidden tab), disabled (battery saver / reduced motion)
+     or interrupted, the block is present but invisible. This watches the few
+     blocks that matter and releases them if the fade never arrived. */
+  try{
+    function unfreeze(){
+      ['.panel.on', '#wel', '.card', '.dockw'].forEach(function(sel){
+        var el = document.querySelector(sel);
+        if(!el) return;
+        var o = parseFloat(getComputedStyle(el).opacity);
+        if(!(o > 0.05)){
+          el.style.animation = 'none';
+          el.style.opacity = '1';
+          el.style.transform = 'none';
+        }
+      });
+    }
+    window.__auraUnfreeze = unfreeze;
+    setTimeout(unfreeze, 900);
+    setTimeout(unfreeze, 2200);
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) setTimeout(unfreeze, 100); });
+    document.addEventListener('click', function(e){
+      var b = e.target && e.target.closest ? e.target.closest('#tabs button') : null;
+      if(b) setTimeout(unfreeze, 700);
+    }, true);
+  }catch(e){}
+
   /* ---------------- PANELS MUST NEVER BE BLANK ----------------
      The three data panels (Chats list, System rail/log/memory, Admin squad) are filled
      by the reference's own render functions. One throw — a saved chat with an odd
@@ -1620,6 +1654,13 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     var mq = document.createElement('style');
     mq.id = 'aura-mobile-clean';
     mq.textContent =
+      /* A panel is shown by a 0.5s fade-in (animation: pin) whose base state is
+         opacity:0. On a device that throttles or disables animations — or when the
+         tab was hidden while it opened — the animation sits at 0% forever and the
+         Chats / Settings page is fully transparent: "page hi nahi dikh raha".
+         The panel is the content; the fade is optional, so it is pinned visible. */
+      '.panel.on{opacity:1!important;transform:none!important;animation:none!important}' +
+      '@media(prefers-reduced-motion:reduce){#msgs .m{opacity:1!important;animation:none!important;transform:none!important}}' +
       /* a modal should dim the page, not black it out — you must still see AURA */
       '.ov{background:rgba(0,0,0,.58)!important;backdrop-filter:blur(5px)!important}' +
       '@media(max-width:900px){' +
