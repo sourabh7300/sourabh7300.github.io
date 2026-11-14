@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="5efc0463546a"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="838efe2e5680"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1765,6 +1765,96 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     var seen = '';
     try{ seen = localStorage.getItem(TOUR_KEY) || ''; }catch(e){}
     if(!seen) setTimeout(function(){ tourStep = 0; tourDraw(); }, 1400);
+  }catch(e){}
+
+  /* ---------------- install it once, open it like an app ----------------
+     Reloading a website on mobile data every time was the real complaint. A manifest
+     plus a tiny service worker make AURA installable and instant on the second open;
+     the Settings row is where you actually press Install. */
+  try{
+    (function installable(){
+      var head = document.head;
+      if(head && !document.querySelector('link[rel="manifest"]')){
+        var l = document.createElement('link');
+        l.rel = 'manifest';
+        l.href = './manifest.webmanifest';
+        head.appendChild(l);
+      }
+      if(head && !document.querySelector('meta[name="theme-color"]')){
+        var t = document.createElement('meta');
+        t.name = 'theme-color';
+        t.content = '#05070c';
+        head.appendChild(t);
+      }
+      if(head && !document.querySelector('link[rel="apple-touch-icon"]')){
+        var ic = document.createElement('link');
+        ic.rel = 'apple-touch-icon';
+        ic.href = './apple-touch-icon.png';
+        head.appendChild(ic);
+      }
+
+      var standalone = false;
+      try{
+        standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      }catch(e){}
+
+      var prompt = null;
+      window.addEventListener('beforeinstallprompt', function(e){
+        e.preventDefault();
+        prompt = e;
+        var b = document.getElementById('auraInstallBtn');
+        if(b){ b.disabled = false; b.textContent = 'Install'; }
+      });
+      window.addEventListener('appinstalled', function(){
+        var b = document.getElementById('auraInstallBtn');
+        if(b){ b.textContent = 'Installed'; b.disabled = true; }
+      });
+
+      function hint(){
+        var ios = /iPad|iPhone|iPod/.test(navigator.userAgent || '');
+        return ios
+          ? 'iPhone par: Share \u2192 Add to Home Screen'
+          : 'Browser menu (\u22ee) \u2192 Install app / Add to Home screen';
+      }
+
+      function row(){
+        var pan = document.getElementById('p-set');
+        if(!pan || document.getElementById('auraInstallRow') || standalone) return;
+        var r = document.createElement('div');
+        r.id = 'auraInstallRow';
+        r.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;gap:12px';
+        r.innerHTML = '<span>Install AURA \u00b7 opens fullscreen, no reload</span>' +
+          '<button type="button" id="auraInstallBtn" style="background:rgba(120,215,255,.12);border:1px solid rgba(120,215,255,.32);color:#dff4ff;padding:6px 12px;border-radius:9px;font-size:12.5px;cursor:pointer">Install</button>';
+        pan.appendChild(r);
+        var note = document.createElement('div');
+        note.id = 'auraInstallNote';
+        note.style.cssText = 'margin-top:6px;font-size:12px;color:rgba(210,230,245,.55);line-height:1.5';
+        note.textContent = hint();
+        pan.appendChild(note);
+        document.getElementById('auraInstallBtn').onclick = function(){
+          var b = this;
+          if(prompt){
+            prompt.prompt();
+            prompt.userChoice.then(function(){
+              prompt = null;
+              b.textContent = 'Install';
+            }).catch(function(){});
+          } else {
+            try{ if(typeof tell === 'function') tell(hint()); }catch(e){}
+            note.textContent = hint();
+          }
+        };
+      }
+      setTimeout(row, 1200);
+      setTimeout(row, 3000);
+
+      var localHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      if('serviceWorker' in navigator && (location.protocol === 'https:' || localHost)){
+        navigator.serviceWorker.register('./sw.js').then(function(reg){
+          reg.update().catch(function(){});
+        }).catch(function(){});
+      }
+    })();
   }catch(e){}
 
   /* ---------------- stay current ----------------
