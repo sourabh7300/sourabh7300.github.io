@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ddc326a83fa3"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="3e4d50819cac"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1006,7 +1006,11 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
      Here the page does the same job the owner's engine did: today's date goes in every
      request, time-sensitive questions get real web hits first, and a vague answer is
      retried once with those hits attached. */
-  var FRESHISH = /(latest|today|tonight|now|current|news|update|recent|new|price|rate|score|result|schedule|when|kab|kab\s|aaj|abhi|202[5-9]|winner|won|jeet|kaun|kon|match|election|weather|stock|ipo|launch|release|trending|kitna|kya\s*hua|what\s*happened|resign|ceo|announce)/i;
+  /* A pre-search used to hold every answer for up to 4.5s on words as innocent as
+     "when" or "new". Only genuinely time-sensitive questions search before the answer
+     now; everything else answers first and re-asks with hits only if the reply is
+     vague, which is the same grounding without the wait. */
+  var FRESHISH = /(latest|today|tonight|current|breaking|news|update today|recent|price today|score today|result today|202[5-9]|aaj|abhi|winner|election result|weather|stock price|ipo|launch date|release date|trending)/i;
   var VAGUE = /(nahi pata|pata nahi|don'?t (know|have)|no information|not aware|cannot (access|find)|can'?t (access|find)|mere (paas|pass) (koi )?(latest )?(information|update) nahi|training cutoff|knowledge cutoff|mujhe .{0,30}nahi pata)/i;
   function todayLine(){
     try{
@@ -1182,6 +1186,19 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     }
 
     try{
+      /* asking the same thing twice should be instant */
+      var cKey = "aura_ans_" + m + "_" + plain.toLowerCase().slice(0, 140);
+      if(!hasFile){
+        try{
+          var cHit = JSON.parse(localStorage.getItem(cKey) || "null");
+          if(cHit && cHit.t && Date.now() - cHit.at < 1800000){
+            history.push({ role: "assistant", content: cHit.t });
+            window.__auraLastReply = cHit.t;
+            window.__auraAttachClear();
+            return cHit.t;
+          }
+        }catch(e){}
+      }
       var out = await ask(true, live);
       /* the light visitor model still sometimes says "I don't know" — one grounded retry */
       if(VAGUE.test(out) && !hits.length && !trivial){
@@ -1189,6 +1206,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         if(late.length){ hits = late; out = await ask(true, live); }
       }
       history.push({ role: "assistant", content: out });
+      try{ localStorage.setItem(cKey, JSON.stringify({ t: out, at: Date.now() })); }catch(e){}
       rememberTopic(plain);
       window.__auraAttachClear();
       window.__auraLastReply = out; /* lets the background-tab path finish the typing at once */
