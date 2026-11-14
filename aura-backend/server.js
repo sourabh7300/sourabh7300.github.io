@@ -3071,6 +3071,105 @@ app.post("/v1/rag/query", async (req, res) => {
 });
 
 /* THE PROXY — key stays server-side forever */
+/* ---------------- PASSIVE CO-PILOT ----------------
+   The page sends a small JPEG of the shared screen only when the picture actually
+   changed (>12% of pixels). Most frames must cost nothing, so the model is told to
+   answer IGNORE unless the user is visibly stuck, and the route is throttled per
+   device so a shared screen can never turn into a per-second token drain. */
+const copilotSeen = new Map();   // ip -> last analysis timestamp
+const copilotCount = new Map();  // ip -> { day, n }
+const COPILOT_GAP_MS = 2500;
+const COPILOT_DAY_MAX = 400;
+const copilotStats = { frames: 0, ignored: 0, suggestions: 0, lastAt: 0, lastErr: "" };
+
+const COPILOT_PROMPT = [
+  "You are the passive co-pilot inside AURA, an assistant that is sometimes allowed to see the user's screen.",
+  "Look at this single frame and decide whether the user is VISIBLY STUCK.",
+  "Stuck means: a code editor or terminal showing an error/stack trace they have not fixed,",
+  "a form or checkout with a visible validation error, or a dense technical passage being highlighted/annotated.",
+  "Not stuck: reading normal text, browsing, chatting, watching video, idle, gaming, personal/private content.",
+  "Rules: never mention private details you see. Never guess. If nothing is clearly wrong, stay silent.",
+  'Reply with JSON only, no prose. Either exactly {"action":"IGNORE"}',
+  'or {"action":"SUGGEST","short_voice_line":"<max 12 words, spoken out loud>","detailed_fix":"<markdown, max 120 words, concrete steps>"}.'
+].join(" ");
+
+async function copilotAnalyze(image, mode) {
+  if (!GEMINI_API_KEY) return null;
+  const m = String(image).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/);
+  if (!m) return null;
+  const mimeType = m[1];
+  const data = m[2].replace(/\s+/g, "");
+  if (data.length < 500 || data.length > 5_500_000) return null;
+  const instruction = COPILOT_PROMPT + (mode ? "\nActive mode: " + String(mode).slice(0, 20) + "." : "");
+  const body = JSON.stringify({
+    contents: [{ role: "user", parts: [{ text: instruction }, { inlineData: { mimeType, data } }] }],
+    generationConfig: {
+      temperature: 0.15,
+      maxOutputTokens: 320,
+      responseMimeType: "application/json",
+      thinkingConfig: { thinkingBudget: 0 }
+    }
+  });
+  let chain = [...VISION_MODELS];
+  try { const live = await geminiModels(); if (live && live.length) chain = [...live, ...chain]; } catch (e) {}
+  chain = [...new Set(chain.filter(Boolean))].slice(0, 3);
+  for (const vmodel of chain) {
+    try {
+      const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(12_000)
+      });
+      if (!r.ok) { copilotStats.lastErr = vmodel + " HTTP " + r.status; continue; }
+      const d = await r.json();
+      const text = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [])
+        .filter(p => p && !p.thought).map(p => p.text || "").join("").trim();
+      const json = text.match(/\{[\s\S]*\}/);
+      if (!json) continue;
+      let parsed;
+      try { parsed = JSON.parse(json[0]); } catch (e) { continue; }
+      const action = String(parsed.action || "").toUpperCase();
+      if (action !== "SUGGEST") return { action: "IGNORE", model: vmodel };
+      const line = String(parsed.short_voice_line || "").replace(/\s+/g, " ").trim().slice(0, 90);
+      const fix = String(parsed.detailed_fix || "").trim().slice(0, 1200);
+      if (!line || !fix) return { action: "IGNORE", model: vmodel };
+      return { action: "SUGGEST", short_voice_line: line, detailed_fix: fix, model: vmodel };
+    } catch (e) { copilotStats.lastErr = vmodel + " " + (e.message || "failed"); }
+  }
+  return null;
+}
+
+app.post(["/api/passive-vision", "/v1/passive-vision"], async (req, res) => {
+  const body = req.body || {};
+  const ip = String(req.headers["x-forwarded-for"] || req.ip || "anon").split(",")[0].trim();
+  const now = Date.now();
+  if ((copilotSeen.get(ip) || 0) + COPILOT_GAP_MS > now) {
+    return res.status(429).json({ action: "IGNORE", reason: "too_soon" });
+  }
+  const day = new Date().toISOString().slice(0, 10);
+  const c = copilotCount.get(ip);
+  const n = c && c.day === day ? c.n : 0;
+  if (n >= COPILOT_DAY_MAX) return res.status(429).json({ action: "IGNORE", reason: "daily_cap" });
+  if (!GEMINI_API_KEY) return res.json({ action: "IGNORE", reason: "vision_off" });
+  if (!body.image) return res.status(400).json({ action: "IGNORE", reason: "image_required" });
+
+  copilotSeen.set(ip, now);
+  copilotCount.set(ip, { day, n: n + 1 });
+  if (copilotSeen.size > 4000) copilotSeen.clear();
+  copilotStats.frames++; copilotStats.lastAt = now;
+
+  try {
+    const out = await copilotAnalyze(body.image, body.mode);
+    if (!out) { copilotStats.ignored++; return res.json({ action: "IGNORE", reason: "no_read" }); }
+    if (out.action === "SUGGEST") copilotStats.suggestions++; else copilotStats.ignored++;
+    res.json(out);
+  } catch (e) {
+    copilotStats.lastErr = String((e && e.message) || e).slice(0, 140);
+    res.json({ action: "IGNORE", reason: "error" });
+  }
+});
+
 app.post("/v1/chat/completions", async (req, res) => {
   const body = req.body || {};
   let messages = body.messages;
