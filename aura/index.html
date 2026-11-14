@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="976535ec7cdc"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="71569e3d624c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1115,53 +1115,49 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       var wantLong = /\b(explain|detail|detailed|steps|guide|essay|compare|why|kaise|kyun|kyu|samjha|samjhao|poora|pura|step by step)\b/i.test(plain) || plain.length > 140;
       var capTok = wantLong ? 2400 : 900;
 
+      /* HEDGED REQUESTS — the same question on two lanes, first answer wins.
+         The upstream answers the identical prompt in 0.7s nine times out of ten and
+         in 15s on the tenth, and the visitor was paying that tail every time. A second
+         request leaves 1.5s later and is cancelled the moment the first one answers, so
+         the common case costs nothing extra and the slow case stops being slow. */
       async function post(list, onDelta){
-        var r = await fetch(BASE + "/v1/chat/completions", {
-          method: "POST", headers: hdrs(),
-          body: JSON.stringify({
-            model: "openai/gpt-oss-120b",
-            messages: list,
-            max_tokens: capTok, temperature: 0.45,
-            stream: !!onDelta
-          }),
-          signal: AbortSignal.timeout(75000)
-        });
-        if(!r.ok){
-          var why = "";
-          try{ var ej = await r.json(); why = (ej && (ej.message || ej.error)) || ""; }catch(e){}
-          var err = new Error(why || ("HTTP " + r.status));
-          err.status = r.status;
-          throw err;
-        }
-        /* the backend streams SSE; showing the first words while the rest is still
-           being written is the difference between "slow" and "instant" */
-        var ct = r.headers.get("content-type") || "";
-        if(onDelta && r.body && /event-stream/i.test(ct)){
-          var rd = r.body.getReader(), dec = new TextDecoder(), buf = "", full = "";
-          while(true){
-            var step = await rd.read();
-            if(step.done) break;
-            buf += dec.decode(step.value, { stream: true });
-            var chunks = buf.split("\n\n");
-            buf = chunks.pop() || "";
-            for(var ci = 0; ci < chunks.length; ci++){
-              var line = chunks[ci].trim();
-              if(line.indexOf("data:") !== 0) continue;
-              var payload = line.slice(5).trim();
-              if(!payload || payload === "[DONE]") continue;
-              var ev; try{ ev = JSON.parse(payload); }catch(e){ continue; }
-              var d = ev.delta || (ev.choices && ev.choices[0] && ev.choices[0].delta && ev.choices[0].delta.content) || "";
-              if(d){ full += d; onDelta(full); }
-            }
+        async function attempt(sig){
+          var r = await fetch(BASE + "/v1/chat/completions", {
+            method: "POST", headers: hdrs(),
+            body: JSON.stringify({
+              model: "openai/gpt-oss-120b",
+              messages: list,
+              max_tokens: capTok, temperature: 0.45
+            }),
+            signal: sig || AbortSignal.timeout(45000)
+          });
+          if(!r.ok){
+            var why = "";
+            try{ var ej = await r.json(); why = (ej && (ej.message || ej.error)) || ""; }catch(e){}
+            var err = new Error(why || ("HTTP " + r.status));
+            err.status = r.status;
+            throw err;
           }
-          if(!full.trim()) throw new Error("empty reply");
-          return full.trim();
+          var j = await r.json();
+          var t = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
+          if(!t) throw new Error("empty reply");
+          return t;
         }
-        var j = await r.json();
-        var t = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
-        if(!t) throw new Error("empty reply");
-        return t;
+        var ca = new AbortController(), cb = new AbortController();
+        var p1 = attempt(ca.signal);
+        var p2 = new Promise(function(resolve, reject){
+          var timer = setTimeout(function(){ attempt(cb.signal).then(resolve, reject); }, 1500);
+          p1.then(function(){ clearTimeout(timer); }, function(){ clearTimeout(timer); });
+        });
+        try{
+          var txt = await Promise.any([p1, p2]);
+          try{ ca.abort(); cb.abort(); }catch(e){}
+          return txt;
+        }catch(e){
+          throw (e && e.errors && e.errors[0]) || e;
+        }
       }
+
       var t0 = Date.now(), firstErr = null;
       try{
         var out1 = await post(msgs, onDelta);
