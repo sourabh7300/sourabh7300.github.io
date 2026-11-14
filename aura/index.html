@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="db65708400b7"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="2ebc2f8454be"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1641,6 +1641,29 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     })();
   }catch(e){}
 
+  /* ---------------- the old DOCS sheet is retired ----------------
+     It advertised "hook up your engine" — a note for whoever builds the page, not
+     for a visitor — and it covered the app whenever it opened. The + menu loses its
+     Docs entry and the sheet can never appear again. */
+  try{
+    (function retireDocs(){
+      var sheet = document.getElementById('docov');
+      if(sheet){
+        sheet.classList.remove('on');
+        sheet.style.display = 'none';
+        sheet.setAttribute('aria-hidden', 'true');
+      }
+      [].forEach.call(document.querySelectorAll('#tools button, #tools a, .plusmenu button'), function(b){
+        if(/\bdocs\b/i.test(b.textContent || '')) b.remove();
+      });
+      if(sheet && window.MutationObserver){
+        new MutationObserver(function(){
+          if(sheet.classList.contains('on')){ sheet.classList.remove('on'); sheet.style.display = 'none'; }
+        }).observe(sheet, { attributes: true, attributeFilter: ['class', 'style'] });
+      }
+    })();
+  }catch(e){}
+
   /* ---------------- first-run tour ----------------
      Four things a new user never finds on their own: speak instead of typing, send a
      file, pair a second device, and the voice switch. Shown once, skippable, and
@@ -1797,6 +1820,31 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }
       place();
       window.addEventListener('resize', place);
+    })();
+  }catch(e){}
+
+  /* ---------------- one-tap attach ----------------
+     Picking a file used to be three taps deep in the + menu. A paperclip sits in the
+     composer now, next to search, wired to the same native picker label. */
+  try{
+    (function quickAttach(){
+      var plus = document.getElementById('plusbtn');
+      if(!plus || document.getElementById('auraAttachBtn')) return;
+      var row = plus.closest('.crow') || plus.parentNode;
+      var anchor = row.querySelector('.persel') || plus;
+      var lab = document.createElement('label');
+      lab.id = 'auraAttachBtn';
+      lab.setAttribute('for', 'auraFilePicker');
+      lab.title = 'Attach a file';
+      lab.innerHTML = '\uD83D\uDCCE';
+      lab.style.cssText = 'display:none;align-items:center;justify-content:center;width:34px;height:34px;' +
+        'margin-right:6px;border-radius:10px;border:1px solid rgba(255,255,255,.12);' +
+        'background:rgba(255,255,255,.04);color:#cfe9ff;font-size:15px;cursor:pointer;flex:0 0 auto';
+      row.insertBefore(lab, anchor);
+      function place(){ lab.style.display = window.innerWidth < 900 ? 'inline-flex' : 'none'; }
+      place();
+      window.addEventListener('resize', place);
+      lab.addEventListener('click', function(){ try{ if(typeof tell === 'function') tell('File chuno\u2026'); }catch(e){} });
     })();
   }catch(e){}
 
@@ -2049,6 +2097,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       'html,body{overscroll-behavior-y:contain}',
       '#msgs{overflow-y:auto!important;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}',
       '#chatw{min-height:0}',
+      /* the old docs sheet must never cover the app */ +
+      '#docov{display:none!important}' +
       '#auraJump{position:fixed;right:16px;bottom:124px;z-index:30;display:none;align-items:center;gap:6px;' +
         'padding:8px 13px;border-radius:99px;border:1px solid rgba(120,215,255,.35);' +
         'background:rgba(10,16,26,.92);color:#dff3ff;font:12px Inter,system-ui,sans-serif;' +
