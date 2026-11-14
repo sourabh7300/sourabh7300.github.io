@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="5c90a43e947f"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="77b3a0d4cafe"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1062,7 +1062,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           body: JSON.stringify({
             model: "openai/gpt-oss-120b",
             messages: list,
-            max_tokens: 1400, temperature: 0.45
+            /* long "explain in detail" answers were being cut at 1400 tokens */
+            max_tokens: 2400, temperature: 0.45
           }),
           signal: AbortSignal.timeout(75000)
         });
@@ -1639,6 +1640,31 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     })();
   }catch(e){}
 
+  /* ---------------- scroll that behaves on a phone ---------------- */
+  try{
+    (function scrollFix(){
+      var msgs = document.getElementById('msgs');
+      if(!msgs) return;
+      /* the page is a fixed shell; a page-level gesture handler on the reference was
+         stealing the list's touchmove, so the chat felt frozen. The list's own
+         gestures stay inside it. */
+      ["touchstart", "touchmove", "wheel"].forEach(function(ev){
+        msgs.addEventListener(ev, function(e){ e.stopPropagation(); }, { passive: true, capture: true });
+      });
+      var jump = document.createElement("button");
+      jump.id = "auraJump";
+      jump.type = "button";
+      jump.textContent = "\\u2193 Latest";
+      document.body.appendChild(jump);
+      function nearBottom(){ return msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 90; }
+      function sync(){ jump.style.display = nearBottom() ? "none" : "flex"; }
+      msgs.addEventListener("scroll", sync, { passive: true });
+      jump.onclick = function(){ msgs.scrollTo({ top: msgs.scrollHeight, behavior: "smooth" }); };
+      setInterval(sync, 900);
+      sync();
+    })();
+  }catch(e){}
+
   /* ---------------- first-run tour ----------------
      Four things a new user never finds on their own: speak instead of typing, send a
      file, pair a second device, and the voice switch. Shown once, skippable, and
@@ -2043,6 +2069,14 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       // that throttles or disables animations the fade never arrives and the page is
       // fully transparent. The content matters more than the fade, so it stays visible.
       '.panel.on{opacity:1!important;transform:none!important;animation:none!important}',
+      // the page is fixed on a phone, so the message list is the only scrolling surface
+      'html,body{overscroll-behavior-y:contain}',
+      '#msgs{overflow-y:auto!important;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}',
+      '#chatw{min-height:0}',
+      '#auraJump{position:fixed;right:16px;bottom:124px;z-index:30;display:none;align-items:center;gap:6px;' +
+        'padding:8px 13px;border-radius:99px;border:1px solid rgba(120,215,255,.35);' +
+        'background:rgba(10,16,26,.92);color:#dff3ff;font:12px Inter,system-ui,sans-serif;' +
+        'box-shadow:0 8px 24px rgba(0,0,0,.45);cursor:pointer}',
       // .sc is used for two different things: a panel body and a full-screen overlay
       // with opacity:0. The overlay rule also lands on the panel body, which made Chats
       // and Settings render as a transparent grid with no scrolling.
