@@ -3090,7 +3090,7 @@ const COPILOT_PROMPT = [
   "Not stuck: reading normal text, browsing, chatting, watching video, idle, gaming, personal/private content.",
   "Rules: never mention private details you see. Never guess. If nothing is clearly wrong, stay silent.",
   'Reply with JSON only, no prose. Either exactly {"action":"IGNORE"}',
-  'or {"action":"SUGGEST","short_voice_line":"<max 12 words, spoken out loud>","detailed_fix":"<markdown, max 120 words, concrete steps>"}.'
+  'or {"action":"SUGGEST","short_voice_line":"<one natural spoken sentence, 6-12 words, e.g. You are multiplying a string by an int>","detailed_fix":"<markdown, max 120 words, concrete steps with the exact fix>"}.'
 ].join(" ");
 
 function copilotParse(text, model) {
