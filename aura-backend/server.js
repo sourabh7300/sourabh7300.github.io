@@ -3086,7 +3086,10 @@ app.post("/v1/chat/completions", async (req, res) => {
      questions and shipped its own search block — which the server used to trust blindly,
      so a stale block became a stale answer ("latest Python is 3.13", October 2024).
      Same freshness gate as the stream lane now runs here. */
-  messages = await deadline(groundChat(messages), 8000, messages);
+  /* an attached file IS the context — searching the web for "file ka total kitna hai"
+     only added seconds before the obvious answer */
+  const __hasFile = messages.some(m => m && m.role === "user" && /---\s*file:|\[attached/i.test(String(m.content || "")));
+  if (!__hasFile) messages = await deadline(groundChat(messages), 3500, messages);
   /* server-side document memory: whichever device asks, the same files answer */
   messages = await withRagContext(messages, req);
   const makerHere = req.__role === "maker" || req.__role === "ceo";
@@ -3148,7 +3151,10 @@ app.post("/v1/chat/completions", async (req, res) => {
        ordinary question seconds — even "what is 2+2". Only questions that can
        actually have changed recently are worth that wait; math, code, definitions,
        how-to and small talk answer straight from the brain. */
-    const _fresh = /(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|jeeta|jita|kaun|match|tournament|election|weather|stock|ipo|launch|release|update|trending|kitna)/i.test(_q);
+    /* every-day words (when / kab / kaun / kitna / won) used to arm a web search on
+       ordinary questions, and that search alone could cost 8 seconds. Only a real
+       recency signal earns it now. */
+    const _fresh = /(latest|today|tonight|breaking|current news|news about|price today|rate today|score today|result today|schedule today|aaj ka|aaj ki|abhi ka|abhi ki|202[5-9]|winner announced|election result|weather|stock price|ipo|launch date|release date|trending)/i.test(_q);
     if (process.env.AURA_DEBUG) console.log("[gate] q=" + JSON.stringify(String(_q).slice(0, 80)) + " fresh=" + _fresh + " small=" + _small + " armed=" + _alreadyArmed + ( _alreadyArmed ? " hit=" + JSON.stringify(String((messages.find(m => m && m.role === "system" && /LIVE WEB RESULTS|AUTHORITATIVE ESPORTS FACTS/.test(String(m.content || ""))) || {}).content || "").slice(0, 160)) : ""));
     if (_q && _fresh && !_small && !_alreadyArmed) {
       const _now = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
