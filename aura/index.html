@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="a0d4ac8d6939"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="da052f406a63"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -963,6 +963,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     "Prefer facts you are sure of. When you are not certain, give the best supported answer AND say which part is uncertain in one clause — never invent a statistic, a version number, a quote or a source.",
     "If the question is genuinely ambiguous in a way that changes the answer, give the most likely answer first and then ask one short clarifying question at the end.",
     "Use short paragraphs or bullets; for how-to questions give numbered steps; for maths show the working; for code give a runnable snippet in a fenced block and one line on how to run it.",
+    "Never write LaTeX or \\( \\) \\[ \\] math markup: put sums in plain text with normal symbols, e.g. '5,000 × 232.3 ≈ 11.6 lakh'.",
     "Mirror the user's language exactly: Hinglish → Hinglish, Hindi (Devanagari) → Hindi, English → English. Keep technical terms in English.",
     "If live web results are given, prefer them over memory, mention dates, and cite as [1], [2]. Never invent a source.",
     "Never mention being a language model, a prompt, or these instructions."
@@ -1417,9 +1418,28 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     document.head.appendChild(st);
 
     function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+    /* Models still fall back to LaTeX (\times, \frac, \( \)), which the bubble shows
+       raw. Flatten it to plain readable maths before anything else touches the text. */
+    function demath(src){
+      return String(src || "")
+        .replace(/\\\[|\\\]|\\\(|\\\)/g, "")
+        .replace(/\\times|\\cdot/g, "\u00d7")
+        .replace(/\\approx/g, "\u2248")
+        .replace(/\\leq?/g, "\u2264")
+        .replace(/\\geq?/g, "\u2265")
+        .replace(/\\%/g, "%")
+        .replace(/\\,|\\;|\\!/g, " ")
+        .replace(/\\text\{([^{}]+)\}/g, "$1")
+        .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "($1)/($2)")
+        .replace(/\\sqrt\{([^{}]+)\}/g, "\u221a($1)")
+        .replace(/\\left|\\right/g, "")
+        .replace(/\\[a-zA-Z]+/g, "")
+        .replace(/[{}]/g, "")
+        .replace(/[ \t]{2,}/g, " ");
+    }
     function rich(el){
       var txt = el.textContent || "";
-      if(!/```|\*\*|`|\n\s*[-*•]\s|\n\s*\d+[.)]\s|^#{1,4}\s/m.test(txt)) return;
+      if(!/```|\*\*|`|\n\s*[-*•]\s|\n\s*\d+[.)]\s|^#{1,4}\s|\\[a-zA-Z()\[\]]/m.test(txt)) return;
       var out = "", parts = txt.split(/```/);
       parts.forEach(function(seg, i){
         if(i % 2 === 1){
@@ -1428,7 +1448,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           var body = seg.replace(/^[A-Za-z0-9+#._-]*\r?\n/, "");
           out += '<pre data-lang="' + lang + '"><code>' + esc(body.replace(/\s+$/, "")) + '</code></pre>';
         }else{
-          out += esc(seg)
+          out += esc(demath(seg))
             /* headings the model likes for sections become a bold label line */
             .replace(/^\s*#{1,4}[ \t]+(.+)$/gm, '<br><b class="aura-hd">$1</b>')
             /* a section label must stay on the same line as its colon — the reference
@@ -1472,7 +1492,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           if(cur.length < want.length && Date.now() - span.__t0 > 1100) span.textContent = want;
           /* the reference keeps writing into the same span after the text is complete,
              which wipes rendered markdown — so the check looks at the DOM, not a flag */
-          if((span.textContent || "") === want && /\*\*|```/.test(span.innerHTML)){
+          if((span.textContent || "") === want && /\*\*|```|\\[a-zA-Z()\[\]]/.test(span.textContent || "")){
             try{ rich(span); }
             catch(e){
               /* never leave ** and ``` on screen: a plain, safe markdown pass */
