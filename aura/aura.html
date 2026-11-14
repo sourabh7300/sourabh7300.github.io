@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="9baa09cca3a6"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="8da6aa31d364"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2246,7 +2246,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         '.tabs::-webkit-scrollbar{display:none}',
         '.tabs button{flex:0 0 auto;font-size:12.5px;height:34px;padding:0 10px;letter-spacing:.01em;white-space:nowrap}',
         // a calmer welcome screen: smaller core, no status pill
-        '#coreStageWrap{width:168px!important;height:168px!important;margin-bottom:4px!important}',
+        '#coreStageWrap{width:236px!important;height:236px!important;margin-bottom:2px!important}',
         '#coreStageWrap > div:last-child{display:none!important}',
         '#srch{display:none!important}',
         '#msgs{padding-bottom:6px}',
@@ -2621,7 +2621,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         if(cv.width < 12 || cv.height < 12) size();
         t += dt * 0.001;
         var w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
-        var R = Math.min(w, h) * 0.30 * (1 + ex * 0.04 + amp * 0.22);
+        var R = Math.min(w, h) * 0.37 * (1 + ex * 0.04 + amp * 0.22);
         ctx.clearRect(0, 0, w, h);
 
         /* ---- the light the core throws on the dark ---- */
