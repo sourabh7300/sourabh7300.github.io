@@ -2401,7 +2401,7 @@ app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
   const fbState = fbTried ? (fbAdmin ? "online" : (FB_PROJECT ? "package-missing" : "not-configured")) : "pending";
-  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, voice: (String(ELEVEN_KEY || "").trim() ? "elevenlabs" : "backup"), accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
+  res.json({ ok: true, build: BUILD, srcBuild: SRC_BUILD, copilot: copilotStats, node: process.version, rssMB: Math.round(process.memoryUsage().rss / 1048576), crashes: bootCrashes.length, lastCrash: bootCrashes[bootCrashes.length - 1] || null, started: new Date(Date.now() - process.uptime() * 1000).toISOString(), uptime: process.uptime(), keysTotal: KEY_POOL.length, publicKeys: PUBLIC_KEYS.length, makerReserved: KEY_POOL.length > 1, keysLive: KEY_POOL.filter(k => !(keyCool.get(k) > now)).length, reserve: !!RESERVE_KEY, nimKey: !!NVIDIA_NIM_KEY, codeLane: !!CODE_KEY, adminLane: !!ADMIN_KEY, vision: !!GEMINI_API_KEY, search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, voice: (String(ELEVEN_KEY || "").trim() ? "elevenlabs" : "backup"), accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
 });
 /* keep the last-known values fresh without ever blocking the endpoint */
 setTimeout(warmHealth, 1500);
@@ -3101,14 +3101,12 @@ async function copilotAnalyze(image, mode) {
   const data = m[2].replace(/\s+/g, "");
   if (data.length < 500 || data.length > 5_500_000) return null;
   const instruction = COPILOT_PROMPT + (mode ? "\nActive mode: " + String(mode).slice(0, 20) + "." : "");
+  /* keep the request minimal: some Gemini ids reject thinkingConfig or a forced
+     responseMimeType with a 400, and a 400 here looked exactly like "no read" */
+  const parts = [{ text: instruction }, { inlineData: { mimeType, data } }];
   const body = JSON.stringify({
-    contents: [{ role: "user", parts: [{ text: instruction }, { inlineData: { mimeType, data } }] }],
-    generationConfig: {
-      temperature: 0.15,
-      maxOutputTokens: 320,
-      responseMimeType: "application/json",
-      thinkingConfig: { thinkingBudget: 0 }
-    }
+    contents: [{ role: "user", parts }],
+    generationConfig: { temperature: 0.15, maxOutputTokens: 320 }
   });
   let chain = [...VISION_MODELS];
   try { const live = await geminiModels(); if (live && live.length) chain = [...live, ...chain]; } catch (e) {}
@@ -3121,7 +3119,11 @@ async function copilotAnalyze(image, mode) {
         body,
         signal: AbortSignal.timeout(12_000)
       });
-      if (!r.ok) { copilotStats.lastErr = vmodel + " HTTP " + r.status; continue; }
+      if (!r.ok) {
+        let eb = ""; try { const ej = await r.json(); eb = (ej && ej.error && ej.error.message) || ""; } catch (e) {}
+        copilotStats.lastErr = vmodel + " HTTP " + r.status + (eb ? ": " + String(eb).slice(0, 100) : "");
+        continue;
+      }
       const d = await r.json();
       const text = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [])
         .filter(p => p && !p.thought).map(p => p.text || "").join("").trim();
