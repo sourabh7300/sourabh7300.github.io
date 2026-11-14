@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="608fe46bd4c8"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="172a2abbb598"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1389,8 +1389,10 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       var out = "", parts = txt.split(/```/);
       parts.forEach(function(seg, i){
         if(i % 2 === 1){
+          var lang = (seg.split(/\r?\n/)[0] || "").trim().toLowerCase();
+          if(!/^[a-z0-9+#._-]{1,14}$/.test(lang)) lang = "";
           var body = seg.replace(/^[A-Za-z0-9+#._-]*\r?\n/, "");
-          out += "<pre>" + esc(body.replace(/\s+$/, "")) + "</pre>";
+          out += '<pre data-lang="' + lang + '"><code>' + esc(body.replace(/\s+$/, "")) + '</code></pre>';
         }else{
           out += esc(seg)
             /* headings the model likes for sections become a bold label line */
@@ -1452,6 +1454,148 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           }
         }catch(e){}
       }, 400);
+    })();
+  }catch(e){}
+
+  /* ---------------- search inside saved chats ----------------
+     The list grows with every conversation and there was no way to find one again. */
+  try{
+    (function chatFilter(){
+      var list = document.getElementById('chlist');
+      if(!list || document.getElementById('auraChatFind')) return;
+      var box = document.createElement('div');
+      box.style.cssText = 'padding:0 0 10px';
+      var inpF = document.createElement('input');
+      inpF.id = 'auraChatFind';
+      inpF.type = 'search';
+      inpF.placeholder = 'Search your chats…';
+      inpF.setAttribute('autocomplete', 'off');
+      inpF.style.cssText = 'width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.12);' +
+        'background:rgba(255,255,255,.04);color:#e8eef2;font:13px Inter,system-ui,sans-serif;outline:none';
+      box.appendChild(inpF);
+      list.parentNode.insertBefore(box, list);
+      function apply(){
+        var q = inpF.value.trim().toLowerCase();
+        var rows = list.children, shown = 0;
+        for(var i = 0; i < rows.length; i++){
+          var r = rows[i];
+          if(!r || r.tagName === 'P') continue;
+          var hit = !q || (r.innerText || '').toLowerCase().indexOf(q) >= 0;
+          r.style.display = hit ? '' : 'none';
+          if(hit) shown++;
+        }
+        var none = document.getElementById('auraChatNone');
+        if(!shown && q){
+          if(!none){
+            none = document.createElement('p');
+            none.id = 'auraChatNone';
+            none.style.cssText = 'color:var(--dim);padding:10px 2px;font-size:13px';
+            none.textContent = 'Koi chat nahi mili';
+            list.appendChild(none);
+          }
+        }else if(none){ none.remove(); }
+      }
+      inpF.addEventListener('input', apply);
+      document.addEventListener('click', function(e){
+        if(e.target && e.target.closest && e.target.closest('#tabs button')) setTimeout(apply, 200);
+      }, true);
+    })();
+  }catch(e){}
+
+  /* ---------------- chat actions: copy, speak, code copy ----------------
+     A finished answer was a dead block of text: no way to take the code out, no way to
+     hear it again, and no guarantee the newest message was even in view. These are
+     small additions to the reference's own bubbles, nothing structural. */
+  try{
+    (function chatActions(){
+      function copyText(t){
+        t = String(t || "");
+        try{
+          if(navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t);
+        }catch(e){}
+        var ta = document.createElement("textarea");
+        ta.value = t; ta.style.cssText = "position:fixed;left:-9999px;top:0";
+        document.body.appendChild(ta); ta.select();
+        try{ document.execCommand("copy"); }catch(e){}
+        ta.remove();
+        return Promise.resolve();
+      }
+      function speakText(t){
+        try{
+          if(!window.speechSynthesis) return;
+          speechSynthesis.cancel();
+          var u = new SpeechSynthesisUtterance(String(t || "").replace(/[*`#]/g, "").slice(0, 700));
+          u.rate = 1.02; u.pitch = 1.02;
+          speechSynthesis.speak(u);
+        }catch(e){}
+      }
+      function mkBtn(label, fn){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.style.cssText = "display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;" +
+          "border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#bcd8e6;" +
+          "font:11.5px Inter,system-ui,sans-serif;cursor:pointer;letter-spacing:.02em";
+        b.onclick = function(e){ e.stopPropagation(); try{ fn(b); }catch(err){} };
+        return b;
+      }
+      function decorate(bubble){
+        if(!bubble || bubble.__deco) return;
+        bubble.__deco = 1;
+        var span = bubble.lastElementChild;
+        /* every code block gets its own language tag and copy button */
+        [].forEach.call(bubble.querySelectorAll("pre"), function(pre){
+          if(pre.__copy) return;
+          pre.__copy = 1;
+          pre.style.position = "relative";
+          pre.style.paddingTop = "30px";
+          var head = document.createElement("div");
+          head.style.cssText = "position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;" +
+            "align-items:center;padding:5px 10px;font:10.5px Inter,system-ui,sans-serif;letter-spacing:.14em;" +
+            "text-transform:uppercase;color:rgba(190,220,235,.6);border-bottom:1px solid rgba(255,255,255,.07)";
+          head.appendChild(document.createTextNode((pre.getAttribute("data-lang") || "code")));
+          var cb = mkBtn("Copy", function(btn){
+            copyText((pre.querySelector("code") || pre).innerText).then(function(){
+              btn.textContent = "Copied ";
+              setTimeout(function(){ btn.textContent = "Copy"; }, 1400);
+            });
+          });
+          cb.style.cssText += ";padding:2px 8px;font-size:10.5px";
+          head.appendChild(cb);
+          pre.appendChild(head);
+        });
+        if(!span || !String(span.textContent || "").trim()) return;
+        var bar = document.createElement("div");
+        bar.style.cssText = "display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;opacity:.75";
+        bar.appendChild(mkBtn("\u29C9 Copy", function(btn){
+          copyText(span.textContent).then(function(){ btn.textContent = "\u2713 Copied"; setTimeout(function(){ btn.textContent = "\u29C9 Copy"; }, 1400); });
+        }));
+        bar.appendChild(mkBtn("\uD83D\uDD0A Speak", function(btn){
+          speakText(span.textContent);
+          btn.textContent = "\u23F8 Stop";
+          setTimeout(function(){ btn.textContent = "\uD83D\uDD0A Speak"; }, 4000);
+        }));
+        bubble.appendChild(bar);
+      }
+      function newest(){
+        var box = document.getElementById("msgs");
+        var all = box ? box.querySelectorAll(".m.a") : [];
+        return all.length ? all[all.length - 1] : null;
+      }
+      /* decorate any finished answer, and keep the newest one in view */
+      var lastSeen = null;
+      setInterval(function(){
+        try{
+          var b = newest();
+          if(!b) return;
+          var span = b.lastElementChild;
+          if(window.__auraLastReply && span && span.textContent === String(window.__auraLastReply)) decorate(b);
+          if(b !== lastSeen){
+            lastSeen = b;
+            if(!document.hidden && b.scrollIntoView) b.scrollIntoView({ block: "end", behavior: "smooth" });
+          }
+        }catch(e){}
+      }, 600);
     })();
   }catch(e){}
 
