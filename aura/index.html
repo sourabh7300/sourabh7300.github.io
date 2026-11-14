@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="17dc309e085d"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="a0d4ac8d6939"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1430,8 +1430,10 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         }else{
           out += esc(seg)
             /* headings the model likes for sections become a bold label line */
-            .replace(/^\s*#{1,4}[ \t]+(.+)$/gm, "<br><b>$1</b>")
-            .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+            .replace(/^\s*#{1,4}[ \t]+(.+)$/gm, '<br><b class="aura-hd">$1</b>')
+            /* a section label must stay on the same line as its colon — the reference
+               styles every <b> as a block, which split "Why" from ": ..." */
+            .replace(/\*\*([^*\n]+)\*\*/g, '<b style="display:inline;font-weight:700">$1</b>')
             .replace(/`([^`\n]+)`/g, "<code>$1</code>")
             /* a lone $...$ is LaTeX the model loves for big-O — show it as code */
             .replace(/\$([^$\n]{1,40})\$/g, "<code>$1</code>")
@@ -1476,7 +1478,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
               /* never leave ** and ``` on screen: a plain, safe markdown pass */
               try{
                 span.innerHTML = want.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-                  .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+                  .replace(/\*\*([^*\n]+)\*\*/g, '<b style="display:inline;font-weight:700">$1</b>')
                   .replace(/`([^`\n]+)`/g, "<code>$1</code>")
                   .replace(/\n[ \t]*[*-][ \t]+/g, "<br>\u2022 ")
                   .replace(/\n/g, "<br>");
@@ -2229,7 +2231,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       '#msgs{overflow-y:auto!important;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}',
       '#chatw{min-height:0}',
       /* the old docs sheet must never cover the app */ +
-      '#docov{display:none!important}' +
+              '#docov{display:none!important}' +
+        '#msgs .m.a b.aura-hd{display:block!important;margin:6px 0 2px}' +
       '#auraJump{position:fixed;right:16px;bottom:124px;z-index:30;display:none;align-items:center;gap:6px;' +
         'padding:8px 13px;border-radius:99px;border:1px solid rgba(120,215,255,.35);' +
         'background:rgba(10,16,26,.92);color:#dff3ff;font:12px Inter,system-ui,sans-serif;' +
