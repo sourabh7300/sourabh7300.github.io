@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="efb85d21f566"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="35a2bcbe004b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -760,6 +760,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
      that is still rendered opens everywhere */
   input.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
   input.setAttribute("aria-hidden", "true");
+  input.id = "auraFilePicker";   /* the Attach control is a <label for> this id */
   input.accept = "image/*,.txt,.md,.json,.csv,.js,.ts,.html,.css,.py,.java,.c,.cpp,.log,.xml,.yml,.yaml";
   document.body.appendChild(input);
 
@@ -969,7 +970,19 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     }catch(e){}
     var trivial = /^(\d[\d\s+\-*/^().]*|what is \d|calc|calculate)/i.test(plain) || plain.length < 8;
     var hits = [];
-    if(!trivial && (FRESHISH.test(plain) || plain.split(" ").length >= 5)) hits = await webHits(plain);
+    /* A web lookup before every answer was the single biggest source of lag: a plain
+       "explain photosynthesis" waited on the fetcher for seconds for nothing. Search
+       only when the question is actually about something current (or asked for), and
+       never let it hold the answer longer than 4.5s — the model alone answers in ~2s. */
+    var wantsWeb = !trivial && (FRESHISH.test(plain) || /\b(search|google|dhundo|khoj|browse|internet)\b/i.test(plain));
+    if(wantsWeb){
+      try{
+        hits = await Promise.race([
+          webHits(plain).catch(function(){ return []; }),
+          new Promise(function(r){ setTimeout(function(){ r([]); }, 4500); })
+        ]);
+      }catch(e){ hits = []; }
+    }
 
     async function ask(withWeb){
       var sys = [SYS[m], "TODAY IS " + todayLine() + ".", profileBlock()].filter(Boolean).join(" ");
@@ -1194,9 +1207,18 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
   if(tools){
     var closeMenus = function(){ [].forEach.call(document.querySelectorAll(".menu"), function(m){ m.classList.remove("on"); }); };
     var bm = document.createElement("button"); bm.type = "button"; bm.id = "auraMeshBtn"; bm.innerHTML = "\uD83D\uDCE1 Mesh";
-    var ba = document.createElement("button"); ba.type = "button"; ba.id = "auraAttBtn"; ba.innerHTML = "\uD83D\uDCCE Attach";
+    /* A <label for=...> opens the file picker natively. Calling input.click() from a
+       tap handler is blocked or ignored in several mobile browsers (and in some
+       in-app webviews), which is exactly the "attach kuch nahi karta" report. */
+    var ba = document.createElement("label");
+    ba.id = "auraAttBtn";
+    ba.setAttribute("for", "auraFilePicker");
+    ba.innerHTML = "\uD83D\uDCCE Attach";
+    ba.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;" +
+      "border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#cfcdcb;" +
+      "font:12.5px/1.4 Inter,system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;user-select:none";
     bm.onclick = function(e){ e.stopPropagation(); closeMenus(); openMesh(); };
-    ba.onclick = function(e){ e.stopPropagation(); closeMenus(); tell("File chuno\u2026"); try{ input.click(); }catch(err){ tell("Picker blocked \u2014 browser permission"); } };
+    ba.onclick = function(e){ e.stopPropagation(); closeMenus(); tell("File chuno\u2026"); };
     tools.appendChild(bm); tools.appendChild(ba);
   }
   /* The orb's colour lives in FLU (kick/surge). Only the intro used to prime it, so
@@ -1567,6 +1589,115 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           var p = document.querySelector('.panel.on .sc');
           if(p) p.scrollTop = 0;
         }, 60);
+      }, true);
+    })();
+  }catch(e){}
+
+  /* ---------------- speaking instead of typing ----------------
+     The reference's mic starts its own recogniser with no feedback at all: you talk
+     into a button that never changes, and nothing appears until the reply. This tap
+     is replaced with a guided flow — a pill shows the words as they are heard, the
+     text lands in the composer, and it sends itself after a short pause. */
+  try{
+    (function voiceFlow(){
+      var mic = document.getElementById('mic');
+      var inpEl = document.getElementById('inp');
+      var sendBtn = document.getElementById('send');
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if(!mic || !inpEl || !sendBtn) return;
+      var cardEl = document.getElementById('card');
+      var pill = document.createElement('div');
+      pill.id = 'auraVoicePill';
+      pill.style.cssText = 'display:none;position:absolute;left:50%;transform:translateX(-50%);' +
+        'bottom:calc(100% + 10px);z-index:9;align-items:center;gap:8px;padding:8px 14px;border-radius:99px;' +
+        'background:rgba(10,16,26,.94);border:1px solid rgba(120,215,255,.35);color:#dff3ff;' +
+        'font:12.5px Inter,system-ui,-apple-system,sans-serif;white-space:nowrap;max-width:86vw;' +
+        'overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 26px rgba(0,0,0,.45)';
+      if(cardEl){ cardEl.style.position = 'relative'; cardEl.appendChild(pill); }
+      function show(t, live){
+        pill.textContent = t;
+        pill.style.display = 'flex';
+        pill.style.borderColor = live ? 'rgba(120,215,255,.6)' : 'rgba(255,255,255,.18)';
+      }
+      function hide(){ pill.style.display = 'none'; }
+      function mark(on){
+        mic.style.boxShadow = on ? '0 0 0 3px rgba(120,215,255,.28)' : '';
+        mic.style.borderColor = on ? 'rgba(120,215,255,.7)' : '';
+      }
+      if(!SR){
+        mic.addEventListener('click', function(e){
+          e.preventDefault(); e.stopImmediatePropagation();
+          tell('Is browser mein voice input nahi hai — type kar lo');
+        }, true);
+        return;
+      }
+      var rec = null, listening = false, said = '', sendTimer = null;
+      function sendNow(){
+        clearTimeout(sendTimer);
+        var t = String(inpEl.value || '').trim();
+        hide();
+        if(t.length < 2){ tell('Kuch sunai nahi diya — dobara bolo'); return; }
+        sendBtn.click();
+      }
+      function stop(){
+        listening = false; mark(false);
+        try{ if(rec) rec.stop(); }catch(e){}
+      }
+      function start(){
+        rec = new SR();
+        rec.lang = /hinglish|hi/i.test(String(localStorage.getItem('az.lang') || '')) ? 'hi-IN' : 'en-IN';
+        rec.continuous = false;
+        rec.interimResults = true;
+        rec.maxAlternatives = 1;
+        said = '';
+        rec.onstart = function(){ listening = true; mark(true); show('\uD83C\uDFA4 Sun rahi hoon\u2026', true); };
+        rec.onresult = function(ev){
+          var interim = '';
+          for(var i = ev.resultIndex; i < ev.results.length; i++){
+            var r = ev.results[i];
+            if(r.isFinal) said += r[0].transcript;
+            else interim += r[0].transcript;
+          }
+          var live = (said + ' ' + interim).trim();
+          if(live){ show('\uD83C\uDFA4 ' + live, true); }
+          clearTimeout(sendTimer);
+          /* a natural pause ends the turn — no extra tap needed */
+          sendTimer = setTimeout(function(){ stop(); inpEl.value = (said || live).trim(); sendNow(); }, 1400);
+        };
+        rec.onerror = function(e){
+          listening = false; mark(false); hide();
+          var why = (e && e.error) || '';
+          if(/not-allowed|service-not-allowed/.test(why)) tell('Mic ki permission do — browser settings se allow karo');
+          else if(/no-speech/.test(why)) tell('Kuch sunai nahi diya — dobara bolo');
+          else if(/network/.test(why)) tell('Voice ke liye internet chahiye');
+          else tell('Voice input nahi chala — type kar lo');
+        };
+        rec.onend = function(){
+          mark(false); listening = false;
+          if(String(inpEl.value || '').trim().length > 1){ hide(); return; }
+          if(said.trim().length > 1){ inpEl.value = said.trim(); sendNow(); }
+          else hide();
+        };
+        try{ rec.start(); }catch(e){ hide(); tell('Mic start nahi hua — dobara tap karo'); }
+      }
+      mic.addEventListener('click', function(e){
+        e.preventDefault(); e.stopImmediatePropagation();
+        clearTimeout(sendTimer);
+        if(listening || pill.style.display === 'flex'){ stop(); hide(); return; }
+        start();
+      }, true);
+
+      /* after Send, say what is happening instead of leaving a dead screen */
+      sendBtn.addEventListener('click', function(){
+        setTimeout(function(){
+          var last = document.querySelector('#msgs .m.a');
+          show('\u26A1 Soch rahi hoon\u2026', false);
+          var iv = setInterval(function(){
+            var now = document.querySelector('#msgs .m.a');
+            if((now && now !== last) || !document.querySelector('#msgs .m')){ clearInterval(iv); hide(); }
+          }, 400);
+          setTimeout(function(){ clearInterval(iv); }, 60000);
+        }, 2200);
       }, true);
     })();
   }catch(e){}
