@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="b40366aa0ef3"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="9f395adda23b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1541,11 +1541,9 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         b.onclick = function(e){ e.stopPropagation(); try{ fn(b); }catch(err){} };
         return b;
       }
-      function decorate(bubble){
-        if(!bubble || bubble.__deco) return;
-        bubble.__deco = 1;
-        var span = bubble.querySelector(":scope > span") || bubble.children[1];
-        /* every code block gets its own language tag and copy button */
+      /* code blocks can appear later than the action bar (the answer keeps typing), so
+         they are decorated on their own pass rather than once per bubble */
+      function prePass(bubble){
         [].forEach.call(bubble.querySelectorAll("pre"), function(pre){
           if(pre.__copy) return;
           pre.__copy = 1;
@@ -1566,6 +1564,12 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           head.appendChild(cb);
           pre.appendChild(head);
         });
+      }
+      function decorate(bubble){
+        if(!bubble || bubble.__deco) return;
+        bubble.__deco = 1;
+        var span = bubble.querySelector(":scope > span") || bubble.children[1];
+        prePass(bubble);
         if(!span || !String(span.textContent || "").trim()) return;
         var bar = document.createElement("div");
         bar.style.cssText = "display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;opacity:.75";
@@ -1593,6 +1597,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           var span = b.lastElementChild;
           /* decorate once the text has actually settled — waiting for an exact match
              with the reply string left short answers (and code blocks) undecorated */
+          prePass(b);
           if(span){
             var n = (span.textContent || "").length;
             if(!b.__len || b.__len !== n){ b.__len = n; b.__t = Date.now(); }
