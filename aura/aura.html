@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ee88791b332a"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="9baa09cca3a6"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -951,14 +951,17 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
 
   var RULES = [
     "You are an expert across science, maths, programming, design, business, finance, law basics, health basics, education, travel and everyday life — but never pretend: if something is uncertain or outside your knowledge, say so plainly and give the best general direction.",
-    "Answer the actual question in the first line, then explain. No filler openers, no restating the question.",
+    "Answer the actual question in the first line, then explain. No filler openers, no restating the question, and never label that first line 'Answer:' — write it as a normal sentence.",
     "Every answer must read in a clear sequence, never one flat paragraph:" +
       " (1) one direct line that answers it;" +
       " (2) a short WHY/HOW in 2–4 sentences that actually explains the reasoning, the cause, or the trade-off;" +
       " (3) when there is a process, numbered steps (1, 2, 3) or bullets, one idea each;" +
       " (4) a last line only if it adds something — a caution, a next step or an example.",
     "Use bold labels for sections in longer answers (e.g. **Why**, **Steps**, **Example**, **Watch out**) and keep each section to a few lines. A simple question still gets 2–5 lines, not an essay.",
-    "Be concrete: numbers, names, examples, short code. Explain jargon the first time you use it. Never pad with 'as an AI' or repeat the question back.",
+    "Match the weight of the answer to the question: a one-line question gets one line, a 'explain in detail' request gets the full walkthrough with examples.",
+    "Be concrete: real numbers, names, dates, commands, short code. Explain jargon the first time you use it. Never pad with 'as an AI', never repeat the question back, never end with an empty 'hope this helps'.",
+    "Prefer facts you are sure of. When you are not certain, give the best supported answer AND say which part is uncertain in one clause — never invent a statistic, a version number, a quote or a source.",
+    "If the question is genuinely ambiguous in a way that changes the answer, give the most likely answer first and then ask one short clarifying question at the end.",
     "Use short paragraphs or bullets; for how-to questions give numbered steps; for maths show the working; for code give a runnable snippet in a fenced block and one line on how to run it.",
     "Mirror the user's language exactly: Hinglish → Hinglish, Hindi (Devanagari) → Hindi, English → English. Keep technical terms in English.",
     "If live web results are given, prefer them over memory, mention dates, and cite as [1], [2]. Never invent a source.",
@@ -2621,35 +2624,62 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         var R = Math.min(w, h) * 0.30 * (1 + ex * 0.04 + amp * 0.22);
         ctx.clearRect(0, 0, w, h);
 
-        /* dust veil on a tilted plane */
+        /* ---- the light the core throws on the dark ---- */
+        var bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.75);
+        bloom.addColorStop(0, 'rgba(130,225,255,' + (0.20 + amp * 0.22 + ex * 0.10).toFixed(3) + ')');
+        bloom.addColorStop(0.38, 'rgba(95,150,255,0.075)');
+        bloom.addColorStop(0.72, 'rgba(140,110,255,0.03)');
+        bloom.addColorStop(1, 'rgba(90,120,255,0)');
+        ctx.fillStyle = bloom;
+        ctx.beginPath(); ctx.arc(cx, cy, R * 1.75, 0, Math.PI * 2); ctx.fill();
+
+        /* ---- dust: a tilted veil, two temperatures, each mote twinkling ---- */
         for(var i = 0; i < dust.length; i++){
           var p = dust[i];
           var a = p.a + t * p.sp;
           var wob = Math.sin(t * 1.6 + p.w) * 0.03;
           var rr = R * (p.r + wob + ex * 0.05);
-          var x = Math.cos(a) * rr;
           var z = Math.sin(a) * rr;
+          var x = Math.cos(a) * rr;
           var y = z * 0.30;
           var per = 2.6 / (2.6 + z / R);
-          var alpha = 0.10 + (z < 0 ? 0.34 : 0.06) + amp * 0.10;
+          var tw = 0.55 + 0.45 * Math.sin(t * 2.1 + p.w * 4);
+          var alpha = (0.09 + (z < 0 ? 0.32 : 0.05) + amp * 0.10) * tw;
           ctx.beginPath();
           ctx.arc(cx + x * per, cy + y * per, Math.max(0.35, p.s * per * dpr * 0.7), 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(150,225,255,' + alpha.toFixed(3) + ')';
+          ctx.fillStyle = (i % 6 === 0 ? 'rgba(186,170,255,' : 'rgba(150,225,255,') + Math.min(0.85, alpha).toFixed(3) + ')';
           ctx.fill();
         }
 
-        /* three tilted rings */
+        /* ---- hair-thin filaments reaching from the outer ring to the core ---- */
+        var spokes = 7;
+        for(var f = 0; f < spokes; f++){
+          var fa = t * 0.22 + f * (Math.PI * 2 / spokes);
+          var fr = R * 0.98;
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.quadraticCurveTo(
+            cx + Math.cos(fa) * fr * 0.45, cy + Math.sin(fa) * fr * 0.16,
+            cx + Math.cos(fa) * fr, cy + Math.sin(fa) * fr * 0.42
+          );
+          ctx.strokeStyle = 'rgba(120,210,255,' + (0.035 + ex * 0.05 + amp * 0.03).toFixed(3) + ')';
+          ctx.lineWidth = 0.7 * dpr;
+          ctx.stroke();
+        }
+
+        /* ---- three tilted rings, alternating cyan and violet ---- */
         for(var k = 0; k < 3; k++){
           var rx = R * (0.60 + k * 0.17);
           var ry = rx * (0.20 + k * 0.055);
           var rot = t * (0.28 + k * 0.16) * (k % 2 ? -1 : 1);
+          var tint = k === 1 ? 'rgba(182,164,255,' : 'rgba(130,220,255,';
           ctx.save();
           ctx.translate(cx, cy);
           ctx.rotate(-0.42 + k * 0.42 + rot * 0.25);
           for(var seg = 0; seg < 2; seg++){
             ctx.beginPath();
             ctx.ellipse(0, 0, rx, ry, 0, seg * Math.PI + rot, seg * Math.PI + rot + Math.PI * 0.86);
-            ctx.strokeStyle = 'rgba(130,220,255,' + (0.10 + k * 0.05 + ex * 0.05).toFixed(3) + ')';
+            ctx.strokeStyle = tint + (0.10 + k * 0.05 + ex * 0.05).toFixed(3) + ')';
             ctx.lineWidth = (0.8 + (2 - k) * 0.35) * dpr;
             ctx.stroke();
           }
@@ -2657,46 +2687,76 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           var ha = rot * 1.7;
           ctx.beginPath();
           ctx.ellipse(0, 0, rx, ry, 0, ha, ha + 0.55);
-          ctx.strokeStyle = 'rgba(200,245,255,' + (0.35 + ex * 0.25).toFixed(3) + ')';
+          ctx.strokeStyle = 'rgba(235,250,255,' + (0.38 + ex * 0.25).toFixed(3) + ')';
           ctx.lineWidth = 1.5 * dpr;
           ctx.stroke();
           ctx.restore();
         }
 
-        /* the iris — a vertical lens of light */
-        var ih = R * 0.86, iw = R * 0.20 * (1 + ex * 0.10 + amp * 0.35);
+        /* ---- the iris: a wide aura, a bright lens, a white heart ---- */
+        var ih = R * 1.52 * (1 + ex * 0.02 + amp * 0.06);
+        var iw = R * 0.30 * (1 + ex * 0.10 + amp * 0.35);
+        function lensPath(ww, hh){
+          ctx.beginPath();
+          ctx.moveTo(cx, cy - hh / 2);
+          ctx.bezierCurveTo(cx + ww, cy - hh * 0.18, cx + ww, cy + hh * 0.18, cx, cy + hh / 2);
+          ctx.bezierCurveTo(cx - ww, cy + hh * 0.18, cx - ww, cy - hh * 0.18, cx, cy - hh / 2);
+          ctx.closePath();
+        }
+        lensPath(iw * 2.3, ih);
+        var auraG = ctx.createLinearGradient(cx, cy - ih / 2, cx, cy + ih / 2);
+        auraG.addColorStop(0, 'rgba(140,220,255,0)');
+        auraG.addColorStop(0.45, 'rgba(150,225,255,' + (0.15 + amp * 0.16 + ex * 0.05).toFixed(3) + ')');
+        auraG.addColorStop(0.55, 'rgba(140,200,255,' + (0.15 + amp * 0.16 + ex * 0.05).toFixed(3) + ')');
+        auraG.addColorStop(1, 'rgba(140,220,255,0)');
+        ctx.fillStyle = auraG;
+        ctx.fill();
+
+        lensPath(iw, ih);
         var g = ctx.createLinearGradient(cx, cy - ih / 2, cx, cy + ih / 2);
-        g.addColorStop(0, 'rgba(180,240,255,0)');
-        g.addColorStop(0.42, 'rgba(225,252,255,' + (0.85 + amp * 0.15) + ')');
-        g.addColorStop(0.58, 'rgba(150,225,255,0.95)');
-        g.addColorStop(1, 'rgba(120,200,255,0)');
-        ctx.beginPath();
-        ctx.moveTo(cx, cy - ih / 2);
-        ctx.bezierCurveTo(cx + iw, cy - ih * 0.18, cx + iw, cy + ih * 0.18, cx, cy + ih / 2);
-        ctx.bezierCurveTo(cx - iw, cy + ih * 0.18, cx - iw, cy - ih * 0.18, cx, cy - ih / 2);
-        ctx.closePath();
+        g.addColorStop(0, 'rgba(190,245,255,0)');
+        g.addColorStop(0.26, 'rgba(150,235,255,' + (0.50 + amp * 0.20).toFixed(3) + ')');
+        g.addColorStop(0.48, 'rgba(245,253,255,0.96)');
+        g.addColorStop(0.54, 'rgba(226,250,255,0.98)');
+        g.addColorStop(0.68, 'rgba(150,220,255,0.75)');
+        g.addColorStop(0.88, 'rgba(150,160,255,0.22)');
+        g.addColorStop(1, 'rgba(150,160,255,0)');
         ctx.fillStyle = g;
-        ctx.shadowColor = 'rgba(140,225,255,.85)';
-        ctx.shadowBlur = 26 * dpr;
+        ctx.shadowColor = 'rgba(140,225,255,' + (0.75 + amp * 0.2).toFixed(2) + ')';
+        ctx.shadowBlur = 28 * dpr;
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        /* soft halo behind the iris */
-        var halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.95);
-        halo.addColorStop(0, 'rgba(130,215,255,' + (0.10 + amp * 0.22 + ex * 0.07).toFixed(3) + ')');
-        halo.addColorStop(1, 'rgba(130,215,255,0)');
-        ctx.fillStyle = halo;
-        ctx.beginPath(); ctx.arc(cx, cy, R * 0.95, 0, Math.PI * 2); ctx.fill();
+        /* the heart of the lens */
+        var sparkR = R * 0.20 * (1 + amp * 0.45 + ex * 0.10);
+        var spark = ctx.createRadialGradient(cx, cy, 0, cx, cy, sparkR);
+        spark.addColorStop(0, 'rgba(255,255,255,0.95)');
+        spark.addColorStop(0.32, 'rgba(198,245,255,0.55)');
+        spark.addColorStop(1, 'rgba(120,200,255,0)');
+        ctx.fillStyle = spark;
+        ctx.beginPath(); ctx.arc(cx, cy, sparkR, 0, Math.PI * 2); ctx.fill();
+
+        /* specular hairline so the lens reads as glass, not a glowing blob */
+        ctx.beginPath();
+        ctx.moveTo(cx - iw * 0.30, cy - ih * 0.26);
+        ctx.quadraticCurveTo(cx - iw * 0.62, cy, cx - iw * 0.30, cy + ih * 0.26);
+        ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+        ctx.lineWidth = 1.1 * dpr;
+        ctx.stroke();
 
         /* a breath on every message / voiced word */
         if(ex > 0.3){
-          ctx.beginPath();
-          ctx.ellipse(cx, cy, R * (0.72 + (2.4 - ex) * 0.35), R * (0.72 + (2.4 - ex) * 0.35) * 0.42, 0, 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(190,240,255,' + Math.min(0.45, ex * 0.22).toFixed(3) + ')';
-          ctx.lineWidth = 1.4 * dpr;
-          ctx.stroke();
+          for(var pr = 0; pr < 2; pr++){
+            var rp = R * (0.72 + (2.4 - ex) * 0.40 + pr * 0.16);
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rp, rp * 0.42, 0, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(190,240,255,' + Math.min(0.40, ex * 0.20 / (pr + 1)).toFixed(3) + ')';
+            ctx.lineWidth = (1.4 - pr * 0.4) * dpr;
+            ctx.stroke();
+          }
         }
         ex *= 0.94; amp *= 0.94;
+
         painted = 1;
       }
 
