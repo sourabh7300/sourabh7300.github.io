@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="9ea27b9a651c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="17dc309e085d"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2636,13 +2636,16 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         ctx.clearRect(0, 0, w, h);
 
         /* ---- the light the core throws on the dark ---- */
-        var bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.75);
+        /* the glow must reach zero by the canvas edge, otherwise the clip draws a
+           visible square around the light */
+        var maxR = Math.min(w, h) / 2;
+        var bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
         bloom.addColorStop(0, 'rgba(130,225,255,' + (0.20 + amp * 0.22 + ex * 0.10).toFixed(3) + ')');
-        bloom.addColorStop(0.38, 'rgba(95,150,255,0.075)');
-        bloom.addColorStop(0.72, 'rgba(140,110,255,0.03)');
+        bloom.addColorStop(0.42, 'rgba(95,150,255,0.075)');
+        bloom.addColorStop(0.76, 'rgba(140,110,255,0.025)');
         bloom.addColorStop(1, 'rgba(90,120,255,0)');
         ctx.fillStyle = bloom;
-        ctx.beginPath(); ctx.arc(cx, cy, R * 1.75, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy, maxR, 0, Math.PI * 2); ctx.fill();
 
         /* ---- dust: a tilted veil, two temperatures, each mote twinkling ---- */
         for(var i = 0; i < dust.length; i++){
