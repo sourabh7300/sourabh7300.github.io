@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="08ed37a945bf"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="b4fdb6d1c00c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1131,7 +1131,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
          in 15s on the tenth, and the visitor was paying that tail every time. A second
          request leaves 1.5s later and is cancelled the moment the first one answers, so
          the common case costs nothing extra and the slow case stops being slow. */
-      async function post(list, onDelta){
+      async function post(list, onDelta, single){
         async function attempt(sig){
           var r = await fetch(BASE + "/v1/chat/completions", {
             method: "POST", headers: hdrs(),
@@ -1154,6 +1154,9 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           if(!t) throw new Error("empty reply");
           return t;
         }
+        /* an image turn must not be sent twice — the vision lane is slow and each copy
+           costs a real model call, so attachments go out once */
+        if(single) return attempt(null);
         var ca = new AbortController(), cb = new AbortController();
         var p1 = attempt(ca.signal);
         var p2 = new Promise(function(resolve, reject){
@@ -1171,13 +1174,13 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
 
       var t0 = Date.now(), firstErr = null;
       try{
-        var out1 = await post(msgs, onDelta);
+        var out1 = await post(msgs, onDelta, hasFile);
         if(window.console) console.info("[aura] chat ok", Date.now() - t0 + "ms", (msgs.length) + " msgs");
         return out1;
       }catch(e){ firstErr = e; }
       try{
         var lean = msgs.slice(0, 2).concat(history.slice(-2));
-        var out2 = await post(lean, onDelta);
+        var out2 = await post(lean, onDelta, hasFile);
         if(window.console) console.info("[aura] chat recovered on retry", Date.now() - t0 + "ms", firstErr && firstErr.message);
         return out2;
       }catch(e2){
@@ -1230,6 +1233,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       /* a 502 with a readable reason (image brain out of quota, model busy) is an
          answer to show, not a dead backend to blame */
       if(e && e.status === 502 && msg && !/^HTTP/.test(msg)) return "\u26a0\ufe0f " + msg;
+      if(hasFile) return "\u26a0\ufe0f Image brain is busy right now (" + msg + ").\nImage hata ke dobara poochho, ya thodi der baad try karo \u2014 text answers chal rahe hain.";
       return "\u26a0\ufe0f Engine unreachable (" + msg + ")\nBackend: " + BASE;
     }
   };
@@ -2197,6 +2201,177 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} window.__auraCopilot.toggle(); };
       tools.appendChild(b);
     }, 1200);
+  }catch(e){}
+
+  /* ---------------- Google sign-in ----------------
+     The header chip and the Settings "Continue with Google" button were wired to a
+     toast ("connect your Google sign-in here") — a dead end. This is the real wiring:
+     it asks the backend for the Firebase web config, runs a Google popup when that
+     config exists, and when the server has no config it says so plainly instead of
+     pretending. A local device name keeps the app usable either way. */
+  try{
+    (function auth(){
+      var cfg = null, busy = false, who = null;
+
+      function mb(text, style){
+        var e = document.createElement("div");
+        e.textContent = text;
+        e.style.cssText = "font:13px/1.55 Inter,system-ui,sans-serif;color:#cfe3f2;" + (style || "");
+        return e;
+      }
+
+      function sheet(html){
+        var ov = document.getElementById("auraAuthOv");
+        if(!ov){
+          ov = document.createElement("div");
+          ov.id = "auraAuthOv";
+          ov.style.cssText = "position:fixed;inset:0;z-index:60;display:none;align-items:center;justify-content:center;" +
+            "background:rgba(2,5,10,.62);backdrop-filter:blur(6px);padding:18px";
+          ov.innerHTML = '<div id="auraAuthBox" style="width:min(380px,100%);border-radius:18px;padding:18px 18px 14px;' +
+            'border:1px solid rgba(120,215,255,.25);background:rgba(10,16,26,.94);color:#e8f4ff;' +
+            'box-shadow:0 24px 60px rgba(0,0,0,.6)"></div>';
+          document.body.appendChild(ov);
+          ov.addEventListener("click", function(e){ if(e.target === ov) ov.style.display = "none"; });
+        }
+        var box = ov.querySelector("#auraAuthBox");
+        box.innerHTML = html;
+        ov.style.display = "flex";
+        return box;
+      }
+      function closeSheet(){ var ov = document.getElementById("auraAuthOv"); if(ov) ov.style.display = "none"; }
+
+      async function getConfig(){
+        if(cfg) return cfg;
+        try{
+          var r = await fetch(BASE + "/v1/config", { headers: hdrs(), cache: "no-store", signal: AbortSignal.timeout(9000) });
+          cfg = await r.json();
+        }catch(e){ cfg = {}; }
+        return cfg;
+      }
+
+      function loadSdk(){
+        return new Promise(function(resolve, reject){
+          if(window.firebase && window.firebase.auth) return resolve();
+          var base = "https://www.gstatic.com/firebasejs/10.12.2/";
+          var a = document.createElement("script");
+          a.src = base + "firebase-app-compat.js";
+          a.onload = function(){
+            var b = document.createElement("script");
+            b.src = base + "firebase-auth-compat.js";
+            b.onload = resolve;
+            b.onerror = reject;
+            document.head.appendChild(b);
+          };
+          a.onerror = reject;
+          document.head.appendChild(a);
+        });
+      }
+
+      function paint(name, sub){
+        var acn = document.getElementById("acn");
+        if(acn) acn.textContent = name || "Guest";
+        var accRow = document.querySelector("#p-set .row b");
+        if(accRow && /account/i.test(accRow.textContent || "") && sub){
+          var p = accRow.parentNode.querySelector("p");
+          if(p) p.textContent = sub;
+        }
+        try{
+          var un = document.getElementById("uname");
+          if(name && un) un.textContent = String(name).split(" ")[0];
+        }catch(e){}
+      }
+
+      function remember(name){
+        if(!name) return;
+        try{
+          localStorage.setItem("az.name", JSON.stringify(name));
+          if(typeof applyText === "function") applyText();
+        }catch(e){}
+        paint(name, "Signed in · chats and memory follow this account");
+      }
+
+      async function startGoogle(){
+        if(busy) return;
+        busy = true;
+        var box = sheet(
+          '<h3 style="margin:0 0 6px;font:600 16px Inter,system-ui,sans-serif">Continue with Google</h3>' +
+          '<p id="auraAuthMsg" style="margin:0 0 12px;font:13px/1.55 Inter,system-ui,sans-serif;color:#9fb6c8">Checking sign-in…</p>'
+        );
+        var msg = box.querySelector("#auraAuthMsg");
+        try{
+          var c = await getConfig();
+          var web = c && c.firebaseWebConfig;
+          if(!web || !web.apiKey){
+            msg.textContent = "Google sign-in is not enabled on the server yet — the owner has to add the Firebase web config (FIREBASE_WEB_CONFIG). Until then AURA remembers you on this device.";
+            box.insertAdjacentHTML("beforeend",
+              '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">' +
+              '<button type="button" id="auraAuthDevice" style="padding:9px 13px;border-radius:10px;border:1px solid rgba(120,215,255,.35);background:rgba(120,215,255,.14);color:#dff4ff;font:600 13px Inter,system-ui,sans-serif;cursor:pointer">Use this device</button>' +
+              '<button type="button" id="auraAuthClose" style="padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:transparent;color:#cfe3f2;font:13px Inter,system-ui,sans-serif;cursor:pointer">Close</button></div>');
+            box.querySelector("#auraAuthClose").onclick = closeSheet;
+            box.querySelector("#auraAuthDevice").onclick = function(){
+              closeSheet();
+              var nm = "";
+              try{ nm = JSON.parse(localStorage.getItem("az.name") || '""') || ""; }catch(e){}
+              var typed = window.prompt("Your name on this device", nm || "Sourabh");
+              if(typed && typed.trim()){ remember(typed.trim()); try{ if(typeof tell === "function") tell("Saved on this device"); }catch(e){} }
+            };
+            busy = false;
+            return;
+          }
+          msg.textContent = "Opening Google…";
+          await loadSdk();
+          if(!windowsFirebaseInit(web)) throw new Error("firebase init failed");
+          var provider = new window.firebase.auth.GoogleAuthProvider();
+          var res = await window.firebase.auth().signInWithPopup(provider);
+          var token = await res.user.getIdToken();
+          try{ localStorage.setItem("aura_id_token", token); }catch(e){}
+          var me = await fetch(BASE + "/v1/me", { headers: Object.assign({}, hdrs(), { Authorization: "Bearer " + token }) }).then(function(r){ return r.json(); }).catch(function(){ return null; });
+          var name = (me && (me.name || (me.user && me.user.name))) || (res.user && res.user.displayName) || "";
+          who = name;
+          remember(name);
+          closeSheet();
+          try{ if(typeof tell === "function") tell("Signed in as " + (name || "you")); }catch(e){}
+        }catch(e){
+          if(msg){
+            msg.textContent = "Sign-in failed: " + String((e && e.message) || e).slice(0, 160) +
+              "\nIf a popup was blocked, allow popups for this site and try again.";
+            msg.style.whiteSpace = "pre-line";
+          }
+        }
+        busy = false;
+      }
+
+      function windowsFirebaseInit(web){
+        try{
+          if(!window.firebase.apps.length) window.firebase.initializeApp(web);
+          return true;
+        }catch(e){ return false; }
+      }
+
+      function phoneSheet(){
+        sheet('<h3 style="margin:0 0 6px;font:600 16px Inter,system-ui,sans-serif">Phone sign-in</h3>' +
+          '<p style="margin:0 0 12px;font:13px/1.55 Inter,system-ui,sans-serif;color:#9fb6c8">Phone OTP needs the same server config as Google sign-in, plus an SMS provider. Until it is set up, your chats stay on this device.</p>' +
+          '<button type="button" id="auraPhoneClose" style="padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:transparent;color:#cfe3f2;font:13px Inter,system-ui,sans-serif;cursor:pointer">Close</button>');
+        var b = document.getElementById("auraPhoneClose");
+        if(b) b.onclick = closeSheet;
+      }
+
+      document.addEventListener("click", function(e){
+        var t = e.target;
+        if(!t || !t.closest) return;
+        if(t.closest("#g1")){ e.preventDefault(); e.stopPropagation(); startGoogle(); }
+        else if(t.closest("#g2")){ e.preventDefault(); e.stopPropagation(); phoneSheet(); }
+        else if(t.closest("#acct")){ e.preventDefault(); e.stopPropagation(); startGoogle(); }
+      }, true);
+
+      /* a returning signed-in user keeps their name on screen */
+      try{
+        var saved = JSON.parse(localStorage.getItem("az.name") || '""');
+        if(saved) paint(saved);
+      }catch(e){}
+
+      window.__auraAuth = { signIn: startGoogle, config: getConfig, who: function(){ return who; } };
+    })();
   }catch(e){}
 
   /* ---------------- stay current ----------------
