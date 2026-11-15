@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e667251d9b8e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="2a5b2d98511c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2009,6 +2009,8 @@ function makeQR(text) {
     /* remote control — the host types or speaks an order, the joined device runs it */
     '<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">' +
       '<div style="font:11.5px var(--f2);color:var(--dim);margin-bottom:6px">REMOTE CONTROL \u2014 the other device runs what you type or say</div>' +
+      '<div style="display:flex;gap:6px;margin-bottom:8px"><select id="amuTarget" style="flex:1;padding:8px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.35);color:#e9f5ff;font:12px var(--f2)"><option value="all">All devices</option></select>' +
+        '<button class="b" id="amuLink" title="Copy join link">\u29c9 Link</button></div>' +
       '<div style="display:flex;gap:8px"><input type="text" id="amuCmd" placeholder="open youtube \u00b7 speak hello \u00b7 what do you see" style="flex:1">' +
       '<button class="b" id="amuMic" title="Speak the order">\uD83C\uDFA4</button><button class="b pr" id="amuRun">Run</button></div>' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' +
@@ -2079,7 +2081,24 @@ function makeQR(text) {
       }).join("");
       setStatus((mesh.role === "host" ? "Hosting" : "Joined") + " \u00b7 code " + mesh.code +
         " \u00b7 " + devs.length + " device(s), " + live + " live");
-      listSet('<div><b>' + mesh.code + '</b> \u00b7 ' + devs.length + ' device(s)</div>' + (rows || "<div>waiting for the other device\u2026</div>"));
+      /* results come back from the other device, so the host can see whether the order
+         actually ran instead of guessing */
+      var results = (j.results || []).slice(-3).map(function(r){
+        return '<div style="color:#8ea1b2">\u21b3 ' + String(r.result || r.note || "done").replace(/[<>&]/g, '').slice(0, 90) + '</div>';
+      }).join("");
+      listSet('<div><b>' + mesh.code + '</b> \u00b7 ' + devs.length + ' device(s)</div>' + (rows || "<div>waiting for the other device\u2026</div>") + results);
+      /* target picker: send the order to one device instead of everyone */
+      var sel = $("#amuTarget");
+      if(sel){
+        var keep = sel.value || "all";
+        sel.innerHTML = '<option value="all">All devices</option>' + devs.map(function(d){
+          var id = String(d.id || "");
+          var label = (d.name || "Device") + (id === nodeId ? " (this device)" : "");
+          return '<option value="' + id.replace(/"/g, "") + '">' + label.replace(/[<>&]/g, "") + '</option>';
+        }).join("");
+        sel.value = keep;
+        if(sel.value !== keep) sel.value = "all";
+      }
       codeShow();
     }).catch(function(e){ if(gone(e)) forget(); else listSet("<div>" + e.message + "</div>"); });
   }
@@ -2203,7 +2222,11 @@ function makeQR(text) {
     var txt = String((el || {}).value || "").trim();
     if(!txt) return;
     var c = meshParse(txt);
-    api("/v1/mesh/command", { code: mesh.code, nodeId: "all", cmd: c.cmd, arg: c.arg })
+    var sel = $("#amuTarget");
+    var to = sel && sel.value ? sel.value : "all";
+    var body = { code: mesh.code, cmd: c.cmd, arg: c.arg };
+    if(to !== "all") body.targets = [to]; else body.nodeId = "all";
+    api("/v1/mesh/command", body)
       .then(function(j){
         tell(j.queued ? ("Sent \u00b7 " + c.cmd + " \u2192 " + j.queued + " device(s)") : "No device joined yet");
         if(el) el.value = "";
@@ -2258,6 +2281,12 @@ function makeQR(text) {
   var __cb = $("#amuAllow");
   if(__cb){ __cb.checked = meshAllow(); __cb.onchange = function(){ meshSetAllow(__cb.checked); tell(__cb.checked ? "This device can be controlled" : "Remote control blocked"); }; }
   $("#amuCmd").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); meshRun(); } });
+  $("#amuLink").onclick = function(){
+    if(!mesh.code) return tell("Host or join first");
+    var link = meshUrl(mesh.code);
+    try{ navigator.clipboard.writeText(link).then(function(){ tell("Join link copied"); }, function(){ tell(link); }); }
+    catch(e){ tell(link); }
+  };
   $("#amuP1").onclick = function(){ $("#amuCmd").value = "open youtube"; meshRun(); };
   $("#amuP2").onclick = function(){ $("#amuCmd").value = "open google"; meshRun(); };
   $("#amuP3").onclick = function(){ $("#amuCmd").value = "speak Hello from AURA"; meshRun(); };
@@ -3135,6 +3164,7 @@ function makeQR(text) {
       }
       tell('Co-Pilot on \u00b7 watching quietly');
       copStatus();   /* the panel must not keep saying "Not sharing" after a start */
+      copPill(true);
       var b = document.getElementById('auraCopBtn');
       if(b) b.textContent = '\uD83D\uDC41 Co-Pilot: on';
     }
@@ -3151,6 +3181,7 @@ function makeQR(text) {
       var b = document.getElementById('auraCopBtn');
       if(b) b.textContent = '\ud83d\udc41 Co-Pilot';
       copStatus();
+      copPill(false);
       tell('Co-Pilot off');
     }
 
@@ -3176,6 +3207,33 @@ function makeQR(text) {
       answerEl.style.display = 'block';
       answerEl.textContent = text;
       if(meta){ answerEl.setAttribute('data-model', meta); }
+    }
+    /* a small floating pill while sharing: the panel can be closed and the co-pilot is
+       still running, so there has to be something to tap */
+    function copPill(show){
+      var el = document.getElementById('auraCopPill');
+      if(!show){ if(el) el.remove(); return; }
+      if(el) return;
+      el = document.createElement('button');
+      el.id = 'auraCopPill'; el.type = 'button';
+      el.textContent = '\uD83D\uDC41 Co-Pilot';
+      el.style.cssText = 'position:fixed;z-index:45;right:14px;bottom:56px;padding:9px 13px;border-radius:999px;' +
+        'border:1px solid rgba(120,215,255,.4);background:rgba(8,16,26,.92);color:#dff4ff;' +
+        'font:600 12px Inter,system-ui,sans-serif;cursor:pointer;box-shadow:0 10px 26px rgba(0,0,0,.45)';
+      el.onclick = function(){ copPanel(true); };
+      document.body.appendChild(el);
+    }
+    function copLogRender(){
+      var box = document.getElementById('auraCopLog');
+      if(!box) return;
+      var last = co.log.slice(-2);
+      if(!last.length){ box.style.display = 'none'; return; }
+      box.style.display = 'block';
+      box.innerHTML = last.map(function(e){
+        return '<div style="padding:8px 0 0;font-size:11.6px;line-height:1.45">' +
+          '<div style="color:#7f8b9a">Q: ' + String(e.q).replace(/[<>&]/g, '').slice(0, 80) + '</div>' +
+          '<div style="color:#cfe9ff">' + String(e.a).replace(/[<>&]/g, '').slice(0, 110) + '</div></div>';
+      }).join('');
     }
     function copVoiceOn(){ try{ return localStorage.getItem('aura_cop_voice') === '1'; }catch(e){ return false; } }
     function copSetVoice(on){ try{ localStorage.setItem('aura_cop_voice', on ? '1' : '0'); }catch(e){} }
@@ -3219,10 +3277,18 @@ function makeQR(text) {
           '<button id="auraCopAsk" type="button" aria-label="Ask" style="padding:0 14px;border-radius:10px;border:0;' +
             'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 13px Inter,system-ui,sans-serif;cursor:pointer">Ask</button>' +
         '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px">' +
+          '<button class="auracop-chip" data-q="What is on my screen right now? Answer in 2 lines.">What\u2019s this?</button>' +
+          '<button class="auracop-chip" data-q="Is there an error on my screen? If yes, give the fix.">Any error?</button>' +
+          '<button class="auracop-chip" data-q="What should I do next on this screen?">What next?</button>' +
+          '<button class="auracop-chip" data-q="Summarise what is on my screen in 3 short lines.">Summarise</button>' +
+        '</div>' +
         '<div style="display:flex;gap:14px;align-items:center;padding:0 14px 10px;font:11.5px Inter,system-ui,sans-serif;color:#8ea1b2">' +
           '<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="auraCopVoice"> Speak answers</label>' +
+          '<button id="auraCopShut" type="button" style="background:none;border:0;color:#8ea1b2;font:11.5px Inter,system-ui,sans-serif;cursor:pointer;padding:0">Stop voice</button>' +
           '<span id="auraCopHint">Ask by typing or by \uD83C\uDFA4</span>' +
         '</div>' +
+        '<div id="auraCopLog" style="display:none;margin:0 14px 12px;padding:0 0 2px;border-top:1px solid rgba(255,255,255,.07)"></div>' +
         '<div id="auraCopAnswer" style="display:none;margin:0 14px 12px;padding:10px 12px;border-radius:10px;' +
           'background:rgba(120,215,255,.08);border:1px solid rgba(120,215,255,.18);font-size:12.8px;white-space:pre-wrap"></div>' +
         '<details style="padding:0 14px 12px">' +
@@ -3266,6 +3332,18 @@ function makeQR(text) {
       };
       /* voice: answers can be spoken, and a question can be asked by talking. Both go
          through the same copAsk, so the panel and the background watcher share a brain. */
+      /* one-tap questions: the useful half of a screen assistant is not talking to it,
+         it is not having to type the obvious question */
+      [].forEach.call(p.querySelectorAll('.auracop-chip'), function(ch){
+        ch.style.cssText = 'padding:6px 10px;border-radius:999px;border:1px solid rgba(120,215,255,.22);' +
+          'background:rgba(120,215,255,.07);color:#cfe9ff;font:11.5px Inter,system-ui,sans-serif;cursor:pointer';
+        ch.onclick = function(){
+          p.querySelector('#auraCopQ').value = ch.getAttribute('data-q');
+          ask();
+        };
+      });
+      var shut = p.querySelector('#auraCopShut');
+      if(shut) shut.onclick = function(){ try{ speechSynthesis.cancel(); }catch(e){} tell('Voice stopped'); };
       var voiceCb = p.querySelector('#auraCopVoice');
       if(voiceCb) voiceCb.checked = copVoiceOn();
       if(voiceCb) voiceCb.onchange = function(){ copSetVoice(voiceCb.checked); if(voiceCb.checked) copSpeak('Voice answers on'); };
@@ -3347,6 +3425,7 @@ function makeQR(text) {
           co.asked = (co.asked || 0) + 1;
           co.log.push({ q: question, a: j.answer });
           if(co.log.length > 6) co.log.shift();
+          copLogRender();
           copAnswer(j.answer, j.model);
           copStatus();
           return j;
