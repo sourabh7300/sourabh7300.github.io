@@ -3149,7 +3149,7 @@ async function copilotAlt(instruction, mimeType, data, opts) {
     const msgs = [
       { role: "system", content: instruction },
       { role: "user", content: [
-        { type: "text", text: "Is the user stuck on this screen frame? Reply with the JSON described." },
+        { type: "text", text: opts.userText || "Is the user stuck on this screen frame? Reply with the JSON described." },
         { type: "image_url", image_url: { url: "data:" + mimeType + ";base64," + data } }
       ] }
     ];
@@ -3157,6 +3157,7 @@ async function copilotAlt(instruction, mimeType, data, opts) {
     const alt = await visionAltModels();
     for (const model of (alt.groq || []).slice(0, 2)) {
       const t = await openAiVision("https://api.groq.com/openai/v1", key, model, msgs, opts.maxTok || 320);
+      if (!t) copilotStats.lastErr = "groq/" + model + " no text";
       if (opts.raw) { if (t) return { text: t, model: "groq/" + model }; continue; }
       const parsed = t ? copilotParse(t, "groq/" + model) : null;
       if (parsed) return parsed;
@@ -3165,6 +3166,7 @@ async function copilotAlt(instruction, mimeType, data, opts) {
     for (const model of nv.slice(0, 3)) {
       if (!NVIDIA_NIM_KEY) break;
       const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, opts.maxTok || 320);
+      if (!t) copilotStats.lastErr = "nvidia/" + model + " no text";
       if (opts.raw) { if (t) return { text: t, model: "nvidia/" + model }; continue; }
       const parsed = t ? copilotParse(t, "nvidia/" + model) : null;
       if (parsed) return parsed;
@@ -3192,7 +3194,7 @@ async function copilotAnswer(image, question) {
   const cap = new Promise(r => setTimeout(() => r(null), 30_000));
   const out = await Promise.race([
     copilotGemini(instruction, mimeType, data, { raw: true, maxTok: 600 }),
-    copilotAlt(instruction, mimeType, data, { raw: true, maxTok: 600 }),
+    copilotAlt(instruction, mimeType, data, { raw: true, maxTok: 600, userText: "Answer the user's question using what this screen frame shows. Plain text, max 90 words." }),
     cap
   ]);
   if (!out || !out.text) return null;
