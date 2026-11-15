@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="38c71bef6e5c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="a3ebc5b60151"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -772,7 +772,9 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
   input.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none";
   input.setAttribute("aria-hidden", "true");
   input.id = "auraFilePicker";   /* the Attach control is a <label for> this id */
-  input.accept = "image/*,.txt,.md,.json,.csv,.js,.ts,.html,.css,.py,.java,.c,.cpp,.log,.xml,.yml,.yaml";
+  /* .docx and .pdf were missing here, so Android's picker hid them and a Word or PDF
+     file could not be chosen at all — the "attachment doesn't work" report. */
+  input.accept = "image/*,.pdf,.docx,.docm,.txt,.md,.json,.csv,.js,.ts,.html,.css,.py,.java,.c,.cpp,.log,.xml,.yml,.yaml";
   document.body.appendChild(input);
 
   var card = $("#card"), inp = $("#inp");
@@ -863,6 +865,22 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         fr.readAsDataURL(file);
         return;
       }
+      /* A .pdf is a container of compressed streams. Inflate each stream in the page and
+         pull the text-showing operators (Tj / TJ / ') out of them — good enough for the
+         invoices, notes and reports people actually attach, with no library. */
+      if(/\.pdf$/i.test(file.name || "") || /application\/pdf/.test(file.type || "")){
+        pdfText(file).then(function(t){
+          var body = (t || "").trim();
+          if(body.length > 1){
+            done({ name: file.name, bytes: file.size, text: body.length > 20000 ? body.slice(0, 20000) + "\n…(truncated)" : body });
+          } else {
+            done({ name: file.name, bytes: file.size, text: "[This PDF has no selectable text — it is probably a scan or photos. Send a screenshot of the page instead and I can read that.]" });
+          }
+        }).catch(function(){
+          done({ name: file.name, bytes: file.size, text: "[Could not read the text inside this PDF here. Send a screenshot of the page instead.]" });
+        });
+        return;
+      }
       /* A .docx is a ZIP, not text. readAsText on one sends binary rubbish to the
          model, which then "thinks" forever about nothing — that is the stuck screenshot.
          Pull word/document.xml out of the zip and inflate it in the page. */
@@ -886,6 +904,84 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
   }
 
   /* minimal ZIP reader: only enough to find one entry and inflate it */
+  /* PDF text, no library: every "stream … endstream" block is inflated (FlateDecode) and
+     the strings inside the text operators (Tj, TJ, ') are collected in order. Words that
+     sit apart on one line are joined with a space, lines are separated by a newline. */
+  async function pdfText(file){
+    var buf = new Uint8Array(await file.arrayBuffer());
+    var latin = "";
+    for(var i = 0; i < buf.length; i += 8192){
+      latin += String.fromCharCode.apply(null, buf.subarray(i, i + 8192));
+    }
+    function inflate(bytes){
+      if(typeof DecompressionStream !== "function") return Promise.resolve(null);
+      try{
+        var ds = new DecompressionStream("deflate");
+        var w = ds.writable.getWriter();
+        w.write(bytes); w.close();
+        return new Response(ds.readable).arrayBuffer().then(function(b){ return new Uint8Array(b); }).catch(function(){ return null; });
+      }catch(e){ return Promise.resolve(null); }
+    }
+    function unescapePdf(s){
+      return s.replace(/\\([nrtbf()\\])/g, function(m, c){
+        return c === "n" ? "\n" : c === "r" ? "" : c === "t" ? "\t" : c === "b" || c === "f" ? "" : c;
+      }).replace(/\\([0-7]{1,3})/g, function(m, o){ return String.fromCharCode(parseInt(o, 8)); });
+    }
+    /* text out of a decoded content stream */
+    function harvest(txt){
+      var out = [], m;
+      var re = /\(((?:\\.|[^\\()])*)\)\s*(Tj|TJ|')|\[((?:[^\[\]]|\\.)*)\]\s*TJ|(T\*|TD|Td|ET)/g;
+      while((m = re.exec(txt))){
+        if(m[1] != null){ out.push(unescapePdf(m[1]) + (m[2] === "'" ? "\n" : "")); }
+        else if(m[3] != null){
+          var arr = [], r2 = /\(((?:\\.|[^\\()])*)\)|(-?[\d.]+)/g, a;
+          while((a = r2.exec(m[3]))){ arr.push(a[1] != null ? unescapePdf(a[1]) : (parseFloat(a[2]) < -120 ? " " : "")); }
+          out.push(arr.join(""));
+        }
+        else if(m[4]){ out.push("\n"); }
+      }
+      return out.join("");
+    }
+    var pieces = [];
+    var at = 0, guard = 0;
+    while(guard++ < 400){
+      var s = latin.indexOf("stream", at);
+      if(s < 0) break;
+      var start = s + 6;
+      if(latin.charAt(start) === "\r") start++;
+      if(latin.charAt(start) === "\n") start++;
+      var e = latin.indexOf("endstream", start);
+      if(e < 0) break;
+      at = e + 9;
+      var raw = buf.subarray(start, e);
+      pieces.push(raw);
+      /* uncompressed streams are readable as they are */
+      var head = latin.slice(parentHead(latin, s), s);
+      if(/\/FlateDecode/.test(head)) continue;
+      pieces.pop();
+      var body = latin.slice(start, e);
+      if(/\((?:\\.|[^\\()])*\)\s*(Tj|TJ)/.test(body)) pieces.push(body);
+    }
+    function parentHead(all, idx){ /* the dict right before `stream` */
+      var from = Math.max(0, idx - 700);
+      var k = all.lastIndexOf("obj", idx);
+      return Math.max(from, k < 0 ? from : k);
+    }
+    var texts = [];
+    for(var p = 0; p < pieces.length; p++){
+      var piece = pieces[p];
+      if(typeof piece === "string"){ texts.push(harvest(piece)); continue; }
+      var inf = await inflate(piece);
+      if(inf && inf.length){
+        var str = "";
+        for(var q = 0; q < inf.length; q += 8192) str += String.fromCharCode.apply(null, inf.subarray(q, q + 8192));
+        texts.push(harvest(str));
+      }
+    }
+    var text = texts.join("\n").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").replace(/[^\x09\x0a\x20-\x7e\u00a0-\uffff]/g, "");
+    return text.trim();
+  }
+
   async function docxText(file){
     var buf = new Uint8Array(await file.arrayBuffer());
     function u16(o){ return buf[o] | (buf[o + 1] << 8); }
@@ -2594,7 +2690,13 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         await copStart();
         if(!co.on) return null;
       }
+      /* the first frame arrives a moment after the share starts — wait for a real one
+         instead of failing the question in the first 200ms */
       var cv = copNow();
+      for(var i = 0; i < 12 && !cv; i++){
+        await new Promise(function(res){ setTimeout(res, 200); });
+        cv = copNow();
+      }
       if(!cv) return null;
       try{
         var send = async function(){
