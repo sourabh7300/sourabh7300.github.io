@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="0a75a0a0d896"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="c4fe0a50a413"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -999,6 +999,36 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
 
   /* ---------------- engine hook ---------------- */
   var history = [];
+
+  /* ---------- reopening a saved chat must restore context, not just bubbles ----------
+     The transcript came back on screen but this array (the thing the model actually
+     reads) still held the previous conversation, so "Question 2 ka code bhi do" was
+     answered with "you never shared Question 2". Anytime a saved chat is opened or a
+     new one starts, the array is rebuilt from what is on screen. */
+  function syncHistoryFromChat(){
+    try{
+      var out = [];
+      [].forEach.call(document.querySelectorAll('#msgs .m'), function(m){
+        var span = m.querySelector(':scope > span') || m.children[m.children.length - 1];
+        var txt = span ? String(span.innerText || span.textContent || '').trim() : '';
+        /* the Copy/Speak toolbar is not part of the answer */
+        txt = txt.replace(/\s*[\u29C9\u2713]\s*Copy\s*/g, ' ').replace(/\s*\uD83D\uDD0A\s*Speak\s*/g, ' ').trim();
+        if(!txt) return;
+        out.push({ role: m.classList.contains('u') ? 'user' : 'assistant', content: txt.slice(0, 4000) });
+      });
+      history = out.slice(-16);
+      window.__auraLastReply = null;
+    }catch(e){}
+  }
+  window.__auraSyncHistory = syncHistoryFromChat;
+  try{
+    document.addEventListener('click', function(e){
+      var t = e.target;
+      if(!t || !t.closest) return;
+      if(t.closest('#chlist .it') || t.closest('#newchat')) setTimeout(syncHistoryFromChat, 90);
+    }, true);
+    setTimeout(syncHistoryFromChat, 1500);
+  }catch(e){}
 
   /* ---------- who is talking to us ----------
      A small, honest profile: the name saved in Settings, the language they actually
