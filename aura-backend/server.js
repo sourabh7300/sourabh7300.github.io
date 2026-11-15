@@ -619,16 +619,46 @@ async function streamLane(opts) {
    3) PUBLIC_MODELS — public chat runs on lighter, higher-quota models (below) */
 const answerCache = new Map(); /* normalized question → { answer, model, t } */
 const ANSWER_CACHE_TTL = parseInt(process.env.ANSWER_CACHE_TTL || "3600000", 10); /* 1h */
+function hash32(str) {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+/* OWNER REPORT 15 Nov 2026: "study file di thi, ek hi sawaal solve karta hai" and a maths
+   ask that kept coming back as a bare "x = 6". The cache key was the user's sentence
+   ALONE, so a question asked with an attached file — or with a completely rewritten
+   system prompt — was answered from an older entry that had neither. The key now covers
+   the instructions and the question text, and attachment turns are never cached. */
+function cacheable(messages) {
+  const list = messages || [];
+  if (list.some(m => Array.isArray(m.content))) return false;   /* images */
+  const last = [...list].reverse().find(m => m.role === "user" && typeof m.content === "string");
+  if (!last) return false;
+  const t = String(last.content);
+  if (t.length > 1200) return false;                            /* file text pasted into the turn */
+  if (/--- file:/.test(t)) return false;
+  return true;
+}
 function normQ(messages) {
-  const last = [...messages].reverse().find(m => m.role === "user" && typeof m.content === "string");
-  return last ? last.content.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 300) : "";
+  const list = messages || [];
+  const last = [...list].reverse().find(m => m.role === "user" && typeof m.content === "string");
+  if (!last) return "";
+  const user = last.content.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 400);
+  const sys = list.filter(m => m.role === "system" && typeof m.content === "string")
+    .map(m => m.content).join(" ").toLowerCase();
+  return hash32(sys) + "|" + hash32(user) + "|" + user.slice(0, 120);
 }
 /* a cache must never answer a question whose whole point is being current —
    "latest iPhone" was served a wrong 1-hour-old answer from here */
 const FRESH_Q = /(latest|today|tonight|now|current|news|price|rate|score|result|schedule|when|kab|aaj|abhi|20[2-9][0-9]|winner|won|match|tournament|election|weather|stock|ipo|launch|release|update|trending|kitna)/i;
+function userText(messages) {
+  const last = [...(messages || [])].reverse().find(m => m.role === "user" && typeof m.content === "string");
+  return last ? last.content : "";
+}
 function cacheGet(messages) {
+  if (!cacheable(messages)) return null;
   const k = normQ(messages); if (!k) return null;
-  if (FRESH_Q.test(k)) return null;
+  if (FRESH_Q.test(userText(messages))) return null;
   const hit = answerCache.get(k);
   if (hit && Date.now() - hit.t < ANSWER_CACHE_TTL) return hit;
   if (hit) answerCache.delete(k);
@@ -642,8 +672,9 @@ function deadline(p, ms, fallback) {
   ]);
 }
 function cachePut(messages, answer, model) {
+  if (!cacheable(messages)) return;
   const k = normQ(messages); if (!k || !answer) return;
-  if (FRESH_Q.test(k)) return;
+  if (FRESH_Q.test(userText(messages))) return;
   if (answerCache.size > 400) answerCache.clear(); /* tiny footprint, self-healing */
   answerCache.set(k, { answer, model, t: Date.now() });
 }
