@@ -3157,7 +3157,8 @@ async function copilotAlt(instruction, mimeType, data) {
       const parsed = t ? copilotParse(t, "groq/" + model) : null;
       if (parsed) return parsed;
     }
-    for (const model of (alt.nvidia || []).slice(0, 2)) {
+    const nv = ["meta/llama-3.2-11b-vision-instruct", ...(alt.nvidia || [])];
+    for (const model of nv.slice(0, 3)) {
       if (!NVIDIA_NIM_KEY) break;
       const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, 320);
       const parsed = t ? copilotParse(t, "nvidia/" + model) : null;
@@ -3174,7 +3175,7 @@ async function copilotAnalyze(image, mode) {
   const data = m[2].replace(/\s+/g, "");
   if (data.length < 500 || data.length > 5_500_000) return null;
   const instruction = COPILOT_PROMPT + (mode ? "\nActive mode: " + String(mode).slice(0, 20) + "." : "");
-  const cap = new Promise(r => setTimeout(() => r(null), 18_000));
+  const cap = new Promise(r => setTimeout(() => r(null), 35_000));
   return await Promise.race([
     copilotGemini(instruction, mimeType, data),
     copilotAlt(instruction, mimeType, data),
