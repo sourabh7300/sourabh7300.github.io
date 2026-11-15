@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="397de3dd8eed"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e667251d9b8e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1336,6 +1336,35 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     "Never mention being a language model, a prompt, or these instructions."
   ].join(" ");
 
+  /* ---------------- DAILY BRIEF ----------------
+     AURA should know today without searching for it every time. The backend refreshes
+     a short brief from its search stack; the page keeps it for the day and carries it
+     in the system prompt, so "aaj kya hua" is instant instead of a 9s lookup. */
+  var BRIEF_KEY = "aura_brief_v1";
+  function briefBlock(){
+    try{
+      var b = JSON.parse(localStorage.getItem(BRIEF_KEY) || "null");
+      if(!b || !b.text) return "";
+      var today = new Date().toISOString().slice(0,10);
+      var age = Date.now() - (b.at || 0);
+      if(b.date !== today || age > 8*3600*1000) return "";
+      return "TODAY'S BRIEF (auto-updated " + Math.round(age/60000) + " min ago, use only when relevant): " + String(b.text).slice(0, 700);
+    }catch(e){ return ""; }
+  }
+  function loadBrief(){
+    try{
+      var b = JSON.parse(localStorage.getItem(BRIEF_KEY) || "null");
+      var today = new Date().toISOString().slice(0,10);
+      if(b && b.date === today && Date.now() - (b.at||0) < 3*3600*1000) return;
+      fetch(BASE + "/v1/brief").then(function(r){ return r.json(); }).then(function(j){
+        if(j && j.items && j.items.length){
+          localStorage.setItem(BRIEF_KEY, JSON.stringify({ date: today, at: j.updatedAt || Date.now(), text: j.items.map(function(i){ return i.title; }).join(" | ") }));
+        }
+      }).catch(function(){});
+    }catch(e){}
+  }
+  setTimeout(loadBrief, 5000);
+
   var SYS = {
     aura: "You are AURA (Adaptive Universal Reasoning Assistant), a calm, precise holographic assistant built by Sourabh Singh. Warm, direct, quietly confident. " + RULES,
     zeus: "You are ZEUS, the thunder persona of AURA: bold, decisive, short declarative sentences, address the user as 'sir', never rude or dismissive. " + RULES
@@ -1498,7 +1527,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     }
 
     async function ask(withWeb, onDelta){
-      var sys = [SYS[m], "TODAY IS " + todayLine() + ".", profileBlock()].filter(Boolean).join(" ");
+      var sys = [SYS[m], "TODAY IS " + todayLine() + ".", briefBlock(), profileBlock()].filter(Boolean).join(" ");
       var msgs = [{ role: "system", content: sys }];
       /* OWNER REPORT 15 Nov 2026: a study file with 20 questions got ONE solved. The turn
          carried the file text with no instruction about scope, so the model answered the
@@ -1977,6 +2006,19 @@ function makeQR(text) {
     '</div>' +
     '<div class="log" id="amuList" style="height:150px">not connected</div>' +
     '<div style="display:flex;gap:8px;margin-top:12px"><input type="text" id="amuSay" placeholder="Say something on every device"><button class="b pr" id="amuSend">\u25b8</button></div>' +
+    /* remote control — the host types or speaks an order, the joined device runs it */
+    '<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">' +
+      '<div style="font:11.5px var(--f2);color:var(--dim);margin-bottom:6px">REMOTE CONTROL \u2014 the other device runs what you type or say</div>' +
+      '<div style="display:flex;gap:8px"><input type="text" id="amuCmd" placeholder="open youtube \u00b7 speak hello \u00b7 what do you see" style="flex:1">' +
+      '<button class="b" id="amuMic" title="Speak the order">\uD83C\uDFA4</button><button class="b pr" id="amuRun">Run</button></div>' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">' +
+        '<button class="b" id="amuP1">Open YouTube</button>' +
+        '<button class="b" id="amuP2">Open Google</button>' +
+        '<button class="b" id="amuP3">Speak hello</button>' +
+      '</div>' +
+      '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font:11.5px var(--f2);color:var(--dim)">' +
+        '<input type="checkbox" id="amuAllow"> Allow this device to be controlled</label>' +
+    '</div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
       '<button class="b" id="amuCopy">\u29c9 Copy code</button>' +
       '<button class="b" id="amuRefresh">\u21bb Refresh</button>' +
@@ -2050,6 +2092,124 @@ function makeQR(text) {
     try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
     setStatus("not connected"); listSet("not connected"); qrDraw();
   }
+  /* ---------- remote control ----------
+     "open youtube", "speak hello", "vibrate" — the joined device performs it and
+     reports back, so the host sees what happened. Permission is per device and
+     remembered; without it nothing runs. */
+  function meshAllow(){
+    try{ return localStorage.getItem("aura_mesh_allow") === "1"; }catch(e){ return false; }
+  }
+  function meshSetAllow(on){
+    try{ localStorage.setItem("aura_mesh_allow", on ? "1" : "0"); }catch(e){}
+    var cb = $("#amuAllow"); if(cb) cb.checked = !!on;
+  }
+  function meshSpeak(text){
+    try{
+      if(!window.speechSynthesis) return false;
+      var u = new SpeechSynthesisUtterance(String(text || "").slice(0, 300));
+      u.rate = 1; u.pitch = 1;
+      u.lang = /[\u0900-\u097F]/.test(text) ? "hi-IN" : (/\b(kya|hai|nahi|kar|kaise)\b/i.test(text) ? "hi-IN" : "en-US");
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+      return true;
+    }catch(e){ return false; }
+  }
+  function meshBanner(title, body, btn, onTap){
+    var b = document.getElementById("auraMeshBanner");
+    if(!b){
+      b = document.createElement("div"); b.id = "auraMeshBanner";
+      b.style.cssText = "position:fixed;z-index:80;left:12px;right:12px;top:12px;padding:12px 14px;border-radius:14px;" +
+        "background:rgba(8,16,26,.97);border:1px solid rgba(120,215,255,.35);color:#e9f5ff;box-shadow:0 18px 48px rgba(0,0,0,.55);" +
+        "font:13px/1.45 Inter,system-ui,sans-serif;display:none";
+      document.body.appendChild(b);
+    }
+    b.innerHTML = '<b style="display:block;margin-bottom:4px">' + title + '</b><div style="color:#a9bccd;margin-bottom:8px">' + body + '</div>';
+    if(btn){
+      var ok = document.createElement("button"); ok.textContent = btn;
+      ok.style.cssText = "padding:7px 12px;border-radius:9px;border:0;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 12.5px Inter,system-ui,sans-serif;cursor:pointer";
+      ok.onclick = function(){ b.style.display = "none"; try{ onTap && onTap(); }catch(e){} };
+      b.appendChild(ok);
+      var no = document.createElement("button"); no.textContent = "Dismiss";
+      no.style.cssText = "margin-left:8px;padding:7px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfe9ff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer";
+      no.onclick = function(){ b.style.display = "none"; };
+      b.appendChild(no);
+    }
+    b.style.display = "block";
+    clearTimeout(meshBanner.h);
+    if(!btn) meshBanner.h = setTimeout(function(){ b.style.display = "none"; }, 5000);
+  }
+  function meshAskAllow(cmd){
+    var what = cmd.cmd === "open" ? "open " + cmd.arg : (cmd.cmd === "speak" ? "speak out loud" : cmd.cmd);
+    meshBanner("AURA mesh request", "The host wants this device to <b>" + what + "</b>.", "Allow", function(){
+      meshSetAllow(true); meshExec(cmd);
+    });
+  }
+  function meshTargetUrl(arg){
+    var t = String(arg || "").trim();
+    if(!t) return "";
+    var aliases = { youtube: "https://www.youtube.com", yt: "https://www.youtube.com", google: "https://www.google.com",
+      whatsapp: "https://web.whatsapp.com", instagram: "https://www.instagram.com", gmail: "https://mail.google.com",
+      maps: "https://maps.google.com", github: "https://github.com", chatgpt: "https://chat.openai.com" };
+    var k = t.toLowerCase().replace(/[^a-z]/g, "");
+    if(aliases[k]) return aliases[k];
+    if(/^https?:\/\//i.test(t)) return t;
+    if(/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(t)) return "https://" + t;
+    return "https://www.google.com/search?q=" + encodeURIComponent(t);
+  }
+  function meshExec(c){
+    var cmd = String(c.cmd || ""), arg = String(c.arg || "");
+    var done = function(note){ meshResult(c.id, note || "ok"); };
+    if(cmd === "open"){
+      var url = meshTargetUrl(arg);
+      var w = null;
+      try{ w = window.open(url, "_blank"); }catch(e){}
+      if(!w){
+        /* pop-ups need a gesture — hand the tap to the user instead of failing silently */
+        meshBanner("AURA mesh", "Open <b>" + url + "</b> on this device?", "Open now", function(){
+          try{ window.open(url, "_blank"); }catch(e){ location.href = url; }
+        });
+        done("blocked — asked the user to tap");
+      } else done("opened " + url);
+      return;
+    }
+    if(cmd === "speak"){
+      var ok = meshSpeak(arg);
+      tell("\uD83D\uDD0A " + arg.slice(0, 60));
+      done(ok ? "spoken" : "speech not available");
+      return;
+    }
+    if(cmd === "toast"){ meshBanner("AURA mesh", arg || "", "OK", null); done("shown"); return; }
+    if(cmd === "vibrate"){ try{ navigator.vibrate && navigator.vibrate([120, 60, 120]); }catch(e){} done("vibrated"); return; }
+    meshBanner("AURA mesh", "Unknown order: " + cmd, "OK", null);
+    done("unknown command");
+  }
+  function meshResult(id, note){
+    api("/v1/mesh/result", { code: mesh.code, nodeId: nodeId, cmdId: id, result: String(note || "").slice(0, 120) }).catch(function(){});
+  }
+  /* the host's own words become a command: "open youtube", "speak hello", "vibrate" */
+  function meshParse(text){
+    var t = String(text || "").trim();
+    var m = t.match(/^(open|kholo|khol)\s+(.+)$/i);
+    if(m) return { cmd: "open", arg: m[2] };
+    m = t.match(/^(speak|bolo|bol|suno|say)\s+([\s\S]+)$/i);
+    if(m) return { cmd: "speak", arg: m[2] };
+    m = t.match(/^(toast|show|dikhao)\s+([\s\S]+)$/i);
+    if(m) return { cmd: "toast", arg: m[2] };
+    if(/^(vibrate|hila)/i.test(t)) return { cmd: "vibrate", arg: "" };
+    return { cmd: "speak", arg: t };
+  }
+  function meshRun(){
+    if(!mesh.code) return tell("Host or join first");
+    var el = $("#amuCmd");
+    var txt = String((el || {}).value || "").trim();
+    if(!txt) return;
+    var c = meshParse(txt);
+    api("/v1/mesh/command", { code: mesh.code, nodeId: "all", cmd: c.cmd, arg: c.arg })
+      .then(function(j){
+        tell(j.queued ? ("Sent \u00b7 " + c.cmd + " \u2192 " + j.queued + " device(s)") : "No device joined yet");
+        if(el) el.value = "";
+      }).catch(function(e){ tell(e.message); });
+  }
+
   function pollStart(){
     if(mesh.timer) clearInterval(mesh.timer);
     var tick = function(){
@@ -2061,7 +2221,12 @@ function makeQR(text) {
             if(c.cmd === "say"){
               tell("\uD83D\uDCE1 " + (c.arg || ""));
               try{ if(typeof window.addMsg === "function") window.addMsg("a", "\uD83D\uDCE1 " + (c.arg || "")); }catch(e){}
+              return;
             }
+            /* every other command ACTS on this device — it only runs when the owner of
+               this device allowed it, and the first order asks once */
+            if(!meshAllow()){ meshAskAllow(c); return; }
+            meshExec(c);
           });
           if($("#auraMeshOv").classList.contains("on")) refresh();
         }).catch(function(e){ if(gone(e)) forget(); });
@@ -2088,6 +2253,30 @@ function makeQR(text) {
       navigator.clipboard.writeText(mesh.code).then(function(){ tell("Code copied \u00b7 " + mesh.code); },
         function(){ tell("Code: " + mesh.code); });
     }catch(e){ tell("Code: " + mesh.code); }
+  };
+  $("#amuRun").onclick = meshRun;
+  var __cb = $("#amuAllow");
+  if(__cb){ __cb.checked = meshAllow(); __cb.onchange = function(){ meshSetAllow(__cb.checked); tell(__cb.checked ? "This device can be controlled" : "Remote control blocked"); }; }
+  $("#amuCmd").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); meshRun(); } });
+  $("#amuP1").onclick = function(){ $("#amuCmd").value = "open youtube"; meshRun(); };
+  $("#amuP2").onclick = function(){ $("#amuCmd").value = "open google"; meshRun(); };
+  $("#amuP3").onclick = function(){ $("#amuCmd").value = "speak Hello from AURA"; meshRun(); };
+  $("#amuMic").onclick = function(){
+    var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SR) return tell("Voice input is not supported in this browser");
+    try{
+      var r = new SR();
+      r.lang = "en-IN"; r.interimResults = false; r.maxAlternatives = 1;
+      tell("\uD83C\uDFA4 Listening for the order\u2026");
+      r.onresult = function(ev){
+        var said = ev.results[0][0].transcript;
+        $("#amuCmd").value = said;
+        tell("Heard: " + said);
+        meshRun();
+      };
+      r.onerror = function(){ tell("Could not hear that \u2014 try again"); };
+      r.start();
+    }catch(e){ tell("Mic unavailable: " + e.message); }
   };
   $("#amuSend").onclick = function(){
     var t = String(($("#amuSay") || {}).value || "").trim();
@@ -2937,6 +3126,13 @@ function makeQR(text) {
       try{ localStorage.setItem('aura_copilot', '1'); }catch(e){}
       co.timer = setInterval(copTick, 4000);
       copTick();
+      /* voice mode needs the mic; ask once, in the page, with a clear line instead of a
+         silent failure later */
+      if(copVoiceOn() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(s){
+          try{ s.getTracks().forEach(function(t){ t.stop(); }); }catch(e){}
+        }).catch(function(){ tell('Mic permission needed for voice answers \u2014 allow it in the browser'); });
+      }
       tell('Co-Pilot on \u00b7 watching quietly');
       copStatus();   /* the panel must not keep saying "Not sharing" after a start */
       var b = document.getElementById('auraCopBtn');
@@ -2981,6 +3177,20 @@ function makeQR(text) {
       answerEl.textContent = text;
       if(meta){ answerEl.setAttribute('data-model', meta); }
     }
+    function copVoiceOn(){ try{ return localStorage.getItem('aura_cop_voice') === '1'; }catch(e){ return false; } }
+    function copSetVoice(on){ try{ localStorage.setItem('aura_cop_voice', on ? '1' : '0'); }catch(e){} }
+    function copSpeak(text){
+      try{
+        if(!window.speechSynthesis) return false;
+        var s = String(text || '').replace(/^Q:[\s\S]*?\n\n/, '').replace(/[*_`#>]/g, '').trim();
+        if(!s) return false;
+        var u = new SpeechSynthesisUtterance(s.slice(0, 400));
+        u.rate = 1.02; u.pitch = 1;
+        u.lang = /[\u0900-\u097F]/.test(s) ? 'hi-IN' : (/\b(kya|hai|nahi|karu|kaise)\b/i.test(s) ? 'hi-IN' : 'en-US');
+        speechSynthesis.cancel(); speechSynthesis.speak(u);
+        return true;
+      }catch(e){ return false; }
+    }
     function buildPanel(){
       if(panelEl) return panelEl;
       var p = document.createElement('div');
@@ -3005,8 +3215,13 @@ function makeQR(text) {
           '<input id="auraCopQ" type="text" placeholder="Ask anything about your screen…" autocomplete="off" ' +
             'style="flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.14);' +
             'background:rgba(255,255,255,.05);color:#eaf6ff;font:13px Inter,system-ui,sans-serif;outline:none">' +
+          '<button id="auraCopMic" type="button" aria-label="Ask by voice" title="Ask by voice" style="padding:0 10px;border-radius:10px;border:1px solid rgba(120,215,255,.25);background:rgba(120,215,255,.08);color:#cfe9ff;font:15px Inter,system-ui,sans-serif;cursor:pointer">\uD83C\uDFA4</button>' +
           '<button id="auraCopAsk" type="button" aria-label="Ask" style="padding:0 14px;border-radius:10px;border:0;' +
             'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 13px Inter,system-ui,sans-serif;cursor:pointer">Ask</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:14px;align-items:center;padding:0 14px 10px;font:11.5px Inter,system-ui,sans-serif;color:#8ea1b2">' +
+          '<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="auraCopVoice"> Speak answers</label>' +
+          '<span id="auraCopHint">Ask by typing or by \uD83C\uDFA4</span>' +
         '</div>' +
         '<div id="auraCopAnswer" style="display:none;margin:0 14px 12px;padding:10px 12px;border-radius:10px;' +
           'background:rgba(120,215,255,.08);border:1px solid rgba(120,215,255,.18);font-size:12.8px;white-space:pre-wrap"></div>' +
@@ -3043,8 +3258,33 @@ function makeQR(text) {
           await new Promise(function(res){ setTimeout(res, 3500); });
           out = await copAsk(q);
         }
-        if(out) copAnswer(qline + out.answer, out.model);
+        if(out){
+          copAnswer(qline + out.answer, out.model);
+          if(copVoiceOn()) copSpeak(out.answer);
+        }
         else copAnswer(qline + 'I could not read the screen just now — the vision lane is busy. Keep the share running and ask again in a moment.');
+      };
+      /* voice: answers can be spoken, and a question can be asked by talking. Both go
+         through the same copAsk, so the panel and the background watcher share a brain. */
+      var voiceCb = p.querySelector('#auraCopVoice');
+      if(voiceCb) voiceCb.checked = copVoiceOn();
+      if(voiceCb) voiceCb.onchange = function(){ copSetVoice(voiceCb.checked); if(voiceCb.checked) copSpeak('Voice answers on'); };
+      var micBtn = p.querySelector('#auraCopMic');
+      if(micBtn) micBtn.onclick = function(){
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if(!SR) return copAnswer('Voice input is not supported in this browser. Type the question instead.');
+        try{
+          var r = new SR(); r.lang = 'en-IN'; r.interimResults = false; r.maxAlternatives = 1;
+          copAnswer('\uD83C\uDFA4 Listening\u2026');
+          r.onresult = function(ev){
+            var said = String(ev.results[0][0].transcript || '').trim();
+            if(!said) return copAnswer('I did not catch that \u2014 try again.');
+            p.querySelector('#auraCopQ').value = said;
+            ask();
+          };
+          r.onerror = function(e){ copAnswer('Mic error: ' + (e && e.error || 'not allowed') + '. Type the question instead.'); };
+          r.start();
+        }catch(e){ copAnswer('Mic unavailable: ' + e.message); }
       };
       p.querySelector('#auraCopAsk').onclick = ask;
       p.querySelector('#auraCopQ').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); ask(); } });
