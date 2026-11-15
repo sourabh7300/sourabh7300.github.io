@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="cbcf96eb8efd"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="3bbaf795c5a6"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1318,7 +1318,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       " a why/how question gets a short explanation of the actual cause in 2–4 sentences;" +
       " steps, numbered lists and bold section labels are used ONLY when the request is a procedure, a calculation, a comparison, a study question or code — never because the answer happens to be long.",
     "Never pad an answer to look structured. If one sentence is the whole truth, send one sentence. No 'Why'/'Next step'/'Note' filler blocks unless they carry real information.",
-    "MATHS: show real working. Write each line of the calculation on its own line in plain text (no LaTeX), say in a few words what that line does, keep units and signs, and put the final answer in bold on its own line. For a word problem, first write what is given, then the formula, then the substitution, then the result.",
+    "MATHS: never jump to the result. Show the given equation/problem, then one line per operation (say what you did to both sides, with the actual numbers), and put the final value bold on its own line. Shape for '3x + 7 = 25': 3x + 7 = 25 → 3x = 25 - 7 → 3x = 18 → x = 18 / 3 → **x = 6**. For a word problem write Given / Formula / Substitution / Result. Plain text only, no LaTeX, units and signs kept.",
     "CODE: always a fenced block with the language tag (```python, ```js, ```c …), complete and runnable — no '...' placeholders, no partial functions. Keep it in the user's language/stack unless they asked otherwise, and add one short line on how to run it.",
     "DOCUMENTS: when the user attaches a file and asks to solve, answer or summarise it, the WHOLE file is the task. Solve every question/part it contains, in order, numbered exactly like the source, with full working for each — never stop after the first one and never skip the rest.",
     "Match the weight of the answer to the question: a one-line question gets one line, a 'explain in detail' request gets the full walkthrough with examples.",
