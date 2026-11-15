@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="89396a49d978"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="dd678b5e6899"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1140,7 +1140,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
               messages: list,
               max_tokens: capTok, temperature: 0.45
             }),
-            signal: sig || AbortSignal.timeout(45000)
+            signal: sig || AbortSignal.timeout(hasFile ? 30000 : 45000)
           });
           if(!r.ok){
             var why = "";
@@ -1177,7 +1177,12 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         var out1 = await post(msgs, onDelta, hasFile);
         if(window.console) console.info("[aura] chat ok", Date.now() - t0 + "ms", (msgs.length) + " msgs");
         return out1;
-      }catch(e){ firstErr = e; }
+      }catch(e){
+        firstErr = e;
+        /* an image turn already waited out a slow vision lane — retrying it just makes
+           the spinner longer, so it fails once and says so */
+        if(hasFile) throw e;
+      }
       try{
         var lean = msgs.slice(0, 2).concat(history.slice(-2));
         var out2 = await post(lean, onDelta, hasFile);
