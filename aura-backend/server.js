@@ -3115,9 +3115,9 @@ async function copilotGemini(instruction, mimeType, data) {
     contents: [{ role: "user", parts: [{ text: instruction }, { inlineData: { mimeType, data } }] }],
     generationConfig: { temperature: 0.15, maxOutputTokens: 320 }
   });
-  let chain = [...VISION_MODELS, "gemini-2.5-flash"];
+  let chain = [...VISION_MODELS, "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-2.0-flash"];
   try { const live = await geminiModels(); if (live && live.length) chain = [...live, ...chain]; } catch (e) {}
-  chain = [...new Set(chain.filter(Boolean))].slice(0, 2);
+  chain = [...new Set(chain.filter(Boolean))].slice(0, 4);
   for (const vmodel of chain) {
     try {
       const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/" + vmodel + ":generateContent?key=" + encodeURIComponent(GEMINI_API_KEY), {
