@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="61faeac9bea0"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="cbcf96eb8efd"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1309,12 +1309,18 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
   var RULES = [
     "You are an expert across science, maths, programming, design, business, finance, law basics, health basics, education, travel and everyday life — but never pretend: if something is uncertain or outside your knowledge, say so plainly and give the best general direction.",
     "Answer the actual question in the first line, then explain. No filler openers, no restating the question, and never label that first line 'Answer:' — write it as a normal sentence.",
-    "Every answer must read in a clear sequence, never one flat paragraph:" +
-      " (1) one direct line that answers it;" +
-      " (2) a short WHY/HOW in 2–4 sentences that actually explains the reasoning, the cause, or the trade-off;" +
-      " (3) when there is a process, numbered steps (1, 2, 3) or bullets, one idea each;" +
-      " (4) a last line only if it adds something — a caution, a next step or an example.",
-    "Use bold labels for sections in longer answers (e.g. **Why**, **Steps**, **Example**, **Watch out**) and keep each section to a few lines. A simple question still gets 2–5 lines, not an essay.",
+    /* OWNER REPORT 15 Nov 2026: "koi sequence nahi, sab kuch steps me deta hai". The old
+       rule demanded a 4-part shape (direct line + why + numbered steps + closing line) for
+       EVERY answer, so "what is the capital of Japan" came back as a numbered lesson.
+       Structure is now earned by the question, not applied by default. */
+    "Shape follows the question, never a template:" +
+      " a fact, a definition, a yes/no, an opinion or small talk gets 1–3 plain sentences with NO list and NO section headings;" +
+      " a why/how question gets a short explanation of the actual cause in 2–4 sentences;" +
+      " steps, numbered lists and bold section labels are used ONLY when the request is a procedure, a calculation, a comparison, a study question or code — never because the answer happens to be long.",
+    "Never pad an answer to look structured. If one sentence is the whole truth, send one sentence. No 'Why'/'Next step'/'Note' filler blocks unless they carry real information.",
+    "MATHS: show real working. Write each line of the calculation on its own line in plain text (no LaTeX), say in a few words what that line does, keep units and signs, and put the final answer in bold on its own line. For a word problem, first write what is given, then the formula, then the substitution, then the result.",
+    "CODE: always a fenced block with the language tag (```python, ```js, ```c …), complete and runnable — no '...' placeholders, no partial functions. Keep it in the user's language/stack unless they asked otherwise, and add one short line on how to run it.",
+    "DOCUMENTS: when the user attaches a file and asks to solve, answer or summarise it, the WHOLE file is the task. Solve every question/part it contains, in order, numbered exactly like the source, with full working for each — never stop after the first one and never skip the rest.",
     "Match the weight of the answer to the question: a one-line question gets one line, a 'explain in detail' request gets the full walkthrough with examples.",
     "Be concrete: real numbers, names, dates, commands, short code. Explain jargon the first time you use it. Never pad with 'as an AI', never repeat the question back, never end with an empty 'hope this helps'.",
     "Prefer facts you are sure of. When you are not certain, give the best supported answer AND say which part is uncertain in one clause — never invent a statistic, a version number, a quote or a source.",
@@ -1481,6 +1487,14 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     async function ask(withWeb, onDelta){
       var sys = [SYS[m], "TODAY IS " + todayLine() + ".", profileBlock()].filter(Boolean).join(" ");
       var msgs = [{ role: "system", content: sys }];
+      /* OWNER REPORT 15 Nov 2026: a study file with 20 questions got ONE solved. The turn
+         carried the file text with no instruction about scope, so the model answered the
+         first thing it saw and stopped. */
+      if(pack && pack.text) msgs.push({ role: "system", content:
+        "DOCUMENT ATTACHED — the user's message contains the extracted text of " + (pack.count > 1 ? pack.count + " files" : "a file") + ". " +
+        "Treat the whole file as the task: if the user asks to solve, answer, complete, explain or summarise it, work through EVERY question / numbered item / exercise it contains, in order, numbered exactly like the source, with full working for each. " +
+        "Never stop after the first one, never replace the rest with a summary, and never say which ones you skipped. Maths shows working line by line in plain text with a bold final answer; code goes in a fenced block with its language tag. " +
+        "Only when the user asks about one specific line do you answer just that line." });
       if(withWeb && hits.length) msgs.push({ role: "system", content: webBlock(hits) });
       /* searching failed for a live question — say so instead of filling the gap with
          a memory-based "it hasn't happened yet" */
@@ -1503,8 +1517,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
          a trimmed history, keeps a slow lane from losing the question. */
       /* A short question does not need a 2400-token ceiling — a lower cap finishes
          sooner on the same upstream. "Explain …" keeps the long budget. */
-      var wantLong = /\b(explain|detail|detailed|steps|guide|essay|compare|why|kaise|kyun|kyu|samjha|samjhao|poora|pura|step by step)\b/i.test(plain) || plain.length > 140;
-      var capTok = wantLong ? 2400 : 900;
+      var wantLong = /\b(explain|detail|detailed|steps|guide|essay|compare|why|kaise|kyun|kyu|samjha|samjhao|poora|pura|sab|saare|sare|all|solve|solutions|answers|answer key|worksheet|paper|homework|assignment|step by step)\b/i.test(plain) || plain.length > 140 || !!(pack && pack.text);
+      var capTok = wantLong ? 3600 : 900;
 
       /* HEDGED REQUESTS — the same question on two lanes, first answer wins.
          The upstream answers the identical prompt in 0.7s nine times out of ten and
@@ -1648,6 +1662,281 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     if(ri){ var row = ri.closest(".row"); if(row){ row.style.display = "none"; row.id = "introRowHidden"; } }
   }catch(e){}
 
+  /* ---------------- phone performance ----------------
+     Two full-screen canvases (background + particles) repaint on every animation frame
+     and the particle pass draws each dot with a shadowBlur glow. On a mid-range phone
+     that is the whole frame budget, which is the "AURA hang ho raha hai" report. Small
+     and low-memory devices now repaint the decorative layers at ~30fps, and the CSS
+     backdrop blurs are dropped when the device is genuinely weak. */
+  try{
+    (function perfGuard(){
+      var small = window.matchMedia("(max-width: 900px)").matches;
+      var weak = (navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4;
+      if(!small && !weak) return;
+      var n = 0, m = 0;
+      var fx = window.drawFX;
+      if(typeof fx === "function"){
+        window.drawFX = function(t, dt){
+          n++;
+          if(n % 2) return;                 /* every other frame ≈ 30fps */
+          return fx.call(this, t, dt * 2);
+        };
+      }
+      var bd = window.drawBG;
+      if(typeof bd === "function"){
+        window.drawBG = function(t, dt){
+          m++;
+          if(m % 2) return;
+          return bd.call(this, t, dt * 2);
+        };
+      }
+      if(weak){
+        var st = document.createElement("style");
+        st.id = "aura-perf";
+        st.textContent = ".ov,.sheet,.mod,#auraCopPanel{backdrop-filter:none!important}";
+        document.head.appendChild(st);
+      }
+    })();
+  }catch(e){}
+
+  /* A QR the phone can scan is the only join path that does not need typing a
+     six-digit code on a touch keyboard. Encoder is inlined (byte mode, EC level L)
+     so the panel keeps working offline and without a CDN. Verified against jsQR. */
+  var qrMake = (function(){
+/* Minimal QR encoder (byte mode, EC level L, versions 1-10), no dependencies.
+   Built for the Mesh panel: the join URL is ~50 chars so v3-v4 covers it, but the
+   tables go to v10 for a longer page URL. */
+
+var EXP = new Array(512), LOG = new Array(256);
+(function () {
+  var x = 1;
+  for (var i = 0; i < 255; i++) {
+    EXP[i] = x;
+    LOG[x] = i;
+    x <<= 1;
+    if (x & 0x100) x ^= 0x11d;
+  }
+  for (var j = 255; j < 512; j++) EXP[j] = EXP[j - 255];
+})();
+function gmul(a, b) { if (a === 0 || b === 0) return 0; return EXP[LOG[a] + LOG[b]]; }
+
+/* index = version, [dataCodewords, ecCodewordsPerBlock, blocks] for EC level L */
+var L = [
+  null,
+  [19, 7, 1], [34, 10, 1], [55, 15, 1], [80, 20, 1], [108, 26, 1],
+  [136, 18, 2], [156, 20, 2], [194, 24, 2], [232, 30, 2], [274, 18, 4]
+];
+var ALIGN = [null, [], [6, 18], [6, 22], [6, 26], [6, 30], [6, 34], [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50]];
+var ECL_BITS = 1; /* L */
+
+function rsGen(ecLen) {
+  var g = [1];
+  for (var i = 0; i < ecLen; i++) {
+    var next = new Array(g.length + 1).fill(0);
+    for (var j = 0; j < g.length; j++) {
+      next[j] ^= g[j];
+      next[j + 1] ^= gmul(g[j], EXP[i]);
+    }
+    g = next;
+  }
+  return g; /* length ecLen+1, leading 1 */
+}
+function rsRemainder(data, ecLen) {
+  var gen = rsGen(ecLen);
+  var res = new Array(ecLen).fill(0);
+  for (var i = 0; i < data.length; i++) {
+    var factor = data[i] ^ res[0];
+    res.shift();
+    res.push(0);
+    for (var j = 0; j < ecLen; j++) res[j] ^= gmul(gen[j + 1], factor);
+  }
+  return res;
+}
+
+function utf8Bytes(str) {
+  if (typeof TextEncoder !== "undefined") return Array.from(new TextEncoder().encode(str));
+  var out = [];
+  for (var i = 0; i < str.length; i++) {
+    var c = str.charCodeAt(i);
+    if (c < 0x80) out.push(c);
+    else if (c < 0x800) out.push(0xc0 | (c >> 6), 0x80 | (c & 63));
+    else out.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+  }
+  return out;
+}
+
+function encode(text) {
+  var bytes = utf8Bytes(String(text));
+  var version = 0;
+  for (var v = 1; v <= 10; v++) {
+    var cap = L[v][0];
+    var header = 4 + (v < 10 ? 8 : 16);
+    if (bytes.length * 8 + header <= cap * 8) { version = v; break; }
+  }
+  if (!version) throw new Error("qr: text too long");
+  var dataCw = L[version][0], ecPerBlock = L[version][1], blocks = L[version][2];
+
+  var bits = [];
+  function put(val, len) { for (var i = len - 1; i >= 0; i--) bits.push((val >> i) & 1); }
+  put(4, 4);                       /* byte mode */
+  put(bytes.length, version < 10 ? 8 : 16);
+  for (var i = 0; i < bytes.length; i++) put(bytes[i], 8);
+  var maxBits = dataCw * 8;
+  put(0, Math.min(4, maxBits - bits.length));        /* terminator */
+  while (bits.length % 8) bits.push(0);
+  var data = [];
+  for (var b = 0; b < bits.length; b += 8) {
+    var byte = 0;
+    for (var k = 0; k < 8; k++) byte = (byte << 1) | bits[b + k];
+    data.push(byte);
+  }
+  var pad = [0xec, 0x11], p = 0;
+  while (data.length < dataCw) data.push(pad[p++ % 2]);
+
+  /* split into blocks, add ecc, interleave */
+  var perBlock = Math.floor(dataCw / blocks);
+  var extra = dataCw % blocks;      /* first `extra` blocks get one more data codeword */
+  var dBlocks = [], eBlocks = [];
+  var pos = 0;
+  for (var bi = 0; bi < blocks; bi++) {
+    var len = perBlock + (bi < extra ? 1 : 0);
+    var blk = data.slice(pos, pos + len);
+    pos += len;
+    dBlocks.push(blk);
+    eBlocks.push(rsRemainder(blk, ecPerBlock));
+  }
+  var out = [];
+  var maxLen = perBlock + (extra ? 1 : 0);
+  for (var ci = 0; ci < maxLen; ci++) {
+    for (var bj = 0; bj < blocks; bj++) if (ci < dBlocks[bj].length) out.push(dBlocks[bj][ci]);
+  }
+  for (var ei = 0; ei < ecPerBlock; ei++) {
+    for (var bj2 = 0; bj2 < blocks; bj2++) out.push(eBlocks[bj2][ei]);
+  }
+  return { version: version, codewords: out };
+}
+
+function buildMatrix(version, codewords) {
+  var size = version * 4 + 17;
+  var m = [], fn = [];
+  for (var r = 0; r < size; r++) { m.push(new Array(size).fill(false)); fn.push(new Array(size).fill(false)); }
+  function set(x, y, dark) {
+    if (x < 0 || y < 0 || x >= size || y >= size) return;
+    m[y][x] = !!dark; fn[y][x] = true;
+  }
+  function finder(cx, cy) {
+    for (var dy = -4; dy <= 4; dy++) for (var dx = -4; dx <= 4; dx++) {
+      var d = Math.max(Math.abs(dx), Math.abs(dy));
+      set(cx + dx, cy + dy, d !== 2 && d !== 4);
+    }
+  }
+  finder(3, 3); finder(size - 4, 3); finder(3, size - 4);
+  /* timing */
+  for (var i = 8; i < size - 8; i++) { set(i, 6, i % 2 === 0); set(6, i, i % 2 === 0); }
+  /* alignment */
+  var al = ALIGN[version];
+  for (var a = 0; a < al.length; a++) for (var b = 0; b < al.length; b++) {
+    var ax = al[a], ay = al[b];
+    if ((ax === 6 && ay === 6) || (ax === 6 && ay === size - 7) || (ax === size - 7 && ay === 6)) continue;
+    for (var dy2 = -2; dy2 <= 2; dy2++) for (var dx2 = -2; dx2 <= 2; dx2++) {
+      var dd = Math.max(Math.abs(dx2), Math.abs(dy2));
+      set(ax + dx2, ay + dy2, dd !== 1);
+    }
+  }
+  /* reserve format areas */
+  for (var f = 0; f < 9; f++) { if (!fn[8][f]) set(f, 8, false); if (!fn[f][8]) set(8, f, false); }
+  for (var f2 = 0; f2 < 8; f2++) { set(size - 1 - f2, 8, false); set(8, size - 1 - f2, false); }
+  set(8, size - 8, true); /* dark module */
+
+  /* data placement, bottom-right, two columns at a time */
+  var bitIdx = 0, total = codewords.length * 8;
+  function bitAt(n) { return n < total ? (codewords[n >> 3] >> (7 - (n & 7))) & 1 : 0; }
+  var up = true;
+  for (var right = size - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (var vert = 0; vert < size; vert++) {
+      var y = up ? size - 1 - vert : vert;
+      for (var c = 0; c < 2; c++) {
+        var x = right - c;
+        if (fn[y][x]) continue;
+        m[y][x] = bitAt(bitIdx++) === 1;
+      }
+    }
+    up = !up;
+  }
+  return { m: m, fn: fn, size: size };
+}
+
+function maskFn(id, x, y) {
+  switch (id) {
+    case 0: return (x + y) % 2 === 0;
+    case 1: return y % 2 === 0;
+    case 2: return x % 3 === 0;
+    case 3: return (x + y) % 3 === 0;
+    case 4: return (Math.floor(y / 2) + Math.floor(x / 3)) % 2 === 0;
+    case 5: return ((x * y) % 2 + (x * y) % 3) === 0;
+    case 6: return (((x * y) % 2 + (x * y) % 3) % 2) === 0;
+    default: return (((x + y) % 2 + (x * y) % 3) % 2) === 0;
+  }
+}
+function penalty(m, size) {
+  var score = 0, x, y, run, dark = 0;
+  for (y = 0; y < size; y++) {
+    run = 1; for (x = 1; x < size; x++) { if (m[y][x] === m[y][x - 1]) { run++; if (run === 5) score += 3; else if (run > 5) score++; } else run = 1; }
+  }
+  for (x = 0; x < size; x++) {
+    run = 1; for (y = 1; y < size; y++) { if (m[y][x] === m[y - 1][x]) { run++; if (run === 5) score += 3; else if (run > 5) score++; } else run = 1; }
+  }
+  for (y = 0; y < size; y++) for (x = 0; x < size; x++) if (m[y][x]) dark++;
+  var total = size * size;
+  score += Math.floor(Math.abs(dark * 20 - total * 10) / total) * 10;
+  return score;
+}
+function formatBits(maskId) {
+  var data = (ECL_BITS << 3) | maskId;
+  var rem = data;
+  for (var i = 0; i < 10; i++) rem = (rem << 1) ^ (((rem >> 9) & 1) * 0x537);
+  return ((data << 10) | rem) ^ 0x5412;
+}
+function versionBits(version) {
+  var rem = version;
+  for (var i = 0; i < 12; i++) rem = (rem << 1) ^ (((rem >> 11) & 1) * 0x1f25);
+  return (version << 12) | rem;
+}
+
+function makeQR(text) {
+  var enc = encode(text);
+  var base = buildMatrix(enc.version, enc.codewords);
+  var size = base.size, best = null;
+  for (var mask = 0; mask < 8; mask++) {
+    var m = base.m.map(function (row) { return row.slice(); });
+    for (var y = 0; y < size; y++) for (var x = 0; x < size; x++) {
+      if (!base.fn[y][x] && maskFn(mask, x, y)) m[y][x] = !m[y][x];
+    }
+    /* format info around the finders */
+    var fb = formatBits(mask), bitI = 0;
+    function fbits() { return (fb >> (14 - bitI++)) & 1 ? true : false; }
+    for (var c = 0; c <= 5; c++) m[8][c] = fbits();
+    m[8][7] = fbits(); m[8][8] = fbits(); m[7][8] = fbits();
+    for (var r2 = 5; r2 >= 0; r2--) m[r2][8] = fbits();
+    for (var c2 = size - 1; c2 >= size - 8; c2--) m[8][c2] = fbits();
+    for (var r3 = size - 7; r3 <= size - 1; r3++) m[r3][8] = fbits();
+    if (enc.version >= 7) {
+      var vb = versionBits(enc.version);
+      for (var i2 = 0; i2 < 18; i2++) {
+        var bit = (vb >> i2) & 1;
+        m[Math.floor(i2 / 3)][size - 11 + (i2 % 3)] = !!bit;
+        m[size - 11 + (i2 % 3)][Math.floor(i2 / 3)] = !!bit;
+      }
+    }
+    var p = penalty(m, size);
+    if (!best || p < best.p) best = { p: p, m: m };
+  }
+  return { size: size, version: enc.version, modules: best.m };
+}
+    return makeQR;
+  })();
+
   /* ---------------- Mesh ---------------- */
   var mesh = { code: null, timer: null, seen: [], role: null };
   try{ mesh.code = localStorage.getItem("aura_mesh_code") || null; }catch(e){}
@@ -1657,7 +1946,11 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
   ov.innerHTML =
     '<div class="mod pn"><h3>\uD83D\uDCE1 MESH</h3>' +
     '<p style="color:var(--dim);font:12.5px var(--f2);margin:6px 0 10px">Pair this device with another. Host on one, join with the six-digit code on the other.</p>' +
-    '<p id="amuStatus" style="font:12.5px var(--f2);color:var(--dim);margin:0 0 14px">not connected</p>' +
+    '<p id="amuStatus" style="font:12.5px var(--f2);color:var(--dim);margin:0 0 10px">not connected</p>' +
+    '<div id="amuQRWrap" style="display:none;text-align:center;margin:0 0 14px">' +
+      '<canvas id="amuQR" width="168" height="168" style="width:168px;height:168px;image-rendering:pixelated;background:#fff;border-radius:12px;padding:6px"></canvas>' +
+      '<div id="amuQRHint" style="font:11.5px/1.45 var(--f2);color:var(--dim);margin-top:6px">Scan with the phone camera to join this mesh</div>' +
+    '</div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">' +
       '<button class="b pr" id="amuHost">\u25c9 Host</button>' +
       '<input type="text" id="amuCode" inputmode="numeric" maxlength="6" placeholder="\u2014 \u2014 \u2014 \u2014 \u2014 \u2014" style="width:140px;letter-spacing:.24em;text-align:center">' +
@@ -1686,7 +1979,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     api("/v1/mesh/register", {}).then(function(j){
       mesh.code = j.code; mesh.role = "host";
       try{ localStorage.setItem("aura_mesh_code", mesh.code); }catch(e){}
-      codeShow(); setStatus("Hosting \u00b7 code " + j.code + " \u00b7 waiting for a device");
+      codeShow(); qrDraw(); setStatus("Hosting \u00b7 code " + j.code + " \u00b7 waiting for a device");
       tell("Mesh hosted \u00b7 code " + j.code);
       pollStart(); refresh();
     }).catch(function(e){ listSet("<div>host failed: " + e.message + "</div>"); tell("Host failed \u00b7 " + e.message); });
@@ -1697,7 +1990,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     api("/v1/mesh/join", { code: c, nodeId: nodeId, name: devName() }).then(function(j){
       mesh.code = c; mesh.role = "node";
       try{ localStorage.setItem("aura_mesh_code", c); }catch(e){}
-      setStatus("Joined \u00b7 code " + c);
+      setStatus("Joined \u00b7 code " + c); qrDraw();
       tell("Joined mesh " + c); pollStart(); refresh();
     }).catch(function(e){ listSet("<div>join failed: " + e.message + "</div>"); tell("Join failed \u00b7 " + e.message); });
   }
@@ -1708,7 +2001,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
     if(mesh.timer){ clearInterval(mesh.timer); mesh.timer = null; }
     var ci = $("#amuCode"); if(ci) ci.value = "";
-    setStatus("not connected"); listSet("not connected");
+    setStatus("not connected"); listSet("not connected"); qrDraw();
   }
   function refresh(){
     if(!mesh.code) return;
@@ -1737,7 +2030,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     mesh.code = null; mesh.role = null; mesh.seen = [];
     if(mesh.timer){ clearInterval(mesh.timer); mesh.timer = null; }
     try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
-    setStatus("not connected"); listSet("not connected");
+    setStatus("not connected"); listSet("not connected"); qrDraw();
   }
   function pollStart(){
     if(mesh.timer) clearInterval(mesh.timer);
@@ -1788,7 +2081,53 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
   };
   /* Ctrl K style entry: type "mesh" in the command palette would need the ref's internals,
      so the + menu button is the door — and it opens with the code already filled in */
-  function openMesh(){ ov.classList.add("on"); codeShow(); if(mesh.code){ pollStart(); refresh(); } }
+  /* the join link the QR carries: this same page with the code attached, so a scan
+     lands in AURA with the mesh already joined */
+  function meshUrl(code){
+    try{
+      var u = new URL(location.href);
+      u.search = ""; u.hash = "";
+      u.searchParams.set("mesh", code);
+      return u.toString();
+    }catch(e){ return location.origin + location.pathname + "?mesh=" + code; }
+  }
+  function qrDraw(){
+    var cv = $("#amuQR"), wrap = $("#amuQRWrap"), hint = $("#amuQRHint");
+    if(!cv || !wrap) return;
+    if(!mesh.code){ wrap.style.display = "none"; return; }
+    wrap.style.display = "block";
+    try{
+      var q = qrMake(meshUrl(mesh.code));
+      var px = 4, pad = 2, n = q.size + pad * 2;
+      cv.width = n * px; cv.height = n * px;
+      var c = cv.getContext("2d");
+      c.fillStyle = "#fff"; c.fillRect(0, 0, cv.width, cv.height);
+      c.fillStyle = "#000";
+      for(var y = 0; y < q.size; y++) for(var x = 0; x < q.size; x++){
+        if(q.modules[y][x]) c.fillRect((x + pad) * px, (y + pad) * px, px, px);
+      }
+      if(hint) hint.textContent = "Scan with the phone camera to join \u00b7 code " + mesh.code;
+    }catch(e){
+      wrap.style.display = "none";
+      if(hint) hint.textContent = "";
+    }
+  }
+  function openMesh(){ ov.classList.add("on"); codeShow(); qrDraw(); if(mesh.code){ pollStart(); refresh(); } }
+
+  /* scanned QR → this page with ?mesh=CODE: open the panel and join straight away, so
+     the other device never has to type the code */
+  try{
+    var scanCode = new URLSearchParams(location.search).get("mesh");
+    if(scanCode && /^[0-9]{6}$/.test(scanCode)){
+      setTimeout(function(){
+        try{
+          openMesh();
+          var ci = $("#amuCode"); if(ci) ci.value = scanCode;
+          join();
+        }catch(e){}
+      }, 1200);
+    }
+  }catch(e){}
 
   /* ---------------- + menu buttons (same markup as the reference's own) ---------------- */
   var tools = $("#tools");
@@ -2425,8 +2764,13 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
   try{
     var co = {
       on: false, stream: null, timer: null, prev: null, busy: false,
-      sent: 0, skipped: 0, card: null, body: null, hide: null, hideT: null
+      sent: 0, skipped: 0, card: null, body: null, hide: null, hideT: null,
+      /* the last few screen questions, so "uska fix kya hai?" still means something */
+      log: []
     };
+    function copLogText(){
+      return co.log.slice(-3).map(function(e){ return "Q: " + e.q + "\nA: " + String(e.a).slice(0, 220); }).join("\n");
+    }
 
     function copCard(){
       if(co.card) return co.card;
@@ -2729,7 +3073,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         var send = async function(){
           var r = await fetch(BASE + '/api/passive-vision', {
             method: 'POST', headers: hdrs(),
-            body: JSON.stringify({ image: cv.toDataURL('image/jpeg', 0.6), question: question, mode: copMode() }),
+            body: JSON.stringify({ image: cv.toDataURL('image/jpeg', 0.6), question: question, mode: copMode(), context: copLogText() }),
             signal: AbortSignal.timeout(45000)
           });
           return r;
@@ -2743,6 +3087,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         var j = await r.json();
         if(j && j.action === 'ANSWER' && j.answer){
           co.asked = (co.asked || 0) + 1;
+          co.log.push({ q: question, a: j.answer });
+          if(co.log.length > 6) co.log.shift();
           copAnswer(j.answer, j.model);
           copStatus();
           return j;
