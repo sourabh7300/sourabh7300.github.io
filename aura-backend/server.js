@@ -3109,11 +3109,12 @@ function copilotParse(text, model) {
 /* Gemini is the best reader of a screen but shares its quota with the chat vision
    lane, so it is often out. Groq/NVIDIA are slower. Both run at the same time and the
    first usable verdict wins — a passive check must never hold a connection open. */
-async function copilotGemini(instruction, mimeType, data) {
+async function copilotGemini(instruction, mimeType, data, opts) {
+  opts = opts || {};
   if (!GEMINI_API_KEY) return null;
   const body = JSON.stringify({
     contents: [{ role: "user", parts: [{ text: instruction }, { inlineData: { mimeType, data } }] }],
-    generationConfig: { temperature: 0.15, maxOutputTokens: 320 }
+    generationConfig: { temperature: 0.15, maxOutputTokens: opts.maxTok || 320 }
   });
   let chain = [...VISION_MODELS, "gemini-2.5-flash", "gemini-2.0-flash-lite", "gemini-2.0-flash"];
   try { const live = await geminiModels(); if (live && live.length) chain = [...live, ...chain]; } catch (e) {}
@@ -3134,6 +3135,7 @@ async function copilotGemini(instruction, mimeType, data) {
       const d = await r.json();
       const text = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [])
         .filter(p => p && !p.thought).map(p => p.text || "").join("").trim();
+      if (opts.raw) { if (text) return { text, model: vmodel }; continue; }
       const parsed = copilotParse(text, vmodel);
       if (parsed) return parsed;
     } catch (e) { copilotStats.lastErr = vmodel + " " + (e.message || "failed"); }
@@ -3141,8 +3143,9 @@ async function copilotGemini(instruction, mimeType, data) {
   return null;
 }
 
-async function copilotAlt(instruction, mimeType, data) {
-  try {
+async function copilotAlt(instruction, mimeType, data, opts) {
+  opts = opts || {};
+  try{
     const msgs = [
       { role: "system", content: instruction },
       { role: "user", content: [
@@ -3153,19 +3156,47 @@ async function copilotAlt(instruction, mimeType, data) {
     const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
     const alt = await visionAltModels();
     for (const model of (alt.groq || []).slice(0, 2)) {
-      const t = await openAiVision("https://api.groq.com/openai/v1", key, model, msgs, 320);
+      const t = await openAiVision("https://api.groq.com/openai/v1", key, model, msgs, opts.maxTok || 320);
+      if (opts.raw) { if (t) return { text: t, model: "groq/" + model }; continue; }
       const parsed = t ? copilotParse(t, "groq/" + model) : null;
       if (parsed) return parsed;
     }
     const nv = ["meta/llama-3.2-11b-vision-instruct", ...(alt.nvidia || [])];
     for (const model of nv.slice(0, 3)) {
       if (!NVIDIA_NIM_KEY) break;
-      const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, 320);
+      const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, opts.maxTok || 320);
+      if (opts.raw) { if (t) return { text: t, model: "nvidia/" + model }; continue; }
       const parsed = t ? copilotParse(t, "nvidia/" + model) : null;
       if (parsed) return parsed;
     }
   } catch (e) { copilotStats.lastErr = "alt " + (e.message || "failed"); }
   return null;
+}
+
+/* --- "ask about my screen" — the co-pilot is also a question box --- */
+const COPILOT_ASK_PROMPT = [
+  "You are AURA's co-pilot. You can see one frame of the user's screen.",
+  "Answer their question from what is visible, concretely and briefly: at most 90 words, plain text.",
+  "If the screen does not contain the answer, say that in one short line and give the most useful next step.",
+  "If you see passwords, tokens or private messages, do not repeat them — say they are hidden.",
+  "No JSON, no markdown headers, no preamble."
+].join(" ");
+
+async function copilotAnswer(image, question) {
+  const m = String(image).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/);
+  if (!m) return null;
+  const mimeType = m[1];
+  const data = m[2].replace(/\s+/g, "");
+  if (data.length < 500 || data.length > 5_500_000) return null;
+  const instruction = COPILOT_ASK_PROMPT + "\n\nUSER QUESTION: " + String(question).slice(0, 300);
+  const cap = new Promise(r => setTimeout(() => r(null), 30_000));
+  const out = await Promise.race([
+    copilotGemini(instruction, mimeType, data, { raw: true, maxTok: 600 }),
+    copilotAlt(instruction, mimeType, data, { raw: true, maxTok: 600 }),
+    cap
+  ]);
+  if (!out || !out.text) return null;
+  return { action: "ANSWER", answer: String(out.text).trim().slice(0, 1400), model: out.model };
 }
 
 async function copilotAnalyze(image, mode) {
@@ -3187,8 +3218,12 @@ app.post(["/api/passive-vision", "/v1/passive-vision"], async (req, res) => {
   const body = req.body || {};
   const ip = String(req.headers["x-forwarded-for"] || req.ip || "anon").split(",")[0].trim();
   const now = Date.now();
-  if ((copilotSeen.get(ip) || 0) + COPILOT_GAP_MS > now) {
-    return res.status(429).json({ action: "IGNORE", reason: "too_soon" });
+  /* an explicit question is the user waiting on an answer, so it gets a shorter gap than
+     the passive watcher, but it still cannot be fired per second */
+  const question = String(body.question || "").trim().slice(0, 300);
+  const gap = question ? 1200 : COPILOT_GAP_MS;
+  if ((copilotSeen.get(ip) || 0) + gap > now) {
+    return res.status(429).json({ action: question ? "ANSWER" : "IGNORE", reason: "too_soon" });
   }
   const day = new Date().toISOString().slice(0, 10);
   const c = copilotCount.get(ip);
@@ -3203,6 +3238,12 @@ app.post(["/api/passive-vision", "/v1/passive-vision"], async (req, res) => {
   copilotStats.frames++; copilotStats.lastAt = now;
 
   try {
+    if (question) {
+      const ans = await copilotAnswer(body.image, question);
+      if (!ans) { copilotStats.lastErr = copilotStats.lastErr || "ask: no read"; return res.json({ action: "ANSWER", answer: "", reason: "no_read" }); }
+      copilotStats.answers = (copilotStats.answers || 0) + 1;
+      return res.json(ans);
+    }
     const out = await copilotAnalyze(body.image, body.mode);
     if (!out) { copilotStats.ignored++; return res.json({ action: "IGNORE", reason: "no_read" }); }
     if (out.action === "SUGGEST") copilotStats.suggestions++; else copilotStats.ignored++;
