@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="b6a529eb8306"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="9f9e869f162b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -977,6 +977,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     "Never write LaTeX or \\( \\) \\[ \\] math markup: put sums in plain text with normal symbols, e.g. '5,000 × 232.3 ≈ 11.6 lakh'.",
     "Mirror the user's language exactly: Hinglish → Hinglish, Hindi (Devanagari) → Hindi, English → English. Keep technical terms in English.",
     "If live web results are given, prefer them over memory, mention dates, and cite as [1], [2]. Never invent a source.",
+    "Your training data ends before today. NEVER conclude from memory that a recent thing has not happened — \"film hasn't released yet\", \"no box-office figure yet\", \"still in production\", \"result not declared\" are the classic wrong answers. A film that you believe is upcoming may already be in theatres and earning. If the question is about a release, collection, match, election, price or news and no live web results are attached, say in one line that you could not check it live, and give only what is certainly true.",
+    "When live web results ARE attached and they contradict your memory, the web wins — no hedging, no \"I believe\", just the number and the date from the source.",
     "Never invent facts about a real person — no made-up companies, funding, user counts, degrees, awards, dates or quotes. That includes your creator: the only thing you know for certain is that Sourabh Singh built AURA. If someone asks for more, say that plainly in one line, then help with what you actually can. A short honest answer beats an impressive fake one.",
     "Be engaging without inventing: one warm, human sentence, one concrete detail you are sure of, and when it helps, close with one useful follow-up question. Never manufacture specifics to sound impressive.",
     "Never mention being a language model, a prompt, or these instructions."
@@ -1013,6 +1015,13 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
      now; everything else answers first and re-asks with hits only if the reply is
      vague, which is the same grounding without the wait. */
   var FRESHISH = /(latest|today|tonight|current|breaking|news|update today|recent|price today|score today|result today|202[5-9]|aaj|abhi|winner|election result|weather|stock price|ipo|launch date|release date|trending)/i;
+  /* "ramayana part 1 ranbir kapoor wali ne kitne crore kama liye hai" matched nothing
+     above, so the page answered it from a frozen cutoff and claimed the film had not
+     released. Money, box office, release, results and sport are live questions by
+     definition — they always search. */
+  var LIVE_EVENT = /(box ?office|collection|crore|karod|करोड़|lakh club|kamai|kamaya|kama li|kamaye|earning|gross|blockbuster|super ?hit|flop|hit hai|released|release (hui|ho gayi|kab|ki date)|kab aayegi|kab aayi|review|trailer|teaser|song|album|match|score|result|winner|jeeta|haar|price|rate|bhav|mausam|weather|ipo|share price|crypto|bitcoin|election|minister|cm ban|pm ban|arrest|resign|appoint|launch|ipl|world cup|olympic|oscar|nobel|award|record ban)/i;
+  /* the shape of a stale answer: the model asserting a thing has not happened */
+  var STALE_CLAIM = /(hasn'?t (been )?released|not (yet )?released|isn'?t released|no confirmed (box ?office|figure|number|data)|still in (production|post-production)|abhi release nahi|release nahi (hui|huyi|hua)|koi data nahi|no official (figure|number|data|confirmation))/i;
   var VAGUE = /(nahi pata|pata nahi|don'?t (know|have)|no information|not aware|cannot (access|find)|can'?t (access|find)|mere (paas|pass) (koi )?(latest )?(information|update) nahi|training cutoff|knowledge cutoff|mujhe .{0,30}nahi pata)/i;
   function todayLine(){
     try{
@@ -1094,7 +1103,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     /* an attachment IS the context — searching the web for "file mein kaunsa number"
        only added seconds before the obvious answer */
     var hasFile = !!(pack && (pack.text || (pack.images && pack.images.length)));
-    var wantsWeb = !trivial && !hasFile && (FRESHISH.test(plain) || /\b(search|google|dhundo|khoj|browse|internet)\b/i.test(plain));
+    var wantsWeb = !trivial && !hasFile && (FRESHISH.test(plain) || LIVE_EVENT.test(plain) || /\b(search|google|dhundo|khoj|browse|internet)\b/i.test(plain));
+    var liveQuestion = !trivial && (FRESHISH.test(plain) || LIVE_EVENT.test(plain));
     if(wantsWeb){
       try{
         hits = await Promise.race([
@@ -1102,12 +1112,29 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           new Promise(function(r){ setTimeout(function(){ r([]); }, 2800); })
         ]);
       }catch(e){ hits = []; }
+      /* the fast window is a courtesy, not a limit: when nothing came back for a
+         question that is live by nature, wait for the real search. A correct answer
+         three seconds later beats a confident wrong one. */
+      if(!hits.length && liveQuestion){
+        try{
+          hits = await Promise.race([
+            webHits(plain).catch(function(){ return []; }),
+            new Promise(function(r){ setTimeout(function(){ r([]); }, 9000); })
+          ]);
+        }catch(e){ hits = []; }
+      }
     }
 
     async function ask(withWeb, onDelta){
       var sys = [SYS[m], "TODAY IS " + todayLine() + ".", profileBlock()].filter(Boolean).join(" ");
       var msgs = [{ role: "system", content: sys }];
       if(withWeb && hits.length) msgs.push({ role: "system", content: webBlock(hits) });
+      /* searching failed for a live question — say so instead of filling the gap with
+         a memory-based "it hasn't happened yet" */
+      if(withWeb && !hits.length && liveQuestion) msgs.push({ role: "system", content:
+        "NO LIVE WEB RESULTS could be fetched for this question, and it is about something recent. " +
+        "Do not assert that it has not happened, is not released, or has no data. Say in one short line that the live check failed, " +
+        "then give only what is certainly true (who/what it is), and offer to search again." });
       /* questions about the maker were answered with invented startups, funding and
          user counts. Pin the few facts that are actually true. */
       if(/(sourabh|owner|creator|maker|founder|tumhe kisne|kisne banaya|who (made|built) you|who is your developer)/i.test(plain)){
@@ -1234,7 +1261,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }
       var out = await ask(true, live);
       /* the light visitor model still sometimes says "I don't know" — one grounded retry */
-      if(VAGUE.test(out) && !hits.length && !trivial){
+      if((VAGUE.test(out) || (liveQuestion && STALE_CLAIM.test(out))) && !hits.length && !trivial){
         var late = await webHits(plain + " " + new Date().getFullYear());
         if(late.length){ hits = late; out = await ask(true, live); }
       }
