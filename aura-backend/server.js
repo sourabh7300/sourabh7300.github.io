@@ -3162,8 +3162,10 @@ async function copilotAlt(instruction, mimeType, data, opts) {
       const parsed = t ? copilotParse(t, "groq/" + model) : null;
       if (parsed) return parsed;
     }
-    const nv = ["meta/llama-3.2-11b-vision-instruct", ...(alt.nvidia || [])];
-    for (const model of nv.slice(0, 3)) {
+    /* 11b first (fast), 90b next (slower but reliably present on the NIM catalogue),
+       then whatever /models reported */
+    const nv = ["meta/llama-3.2-11b-vision-instruct", "meta/llama-3.2-90b-vision-instruct", ...(alt.nvidia || [])];
+    for (const model of [...new Set(nv)].slice(0, 4)) {
       if (!NVIDIA_NIM_KEY) break;
       const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, opts.maxTok || 320);
       if (!t) copilotStats.lastErr = "nvidia/" + model + " no text";
