@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="6f7d220dd61e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="65405a54a093"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2007,7 +2007,7 @@ function makeQR(text) {
     '<div class="log" id="amuList" style="height:150px">not connected</div>' +
     '<div style="display:flex;gap:8px;margin-top:12px"><input type="text" id="amuSay" placeholder="Say something on every device"><button class="b pr" id="amuSend">\u25b8</button></div>' +
     /* remote control — the host types or speaks an order, the joined device runs it */
-    '<div style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">' +
+    '<div id="amuCtl" style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">' +
       '<div style="font:11.5px var(--f2);color:var(--dim);margin-bottom:6px">REMOTE CONTROL \u2014 the other device runs what you type or say</div>' +
       '<div style="display:flex;gap:6px;margin-bottom:8px"><select id="amuTarget" style="flex:1;padding:8px 10px;border-radius:9px;border:1px solid rgba(255,255,255,.14);background:rgba(0,0,0,.35);color:#e9f5ff;font:12px var(--f2)"><option value="all">All devices</option></select>' +
         '<button class="b" id="amuLink" title="Copy join link">\u29c9 Link</button></div>' +
@@ -2038,22 +2038,47 @@ function makeQR(text) {
   function setStatus(t){ var el = $("#amuStatus"); if(el) el.textContent = t; }
 
   function host(){
-    api("/v1/mesh/register", {}).then(function(j){
+    api("/v1/mesh/register", { hostId: nodeId }).then(function(j){
       mesh.code = j.code; mesh.role = "host";
       try{ localStorage.setItem("aura_mesh_code", mesh.code); }catch(e){}
-      codeShow(); qrDraw(); setStatus("Hosting \u00b7 code " + j.code + " \u00b7 waiting for a device");
+      codeShow(); qrDraw(); meshRoleUI(); setStatus("Hosting \u00b7 code " + j.code + " \u00b7 waiting for a device");
       tell("Mesh hosted \u00b7 code " + j.code);
       pollStart(); refresh();
     }).catch(function(e){ listSet("<div>host failed: " + e.message + "</div>"); tell("Host failed \u00b7 " + e.message); });
   }
-  function join(){
+  /* ONE consent, at join time. After this the host drives this device freely — no
+     per-command permission prompts — which is what the owner asked for. */
+  function meshConsent(){
+    return new Promise(function(resolve){
+      var old = document.getElementById("auraMeshConsent"); if(old) old.remove();
+      var d = document.createElement("div");
+      d.id = "auraMeshConsent";
+      d.style.cssText = "position:fixed;z-index:92;left:0;right:0;bottom:0;padding:18px 16px 22px;border-radius:18px 18px 0 0;" +
+        "background:rgba(8,16,26,.98);border-top:1px solid rgba(120,215,255,.32);color:#e9f5ff;" +
+        "font:13px/1.5 Inter,system-ui,sans-serif;box-shadow:0 -18px 50px rgba(0,0,0,.6)";
+      d.innerHTML = '<b style="font-size:14.5px">Join this AURA mesh?</b>' +
+        '<div style="color:#a9bccd;margin:7px 0 14px">Host ki AURA is device par ye sab kar sakegi: ' +
+        '<b>apps kholna, video play karna, call lagana, bolna (speak), vibrate</b>. ' +
+        'Permission sirf ek hi baar maangi jaati hai \u2014 uske baad host ke paas control rehta hai.</div>' +
+        '<div style="display:flex;gap:8px"><button id="amuConsentYes" style="flex:1;padding:11px;border-radius:11px;border:0;' +
+        'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 13px Inter,system-ui,sans-serif;cursor:pointer">Allow all</button>' +
+        '<button id="amuConsentNo" style="padding:11px 14px;border-radius:11px;border:1px solid rgba(255,255,255,.16);' +
+        'background:transparent;color:#cfe9ff;font:600 13px Inter,system-ui,sans-serif;cursor:pointer">Not now</button></div>';
+      document.body.appendChild(d);
+      d.querySelector("#amuConsentYes").onclick = function(){ meshSetAllow(true); d.remove(); resolve(true); };
+      d.querySelector("#amuConsentNo").onclick = function(){ meshSetAllow(false); d.remove(); resolve(false); };
+    });
+  }
+  async function join(){
     var c = String(($("#amuCode") || {}).value || "").trim();
     if(!/^\d{6}$/.test(c)) return tell("Enter the six-digit code");
-    api("/v1/mesh/join", { code: c, nodeId: nodeId, name: devName() }).then(function(j){
+    if(!meshAllow()) await meshConsent();
+    api("/v1/mesh/join", { code: c, nodeId: nodeId, name: devName(), allow: meshAllow() }).then(function(j){
       mesh.code = c; mesh.role = "node";
       try{ localStorage.setItem("aura_mesh_code", c); }catch(e){}
       setStatus("Joined \u00b7 code " + c); qrDraw();
-      tell("Joined mesh " + c); pollStart(); refresh();
+      meshRoleUI();
+      tell(meshAllow() ? "Joined \u00b7 host can control this device" : "Joined \u00b7 control blocked"); pollStart(); refresh();
     }).catch(function(e){ listSet("<div>join failed: " + e.message + "</div>"); tell("Join failed \u00b7 " + e.message); });
   }
   function leave(){
@@ -2167,16 +2192,91 @@ function makeQR(text) {
     if(!t) return "";
     var aliases = { youtube: "https://www.youtube.com", yt: "https://www.youtube.com", google: "https://www.google.com",
       whatsapp: "https://web.whatsapp.com", instagram: "https://www.instagram.com", gmail: "https://mail.google.com",
-      maps: "https://maps.google.com", github: "https://github.com", chatgpt: "https://chat.openai.com" };
+      maps: "https://maps.google.com", github: "https://github.com", chatgpt: "https://chat.openai.com",
+      spotify: "https://open.spotify.com", netflix: "https://www.netflix.com", prime: "https://www.primevideo.com",
+      telegram: "https://web.telegram.org", facebook: "https://www.facebook.com", twitter: "https://x.com", x: "https://x.com",
+      linkedin: "https://www.linkedin.com", amazon: "https://www.amazon.in", flipkart: "https://www.flipkart.com",
+      paytm: "https://paytm.com", phonepe: "https://www.phonepe.com", swiggy: "https://www.swiggy.com",
+      zomato: "https://www.zomato.com", uber: "https://m.uber.com", ola: "https://book.olacabs.com",
+      drive: "https://drive.google.com", photos: "https://photos.google.com", meet: "https://meet.google.com",
+      zoom: "https://zoom.us", calendar: "https://calendar.google.com", gemini: "https://gemini.google.com" };
     var k = t.toLowerCase().replace(/[^a-z]/g, "");
     if(aliases[k]) return aliases[k];
     if(/^https?:\/\//i.test(t)) return t;
     if(/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(t)) return "https://" + t;
     return "https://www.google.com/search?q=" + encodeURIComponent(t);
   }
+  /* only the host may drive other devices — the joined phone sees the panel without the
+     control row, and the backend rejects orders from a non-host node too */
+  function meshRoleUI(){
+    var cmd = $("#amuCmd"), lnk = $("#amuLink");
+    var isHost = mesh.role === "host";
+    var ctl = $("#amuCtl");
+    if(ctl) ctl.style.display = isHost ? "block" : "none";
+    if(lnk) lnk.style.display = "";
+    var cb = $("#amuAllow");
+    if(cb) cb.parentNode.style.display = "none";
+    if(!isHost){
+      var info = $("#amuRole");
+      if(!info){
+        info = document.createElement("div"); info.id = "amuRole";
+        info.style.cssText = "font:11.5px var(--f2);color:var(--dim);margin-top:10px";
+        var host = cmd && cmd.closest("div[style*=border-top]");
+        (host || ov.querySelector(".mod")).appendChild(info);
+      }
+      info.textContent = meshAllow() ? "Host can control this device \u00b7 permission given once" : "Control blocked \u2014 re-join to allow";
+    } else {
+      var r = $("#amuRole"); if(r) r.remove();
+    }
+  }
   function meshExec(c){
     var cmd = String(c.cmd || ""), arg = String(c.arg || "");
     var done = function(note){ meshResult(c.id, note || "ok"); };
+    if(cmd === "play"){
+      /* YouTube's embed endpoint with listType=search really starts playing the first
+         result, which a plain results page never does */
+      var q = String(arg || "").trim();
+      if(!q) { done("nothing to play"); return; }
+      var purl = "https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(q);
+      var pw = null;
+      try{ pw = window.open(purl, "_blank"); }catch(e){}
+      if(!pw){
+        meshBanner("AURA mesh", "Play <b>" + q + "</b> on this device?", "Play now", function(){
+          try{ window.open(purl, "_blank"); }catch(e){ location.href = purl; }
+        });
+        done("asked the user to tap (popup blocked)");
+      } else done("playing: " + q);
+      return;
+    }
+    if(cmd === "call"){
+      var num = String(arg || "").replace(/[^\d+]/g, "");
+      if(num.length < 6){ meshBanner("AURA mesh", "Call karne ke liye number chahiye (example: call 9876543210).", "OK", null); done("no number"); return; }
+      try{ location.href = "tel:" + num; }catch(e){}
+      done("dialling " + num);
+      return;
+    }
+    if(cmd === "whatsapp"){
+      var parts = String(arg || "").split("|");
+      var phone = String(parts[0] || "").replace(/[^\d]/g, "");
+      var msg = String(parts[1] || "").trim();
+      if(phone.length < 8){ meshBanner("AURA mesh", "WhatsApp ke liye number chahiye (whatsapp 919876543210|hello).", "OK", null); done("no number"); return; }
+      var wurl = "https://wa.me/" + phone + (msg ? "?text=" + encodeURIComponent(msg) : "");
+      try{ window.open(wurl, "_blank"); }catch(e){}
+      done("whatsapp " + phone);
+      return;
+    }
+    if(cmd === "notify"){
+      try{
+        if(window.Notification && Notification.permission === "granted"){
+          new Notification("AURA mesh", { body: String(arg || "Message from the host").slice(0, 180) });
+          done("notified");
+        } else {
+          meshBanner("AURA mesh", arg || "Message from the host", "OK", null);
+          done("shown in page (notifications not allowed)");
+        }
+      }catch(e){ done("notify failed"); }
+      return;
+    }
     if(cmd === "open"){
       var url = meshTargetUrl(arg);
       var w = null;
@@ -2207,7 +2307,17 @@ function makeQR(text) {
   /* the host's own words become a command: "open youtube", "speak hello", "vibrate" */
   function meshParse(text){
     var t = String(text || "").trim();
-    var m = t.match(/^(open|kholo|khol)\s+(.+)$/i);
+    var m = t.match(/^(play|chalao|chala|bajao|baja)\s+(.+)$/i);
+    if(m) return { cmd: "play", arg: m[2] };
+    m = t.match(/^(call|dial|phone|milao)\s+(.+)$/i);
+    if(m) return { cmd: "call", arg: m[2] };
+    m = t.match(/^(whatsapp|wa)\s+([^|]+)(?:\|([\s\S]+))?$/i);
+    if(m) return { cmd: "whatsapp", arg: m[2].trim() + (m[3] ? "|" + m[3] : "") };
+    m = t.match(/^(notify|notification|alert)\s+([\s\S]+)$/i);
+    if(m) return { cmd: "notify", arg: m[2] };
+    m = t.match(/^(search|google|khojo)\s+([\s\S]+)$/i);
+    if(m) return { cmd: "open", arg: "https://www.google.com/search?q=" + encodeURIComponent(m[2]) };
+    m = t.match(/^(open|kholo|khol)\s+(.+)$/i);
     if(m) return { cmd: "open", arg: m[2] };
     m = t.match(/^(speak|bolo|bol|suno|say)\s+([\s\S]+)$/i);
     if(m) return { cmd: "speak", arg: m[2] };
@@ -2218,13 +2328,14 @@ function makeQR(text) {
   }
   function meshRun(){
     if(!mesh.code) return tell("Host or join first");
+    if(mesh.role !== "host") return tell("Only the host device can send orders");
     var el = $("#amuCmd");
     var txt = String((el || {}).value || "").trim();
     if(!txt) return;
     var c = meshParse(txt);
     var sel = $("#amuTarget");
     var to = sel && sel.value ? sel.value : "all";
-    var body = { code: mesh.code, cmd: c.cmd, arg: c.arg };
+    var body = { code: mesh.code, cmd: c.cmd, arg: c.arg, from: nodeId };
     if(to !== "all") body.targets = [to]; else body.nodeId = "all";
     api("/v1/mesh/command", body)
       .then(function(j){
@@ -2248,7 +2359,7 @@ function makeQR(text) {
             }
             /* every other command ACTS on this device — it only runs when the owner of
                this device allowed it, and the first order asks once */
-            if(!meshAllow()){ meshAskAllow(c); return; }
+            if(!meshAllow()){ tell("Host order blocked \u2014 this device never allowed control"); meshResult(c.id, "blocked: no permission on device"); return; }
             meshExec(c);
           });
           if($("#auraMeshOv").classList.contains("on")) refresh();
