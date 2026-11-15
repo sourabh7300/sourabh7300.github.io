@@ -316,12 +316,12 @@ async function visionAltModels() {
       const r = await fetch(base + "/models", { headers: { Authorization: "Bearer " + key }, signal: AbortSignal.timeout(8_000) });
       if (!r.ok) return [];
       const d = await r.json();
-      return (d.data || []).map(m => m.id).filter(id => re.test(id)).slice(0, 3);
+      return (d.data || []).map(m => m.id).filter(id => re.test(id));
     } catch (e) { return []; }
   };
   const groqKey = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
-  const groq = await pick("https://api.groq.com/openai/v1", groqKey, /llama-4|maverick|scout|vision|vl|gemma-3/i);
-  const nvidia = await pick("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, /llama-4|maverick|scout|vision|vl|nemotron.*vl|gemma|phi-3|qwen.*vl|llava/i);
+  const groq = await pick("https://api.groq.com/openai/v1", groqKey, /llama-4|maverick|scout|vision|vl/i);
+  const nvidia = (await pick("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, /llama-4|maverick|scout|vision|vl|nemotron|phi-3|qwen.*vl|llava/i)).filter(id => !/codegemma|guard|embed|rerank|reward/i.test(id)).slice(0, 4);
   visionAltCache = { at: Date.now(), groq, nvidia };
   return visionAltCache;
 }
@@ -3171,7 +3171,7 @@ async function copilotAlt(instruction, mimeType, data, opts) {
        then whatever /models reported */
     /* discovered NIM vision models first; the old llama-3.2 ids are EOL since 2026-11-05
        and only serve as a last resort */
-    const nv = [...(alt.nvidia || []), "meta/llama-3.2-90b-vision-instruct"];
+    const nv = [...(alt.nvidia || []), "meta/llama-4-maverick-17b-128e-instruct", "nvidia/llama-3.1-nemotron-nano-vl-8b-v1", "microsoft/phi-3.5-vision-instruct"];
     for (const model of [...new Set(nv)].slice(0, 4)) {
       if (!NVIDIA_NIM_KEY) break;
       const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, opts.maxTok || 320);
