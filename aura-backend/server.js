@@ -3155,7 +3155,10 @@ async function copilotAlt(instruction, mimeType, data, opts) {
     ];
     const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
     const alt = await visionAltModels();
-    for (const model of (alt.groq || []).slice(0, 2)) {
+    /* /models can hide multimodal ids (or rate-limit the listing); these two are the
+       known Groq vision models, so they are always attempted */
+    const gq = [...new Set([...(alt.groq || []), "meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct"])];
+    for (const model of gq.slice(0, 3)) {
       const t = await openAiVision("https://api.groq.com/openai/v1", key, model, msgs, opts.maxTok || 320);
       if (!t) copilotStats.lastErr = "groq/" + model + " no text";
       if (opts.raw) { if (t) return { text: t, model: "groq/" + model }; continue; }
@@ -3193,7 +3196,7 @@ async function copilotAnswer(image, question) {
   const data = m[2].replace(/\s+/g, "");
   if (data.length < 500 || data.length > 5_500_000) return null;
   const instruction = COPILOT_ASK_PROMPT + "\n\nUSER QUESTION: " + String(question).slice(0, 300);
-  const cap = new Promise(r => setTimeout(() => r(null), 30_000));
+  const cap = new Promise(r => setTimeout(() => r(null), 42_000));
   const out = await Promise.race([
     copilotGemini(instruction, mimeType, data, { raw: true, maxTok: 600 }),
     copilotAlt(instruction, mimeType, data, { raw: true, maxTok: 600, userText: "Answer the user's question using what this screen frame shows. Plain text, max 90 words." }),
