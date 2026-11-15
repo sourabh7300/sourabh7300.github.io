@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="bff9f20d326b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="bef6cfee4dc5"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -863,6 +863,18 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         fr.readAsDataURL(file);
         return;
       }
+      /* A .docx is a ZIP, not text. readAsText on one sends binary rubbish to the
+         model, which then "thinks" forever about nothing — that is the stuck screenshot.
+         Pull word/document.xml out of the zip and inflate it in the page. */
+      if(/\.(docx|docm)$/i.test(file.name || "") || /officedocument\.wordprocessingml/.test(file.type || "")){
+        docxText(file).then(function(t){
+          if(t && t.trim().length > 1) done({ name: file.name, bytes: file.size, text: t.length > 20000 ? t.slice(0, 20000) + "\n…(truncated)" : t });
+          else done({ name: file.name, bytes: file.size, text: "[This .docx opened but no readable text was found in it.]" });
+        }).catch(function(){
+          done({ name: file.name, bytes: file.size, text: "[Could not read inside this .docx here. Ask for the text, or paste it.]" });
+        });
+        return;
+      }
       var fr = new FileReader();
       fr.onload = function(){
         var t = String(fr.result || "");
@@ -872,6 +884,61 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       fr.readAsText(file);
     });
   }
+
+  /* minimal ZIP reader: only enough to find one entry and inflate it */
+  async function docxText(file){
+    var buf = new Uint8Array(await file.arrayBuffer());
+    function u16(o){ return buf[o] | (buf[o + 1] << 8); }
+    function u32(o){ return (buf[o] | (buf[o + 1] << 8) | (buf[o + 2] << 16) | (buf[o + 3] << 24)) >>> 0; }
+    function nameAt(o, n){ var s = ""; for(var k = 0; k < n; k++) s += String.fromCharCode(buf[o + k]); return s; }
+    var entry = null;
+    /* central directory is the reliable one (local headers may use data descriptors) */
+    for(var e = buf.length - 22; e >= 0 && e > buf.length - 66000; e--){
+      if(u32(e) !== 0x06054b50) continue;
+      var n = u16(e + 10), off = u32(e + 16);
+      for(var k = 0; k < n; k++){
+        if(u32(off) !== 0x02014b50) break;
+        var nl = u16(off + 28), el = u16(off + 30), cl = u16(off + 32);
+        if(nameAt(off + 46, nl) === "word/document.xml"){
+          /* central header: name len at +28, extra len at +30 (not +26/+28 — that
+             shifted the slice and inflated garbage, so the stream errored) */
+          entry = { method: u16(off + 10), csize: u32(off + 20), lo: u32(off + 42), nl: u16(off + 28), el: u16(off + 30) };
+          break;
+        }
+        off += 46 + nl + el + cl;
+      }
+      break;
+    }
+    if(!entry){
+      /* last resort: walk local headers */
+      for(var i = 0; i + 30 < buf.length; i++){
+        if(u32(i) === 0x04034b50 && nameAt(i + 30, 17) === "word/document.xml"){
+          entry = { method: u16(i + 8), csize: u32(i + 18), lo: i, nl: u16(i + 26), el: u16(i + 28) };
+          break;
+        }
+      }
+    }
+    if(!entry) throw new Error("document.xml not found");
+    var start = entry.lo + 30 + entry.nl + entry.el;
+    var raw = buf.subarray(start, entry.csize ? start + entry.csize : buf.length);
+    var bytes = raw;
+    if(entry.method === 8){
+      if(!window.DecompressionStream) throw new Error("no inflate here");
+      var stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    }else if(entry.method !== 0){
+      throw new Error("unsupported compression " + entry.method);
+    }
+    var xml = new TextDecoder().decode(bytes);
+    return xml
+      .replace(/<w:tab\/>/g, "\t")
+      .replace(/<w:br\/>/g, "\n")
+      .replace(/<\/w:p>/g, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+      .replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+  try{ window.__auraDocx = docxText; }catch(e){}
   /* one intake for picker, drag & drop and paste */
   function takeFiles(list){
     list = [].slice.call(list || []);
@@ -1770,10 +1837,17 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         bar.appendChild(mkBtn("\u29C9 Copy", function(btn){
           copyText(span.textContent).then(function(){ btn.textContent = "\u2713 Copied"; setTimeout(function(){ btn.textContent = "\u29C9 Copy"; }, 1400); });
         }));
+        /* the button said Stop but only ever started speech — a second tap read the
+           same paragraph again. It is a real toggle now. */
         bar.appendChild(mkBtn("\uD83D\uDD0A Speak", function(btn){
+          var sp = window.speechSynthesis;
+          if(!sp){ if(typeof tell === "function") tell("Voice nahi chal raha is browser me"); return; }
+          if(sp.speaking || sp.pending){ sp.cancel(); btn.textContent = "\uD83D\uDD0A Speak"; return; }
           speakText(span.textContent);
           btn.textContent = "\u23F8 Stop";
-          setTimeout(function(){ btn.textContent = "\uD83D\uDD0A Speak"; }, 4000);
+          var iv = setInterval(function(){
+            if(!sp.speaking && !sp.pending){ btn.textContent = "\uD83D\uDD0A Speak"; clearInterval(iv); }
+          }, 400);
         }));
         bubble.appendChild(bar);
       }
@@ -2290,12 +2364,32 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }
       function closeSheet(){ var ov = document.getElementById("auraAuthOv"); if(ov) ov.style.display = "none"; }
 
+      /* Firebase publishes a project's web config at its own /__/firebase/init.json.
+         That is what this app's own Firebase project serves, so Google sign-in works
+         even when the server env var was never set — no secret is involved, the API key
+         is public by design and the token is what the backend verifies. */
+      /* The Firebase web config is a public identifier block, not a secret (every
+         Firebase site ships it in the page). Google blocks init.json cross-origin, so the
+         project's own config lives here as the fallback — that is what makes Google
+         sign-in work without touching Render env vars. */
+      var FIREBASE_FALLBACK = {
+        apiKey: "AIzaSyDCYmTlkS3C3z8doAJmaoj5ht7OlUWZgG0",
+        authDomain: "aura-live-81185.firebaseapp.com",
+        projectId: "aura-live-81185",
+        storageBucket: "aura-live-81185.firebasestorage.app",
+        messagingSenderId: "524591044780",
+        appId: "1:524591044780:web:f9ac9f99df80c5a43e2709"
+      };
+      function hasWeb(c){ return !!(c && c.firebaseWebConfig && c.firebaseWebConfig.apiKey); }
       async function getConfig(){
-        if(cfg) return cfg;
-        try{
-          var r = await fetch(BASE + "/v1/config", { headers: hdrs(), cache: "no-store", signal: AbortSignal.timeout(9000) });
-          cfg = await r.json();
-        }catch(e){ cfg = {}; }
+        if(hasWeb(cfg)) return cfg;
+        if(!cfg){
+          try{
+            var r = await fetch(BASE + "/v1/config", { headers: hdrs(), cache: "no-store", signal: AbortSignal.timeout(9000) });
+            cfg = await r.json();
+          }catch(e){ cfg = {}; }
+        }
+        if(!hasWeb(cfg)) cfg = Object.assign({}, cfg, { firebaseWebConfig: FIREBASE_FALLBACK });
         return cfg;
       }
 
