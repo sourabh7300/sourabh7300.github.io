@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="a3ebc5b60151"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="921e2422bf90"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -915,12 +915,16 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     }
     function inflate(bytes){
       if(typeof DecompressionStream !== "function") return Promise.resolve(null);
-      try{
-        var ds = new DecompressionStream("deflate");
-        var w = ds.writable.getWriter();
-        w.write(bytes); w.close();
-        return new Response(ds.readable).arrayBuffer().then(function(b){ return new Uint8Array(b); }).catch(function(){ return null; });
-      }catch(e){ return Promise.resolve(null); }
+      /* Blob().stream().pipeThrough is the shape every browser supports; writing into the
+         writable by hand sometimes closes it before the bytes are flushed */
+      function run(fmt){
+        try{
+          var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(fmt));
+          return new Response(stream).arrayBuffer().then(function(b){ return b.byteLength ? new Uint8Array(b) : null; }).catch(function(){ return null; });
+        }catch(e){ return Promise.resolve(null); }
+      }
+      /* PDF FlateDecode is zlib-wrapped, but some writers skip the header */
+      return run("deflate").then(function(b){ return b || run("deflate-raw"); });
     }
     function unescapePdf(s){
       return s.replace(/\\([nrtbf()\\])/g, function(m, c){
