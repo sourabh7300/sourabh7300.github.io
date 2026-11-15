@@ -3247,7 +3247,7 @@ app.post(["/api/passive-vision", "/v1/passive-vision"], async (req, res) => {
   try {
     if (question) {
       const ans = await copilotAnswer(body.image, question);
-      if (!ans) { copilotStats.lastErr = copilotStats.lastErr || "ask: no read"; return res.json({ action: "ANSWER", answer: "", reason: "no_read" }); }
+      if (!ans) { copilotStats.lastErr = copilotStats.lastErr || "ask: no read"; return res.json({ action: "ANSWER", answer: "", reason: "no_read", why: String(copilotStats.lastErr || "").slice(0, 160), vision: (typeof visionDebug !== "undefined" ? visionDebug.slice(-2) : null) }); }
       copilotStats.answers = (copilotStats.answers || 0) + 1;
       return res.json(ans);
     }
