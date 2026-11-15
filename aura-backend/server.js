@@ -1961,6 +1961,9 @@ app.get("/v1/ping", (req, res) => {
 const meshDevices = new Map(); /* code → Map(nodeId → {name,battery,charging,net,ts,rtt,vis,ver}) */
 const meshCmds = new Map();    /* code|nodeId → [ {id,cmd,arg,ts} ]  — removed when the node acks */
 const meshResults = new Map(); /* code → [ {id,nodeId,name,cmd,ok,detail,ts} ] — a ring, never cleared on read */
+/* which device is the HOST of a code. Only that node may send orders; a joined phone
+   cannot turn around and drive the other devices. */
+const meshHosts = new Map(); /* code → nodeId */
 const meshSeen = new Map();    /* legacy ack cursor for clients that predate `seen` */
 const meshOwners = new Map();  /* code → owner key (signed-in uid, or a guest's stable id) */
 const meshBorn = new Map();    /* code → created ts */
@@ -2035,6 +2038,7 @@ function meshOwnerKey(req, u) {
    Body {code} lets a reconnecting owner KEEP its code instead of claiming a new one. */
 app.post("/v1/mesh/register", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  const hostNode = String((req.body && req.body.hostId) || "").slice(0, 40);
   let u = null;
   try { u = await verifyUser(req); } catch (e) { u = null; }
   const owner = meshOwnerKey(req, u);
@@ -2049,13 +2053,14 @@ app.post("/v1/mesh/register", async (req, res) => {
     meshDevices.set(code, new Map()); meshOwners.set(code, owner); meshBorn.set(code, Date.now());
   }
   meshTouchCode(code);
+  if (hostNode) meshHosts.set(code, hostNode);
   const devs = meshDevices.get(code);
   res.json({ ok: true, code, owner: owner.slice(0, 12), devices: devs.size, live: meshLiveCount(devs), serverTime: Date.now() });
 });
 /* phone node joins with the code — idempotent, so a reconnect can simply call it again */
 app.post("/v1/mesh/join", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  const { code, nodeId, name, battery, charging, net } = req.body || {};
+  const { code, nodeId, name, battery, charging, net, allow } = req.body || {};
   if (!code || !/^\d{6}$/.test(String(code)) || !nodeId) return res.status(400).json({ error: "code (6 digits) and nodeId required" });
   const devs = meshDevices.get(String(code));
   if (!devs) return res.status(404).json({ error: "No mesh found for that code." });
@@ -2067,6 +2072,9 @@ app.post("/v1/mesh/join", async (req, res) => {
     charging: charging !== undefined ? !!charging : !!prev.charging,
     net: typeof net === "string" ? net.slice(0, 12) : (prev.net || ""),
     rtt: typeof prev.rtt === "number" ? prev.rtt : null,
+    /* the single consent this device gave at join time — the host can control it from
+       then on, no per-command prompts */
+    allow: allow === undefined ? (prev.allow ?? null) : !!allow,
     ts: Date.now(), joined: prev.joined || Date.now()
   });
   res.json({ ok: true, code: String(code), peers: devs.size, live: meshLiveCount(devs), ownerOnline: meshOwnerOnline(code), serverTime: Date.now() });
@@ -2117,9 +2125,15 @@ app.post("/v1/mesh/poll", async (req, res) => {
 /* the owner pushes a command to one node, to an explicit list, or to all */
 app.post("/v1/mesh/command", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  const { code, nodeId, targets, cmd, arg } = req.body || {};
+  const { code, nodeId, targets, cmd, arg, from } = req.body || {};
   const devs = meshDevices.get(String(code));
   if (!devs) return res.status(404).json({ error: "No mesh found for that code." });
+  /* HOST ONLY — the device that registered the code is the only one that may order
+     others around; a joined phone gets a clear 403 instead of silent control. */
+  const hostId = meshHosts.get(String(code));
+  if (hostId && from && String(from) !== hostId) {
+    return res.status(403).json({ error: "only the host device can send orders" });
+  }
   meshTouchCode(code);
   let list;
   if (Array.isArray(targets) && targets.length) list = targets.map(String);
@@ -2176,10 +2190,13 @@ app.get("/v1/mesh/state", async (req, res) => {
   meshTouchCode(code);
   meshTrimDevices(devs);
   const now = Date.now();
+  const hostNode = meshHosts.get(code) || null;
   const devices = [...devs.entries()].map(([id, d]) => ({
     id, name: d.name, battery: d.battery, charging: !!d.charging, net: d.net || "",
     rtt: typeof d.rtt === "number" ? d.rtt : null,
     ageMs: now - d.ts,
+    allow: d.allow === undefined ? null : d.allow,
+    host: !!hostNode && hostNode === id,
     fresh: now - d.ts < MESH_LIVE_MS && d.vis !== false, away: d.vis === false,
     pending: (meshCmds.get(code + "|" + id) || []).length
   })).sort((a, b) => a.ageMs - b.ageMs);
@@ -2201,9 +2218,12 @@ app.get("/v1/mesh/devices", async (req, res) => {
   meshTouchCode(code);
   meshTrimDevices(devs);
   const now = Date.now();
+  const hostNode = meshHosts.get(code) || null;
   const devices = [...devs.entries()].map(([id, d]) => ({
     id, name: d.name, battery: d.battery, charging: !!d.charging, net: d.net || "",
     rtt: typeof d.rtt === "number" ? d.rtt : null, ageMs: now - d.ts,
+    allow: d.allow === undefined ? null : d.allow,
+    host: !!hostNode && hostNode === id,
     fresh: now - d.ts < MESH_LIVE_MS && d.vis !== false, away: d.vis === false, pending: (meshCmds.get(code + "|" + id) || []).length
   }));
   const results = (meshResults.get(code) || []).filter(r => r.ts > since);
