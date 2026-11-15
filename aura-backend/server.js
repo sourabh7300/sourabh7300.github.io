@@ -307,7 +307,9 @@ async function visionCall(messages, maxTok, temperature, req) {
 }
 let visionAltCache = { at: 0, groq: [], nvidia: [] };
 async function visionAltModels() {
-  if (visionAltCache.groq.length && Date.now() - visionAltCache.at < 3600_000) return visionAltCache;
+  /* a cache of "nothing" is worse than no cache: NVIDIA retired the llama-3.2 vision
+     models (410 Gone), so an empty list has to be re-discovered, not remembered */
+  if ((visionAltCache.groq.length || visionAltCache.nvidia.length) && Date.now() - visionAltCache.at < 1800_000) return visionAltCache;
   const pick = async (base, key, re) => {
     if (!key) return [];
     try {
@@ -318,8 +320,8 @@ async function visionAltModels() {
     } catch (e) { return []; }
   };
   const groqKey = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
-  const groq = await pick("https://api.groq.com/openai/v1", groqKey, /llama-4|maverick|scout|vision|vl/i);
-  const nvidia = await pick("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, /llama-4|maverick|scout|vision|vl|nemotron.*vl/i);
+  const groq = await pick("https://api.groq.com/openai/v1", groqKey, /llama-4|maverick|scout|vision|vl|gemma-3/i);
+  const nvidia = await pick("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, /llama-4|maverick|scout|vision|vl|nemotron.*vl|gemma|phi-3|qwen.*vl|llava/i);
   visionAltCache = { at: Date.now(), groq, nvidia };
   return visionAltCache;
 }
@@ -3167,7 +3169,9 @@ async function copilotAlt(instruction, mimeType, data, opts) {
     }
     /* 11b first (fast), 90b next (slower but reliably present on the NIM catalogue),
        then whatever /models reported */
-    const nv = ["meta/llama-3.2-11b-vision-instruct", "meta/llama-3.2-90b-vision-instruct", ...(alt.nvidia || [])];
+    /* discovered NIM vision models first; the old llama-3.2 ids are EOL since 2026-11-05
+       and only serve as a last resort */
+    const nv = [...(alt.nvidia || []), "meta/llama-3.2-90b-vision-instruct"];
     for (const model of [...new Set(nv)].slice(0, 4)) {
       if (!NVIDIA_NIM_KEY) break;
       const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, opts.maxTok || 320);
