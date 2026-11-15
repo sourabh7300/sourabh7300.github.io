@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ceb0ecc07a6b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="38c71bef6e5c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2483,9 +2483,151 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       tell('Co-Pilot off');
     }
 
+    /* ---------------- the panel ----------------
+       A passive watcher alone is not useful: people want to point at the screen and ask
+       something. This is one small window — toggle, mode, one question box, one answer.
+       Everything technical (frames sent, skipped, model, last suggestion) sits behind
+       "Advanced", so the simple view stays simple. */
+    var panelEl = null, answerEl = null, statusEl = null, advEl = null;
+    function copMode(){
+      try{ return (typeof window.mode === 'string' && /zeus/i.test(window.mode)) ? 'Zeus Mode' : 'Standard'; }catch(e){ return 'Standard'; }
+    }
+    function copStatus(){
+      if(!statusEl) return;
+      if(co.on) statusEl.innerHTML = '<i style="width:7px;height:7px;border-radius:50%;background:#5ee7a0;box-shadow:0 0 8px #5ee7a0;display:inline-block;margin-right:6px"></i>Sharing your screen · watching quietly';
+      else statusEl.innerHTML = '<i style="width:7px;height:7px;border-radius:50%;background:#6a7787;display:inline-block;margin-right:6px"></i>Not sharing — start to let AURA see the screen';
+      var b = document.getElementById('auraCopToggle');
+      if(b) b.textContent = co.on ? 'Stop' : 'Start sharing';
+      if(advEl) advEl.textContent = 'Frames sent ' + co.sent + ' · skipped ' + co.skipped + ' · mode ' + copMode();
+    }
+    function copAnswer(text, meta){
+      if(!answerEl) return;
+      answerEl.style.display = 'block';
+      answerEl.textContent = text;
+      if(meta){ answerEl.setAttribute('data-model', meta); }
+    }
+    function buildPanel(){
+      if(panelEl) return panelEl;
+      var p = document.createElement('div');
+      p.id = 'auraCopPanel';
+      p.style.cssText = 'position:fixed;z-index:46;right:14px;bottom:96px;width:min(360px,calc(100vw - 28px));' +
+        'background:rgba(10,15,24,.94);border:1px solid rgba(120,215,255,.25);border-radius:16px;' +
+        'box-shadow:0 22px 60px rgba(0,0,0,.6);backdrop-filter:blur(14px);color:#e9f5ff;' +
+        'font:13px/1.5 Inter,system-ui,sans-serif;display:none;overflow:hidden';
+      p.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px">' +
+          '<b style="font-size:13.5px;letter-spacing:.06em;text-transform:uppercase;color:#9fd8ff">Co-Pilot</b>' +
+          '<button id="auraCopClose" type="button" aria-label="Close" style="background:none;border:0;color:#7f8b9a;font-size:15px;cursor:pointer;line-height:1">✕</button>' +
+        '</div>' +
+        '<div id="auraCopStatus" style="padding:0 14px 10px;font-size:12px;color:#9fb0c0"></div>' +
+        '<div style="display:flex;gap:8px;padding:0 14px 10px">' +
+          '<button id="auraCopToggle" type="button" style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid rgba(120,215,255,.4);' +
+            'background:rgba(120,215,255,.16);color:#dff4ff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer">Start sharing</button>' +
+          '<button id="auraCopMode" type="button" style="padding:9px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.14);' +
+            'background:transparent;color:#cfdae6;font:12.5px Inter,system-ui,sans-serif;cursor:pointer">Standard</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:8px;padding:0 14px 12px">' +
+          '<input id="auraCopQ" type="text" placeholder="Ask anything about your screen…" autocomplete="off" ' +
+            'style="flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.14);' +
+            'background:rgba(255,255,255,.05);color:#eaf6ff;font:13px Inter,system-ui,sans-serif;outline:none">' +
+          '<button id="auraCopAsk" type="button" aria-label="Ask" style="padding:0 14px;border-radius:10px;border:0;' +
+            'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 13px Inter,system-ui,sans-serif;cursor:pointer">Ask</button>' +
+        '</div>' +
+        '<div id="auraCopAnswer" style="display:none;margin:0 14px 12px;padding:10px 12px;border-radius:10px;' +
+          'background:rgba(120,215,255,.08);border:1px solid rgba(120,215,255,.18);font-size:12.8px;white-space:pre-wrap"></div>' +
+        '<details style="padding:0 14px 12px">' +
+          '<summary style="cursor:pointer;color:#7f8b9a;font-size:11.5px;letter-spacing:.04em">Advanced</summary>' +
+          '<div id="auraCopAdv" style="margin-top:6px;color:#8ea1b2;font-size:11.5px"></div>' +
+        '</details>';
+      document.body.appendChild(p);
+
+      panelEl = p;
+      statusEl = p.querySelector('#auraCopStatus');
+      answerEl = p.querySelector('#auraCopAnswer');
+      advEl = p.querySelector('#auraCopAdv');
+
+      p.querySelector('#auraCopClose').onclick = function(){ p.style.display = 'none'; };
+      p.querySelector('#auraCopToggle').onclick = function(){ co.on ? copStop() : copStart(); copStatus(); };
+      p.querySelector('#auraCopMode').onclick = function(){
+        try{ if(typeof setMode === 'function') setMode(copMode() === 'Zeus Mode' ? 'aura' : 'zeus'); }catch(e){}
+        p.querySelector('#auraCopMode').textContent = copMode() === 'Zeus Mode' ? 'Zeus' : 'Standard';
+        copStatus();
+      };
+      var ask = async function(){
+        var q = (p.querySelector('#auraCopQ').value || '').trim();
+        if(!q) return;
+        copAnswer('Looking at your screen…');
+        var out = await copAsk(q);
+        if(out) copAnswer(out.answer, out.model);
+        else copAnswer('I could not read the screen just now. Keep the share running and try again.');
+      };
+      p.querySelector('#auraCopAsk').onclick = ask;
+      p.querySelector('#auraCopQ').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); ask(); } });
+      return p;
+    }
+    function copPanel(show){
+      buildPanel();
+      var p = panelEl;
+      p.style.display = (show === undefined) ? (p.style.display === 'none' ? 'block' : 'none') : (show ? 'block' : 'none');
+      if(p.style.display === 'block'){
+        /* sit above the composer, like the suggestion card */
+        try{
+          var box = document.getElementById('card') || document.getElementById('inp');
+          var b = 96;
+          if(box){ var t = box.getBoundingClientRect().top; if(t > 40 && t < innerHeight - 30) b = Math.max(20, innerHeight - t + 12); }
+          p.style.bottom = b + 'px';
+        }catch(e){}
+        copStatus();
+        try{ p.querySelector('#auraCopQ').focus(); }catch(e){}
+      }
+    }
+
+    /* grab one frame right now (used by the Ask box, ignores the change gate) */
+    function copNow(){
+      var video = co.stream && co.stream.__video;
+      if(!video || video.readyState < 2) return null;
+      return copFrame(video);
+    }
+
+    async function copAsk(question){
+      if(!co.on){
+        await copStart();
+        if(!co.on) return null;
+      }
+      var cv = copNow();
+      if(!cv) return null;
+      try{
+        var send = async function(){
+          var r = await fetch(BASE + '/api/passive-vision', {
+            method: 'POST', headers: hdrs(),
+            body: JSON.stringify({ image: cv.toDataURL('image/jpeg', 0.6), question: question, mode: copMode() }),
+            signal: AbortSignal.timeout(45000)
+          });
+          return r;
+        };
+        var r = await send();
+        if(r.status === 429){
+          await new Promise(function(res){ setTimeout(res, 1300); });
+          r = await send();
+        }
+        if(!r.ok) return null;
+        var j = await r.json();
+        if(j && j.action === 'ANSWER' && j.answer){
+          co.asked = (co.asked || 0) + 1;
+          copAnswer(j.answer, j.model);
+          copStatus();
+          return j;
+        }
+      }catch(e){}
+      return null;
+    }
+
     window.__auraCopilot = {
       on: function(){ return co.on; },
-      toggle: function(){ co.on ? copStop() : copStart(); },
+      toggle: function(){ co.on ? copStop() : copStart(); copStatus(); },
+      panel: function(show){ copPanel(show); },
+      ask: function(q){ return copAsk(q); },
+      status: function(){ return { on: co.on, sent: co.sent, skipped: co.skipped, asked: co.asked || 0 }; },
       stats: function(){ return { on: co.on, sent: co.sent, skipped: co.skipped }; },
       suggest: function(fix, line){ copPulse(); if(line) copSay(line); copShow(fix); }
     };
@@ -2501,7 +2643,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       b.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;' +
         'border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:#cfcdcb;' +
         "font:12.5px/1.4 Inter,system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;user-select:none";
-      b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} window.__auraCopilot.toggle(); };
+      b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} window.__auraCopilot.panel(true); };
       tools.appendChild(b);
     }, 1200);
   }catch(e){}
