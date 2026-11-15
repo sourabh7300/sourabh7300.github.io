@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="921e2422bf90"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="49f41b2d8c96"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -957,10 +957,21 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       var e = latin.indexOf("endstream", start);
       if(e < 0) break;
       at = e + 9;
-      var raw = buf.subarray(start, e);
+      var head = latin.slice(parentHead(latin, s), s);
+      /* honour /Length when it is there — the newline before `endstream` is not part of
+         the deflate data and Chrome's DecompressionStream rejects it */
+      var lenM = head.match(/\/Length\s+(\d+)/);
+      var stop = e;
+      if(lenM){
+        var want = start + parseInt(lenM[1], 10);
+        if(want > start && want <= e) stop = want;
+      }
+      if(stop === e){
+        while(stop > start && (buf[stop - 1] === 10 || buf[stop - 1] === 13 || buf[stop - 1] === 32)) stop--;
+      }
+      var raw = buf.subarray(start, stop);
       pieces.push(raw);
       /* uncompressed streams are readable as they are */
-      var head = latin.slice(parentHead(latin, s), s);
       if(/\/FlateDecode/.test(head)) continue;
       pieces.pop();
       var body = latin.slice(start, e);
