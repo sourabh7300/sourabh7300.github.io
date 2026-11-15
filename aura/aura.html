@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="439b9cdc830a"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="a3b8225c1e20"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2910,7 +2910,12 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         host.id = 'auraCoreWrap';
         host.style.cssText = 'position:fixed;z-index:1;pointer-events:none;right:2.2vw;top:50%;transform:translateY(-50%);' +
           'width:clamp(200px,22vw,340px);height:clamp(200px,22vw,340px);opacity:.9';
-        host.innerHTML = '<canvas id="auraCore" style="width:100%;height:100%;display:block"></canvas>';
+        /* the ambient orb is a canvas with a soft glow; without a mask its square bounds
+           show as a pale blue box (seen in a hosted window). The mask guarantees the
+           light fades to nothing instead of ending at an edge. */
+        host.innerHTML = '<canvas id="auraCore" style="width:100%;height:100%;display:block;' +
+          '-webkit-mask-image:radial-gradient(circle at 50% 50%,#000 38%,rgba(0,0,0,0) 68%);' +
+          'mask-image:radial-gradient(circle at 50% 50%,#000 38%,rgba(0,0,0,0) 68%)"></canvas>';
         document.body.appendChild(host);
       }
       var cv = host.querySelector('canvas');
@@ -3100,7 +3105,9 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       if(!cv){
         cv = document.createElement('canvas');
         cv.id = 'auraIris';
-        cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;filter:drop-shadow(0 0 26px rgba(120,215,255,.35))';
+        cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;filter:drop-shadow(0 0 26px rgba(120,215,255,.35));' +
+          '-webkit-mask-image:radial-gradient(circle at 50% 50%,#000 42%,rgba(0,0,0,0) 72%);' +
+          'mask-image:radial-gradient(circle at 50% 50%,#000 42%,rgba(0,0,0,0) 72%)';
         wrap.appendChild(cv);
       }
       var ctx = cv.getContext('2d');
