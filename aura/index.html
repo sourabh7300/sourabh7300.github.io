@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="bef6cfee4dc5"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="104c1592e813"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2481,23 +2481,61 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           await loadSdk();
           if(!windowsFirebaseInit(web)) throw new Error("firebase init failed");
           var provider = new window.firebase.auth.GoogleAuthProvider();
+          /* phones block popups, and a blocked popup looked exactly like a dead button.
+             Mobile (and anything narrow) goes through the redirect flow instead, and the
+             result is picked up when the page comes back. */
+          if(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.innerWidth < 820){
+            try{ localStorage.setItem("aura_auth_pending", "1"); }catch(e){}
+            await window.firebase.auth().signInWithRedirect(provider);
+            return;
+          }
           var res = await window.firebase.auth().signInWithPopup(provider);
-          var token = await res.user.getIdToken();
-          try{ localStorage.setItem("aura_id_token", token); }catch(e){}
-          var me = await fetch(BASE + "/v1/me", { headers: Object.assign({}, hdrs(), { Authorization: "Bearer " + token }) }).then(function(r){ return r.json(); }).catch(function(){ return null; });
-          var name = (me && (me.name || (me.user && me.user.name))) || (res.user && res.user.displayName) || "";
-          who = name;
-          remember(name);
+          await finishLogin(res.user);
           closeSheet();
-          try{ if(typeof tell === "function") tell("Signed in as " + (name || "you")); }catch(e){}
         }catch(e){
           if(msg){
-            msg.textContent = "Sign-in failed: " + String((e && e.message) || e).slice(0, 160) +
-              "\nIf a popup was blocked, allow popups for this site and try again.";
+            var why = String((e && e.message) || e);
+            if(/unauthorized-domain|domain is not authorized/i.test(why))
+              why = "This site's domain is not in the Firebase project's Authorized domains list. Add " + location.hostname + " in Firebase console \u2192 Authentication \u2192 Settings \u2192 Authorized domains, then try again.";
+            else if(/popup-blocked|popup/i.test(why))
+              why = "The Google window was blocked. Allow popups for this site, or open AURA from the home-screen icon and try again.";
+            msg.textContent = "Sign-in failed: " + why.slice(0, 220);
             msg.style.whiteSpace = "pre-line";
           }
         }
         busy = false;
+      }
+
+      /* one place that turns a signed-in Firebase user into a name on screen and a
+         verified token for the backend */
+      async function finishLogin(user){
+        try{
+          var token = await user.getIdToken();
+          try{ localStorage.setItem("aura_id_token", token); }catch(e){}
+          var me = await fetch(BASE + "/v1/me", { headers: Object.assign({}, hdrs(), { Authorization: "Bearer " + token }) })
+            .then(function(r){ return r.json(); }).catch(function(){ return null; });
+          var name = (me && (me.name || (me.user && me.user.name))) || user.displayName || (user.email || "").split("@")[0] || "";
+          who = name;
+          remember(name);
+          try{ localStorage.setItem("aura_email", user.email || ""); }catch(e){}
+          paint(name, "Signed in as " + (user.email || name) + " · chats and memory follow this account");
+          try{ if(typeof tell === "function") tell("Signed in as " + (name || "you")); }catch(e){}
+          return true;
+        }catch(e){ return false; }
+      }
+
+      /* coming back from the Google redirect */
+      async function resumeRedirect(){
+        try{
+          if(!localStorage.getItem("aura_auth_pending")) return;
+          var c = await getConfig();
+          if(!hasWeb(c)) return;
+          await loadSdk();
+          if(!windowsFirebaseInit(c.firebaseWebConfig)) return;
+          var res = await window.firebase.auth().getRedirectResult();
+          localStorage.removeItem("aura_auth_pending");
+          if(res && res.user) await finishLogin(res.user);
+        }catch(e){ try{ localStorage.removeItem("aura_auth_pending"); }catch(x){} }
       }
 
       function windowsFirebaseInit(web){
@@ -2529,7 +2567,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         if(saved) paint(saved);
       }catch(e){}
 
-      window.__auraAuth = { signIn: startGoogle, config: getConfig, who: function(){ return who; } };
+      setTimeout(resumeRedirect, 1200);
+      window.__auraAuth = { signIn: startGoogle, config: getConfig, who: function(){ return who; }, resume: resumeRedirect };
     })();
   }catch(e){}
 
