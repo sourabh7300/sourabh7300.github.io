@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="cf709ac3d0b0"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="f8dfc566468b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1005,6 +1005,11 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
      reads) still held the previous conversation, so "Question 2 ka code bhi do" was
      answered with "you never shared Question 2". Anytime a saved chat is opened or a
      new one starts, the array is rebuilt from what is on screen. */
+  function attHash(t){
+    var s = String(t || '').toLowerCase().slice(0, 120), h = 5381;
+    for(var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  }
   function syncHistoryFromChat(){
     try{
       var out = [];
@@ -1014,7 +1019,17 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         /* the Copy/Speak toolbar is not part of the answer */
         txt = txt.replace(/\s*[\u29C9\u2713]\s*Copy\s*/g, ' ').replace(/\s*\uD83D\uDD0A\s*Speak\s*/g, ' ').trim();
         if(!txt) return;
-        out.push({ role: m.classList.contains('u') ? 'user' : 'assistant', content: txt.slice(0, 4000) });
+        if(m.classList.contains('u')){
+          /* a reopened chat gets its attachment back too, otherwise "Question 2 ka code
+             bhi do" cannot be answered from a Word file that was sent earlier */
+          try{
+            var att = localStorage.getItem('aura_att_' + attHash(txt));
+            if(att) txt = "[Attached file the user sent with this message]\n" + att + "\n\n[User's message]\n" + txt;
+          }catch(e){}
+          out.push({ role: 'user', content: txt.slice(0, 6000) });
+        }else{
+          out.push({ role: 'assistant', content: txt.slice(0, 4000) });
+        }
       });
       history = out.slice(-16);
       window.__auraLastReply = null;
@@ -1161,6 +1176,10 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     var m = (mode === "zeus") ? "zeus" : "aura";
     var pack = window.__auraAttachPack();
     var asked = askable(text);
+    /* keep the extracted file text next to its message so the chat can be reopened */
+    try{
+      if(pack && pack.text) localStorage.setItem('aura_att_' + attHash(asked), String(pack.text).slice(0, 6000));
+    }catch(e){}
     var turn;
     if(pack && pack.images.length){
       /* pictures need the multimodal shape … */
