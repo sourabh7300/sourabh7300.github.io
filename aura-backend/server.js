@@ -3157,29 +3157,31 @@ async function copilotAlt(instruction, mimeType, data, opts) {
     ];
     const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
     const alt = await visionAltModels();
-    /* /models can hide multimodal ids (or rate-limit the listing); these two are the
-       known Groq vision models, so they are always attempted */
+    /* Every candidate is fired at once and the first usable answer wins. In sequence a
+       slow or retired model spent the whole request budget before the good one was even
+       tried, which is why the lane looked dead whenever Gemini's quota was out. */
+    const jobs = [];
     const gq = [...new Set([...(alt.groq || []), "meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct"])];
     for (const model of gq.slice(0, 3)) {
-      const t = await openAiVision("https://api.groq.com/openai/v1", key, model, msgs, opts.maxTok || 320);
-      if (!t) copilotStats.lastErr = "groq/" + model + " no text";
-      if (opts.raw) { if (t) return { text: t, model: "groq/" + model }; continue; }
-      const parsed = t ? copilotParse(t, "groq/" + model) : null;
-      if (parsed) return parsed;
+      if (!key) break;
+      jobs.push(openAiVision("https://api.groq.com/openai/v1", key, model, msgs, opts.maxTok || 320)
+        .then(t => t ? { text: t, model: "groq/" + model } : null)
+        .catch(() => null));
     }
-    /* 11b first (fast), 90b next (slower but reliably present on the NIM catalogue),
-       then whatever /models reported */
-    /* discovered NIM vision models first; the old llama-3.2 ids are EOL since 2026-11-05
-       and only serve as a last resort */
     const nv = [...(alt.nvidia || []), "meta/llama-4-maverick-17b-128e-instruct", "nvidia/llama-3.1-nemotron-nano-vl-8b-v1", "microsoft/phi-3.5-vision-instruct"];
     for (const model of [...new Set(nv)].slice(0, 4)) {
       if (!NVIDIA_NIM_KEY) break;
-      const t = await openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, opts.maxTok || 320);
-      if (!t) copilotStats.lastErr = "nvidia/" + model + " no text";
-      if (opts.raw) { if (t) return { text: t, model: "nvidia/" + model }; continue; }
-      const parsed = t ? copilotParse(t, "nvidia/" + model) : null;
-      if (parsed) return parsed;
+      jobs.push(openAiVision("https://integrate.api.nvidia.com/v1", NVIDIA_NIM_KEY, model, msgs, opts.maxTok || 320)
+        .then(t => t ? { text: t, model: "nvidia/" + model } : null)
+        .catch(() => null));
     }
+    if (!jobs.length) return null;
+    const first = await Promise.any(jobs.map(p => p.then(v => { if (!v) throw new Error("empty"); return v; }))).catch(() => null);
+    if (!first) { copilotStats.lastErr = "alt: every vision model refused"; return null; }
+    if (opts.raw) return first;
+    const parsed = copilotParse(first.text, first.model);
+    if (parsed) return parsed;
+    copilotStats.lastErr = first.model + " unparsable";
   } catch (e) { copilotStats.lastErr = "alt " + (e.message || "failed"); }
   return null;
 }
