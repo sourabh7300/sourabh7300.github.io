@@ -3063,7 +3063,7 @@ app.post("/v1/rag/query", async (req, res) => {
     try {
       const block = RAG.contextBlock(hits);
       const convo = [
-        { role: "system", content: "You are AURA. Answer the question from the user's own documents below. Cite [file · page] once per fact used. If the excerpts do not cover it, say so in one line and answer from general knowledge." + block },
+        { role: "system", content: "You are AURA. Answer from the user's own documents below. Cite [file · page] once per fact used. If the user asks to solve / answer / do the whole file, treat the WHOLE file as the task: work through every question or exercise in order, numbered exactly like the source, with full working for each — never only the first one, never a summary instead. Maths shows working line by line in plain text, final answer bold. Code goes in a fenced block with its language tag. If the excerpts do not cover something, say so in one line and answer that part from general knowledge." + block },
         { role: "user", content: q }
       ];
       out.answer = (await llm1(convo, 1200, req)) || "";
@@ -3195,13 +3195,15 @@ const COPILOT_ASK_PROMPT = [
   "No JSON, no markdown headers, no preamble."
 ].join(" ");
 
-async function copilotAnswer(image, question) {
+async function copilotAnswer(image, question, context) {
   const m = String(image).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/);
   if (!m) return null;
   const mimeType = m[1];
   const data = m[2].replace(/\s+/g, "");
   if (data.length < 500 || data.length > 5_500_000) return null;
-  const instruction = COPILOT_ASK_PROMPT + "\n\nUSER QUESTION: " + String(question).slice(0, 300);
+  const instruction = COPILOT_ASK_PROMPT +
+    (context ? "\n\nEARLIER IN THIS CONVERSATION (for reference, do not repeat it):\n" + context : "") +
+    "\n\nUSER QUESTION: " + String(question).slice(0, 300);
   const cap = new Promise(r => setTimeout(() => r(null), 42_000));
   const out = await Promise.race([
     copilotGemini(instruction, mimeType, data, { raw: true, maxTok: 600 }),
@@ -3234,6 +3236,9 @@ app.post(["/api/passive-vision", "/v1/passive-vision"], async (req, res) => {
   /* an explicit question is the user waiting on an answer, so it gets a shorter gap than
      the passive watcher, but it still cannot be fired per second */
   const question = String(body.question || "").trim().slice(0, 300);
+  /* a follow-up like "and that error, how do I fix it?" only makes sense with the last
+     question in view, so the panel sends its short history along */
+  const copContext = String(body.context || "").trim().slice(0, 700);
   const gap = question ? 1200 : COPILOT_GAP_MS;
   if ((copilotSeen.get(ip) || 0) + gap > now) {
     return res.status(429).json({ action: question ? "ANSWER" : "IGNORE", reason: "too_soon" });
@@ -3252,7 +3257,7 @@ app.post(["/api/passive-vision", "/v1/passive-vision"], async (req, res) => {
 
   try {
     if (question) {
-      const ans = await copilotAnswer(body.image, question);
+      const ans = await copilotAnswer(body.image, question, copContext);
       if (!ans) { copilotStats.lastErr = copilotStats.lastErr || "ask: no read"; return res.json({ action: "ANSWER", answer: "", reason: "no_read", why: String(copilotStats.lastErr || "").slice(0, 160), vision: (typeof visionDebug !== "undefined" ? visionDebug.slice(-2) : null) }); }
       copilotStats.answers = (copilotStats.answers || 0) + 1;
       return res.json(ans);
@@ -4156,7 +4161,9 @@ app.post("/v1/agent", async (req, res) => {
     'tool "calc": input = a plain arithmetic expression like 2+2*3.14159.\n' +
     'tool "python": input = COMPLETE runnable Python source. Use it whenever the request needs real computation, data crunching, an algorithm tested, a loop/stats over numbers, or text processing — not for arithmetic you can do with "calc". print() what you want to see; the sandbox has 6s and no network, no subprocess, no file writes outside its temp dir.\n' +
     'tool "answer": input = the FINAL user-facing answer, written normally (not JSON). Cite sources inline as [1], [2] matching the numbered sources provided. If information is missing, say what you found and what is uncertain.\n' +
-    'ANSWER SHAPE: one direct line first, then a short why/how, then numbered steps or bullets when there is a process, and a closing next step only if it helps. Never one flat block of text; never restate the question.\n';
+    /* OWNER REPORT 15 Nov 2026: every answer arrived as steps, even for a single fact.
+       Shape is earned by the question now, not applied by default. */
+    'ANSWER SHAPE: answer the question, then stop. A fact or definition gets 1-3 plain sentences with no list; a why/how gets a short explanation of the real cause; numbered steps, bold labels (**Why**, **Steps**) and next-step lines ONLY when the request is a procedure, a calculation, a comparison or code. Maths shows working line by line in plain text (no LaTeX) with the final answer bold on its own line. Code goes in one fenced block with its language tag, complete and runnable. When a document is attached and the user asks to solve it, solve EVERY question in it in order, numbered like the source — never only the first. Never restate the question, never pad to look structured.\n';
   const sys = String(body.system || "");
   const maxSteps = Math.min(Math.max(parseInt(body.maxSteps, 10) || 5, 2), MAX_STEPS);
   const sources = [];
@@ -4213,7 +4220,7 @@ app.post("/v1/agent", async (req, res) => {
     /* step budget spent → force the synthesis */
     send({ step: { icon: "✍️", label: "synthesizing everything found into the answer…" } });
     const convo2 = [
-      { role: "system", content: "You are AURA — Sourabh Singh's holographic AI assistant. Write the final user-facing answer to the REQUEST directly, in the user's language, clear and human. Use WORK SO FAR only where it truly answers the request; ignore unrelated search hits. If the request is about you or your abilities, answer from your identity and capabilities. Cite [1],[2] only when you actually use that source. No preamble.\nSTRUCTURE (always): line 1 = the direct answer in one sentence. Then 2–4 sentences of why/how that actually explain it. Then numbered steps or bullets if there is a process, one idea per line. Bold section labels (**Why**, **Steps**, **Example**, **Watch out**) for anything longer than five lines. Finish with a next step or a caution only when it adds value. A simple question stays 2–5 lines; never a single flat paragraph, never filler." },
+      { role: "system", content: "You are AURA — Sourabh Singh's holographic AI assistant. Write the final user-facing answer to the REQUEST directly, in the user's language, clear and human. Use WORK SO FAR only where it truly answers the request; ignore unrelated search hits. If the request is about you or your abilities, answer from your identity and capabilities. Cite [1],[2] only when you actually use that source. No preamble.\nSHAPE (owner order, 15 Nov 2026): answer the REQUEST and stop. A fact, a definition or a yes/no gets 1-3 plain sentences with no list and no headings. A why/how question gets a short explanation of the actual cause. Numbered steps, bold labels (**Why**, **Steps**) and a closing next step ONLY when the request is really a procedure, a calculation, a comparison or code — never just because the answer is long. Maths: real working line by line in plain text, no LaTeX, final answer bold on its own line. Code: one fenced block with the language tag, complete and runnable, plus one line on how to run it. A document the user attached is solved fully — every question in it, in order. Never restate the question, never pad." },
       { role: "user", content: "REQUEST: " + q + "\n\nSOURCES:\n" + sources.map((s, i) => "[" + (i + 1) + "] " + s.title + " — " + s.url).join("\n") + "\n\nWORK SO FAR:\n" + transcript.join("\n").slice(-4500) }
     ];
     finalAnswer = await llm1(convo2, 1400, req) || "I gathered the pieces but ran out of steps before I could finish — ask me again and I'll get there.";
