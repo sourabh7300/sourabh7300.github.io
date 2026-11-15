@@ -2430,6 +2430,31 @@ function warmHealth() {
   try { researchProbe().catch(() => {}); } catch (e) {}
 }
 app.get("/v1/vision/debug", (req, res) => res.json({ attempts: visionDebug, alts: visionAltCache }));
+/* ---------------- DAILY SELF-UPDATE ----------------
+   Owner order (15 Nov 2026): AURA must know what is going on today without being asked
+   to search. One brief is refreshed every few hours from the same search stack the
+   answers use, then every chat turn carries it, so "aaj kya hua" costs no extra call. */
+const briefState = { ok: false, at: 0, date: "", items: [], note: "" };
+async function refreshBrief(force) {
+  const day = new Date().toISOString().slice(0, 10);
+  if (!force && briefState.at && Date.now() - briefState.at < 3 * 3600_000) return briefState;
+  try {
+    const hits = await toolSearch("top news today world India technology");
+    const items = (hits || []).slice(0, 6).map(h => ({ title: String(h.title || "").slice(0, 140), url: String(h.url || "").slice(0, 200) }));
+    if (items.length) {
+      briefState.ok = true; briefState.items = items; briefState.note = "";
+    } else { briefState.note = "search returned nothing"; }
+    briefState.at = Date.now(); briefState.date = day;
+  } catch (e) { briefState.note = (e.message || "failed").slice(0, 120); briefState.at = Date.now(); briefState.date = day; }
+  return briefState;
+}
+app.get("/v1/brief", async (req, res) => {
+  const b = await refreshBrief(false);
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.json({ ok: b.ok, date: b.date, updatedAt: b.at, items: b.items, note: b.note });
+});
+setTimeout(() => { refreshBrief(true).catch(() => {}); }, 12_000).unref && setTimeout(() => { refreshBrief(true).catch(() => {}); }, 12_000);
+setInterval(() => { refreshBrief(true).catch(() => {}); }, 3 * 3600_000).unref();
 app.get("/health", (req, res) => {
   const now = Date.now();
   try { fbInit(); } catch (e) { noteCrash("fb-init", e); } /* lazy+eager both fine: it caches its verdict */
