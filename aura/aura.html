@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="1aabfa0744ee"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="dbe62299ffd1"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -746,6 +746,15 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       return v;
     }catch(e){ return "n" + Math.random().toString(36).slice(2, 10); }
   })();
+  /* one hard mute for everything AURA can make a sound with */
+  function auraMuted(){ try{ return localStorage.getItem("aura_sound_off") === "1"; }catch(e){ return false; } }
+  function auraSetMuted(on){
+    try{ localStorage.setItem("aura_sound_off", on ? "1" : "0"); }catch(e){}
+    if(on){
+      try{ speechSynthesis.cancel(); }catch(e){}
+      try{ [].forEach.call(document.querySelectorAll("audio,video"), function(m){ try{ m.muted = true; }catch(e){} }); }catch(e){}
+    }
+  }
   function devName(){
     try{ return (localStorage.getItem("az.name") ? JSON.parse(localStorage.getItem("az.name")) : "Device") || "Device"; }
     catch(e){ return "Device"; }
@@ -2020,8 +2029,6 @@ function makeQR(text) {
         '<button class="b" id="amuP2">Open Google</button>' +
         '<button class="b" id="amuP3">Speak hello</button>' +
       '</div>' +
-      '<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font:11.5px var(--f2);color:var(--dim)">' +
-        '<input type="checkbox" id="amuAllow"> Allow this device to be controlled</label>' +
     '</div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
       '<button class="b" id="amuCopy">\u29c9 Copy code</button>' +
@@ -2048,39 +2055,20 @@ function makeQR(text) {
       pollStart(); refresh();
     }).catch(function(e){ listSet("<div>host failed: " + e.message + "</div>"); tell("Host failed \u00b7 " + e.message); });
   }
-  /* ONE consent, at join time. After this the host drives this device freely — no
-     per-command permission prompts — which is what the owner asked for. */
-  function meshConsent(){
-    return new Promise(function(resolve){
-      var old = document.getElementById("auraMeshConsent"); if(old) old.remove();
-      var d = document.createElement("div");
-      d.id = "auraMeshConsent";
-      d.style.cssText = "position:fixed;z-index:92;left:0;right:0;bottom:0;padding:18px 16px 22px;border-radius:18px 18px 0 0;" +
-        "background:rgba(8,16,26,.98);border-top:1px solid rgba(120,215,255,.32);color:#e9f5ff;" +
-        "font:13px/1.5 Inter,system-ui,sans-serif;box-shadow:0 -18px 50px rgba(0,0,0,.6)";
-      d.innerHTML = '<b style="font-size:14.5px">Join this AURA mesh?</b>' +
-        '<div style="color:#a9bccd;margin:7px 0 14px">Host ki AURA is device par ye sab kar sakegi: ' +
-        '<b>apps kholna, video play karna, call lagana, bolna (speak), vibrate</b>. ' +
-        'Permission sirf ek hi baar maangi jaati hai \u2014 uske baad host ke paas control rehta hai.</div>' +
-        '<div style="display:flex;gap:8px"><button id="amuConsentYes" style="flex:1;padding:11px;border-radius:11px;border:0;' +
-        'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 13px Inter,system-ui,sans-serif;cursor:pointer">Allow all</button>' +
-        '<button id="amuConsentNo" style="padding:11px 14px;border-radius:11px;border:1px solid rgba(255,255,255,.16);' +
-        'background:transparent;color:#cfe9ff;font:600 13px Inter,system-ui,sans-serif;cursor:pointer">Not now</button></div>';
-      document.body.appendChild(d);
-      d.querySelector("#amuConsentYes").onclick = function(){ meshSetAllow(true); d.remove(); resolve(true); };
-      d.querySelector("#amuConsentNo").onclick = function(){ meshSetAllow(false); d.remove(); resolve(false); };
-    });
-  }
-  async function join(){
+  /* NO permission prompts at all (owner order, 16 Nov): joining a mesh IS the consent.
+     Only the device that hosted the mesh can send orders — the server enforces that —
+     so an ordinary joined phone is safe without nagging its owner every time. */
+  function join(){
+
     var c = String(($("#amuCode") || {}).value || "").trim();
     if(!/^\d{6}$/.test(c)) return tell("Enter the six-digit code");
-    if(!meshAllow()) await meshConsent();
-    api("/v1/mesh/join", { code: c, nodeId: nodeId, name: devName(), allow: meshAllow() }).then(function(j){
+    meshSetAllow(true);
+    api("/v1/mesh/join", { code: c, nodeId: nodeId, name: devName(), allow: true }).then(function(j){
       mesh.code = c; mesh.role = "node";
       try{ localStorage.setItem("aura_mesh_code", c); }catch(e){}
       setStatus("Joined \u00b7 code " + c); qrDraw();
       meshRoleUI();
-      tell(meshAllow() ? "Joined \u00b7 host can control this device" : "Joined \u00b7 control blocked"); pollStart(); refresh();
+      tell("Joined \u00b7 host can control this device"); pollStart(); refresh();
     }).catch(function(e){ listSet("<div>join failed: " + e.message + "</div>"); tell("Join failed \u00b7 " + e.message); });
   }
   function leave(){
@@ -2150,11 +2138,11 @@ function makeQR(text) {
   }
   function meshSetAllow(on){
     try{ localStorage.setItem("aura_mesh_allow", on ? "1" : "0"); }catch(e){}
-    var cb = $("#amuAllow"); if(cb) cb.checked = !!on;
+
   }
   function meshSpeak(text){
     try{
-      if(!window.speechSynthesis) return false;
+      if(auraMuted() || !window.speechSynthesis) return false;
       var u = new SpeechSynthesisUtterance(String(text || "").slice(0, 300));
       u.rate = 1; u.pitch = 1;
       u.lang = /[\u0900-\u097F]/.test(text) ? "hi-IN" : (/\b(kya|hai|nahi|kar|kaise)\b/i.test(text) ? "hi-IN" : "en-US");
@@ -2186,12 +2174,6 @@ function makeQR(text) {
     clearTimeout(meshBanner.h);
     if(!btn) meshBanner.h = setTimeout(function(){ b.style.display = "none"; }, 5000);
   }
-  function meshAskAllow(cmd){
-    var what = cmd.cmd === "open" ? "open " + cmd.arg : (cmd.cmd === "speak" ? "speak out loud" : cmd.cmd);
-    meshBanner("AURA mesh request", "The host wants this device to <b>" + what + "</b>.", "Allow", function(){
-      meshSetAllow(true); meshExec(cmd);
-    });
-  }
   function meshTargetUrl(arg){
     var t = String(arg || "").trim();
     if(!t) return "";
@@ -2219,8 +2201,7 @@ function makeQR(text) {
     var ctl = $("#amuCtl");
     if(ctl) ctl.style.display = isHost ? "block" : "none";
     if(lnk) lnk.style.display = "";
-    var cb = $("#amuAllow");
-    if(cb) cb.parentNode.style.display = "none";
+
     if(!isHost){
       var info = $("#amuRole");
       if(!info){
@@ -2229,7 +2210,7 @@ function makeQR(text) {
         var host = cmd && cmd.closest("div[style*=border-top]");
         (host || ov.querySelector(".mod")).appendChild(info);
       }
-      info.textContent = meshAllow() ? "Host can control this device \u00b7 permission given once" : "Control blocked \u2014 re-join to allow";
+      info.textContent = "Host can control this device · no permission needed";
     } else {
       var r = $("#amuRole"); if(r) r.remove();
     }
@@ -2374,13 +2355,13 @@ function makeQR(text) {
             }
             /* every other command ACTS on this device — it only runs when the owner of
                this device allowed it, and the first order asks once */
-            if(!meshAllow()){ tell("Host order blocked \u2014 this device never allowed control"); meshResult(c.id, "blocked: no permission on device"); return; }
             meshExec(c);
           });
           if($("#auraMeshOv").classList.contains("on")) refresh();
         }).catch(function(e){ if(gone(e)) forget(); });
     };
     tick();
+    mesh.tick = tick;
     /* a host only needs the list while the panel is open; a joined device keeps
        listening in the background so it can receive what the host sends */
     /* A joined device MUST keep listening even in a background tab — that is the whole
@@ -2390,8 +2371,16 @@ function makeQR(text) {
       var hostIdle = mesh.role === "host" && document.hidden && !$("#auraMeshOv").classList.contains("on");
       if(hostIdle) return;
       tick();
-    }, 4000);
+    }, 2500);
   }
+  /* phones freeze timers in a background tab, so the moment the page is visible again
+     the mesh catches up instead of waiting for the next tick */
+  try{
+    ["visibilitychange", "focus", "pageshow", "online"].forEach(function(ev){
+      document.addEventListener(ev, function(){ if(mesh.code && !document.hidden){ try{ mesh.tick && mesh.tick(); refresh(); }catch(e){} } });
+    });
+    window.addEventListener("pageshow", function(){ if(mesh.code){ try{ mesh.tick && mesh.tick(); }catch(e){} } });
+  }catch(e){}
 
   ov.addEventListener("click", function(e){ if(e.target === ov) ov.classList.remove("on"); });
   $("#amuHost").onclick = host;
@@ -2407,8 +2396,7 @@ function makeQR(text) {
     }catch(e){ tell("Code: " + mesh.code); }
   };
   $("#amuRun").onclick = meshRun;
-  var __cb = $("#amuAllow");
-  if(__cb){ __cb.checked = meshAllow(); __cb.onchange = function(){ meshSetAllow(__cb.checked); tell(__cb.checked ? "This device can be controlled" : "Remote control blocked"); }; }
+
   $("#amuCmd").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); meshRun(); } });
   $("#amuLink").onclick = function(){
     if(!mesh.code) return tell("Host or join first");
@@ -2775,7 +2763,7 @@ function makeQR(text) {
       }
       function speakText(t){
         try{
-          if(!window.speechSynthesis) return;
+          if(auraMuted() || !window.speechSynthesis) return;
           speechSynthesis.cancel();
           var u = new SpeechSynthesisUtterance(String(t || "").replace(/[*`#]/g, "").slice(0, 700));
           u.rate = 1.02; u.pitch = 1.02;
@@ -3022,6 +3010,33 @@ function makeQR(text) {
       holder.appendChild(row);
       document.getElementById('auraTourAgain').onclick = function(){ window.__auraTour(); };
     }, 900);
+    /* Sound: one switch that silences everything AURA can make — spoken answers,
+       mesh speech and any media it started (owner ask, 16 Nov). */
+    setTimeout(function(){
+      try{
+        var pan = document.getElementById("p-set");
+        if(!pan || document.getElementById("auraSoundRow")) return;
+        var holder = pan.querySelector(".sc") || pan;
+        var row = document.createElement("div");
+        row.id = "auraSoundRow";
+        row.style.cssText = "margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;gap:12px";
+        var lbl = document.createElement("span");
+        lbl.textContent = "Sound · spoken answers, mesh voice, media";
+        var b = document.createElement("button");
+        b.type = "button"; b.id = "auraSoundBtn"; b.textContent = "On";
+        b.style.cssText = "background:rgba(120,215,255,.12);border:1px solid rgba(120,215,255,.32);color:#dff4ff;padding:6px 12px;border-radius:9px;font-size:12.5px;cursor:pointer";
+        row.appendChild(lbl); row.appendChild(b);
+        holder.appendChild(row);
+        function paint(){
+          var off = auraMuted();
+          b.textContent = off ? "Off" : "On";
+          b.style.color = off ? "#ffb4b4" : "#dff4ff";
+          b.style.borderColor = off ? "rgba(255,120,120,.45)" : "rgba(120,215,255,.32)";
+        }
+        paint();
+        b.onclick = function(){ auraSetMuted(!auraMuted()); paint(); try{ tell(auraMuted() ? "Sound off · sab kuch silent" : "Sound on"); }catch(e){} };
+      }catch(e){}
+    }, 1000);
 
     var seen = '';
     try{ seen = localStorage.getItem(TOUR_KEY) || ''; }catch(e){}
@@ -3192,7 +3207,7 @@ function makeQR(text) {
 
     function copSay(line){
       try{
-        if(!window.speechSynthesis) return;
+        if(auraMuted() || !window.speechSynthesis) return;
         var u = new SpeechSynthesisUtterance(String(line || '').slice(0, 120));
         u.volume = 0.55; u.rate = 1.04; u.pitch = 1.02;
         window.speechSynthesis.speak(u);
@@ -3267,7 +3282,9 @@ function makeQR(text) {
     async function copStart(){
       if(co.on) return;
       if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){
-        return tell('Screen share is not available in this browser');
+        copProgress((co.qline || "") + "Is browser me screen share nahi hota — Android/iOS browsers allow nahi karte. 📷 button dabao: photo ya screenshot bhejo, main usi ko padh kar jawab doongi.");
+        try{ tell("Screen share mobile par nahi · 📷 use karo"); }catch(e){}
+        return;
       }
       try{
         co.stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 1 }, audio: false });
@@ -3372,7 +3389,7 @@ function makeQR(text) {
     function copSetVoice(on){ try{ localStorage.setItem('aura_cop_voice', on ? '1' : '0'); }catch(e){} }
     function copSpeak(text){
       try{
-        if(!window.speechSynthesis) return false;
+        if(auraMuted() || !window.speechSynthesis) return false;
         var s = String(text || '').replace(/^Q:[\s\S]*?\n\n/, '').replace(/[*_`#>]/g, '').trim();
         if(!s) return false;
         var u = new SpeechSynthesisUtterance(s.slice(0, 400));
@@ -3525,6 +3542,7 @@ function makeQR(text) {
             'style="flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid rgba(255,255,255,.14);' +
             'background:rgba(255,255,255,.05);color:#eaf6ff;font:12.8px Inter,system-ui,sans-serif;outline:none">' +
           '<button id="auraCopMic" type="button" aria-label="Ask by voice" title="Ask by voice" style="padding:0 9px;border-radius:10px;border:1px solid rgba(120,215,255,.25);background:rgba(120,215,255,.08);color:#cfe9ff;font:15px Inter,system-ui,sans-serif;cursor:pointer">\uD83C\uDFA4</button>' +
+          '<button id="auraCopPhoto" type="button" aria-label="Ask with a photo" title="Ask with a photo / screenshot" style="padding:0 9px;border-radius:10px;border:1px solid rgba(120,215,255,.25);background:rgba(120,215,255,.08);color:#cfe9ff;font:15px Inter,system-ui,sans-serif;cursor:pointer">📷</button>' +
           '<button id="auraCopAsk" type="button" aria-label="Ask" style="padding:0 13px;border-radius:10px;border:0;' +
             'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 12.8px Inter,system-ui,sans-serif;cursor:pointer">Ask</button>' +
         '</div>' +
@@ -3610,6 +3628,8 @@ function makeQR(text) {
           r.start();
         }catch(e){ copAnswer('Mic unavailable: ' + e.message); }
       };
+      var photoBtn = p.querySelector('#auraCopPhoto');
+      if(photoBtn) photoBtn.onclick = function(){ copPickPhoto(); };
       p.querySelector('#auraCopAsk').onclick = ask;
       p.querySelector('#auraCopQ').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); ask(); } });
       /* the PiP button only exists where the browser can float a real window */
@@ -3754,6 +3774,61 @@ function makeQR(text) {
         var t = String((((j.choices || [])[0] || {}).message || {}).content || '').trim();
         return t || null;
       }catch(e){ return null; }
+    }
+
+    /* ---------- photo path ----------
+       Android and iOS browsers do not implement screen capture at all, so on a phone
+       the co-pilot takes a photo or a screenshot instead and reads that. */
+    function copPickPhoto(){
+      var inp = document.getElementById("auraCopFile");
+      if(!inp){
+        inp = document.createElement("input");
+        inp.type = "file"; inp.accept = "image/*"; inp.id = "auraCopFile";
+        inp.setAttribute("capture", "environment");
+        inp.style.cssText = "position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0";
+        document.body.appendChild(inp);
+        inp.addEventListener("change", function(){
+          var f = inp.files && inp.files[0];
+          try{ inp.value = ""; }catch(e){}
+          if(f) copAskPhoto(f);
+        });
+      }
+      try{ inp.click(); }catch(e){}
+    }
+    function copPhotoCanvas(file){
+      return new Promise(function(res){
+        try{
+          var img = new Image();
+          var url = URL.createObjectURL(file);
+          img.onload = function(){
+            var k = Math.min(1, 1400 / Math.max(img.width, img.height));
+            var w = Math.max(1, Math.round(img.width * k)), hh = Math.max(1, Math.round(img.height * k));
+            var cv = document.createElement("canvas"); cv.width = w; cv.height = hh;
+            cv.getContext("2d").drawImage(img, 0, 0, w, hh);
+            try{ URL.revokeObjectURL(url); }catch(e){}
+            res(cv);
+          };
+          img.onerror = function(){ try{ URL.revokeObjectURL(url); }catch(e){} res(null); };
+          img.src = url;
+        }catch(e){ res(null); }
+      });
+    }
+    async function copAskPhoto(file){
+      var q = (document.getElementById('auraCopQ').value || '').trim() || 'What is in this picture? Answer in 3 short lines.';
+      var qline = 'Q: ' + q + '\n\n';
+      co.qline = qline;
+      copProgress(qline + 'Photo padh rahi hoon\u2026');
+      var cv = await copPhotoCanvas(file);
+      if(!cv) return copAnswer(qline + 'Photo khul nahi payi \u2014 dobara bhejo.');
+      var out = await copVision(cv, q);
+      if(out){ copAnswer(qline + out.answer, out.model); if(copVoiceOn()) copSpeak(out.answer); return; }
+      copProgress(qline + 'Text padh rahi hoon\u2026');
+      var text = await copOCR(cv);
+      if(text && text.replace(/\s/g, '').length > 10){
+        var ans = await copAskText(text, q);
+        if(ans){ copAnswer(qline + ans, 'photo-text'); if(copVoiceOn()) copSpeak(ans); return; }
+      }
+      copAnswer(qline + 'Is photo se kuch padha nahi ja saka. Thoda zoom karke ya saaf photo bhejo.');
     }
 
     /* the image lane: unchanged behaviour, just split out so OCR can be the fallback */
