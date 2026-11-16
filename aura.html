@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="4d562ff68b79"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="4bf59e7b2015"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3438,7 +3438,7 @@ function makeQR(text) {
     function copClamp(el){
       try{
         var r = el.getBoundingClientRect();
-        var l = Math.min(Math.max(0, r.left), Math.max(0, innerWidth - Math.min(r.width, innerWidth)));
+        var l = Math.min(Math.max(6, r.left), Math.max(6, innerWidth - Math.min(r.width, innerWidth) - 6));
         var t = Math.min(Math.max(0, r.top), Math.max(0, innerHeight - Math.min(r.height, innerHeight)));
         el.style.left = l + 'px'; el.style.top = t + 'px';
         el.style.right = 'auto'; el.style.bottom = 'auto';
@@ -3835,6 +3835,9 @@ function makeQR(text) {
       });
     }
     async function copAskPhoto(file){
+      if(copAskPhoto.busy){ try{ tell('Pehli photo par kaam chal raha hai'); }catch(e){} return; }
+      copAskPhoto.busy = true;
+      try{
       var q = (document.getElementById('auraCopQ').value || '').trim() || 'What is in this picture? Answer in 3 short lines.';
       var qline = 'Q: ' + q + '\n\n';
       co.qline = qline;
@@ -3850,6 +3853,7 @@ function makeQR(text) {
         if(ans){ copAnswer(qline + ans, 'photo-text'); if(copVoiceOn()) copSpeak(ans); return; }
       }
       copAnswer(qline + 'Is photo se kuch padha nahi ja saka. Thoda zoom karke ya saaf photo bhejo.');
+      } finally { copAskPhoto.busy = false; }
     }
 
     /* the image lane: unchanged behaviour, just split out so OCR can be the fallback */
