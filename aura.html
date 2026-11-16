@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="eb938cb9939b"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="8c4a5e42e50f"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -5389,7 +5389,14 @@ function makeQR(text) {
       var inpEl = document.getElementById('inp');
       var sendBtn = document.getElementById('send');
       var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if(!mic || !inpEl || !sendBtn) return;
+      if(!mic || !inpEl || !sendBtn){
+        /* this file is injected before the reference markup exists, so looking the
+           elements up once meant the whole voice flow silently never attached (the mic
+           only ever ran the reference's own broken handler). Retry until they appear. */
+        voiceFlow._n = (voiceFlow._n || 0) + 1;
+        if(voiceFlow._n < 60) setTimeout(voiceFlow, 300);
+        return;
+      }
       var cardEl = document.getElementById('card');
       /* round, obvious, and it visibly listens: a ring pulses out of the button and the
          pill shows the words as they are heard */
