@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="511207db6fa3"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="4d562ff68b79"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3582,6 +3582,7 @@ function makeQR(text) {
       document.body.appendChild(p);
 
       panelEl = p;
+      try{ copFileInput(); }catch(e){}
       statusEl = p.querySelector('#auraCopStatus');
       answerEl = p.querySelector('#auraCopAnswer');
       advEl = p.querySelector('#auraCopAdv');
@@ -3723,7 +3724,8 @@ function makeQR(text) {
       }
       var tog = document.getElementById('auraCopToggle');
       if(tog){
-        tog.textContent = co.on ? 'Stop screen share' : 'Start screen share';
+        var canShare = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+        tog.textContent = co.on ? 'Stop screen share' : (canShare ? 'Start screen share' : 'Screen share is not supported here \u2014 use \ud83d\udcf7');
         tog.style.background = co.on ? 'rgba(255,90,90,.16)' : 'linear-gradient(135deg,#48c8ff,#2f7bff)';
         tog.style.color = co.on ? '#ffd7d7' : '#04121f';
         tog.style.borderColor = co.on ? 'rgba(255,120,120,.5)' : 'rgba(120,215,255,.45)';
@@ -3795,7 +3797,7 @@ function makeQR(text) {
     /* ---------- photo path ----------
        Android and iOS browsers do not implement screen capture at all, so on a phone
        the co-pilot takes a photo or a screenshot instead and reads that. */
-    function copPickPhoto(){
+    function copFileInput(){
       var inp = document.getElementById("auraCopFile");
       if(!inp){
         inp = document.createElement("input");
@@ -3809,7 +3811,10 @@ function makeQR(text) {
           if(f) copAskPhoto(f);
         });
       }
-      try{ inp.click(); }catch(e){}
+      return inp;
+    }
+    function copPickPhoto(){
+      try{ copFileInput().click(); }catch(e){ try{ tell("Photo picker nahi khul paya"); }catch(err){} }
     }
     function copPhotoCanvas(file){
       return new Promise(function(res){
