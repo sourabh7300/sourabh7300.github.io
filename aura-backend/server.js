@@ -2153,6 +2153,22 @@ app.post("/v1/mesh/command", async (req, res) => {
     meshCmds.set(key, arr.slice(-25)); /* a node that never polls must not grow forever */
     ids.push(id); queued++;
   }
+  /* A device that is not polling right now is exactly the case the user cares about
+     (locked screen / app switched): wake it through the push service instead of
+     waiting for a timer the browser has frozen. Fire-and-forget — the order is
+     already queued, so a push failure must never fail the order. */
+  try {
+    const stale = list.filter(t => {
+      const d = devs.get(t);
+      return !d || (Date.now() - (d.ts || 0) > 25_000);
+    });
+    if (stale.length) {
+      pushSend(String(code), stale, {
+        title: "AURA mesh", body: meshPushBody(name, arg), cmd: name,
+        arg: String(arg || "").slice(0, 120), code: String(code), tag: "aura-mesh-" + String(code)
+      }).catch(() => {});
+    }
+  } catch (e) {}
   res.json({ ok: true, queued, targets: list.length, ids });
 });
 /* nodes post results; the ring is read with a cursor, so nothing is lost on a read */
@@ -2281,7 +2297,123 @@ app.post("/v1/mesh/close", async (req, res) => {
   meshDevices.delete(code); meshResults.delete(code); meshOwners.delete(code);
   meshBorn.delete(code); meshTouch.delete(code); meshResIds.delete(code);
   for (const [k] of meshSeen) if (k.startsWith(code + "|")) meshSeen.delete(k);
+  /* a closed mesh must not keep waking phones it no longer exists for */
+  try { for (const k of [...pushSubs.keys()]) if (k.startsWith(code + "|")) pushSubs.delete(k); } catch (e) {}
   res.json({ ok: true, closed: true, released: ids.length });
+});
+
+/* ================= WEB PUSH — background orders (16 Nov 2026) =================
+   WHY THIS EXISTS: a locked phone / switched-away tab freezes page timers, so a mesh
+   order sat in the queue until the tab woke up (measured: one order arrived 8s+ late, a
+   single poll gap of 26.8s). A Web Push notification is handed to the platform's push
+   service and wakes our service worker with the AURA TAB CLOSED — that is the only
+   mechanism that actually removes the waiting, not a shorter polling interval.
+   The VAPID pair lives in Render's environment (VAPID_PUBLIC / VAPID_PRIVATE /
+   VAPID_SUBJECT). Only the PUBLIC key ever reaches the browser; the private key signs
+   the delivery and never leaves this process. Subscriptions are per mesh node and
+   in-memory, exactly like the mesh queues they serve. */
+const webpush = (function () { try { return require("web-push"); } catch (e) { return null; } })();
+const PUSH_PUBLIC = String(process.env.VAPID_PUBLIC || "").trim();
+const PUSH_PRIVATE = String(process.env.VAPID_PRIVATE || "").trim();
+const PUSH_SUBJECT = String(process.env.VAPID_SUBJECT || "").trim() || "mailto:aura@example.com";
+let pushInitError = "";
+if (webpush && PUSH_PUBLIC && PUSH_PRIVATE) {
+  try { webpush.setVapidDetails(PUSH_SUBJECT, PUSH_PUBLIC, PUSH_PRIVATE); }
+  catch (e) { pushInitError = String((e && e.message) || e).slice(0, 160); }
+}
+const pushReady = () => !!(webpush && PUSH_PUBLIC && PUSH_PRIVATE && !pushInitError);
+/* Fingerprint = sha256 of the raw 65-byte public point, first 16 hex chars. The browser
+   computes it from the SAME key it subscribed with, so equal fingerprints prove both
+   ends share one key pair — the thing `push: ready` alone cannot prove. */
+function pushFingerprint(key) {
+  try {
+    const raw = Buffer.from(String(key || "").replace(/-/g, "+").replace(/_/g, "/"), "base64");
+    if (raw.length !== 65) return "";
+    return require("crypto").createHash("sha256").update(raw).digest("hex").slice(0, 16);
+  } catch (e) { return ""; }
+}
+const pushSubs = new Map();  /* "code|nodeId" → [ {sub:{endpoint,keys},at} ] */
+const meshPushStats = { sent: 0, failed: 0, gone: 0, last: null };
+const pushSubCount = () => { let n = 0; for (const a of pushSubs.values()) n += a.length; return n; };
+async function pushSend(code, targets, payload) {
+  if (!pushReady()) return { sent: 0, failed: 0, gone: 0, results: [], error: "push-not-configured", detail: pushInitError || "VAPID env vars missing" };
+  const body = JSON.stringify(payload);
+  let sent = 0, failed = 0, gone = 0;
+  const results = [];
+  for (const t of targets) {
+    const key = String(code) + "|" + String(t);
+    const keep = [];
+    for (const rec of (pushSubs.get(key) || [])) {
+      try {
+        const r = await webpush.sendNotification(rec.sub, body, { TTL: 900, urgency: payload.test ? "normal" : "high" });
+        sent++; keep.push(rec);
+        results.push({ node: String(t), status: (r && r.statusCode) || 201 });
+      } catch (e) {
+        const st = (e && e.statusCode) || 0;
+        failed++;
+        /* 404/410 = the browser threw this subscription away; keeping it would only
+           fail again, so it is dropped here */
+        if (st === 404 || st === 410) gone++; else keep.push(rec);
+        results.push({ node: String(t), status: st, error: String((e && (e.body || e.message)) || e).slice(0, 120) });
+      }
+    }
+    if (keep.length) pushSubs.set(key, keep); else pushSubs.delete(key);
+  }
+  meshPushStats.sent += sent; meshPushStats.failed += failed; meshPushStats.gone += gone;
+  meshPushStats.last = { at: Date.now(), sent, failed, gone };
+  return { sent, failed, gone, results };
+}
+function meshPushBody(cmd, arg) {
+  const a = String(arg || "").trim();
+  const head = String(cmd || "order");
+  return (a ? head + ": " + a : head).slice(0, 150);
+}
+/* the client asks for the key here — never a hardcoded copy in the page, so rotating
+   the pair in Render is a redeploy, not a code edit */
+app.get("/v1/push/key", (req, res) => {
+  res.json({
+    ok: true, configured: pushReady(), key: pushReady() ? PUSH_PUBLIC : "",
+    fingerprint: pushFingerprint(PUSH_PUBLIC), subject: PUSH_SUBJECT,
+    subscriptions: pushSubCount(), error: pushInitError || undefined
+  });
+});
+app.post("/v1/push/subscribe", (req, res) => {
+  if (!pushReady()) return res.status(503).json({ ok: false, error: "push-not-configured", detail: pushInitError || "VAPID env vars missing on the server" });
+  const { code, nodeId, subscription } = req.body || {};
+  const c = String(code || "").trim(), id = String(nodeId || "").trim().slice(0, 40);
+  if (!/^\d{6}$/.test(c) || !id) return res.status(400).json({ ok: false, error: "code (6 digits) and nodeId required" });
+  if (!meshDevices.has(c)) return res.status(404).json({ ok: false, error: "No mesh found for that code." });
+  const endpoint = subscription && subscription.endpoint;
+  const keys = (subscription && subscription.keys) || {};
+  if (!endpoint || !keys.p256dh || !keys.auth) return res.status(400).json({ ok: false, error: "a full push subscription (endpoint + keys) is required" });
+  const key = c + "|" + id;
+  const list = (pushSubs.get(key) || []).filter(r => r.sub.endpoint !== endpoint);
+  list.push({ sub: { endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth }, expirationTime: subscription.expirationTime || null }, at: Date.now() });
+  pushSubs.set(key, list.slice(-5)); /* one phone may have a few browsers, never unbounded */
+  meshTouchCode(c);
+  res.json({ ok: true, subscriptions: pushSubs.get(key).length, devices: pushSubCount(), fingerprint: pushFingerprint(PUSH_PUBLIC) });
+});
+app.post("/v1/push/unsubscribe", (req, res) => {
+  const { code, nodeId, endpoint } = req.body || {};
+  const c = String(code || "").trim(), id = String(nodeId || "").trim().slice(0, 40);
+  if (!/^\d{6}$/.test(c) || !id) return res.status(400).json({ ok: false, error: "code (6 digits) and nodeId required" });
+  const key = c + "|" + id;
+  const list = pushSubs.get(key) || [];
+  const left = endpoint ? list.filter(r => r.sub.endpoint !== String(endpoint)) : [];
+  if (left.length) pushSubs.set(key, left); else pushSubs.delete(key);
+  res.json({ ok: true, removed: list.length - left.length, subscriptions: pushSubCount() });
+});
+app.post("/v1/push/test", async (req, res) => {
+  if (!pushReady()) return res.status(503).json({ ok: false, error: "push-not-configured", detail: pushInitError || "VAPID env vars missing on the server" });
+  const c = String((req.body && req.body.code) || "").trim();
+  if (!/^\d{6}$/.test(c)) return res.status(400).json({ ok: false, error: "code (6 digits) required" });
+  const want = (req.body && req.body.nodeId) || "all";
+  const targets = String(want) === "all"
+    ? [...pushSubs.keys()].filter(k => k.startsWith(c + "|")).map(k => k.slice(c.length + 1))
+    : [String(want)];
+  if (!targets.length) return res.json({ ok: true, sent: 0, failed: 0, targets: 0, fingerprint: pushFingerprint(PUSH_PUBLIC), note: "no device has background alerts on for this mesh" });
+  const out = await pushSend(c, targets, { title: "AURA mesh", body: "Test alert — background alerts are working. An order will arrive here.", cmd: "test", test: true, code: c, tag: "aura-mesh-test" });
+  res.json(Object.assign({ ok: true, targets: targets.length, fingerprint: pushFingerprint(PUSH_PUBLIC) }, out));
 });
 
 /* optional shared-secret gate */
@@ -2487,6 +2619,9 @@ app.get("/health", (req, res) => {
       if (!p || !s) return "missing";
       return p.length === 87 && s.length === 43 ? "ready" : "bad-length:" + p.length + "/" + s.length;
     })(),
+    pushKey: pushFingerprint(PUSH_PUBLIC),
+    pushSubs: pushSubCount(),
+    pushSent: meshPushStats.sent + "/" + meshPushStats.failed + "/" + meshPushStats.gone,
     search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, voice: (String(ELEVEN_KEY || "").trim() ? "elevenlabs" : "backup"), accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
 });
 /* keep the last-known values fresh without ever blocking the endpoint */
