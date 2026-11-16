@@ -2312,7 +2312,8 @@ app.post("/v1/mesh/close", async (req, res) => {
    VAPID_SUBJECT). Only the PUBLIC key ever reaches the browser; the private key signs
    the delivery and never leaves this process. Subscriptions are per mesh node and
    in-memory, exactly like the mesh queues they serve. */
-const webpush = (function () { try { return require("web-push"); } catch (e) { return null; } })();
+let pushLoadError = "";
+const webpush = (function () { try { return require("web-push"); } catch (e) { pushLoadError = String((e && e.message) || e).slice(0, 200); return null; } })();
 const PUSH_PUBLIC = String(process.env.VAPID_PUBLIC || "").trim();
 const PUSH_PRIVATE = String(process.env.VAPID_PRIVATE || "").trim();
 const PUSH_SUBJECT = String(process.env.VAPID_SUBJECT || "").trim() || "mailto:aura@example.com";
@@ -2374,7 +2375,10 @@ app.get("/v1/push/key", (req, res) => {
   res.json({
     ok: true, configured: pushReady(), key: pushReady() ? PUSH_PUBLIC : "",
     fingerprint: pushFingerprint(PUSH_PUBLIC), subject: PUSH_SUBJECT,
-    subscriptions: pushSubCount(), error: pushInitError || undefined
+    subscriptions: pushSubCount(),
+    /* a deploy can carry code without the module (mirror/install problem) or keys with a
+     wrong shape — name the exact reason instead of a bare false */
+    module: !!webpush, loadError: pushLoadError || undefined, initError: pushInitError || undefined
   });
 });
 app.post("/v1/push/subscribe", (req, res) => {
@@ -2620,6 +2624,7 @@ app.get("/health", (req, res) => {
       return p.length === 87 && s.length === 43 ? "ready" : "bad-length:" + p.length + "/" + s.length;
     })(),
     pushKey: pushFingerprint(PUSH_PUBLIC),
+    pushModule: !!webpush ? (pushLoadError ? "load-error:" + pushLoadError : "loaded") : (!webpush ? "missing" : "loaded"),
     pushSubs: pushSubCount(),
     pushSent: meshPushStats.sent + "/" + meshPushStats.failed + "/" + meshPushStats.gone,
     search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, voice: (String(ELEVEN_KEY || "").trim() ? "elevenlabs" : "backup"), accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
