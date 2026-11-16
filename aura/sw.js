@@ -93,6 +93,50 @@ self.addEventListener('fetch', e => {
   })());
 });
 
+/* ---- WEB PUSH (16 Nov 2026) ----
+   A locked phone freezes page timers, so a mesh order used to wait until the tab woke
+   up (measured: one arrived 8s+ late, a poll gap of 26.8s). The platform's push
+   service wakes THIS worker with the AURA tab closed — that is what makes a
+   background order arrive instead of waiting. */
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (err) { try { d = { body: e.data.text() }; } catch (e2) {} }
+  const title = d.title || 'AURA mesh';
+  const body = d.body || 'Order from the host';
+  e.waitUntil((async () => {
+    try {
+      await self.registration.showNotification(title, {
+        body: body, tag: d.tag || 'aura-mesh', renotify: true,
+        icon: './icon-192.png', badge: './icon-192.png',
+        vibrate: [140, 60, 140],
+        data: { url: './', cmd: d.cmd || '', arg: d.arg || '', code: d.code || '', at: Date.now() }
+      });
+    } catch (err) { /* permission revoked — nothing else this worker can do */ }
+    /* an already-open AURA tab should show the order now, not at its next poll */
+    try {
+      const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      list.forEach(c => c.postMessage({ type: 'aura-push', body: body, cmd: d.cmd || '', arg: d.arg || '' }));
+    } catch (err) {}
+  })());
+});
+self.addEventListener('notificationclick', e => {
+  try { e.notification.close(); } catch (err) {}
+  const d = (e.notification && e.notification.data) || {};
+  e.waitUntil((async () => {
+    try {
+      const list = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const hit = list.find(c => c.url && c.url.indexOf(self.location.origin) === 0);
+      if (hit) {
+        try { await hit.focus(); } catch (err) {}
+        hit.postMessage({ type: 'aura-push-click', cmd: d.cmd || '', arg: d.arg || '', code: d.code || '' });
+        return;
+      }
+      const w = await self.clients.openWindow(d.url || './');
+      if (w) w.postMessage({ type: 'aura-push-click', cmd: d.cmd || '', arg: d.arg || '', code: d.code || '' });
+    } catch (err) {}
+  })());
+});
+
 /* keep-warm — the original job, kept verbatim */
 function nap() { fetch(BRAIN + '/v1/ping', { mode: 'no-cors' }).catch(() => {}); }
 setInterval(nap, 240000); nap();

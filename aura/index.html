@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="4bf59e7b2015"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="abbad3345256"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2030,6 +2030,13 @@ function makeQR(text) {
         '<button class="b" id="amuP3">Speak hello</button>' +
       '</div>' +
     '</div>' +
+'<div id="amuPushRow" style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+        '<button class="b" id="amuPush">\uD83D\uDD14 Background alerts</button>' +
+        '<button class="b" id="amuPushTest" style="display:none">\u2709 Test</button>' +
+      '</div>' +
+      '<div id="amuPushState" style="font:11.5px/1.45 var(--f2);color:var(--dim);margin-top:6px">Off \u2014 orders arrive only while AURA is open</div>' +
+    '</div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
       '<button class="b" id="amuCopy">\u29c9 Copy code</button>' +
       '<button class="b" id="amuRefresh">\u21bb Refresh</button>' +
@@ -2053,7 +2060,7 @@ function makeQR(text) {
       try{ localStorage.setItem("aura_mesh_code", mesh.code); }catch(e){}
       codeShow(); qrDraw(); meshRoleUI(); setStatus("Hosting \u00b7 code " + j.code + " \u00b7 waiting for a device");
       tell("Mesh hosted \u00b7 code " + j.code);
-      pollStart(); refresh();
+      pollStart(); refresh(); pushSync();
     }).catch(function(e){ listSet("<div>host failed: " + e.message + "</div>"); tell("Host failed \u00b7 " + e.message); });
   }
   /* NO permission prompts at all (owner order, 16 Nov): joining a mesh IS the consent.
@@ -2070,12 +2077,13 @@ function makeQR(text) {
       try{ localStorage.setItem("aura_mesh_code", c); }catch(e){}
       setStatus("Joined \u00b7 code " + c); qrDraw();
       meshRoleUI();
-      tell("Joined \u00b7 host can control this device"); pollStart(); refresh();
+      tell("Joined \u00b7 host can control this device"); pollStart(); refresh(); pushSync();
     }).catch(function(e){ listSet("<div>join failed: " + e.message + "</div>"); tell("Join failed \u00b7 " + e.message); });
   }
   function leave(){
     var c = mesh.code; if(!c) return;
     api("/v1/mesh/leave", { code: c, nodeId: nodeId }).catch(function(){});
+    pushDetach(c);
     mesh.code = null; mesh.role = null; mesh.seen = [];
     try{ localStorage.removeItem("aura_mesh_role"); }catch(e){}
     try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
@@ -2412,6 +2420,8 @@ function makeQR(text) {
     }catch(e){ tell("Code: " + mesh.code); }
   };
   $("#amuRun").onclick = meshRun;
+  $("#amuPush").onclick = function(){ if(pushState.on) pushDisable(); else pushEnable(); };
+  $("#amuPushTest").onclick = pushTest;
 
   $("#amuCmd").addEventListener("keydown", function(e){ if(e.key === "Enter"){ e.preventDefault(); meshRun(); } });
   $("#amuLink").onclick = function(){
@@ -2481,7 +2491,139 @@ function makeQR(text) {
       if(hint) hint.textContent = "";
     }
   }
-  function openMesh(){ ov.classList.add("on"); codeShow(); qrDraw(); if(mesh.code){ pollStart(); refresh(); } }
+  function openMesh(){ ov.classList.add("on"); codeShow(); qrDraw(); if(mesh.code){ pollStart(); refresh(); } pushInit(); }
+
+  /* ---------------- Background alerts (Web Push) ----------------
+     Foreground polling cannot beat a frozen tab: while AURA is closed or the phone is
+     locked the browser stops our timer, so an order waits (measured earlier: one order
+     landed 8s+ late, a single poll gap of 26.8s). A push notification is handed to the
+     platform's push service, which wakes sw.js with the tab closed — that is the part
+     that actually removes the waiting. The public key is READ FROM /v1/push/key, never
+     hardcoded, and the fingerprint in the state line is what proves this browser and
+     the server hold the SAME key pair. */
+  var pushState = { key: "", fp: "", on: false, sub: null, busy: false };
+  function b64uToBytes(s){
+    var b = String(s || "").replace(/-/g, "+").replace(/_/g, "/");
+    while(b.length % 4) b += "=";
+    var raw = atob(b), out = new Uint8Array(raw.length);
+    for(var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  function pushSupported(){
+    return ("serviceWorker" in navigator) && ("PushManager" in window) && ("Notification" in window);
+  }
+  function pushLabel(txt, ok, extra){
+    var el = $("#amuPushState"); if(el) el.textContent = txt;
+    var b = $("#amuPush"); if(b) b.textContent = ok ? "\uD83D\uDD14 Background alerts: on" : "\uD83D\uDD14 Background alerts";
+    var t = $("#amuPushTest"); if(t) t.style.display = ok ? "" : "none";
+    window.__auraPush = { on: !!ok, fingerprint: pushState.fp, label: txt, extra: extra || null };
+  }
+  function pushInit(){
+    if(!pushSupported()) return pushLabel("This browser has no background alerts \u2014 use Chrome on Android, or install AURA on iPhone", false);
+    api("/v1/push/key").then(function(j){
+      pushState.key = j.key || ""; pushState.fp = j.fingerprint || "";
+      if(!j.configured) return pushLabel("Server has no VAPID keys yet \u2014 alerts stay off", false, j);
+      return navigator.serviceWorker.ready.then(function(reg){
+        return reg.pushManager.getSubscription();
+      }).then(function(sub){
+        pushState.sub = sub || null;
+        if(sub && Notification.permission === "granted"){
+          pushState.on = true;
+          pushLabel("On \u00b7 key " + pushState.fp, true);
+          pushSync();
+        } else {
+          pushState.on = false;
+          pushLabel(Notification.permission === "denied"
+            ? "Blocked by the browser \u2014 allow notifications for this site"
+            : "Off \u2014 orders arrive only while AURA is open", false);
+        }
+      });
+    }).catch(function(e){ pushLabel("Push check failed: " + e.message, false); });
+  }
+  function pushEnable(){
+    if(!mesh.code) return tell("Host or join a mesh first");
+    if(!pushSupported()) return tell("This browser cannot do background alerts");
+    if(pushState.busy) return;
+    pushState.busy = true;
+    api("/v1/push/key").then(function(j){
+      if(!j.configured) throw new Error("server has no VAPID keys");
+      pushState.key = j.key; pushState.fp = j.fingerprint || "";
+      return Notification.requestPermission();
+    }).then(function(perm){
+      if(perm !== "granted") throw new Error(perm === "denied" ? "notifications are blocked in the browser" : "notification permission was not given");
+      return navigator.serviceWorker.ready;
+    }).then(function(reg){
+      return reg.pushManager.getSubscription().then(function(sub){
+        if(sub) return sub;
+        /* this key must be the server's own public key, or every send is rejected */
+        return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64uToBytes(pushState.key) });
+      });
+    }).then(function(sub){
+      pushState.sub = sub;
+      var json = sub.toJSON ? sub.toJSON() : { endpoint: sub.endpoint, keys: { p256dh: "", auth: "" } };
+      return api("/v1/push/subscribe", { code: mesh.code, nodeId: nodeId, subscription: json });
+    }).then(function(j){
+      pushState.on = true; pushState.busy = false;
+      try{ localStorage.setItem("aura_push_on", "1"); }catch(e){}
+      pushLabel("On \u00b7 key " + (j.fingerprint || pushState.fp) + " \u00b7 " + (j.subscriptions || 1) + " subscription", true);
+      tell("Background alerts on \u00b7 orders arrive even with AURA closed");
+    }).catch(function(e){
+      pushState.busy = false;
+      pushLabel("Off \u2014 " + e.message, false);
+      tell("Alerts off \u00b7 " + e.message);
+    });
+  }
+  function pushDisable(){
+    var sub = pushState.sub, code = mesh.code;
+    if(pushState.busy) return;
+    pushState.busy = true;
+    try{
+      api("/v1/push/unsubscribe", { code: code, nodeId: nodeId, endpoint: sub && sub.endpoint }).catch(function(){});
+      if(sub) sub.unsubscribe().catch(function(){});
+    }catch(e){}
+    pushState.on = false; pushState.sub = null; pushState.busy = false;
+    try{ localStorage.removeItem("aura_push_on"); }catch(e){}
+    pushLabel("Off \u2014 orders arrive only while AURA is open", false);
+    tell("Background alerts off");
+  }
+  function pushSync(){
+    if(!pushState.on || !pushState.sub || !mesh.code) return;
+    try{
+      var json = pushState.sub.toJSON ? pushState.sub.toJSON() : null;
+      if(json) api("/v1/push/subscribe", { code: mesh.code, nodeId: nodeId, subscription: json }).catch(function(){});
+    }catch(e){}
+  }
+  function pushDetach(code){
+    if(!pushState.on || !code) return;
+    try{ api("/v1/push/unsubscribe", { code: code, nodeId: nodeId, endpoint: pushState.sub && pushState.sub.endpoint }).catch(function(){}); }catch(e){}
+  }
+  function pushTest(){
+    if(!mesh.code) return tell("Host or join a mesh first");
+    if(!pushState.on) return tell("Turn background alerts on first");
+    tell("Sending a test\u2026");
+    api("/v1/push/test", { code: mesh.code, nodeId: "all" }).then(function(j){
+      window.__auraPushLastTest = j;
+      var first = (j.results || [])[0] || {};
+      if(!j.sent) return tell("Test not delivered \u00b7 " + (j.note || ((first.status || 0) + " " + (first.error || ""))));
+      tell("Test pushed \u00b7 " + j.sent + " device \u00b7 key " + j.fingerprint);
+    }).catch(function(e){ tell("Test failed \u00b7 " + e.message); });
+  }
+  /* the worker talks back: a push that lands while the page is open shows immediately,
+     and a tap on the notification drops the order into the composer */
+  try{
+    navigator.serviceWorker.addEventListener("message", function(e){
+      var d = e.data || {};
+      if(!d || (d.type !== "aura-push" && d.type !== "aura-push-click")) return;
+      tell("\uD83D\uDD14 " + (d.body || d.cmd || "Order from the host"));
+      try{ window.__auraPushSeen = (window.__auraPushSeen || []).concat([{ at: Date.now(), type: d.type, cmd: d.cmd || "", body: d.body || "" }]); }catch(err){}
+      if(d.type === "aura-push-click"){
+        try{ ov.classList.add("on"); }catch(err){}
+        var el = $("#amuCmd");
+        if(el && d.cmd && d.cmd !== "test") el.value = d.cmd + (d.arg ? " " + d.arg : "");
+      }
+    });
+  }catch(e){}
+  try{ setTimeout(pushInit, 1500); }catch(e){}
 
   /* scanned QR → this page with ?mesh=CODE: open the panel and join straight away, so
      the other device never has to type the code */
