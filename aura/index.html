@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="b3277ae8cae8"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="187ca368f363"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -755,6 +755,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     var o = owner(); if(o) h["X-Aura-Owner"] = o;
     var opt = { method: method || (body ? "POST" : "GET"), headers: h };
     if(body) opt.body = JSON.stringify(body);
+    /* a stalled request must never hang the mesh forever */
+    try{ opt.signal = AbortSignal.timeout(15000); }catch(e){}
     return fetch(BASE + path, opt).then(function(r){
       return r.json().catch(function(){ return {}; }).then(function(j){
         if(!r.ok) throw new Error(j.error || ("HTTP " + r.status));
@@ -2125,7 +2127,10 @@ function makeQR(text) {
         if(sel.value !== keep) sel.value = "all";
       }
       codeShow();
-    }).catch(function(e){ if(gone(e)) forget(); else listSet("<div>" + e.message + "</div>"); });
+          }).catch(function(e){
+        /* a dropped poll is normal on a phone — stay quiet and keep the last list */
+        if(gone(e)) forget();
+      });
   }
   /* a code kept from an old session outlives the mesh it pointed at, and polling it
      returned 404 every four seconds forever. A dead code now tears itself down. */
@@ -2341,7 +2346,17 @@ function makeQR(text) {
       .then(function(j){
         tell(j.queued ? ("Sent \u00b7 " + c.cmd + " \u2192 " + j.queued + " device(s)") : "No device joined yet");
         if(el) el.value = "";
-      }).catch(function(e){ tell(e.message); });
+      }).catch(function(e){
+        if(gone(e)){ forget(); return tell("Mesh band ho gaya \u2014 phir se host karo"); }
+        /* network hiccup: try once more before saying anything to the user */
+        tell("Sending again\u2026");
+        setTimeout(function(){
+          api("/v1/mesh/command", body).then(function(j){
+            tell(j.queued ? ("Sent \u00b7 " + c.cmd + " \u2192 " + j.queued + " device(s)") : "No device joined yet");
+            if(el) el.value = "";
+          }).catch(function(){ tell("Net slow hai \u2014 ek baar phir Run dabao"); });
+        }, 1200);
+      });
   }
 
   function pollStart(){
@@ -3276,9 +3291,10 @@ function makeQR(text) {
           try{ s.getTracks().forEach(function(t){ t.stop(); }); }catch(e){}
         }).catch(function(){ tell('Mic permission needed for voice answers \u2014 allow it in the browser'); });
       }
-      tell('Co-Pilot on \u00b7 watching quietly');
       copStatus();   /* the panel must not keep saying "Not sharing" after a start */
-      copPill(true);
+      copPanel(true);   /* the window must be visibly open once sharing starts */
+      copPill(false);
+      tell('Co-Pilot on \u00b7 sharing this screen');
       var b = document.getElementById('auraCopBtn');
       if(b) b.textContent = '\uD83D\uDC41 Co-Pilot: on';
     }
@@ -3295,7 +3311,7 @@ function makeQR(text) {
       var b = document.getElementById('auraCopBtn');
       if(b) b.textContent = '\ud83d\udc41 Co-Pilot';
       copStatus();
-      copPill(false);
+      copSyncMini();
       tell('Co-Pilot off');
     }
 
@@ -3309,12 +3325,15 @@ function makeQR(text) {
       try{ return (typeof window.mode === 'string' && /zeus/i.test(window.mode)) ? 'Zeus Mode' : 'Standard'; }catch(e){ return 'Standard'; }
     }
     function copStatus(){
-      if(!statusEl) return;
-      if(co.on) statusEl.innerHTML = '<i style="width:7px;height:7px;border-radius:50%;background:#5ee7a0;box-shadow:0 0 8px #5ee7a0;display:inline-block;margin-right:6px"></i>Sharing your screen · watching quietly';
-      else statusEl.innerHTML = '<i style="width:7px;height:7px;border-radius:50%;background:#6a7787;display:inline-block;margin-right:6px"></i>Not sharing — start to let AURA see the screen';
-      var b = document.getElementById('auraCopToggle');
-      if(b) b.textContent = co.on ? 'Stop' : 'Start sharing';
-      if(advEl) advEl.textContent = 'Frames sent ' + co.sent + ' · skipped ' + co.skipped + ' · mode ' + copMode();
+      var dot = document.getElementById("auraCopDot");
+      if(dot){ dot.style.background = co.on ? "#5ee7a0" : "#6a7787"; dot.style.boxShadow = co.on ? "0 0 9px #5ee7a0" : "none"; }
+      if(statusEl){
+        statusEl.innerHTML = co.on
+          ? "Sharing your screen · watching quietly"
+          : "Not sharing — tap start and AURA can see this screen";
+      }
+      copSyncMini();
+      if(advEl) advEl.textContent = "Frames sent " + co.sent + " · skipped " + co.skipped + " · questions " + (co.asked || 0) + " · mode " + copMode();
     }
     function copAnswer(text, meta){
       if(!answerEl) return;
@@ -3363,51 +3382,166 @@ function makeQR(text) {
         return true;
       }catch(e){ return false; }
     }
+    /* ---------- a real movable window ----------
+       Owner ask (15 Nov): the co-pilot must be a small pop-up you can SEE and move
+       anywhere, not something buried in a menu. Two layers of "anywhere":
+       1. inside AURA's page — a floating orb + a draggable window, position remembered;
+       2. over OTHER apps — Document Picture-in-Picture makes it a real always-on-top
+          OS window, which is the only way a web page can float above the screen it is
+          sharing. */
+    function copPosGet(key){
+      try{
+        var v = JSON.parse(localStorage.getItem(key) || 'null');
+        if(v && isFinite(v.l) && isFinite(v.t)) return v;
+      }catch(e){}
+      return null;
+    }
+    function copPosSave(key, el){
+      try{
+        var r = el.getBoundingClientRect();
+        localStorage.setItem(key, JSON.stringify({ l: Math.round(r.left), t: Math.round(r.top) }));
+      }catch(e){}
+    }
+    function copClamp(el){
+      try{
+        var r = el.getBoundingClientRect();
+        var l = Math.min(Math.max(0, r.left), Math.max(0, innerWidth - Math.min(r.width, innerWidth)));
+        var t = Math.min(Math.max(0, r.top), Math.max(0, innerHeight - Math.min(r.height, innerHeight)));
+        el.style.left = l + 'px'; el.style.top = t + 'px';
+        el.style.right = 'auto'; el.style.bottom = 'auto';
+      }catch(e){}
+    }
+    function copDrag(handle, el, key){
+      var sx = 0, sy = 0, ox = 0, oy = 0, on = false;
+      handle.style.touchAction = 'none';
+      handle.style.cursor = 'grab';
+      handle.addEventListener('pointerdown', function(e){
+        if(e.target && e.target.closest && e.target.closest('button,input,summary,a,label,select')) return;
+        on = true;
+        var r = el.getBoundingClientRect();
+        el.style.left = r.left + 'px'; el.style.top = r.top + 'px';
+        el.style.right = 'auto'; el.style.bottom = 'auto';
+        sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+        handle.style.cursor = 'grabbing';
+        try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+        e.preventDefault();
+      });
+      handle.addEventListener('pointermove', function(e){
+        if(!on) return;
+        var w = el.offsetWidth, h = el.offsetHeight;
+        var l = Math.min(Math.max(0, ox + e.clientX - sx), Math.max(0, innerWidth - Math.min(w, innerWidth)));
+        var t = Math.min(Math.max(0, oy + e.clientY - sy), Math.max(0, innerHeight - Math.min(h, innerHeight)));
+        el.style.left = l + 'px'; el.style.top = t + 'px';
+      });
+      var end = function(){ if(!on) return; on = false; handle.style.cursor = 'grab'; copPosSave(key, el); };
+      handle.addEventListener('pointerup', end);
+      handle.addEventListener('pointercancel', end);
+      window.addEventListener('resize', function(){ if(el.style.display !== 'none') copClamp(el); });
+    }
+
+    /* the always-visible entry point: a 50px orb, draggable, tap to open the window */
+    var launcherEl = null;
+    function copLauncher(){
+      if(launcherEl && document.body.contains(launcherEl)) return launcherEl;
+      var b = document.createElement('button');
+      b.id = 'auraCopLauncher'; b.type = 'button'; b.title = 'AURA Co-Pilot';
+      b.setAttribute('aria-label', 'Open AURA Co-Pilot');
+      b.innerHTML = '<span style="font-size:18px;line-height:1">\uD83D\uDC41</span>';
+      b.style.cssText = 'position:fixed;z-index:47;width:50px;height:50px;border-radius:50%;' +
+        'display:flex;align-items:center;justify-content:center;padding:0;touch-action:none;' +
+        'border:1px solid rgba(120,215,255,.45);background:linear-gradient(160deg,rgba(22,44,66,.97),rgba(8,16,26,.97));' +
+        'color:#dff4ff;box-shadow:0 14px 34px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05) inset;' +
+        'cursor:pointer;transition:transform .16s ease';
+      var pos = copPosGet('aura_cop_pos_btn');
+      if(pos){ b.style.left = pos.l + 'px'; b.style.top = pos.t + 'px'; }
+      else { b.style.right = '14px'; b.style.bottom = '78px'; }
+      document.body.appendChild(b);
+      launcherEl = b;
+      var moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
+      b.addEventListener('pointerdown', function(e){
+        var r = b.getBoundingClientRect();
+        b.style.left = r.left + 'px'; b.style.top = r.top + 'px';
+        b.style.right = 'auto'; b.style.bottom = 'auto';
+        sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top; moved = false;
+        try{ b.setPointerCapture(e.pointerId); }catch(err){}
+        b.style.transform = 'scale(1.06)';
+        e.preventDefault();
+      });
+      b.addEventListener('pointermove', function(e){
+        if(!b.hasPointerCapture || !b.hasPointerCapture(e.pointerId)) return;
+        var dx = e.clientX - sx, dy = e.clientY - sy;
+        if(Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+        b.style.left = Math.min(Math.max(0, ox + dx), Math.max(0, innerWidth - 54)) + 'px';
+        b.style.top = Math.min(Math.max(0, oy + dy), Math.max(0, innerHeight - 54)) + 'px';
+      });
+      b.addEventListener('pointerup', function(){
+        b.style.transform = 'scale(1)';
+        copPosSave('aura_cop_pos_btn', b);
+        if(!moved) copPanel(true);
+      });
+      window.addEventListener('resize', function(){ copClamp(b); });
+      return b;
+    }
+
     function buildPanel(){
-      if(panelEl) return panelEl;
+      if(panelEl && document.body.contains(panelEl)) return panelEl;
       var p = document.createElement('div');
       p.id = 'auraCopPanel';
-      p.style.cssText = 'position:fixed;z-index:46;right:14px;bottom:96px;width:min(360px,calc(100vw - 28px));' +
-        'background:rgba(10,15,24,.94);border:1px solid rgba(120,215,255,.25);border-radius:16px;' +
-        'box-shadow:0 22px 60px rgba(0,0,0,.6);backdrop-filter:blur(14px);color:#e9f5ff;' +
-        'font:13px/1.5 Inter,system-ui,sans-serif;display:none;overflow:hidden';
+      p.style.cssText = 'position:fixed;z-index:46;width:min(338px,calc(100vw - 20px));' +
+        'background:linear-gradient(180deg,rgba(14,22,34,.97),rgba(8,13,21,.97));' +
+        'border:1px solid rgba(120,215,255,.26);border-radius:16px;' +
+        'box-shadow:0 22px 60px rgba(0,0,0,.62),0 0 0 1px rgba(255,255,255,.04) inset;' +
+        'backdrop-filter:blur(14px);color:#e9f5ff;font:13px/1.5 Inter,system-ui,sans-serif;' +
+        'display:none;overflow:hidden';
       p.innerHTML =
-        '<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px">' +
-          '<b style="font-size:13.5px;letter-spacing:.06em;text-transform:uppercase;color:#9fd8ff">Co-Pilot</b>' +
-          '<button id="auraCopClose" type="button" aria-label="Close" style="background:none;border:0;color:#7f8b9a;font-size:15px;cursor:pointer;line-height:1">✕</button>' +
+        '<div id="auraCopHead" style="display:flex;align-items:center;gap:8px;padding:10px 10px 8px 12px;cursor:grab">' +
+          '<span id="auraCopDot" style="width:7px;height:7px;border-radius:50%;background:#6a7787;flex:0 0 auto"></span>' +
+          '<b style="font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:#9fd8ff">Co-Pilot</b>' +
+          '<span style="font-size:10.5px;color:#65788a;letter-spacing:.04em">drag me</span>' +
+          '<button id="auraCopPip" type="button" title="Float over other apps" aria-label="Float over other apps" style="margin-left:auto;background:none;border:0;color:#7f8b9a;font-size:13px;cursor:pointer;line-height:1;padding:4px 5px">\u29C9</button>' +
+          '<button id="auraCopMin" type="button" aria-label="Minimise" title="Minimise" style="background:none;border:0;color:#7f8b9a;font-size:15px;cursor:pointer;line-height:1;padding:4px 6px">\u2013</button>' +
+          '<button id="auraCopClose" type="button" aria-label="Close" title="Close" style="background:none;border:0;color:#7f8b9a;font-size:14px;cursor:pointer;line-height:1;padding:4px 2px">\u2715</button>' +
         '</div>' +
-        '<div id="auraCopStatus" style="padding:0 14px 10px;font-size:12px;color:#9fb0c0"></div>' +
-        '<div style="display:flex;gap:8px;padding:0 14px 10px">' +
-          '<button id="auraCopToggle" type="button" style="flex:1;padding:9px 12px;border-radius:10px;border:1px solid rgba(120,215,255,.4);' +
-            'background:rgba(120,215,255,.16);color:#dff4ff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer">Start sharing</button>' +
-          '<button id="auraCopMode" type="button" style="padding:9px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.14);' +
-            'background:transparent;color:#cfdae6;font:12.5px Inter,system-ui,sans-serif;cursor:pointer">Standard</button>' +
+        '<div id="auraCopMini" style="display:none;padding:0 12px 10px">' +
+          '<div style="display:flex;gap:10px;align-items:center">' +
+            '<div style="position:relative;flex:0 0 auto;width:104px;height:60px;border-radius:9px;overflow:hidden;background:#050a11;border:1px solid rgba(120,215,255,.22)">' +
+              '<video id="auraCopPrev" muted playsinline style="width:100%;height:100%;object-fit:cover;display:block"></video>' +
+              '<span style="position:absolute;left:6px;top:5px;font:700 8.5px Inter,system-ui,sans-serif;letter-spacing:.1em;color:#8fe9ff;background:rgba(0,0,0,.5);padding:1px 5px;border-radius:4px">LIVE</span>' +
+            '</div>' +
+            '<div style="min-width:0;flex:1">' +
+              '<div id="auraCopStatus" style="font-size:11.8px;color:#9fb0c0;line-height:1.45"></div>' +
+              '<button id="auraCopMode" type="button" style="margin-top:6px;padding:4px 9px;border-radius:8px;border:1px solid rgba(255,255,255,.14);background:transparent;color:#cfdae6;font:11px Inter,system-ui,sans-serif;cursor:pointer">Standard</button>' +
+            '</div>' +
+          '</div>' +
         '</div>' +
-        '<div style="display:flex;gap:8px;padding:0 14px 12px">' +
-          '<input id="auraCopQ" type="text" placeholder="Ask anything about your screen…" autocomplete="off" ' +
-            'style="flex:1;min-width:0;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.14);' +
-            'background:rgba(255,255,255,.05);color:#eaf6ff;font:13px Inter,system-ui,sans-serif;outline:none">' +
-          '<button id="auraCopMic" type="button" aria-label="Ask by voice" title="Ask by voice" style="padding:0 10px;border-radius:10px;border:1px solid rgba(120,215,255,.25);background:rgba(120,215,255,.08);color:#cfe9ff;font:15px Inter,system-ui,sans-serif;cursor:pointer">\uD83C\uDFA4</button>' +
-          '<button id="auraCopAsk" type="button" aria-label="Ask" style="padding:0 14px;border-radius:10px;border:0;' +
-            'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 13px Inter,system-ui,sans-serif;cursor:pointer">Ask</button>' +
+        '<div style="padding:0 12px 10px">' +
+          '<button id="auraCopToggle" type="button" style="width:100%;padding:10px 12px;border-radius:11px;border:1px solid rgba(120,215,255,.45);' +
+            'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 12.8px Inter,system-ui,sans-serif;cursor:pointer">Start screen share</button>' +
         '</div>' +
-        '<div style="display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px">' +
+        '<div style="display:flex;gap:6px;padding:0 12px 8px">' +
+          '<input id="auraCopQ" type="text" placeholder="Ask about your screen\u2026" autocomplete="off" ' +
+            'style="flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid rgba(255,255,255,.14);' +
+            'background:rgba(255,255,255,.05);color:#eaf6ff;font:12.8px Inter,system-ui,sans-serif;outline:none">' +
+          '<button id="auraCopMic" type="button" aria-label="Ask by voice" title="Ask by voice" style="padding:0 9px;border-radius:10px;border:1px solid rgba(120,215,255,.25);background:rgba(120,215,255,.08);color:#cfe9ff;font:15px Inter,system-ui,sans-serif;cursor:pointer">\uD83C\uDFA4</button>' +
+          '<button id="auraCopAsk" type="button" aria-label="Ask" style="padding:0 13px;border-radius:10px;border:0;' +
+            'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 12.8px Inter,system-ui,sans-serif;cursor:pointer">Ask</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:5px;flex-wrap:wrap;padding:0 12px 8px">' +
           '<button class="auracop-chip" data-q="What is on my screen right now? Answer in 2 lines.">What\u2019s this?</button>' +
           '<button class="auracop-chip" data-q="Is there an error on my screen? If yes, give the fix.">Any error?</button>' +
           '<button class="auracop-chip" data-q="What should I do next on this screen?">What next?</button>' +
           '<button class="auracop-chip" data-q="Summarise what is on my screen in 3 short lines.">Summarise</button>' +
         '</div>' +
-        '<div style="display:flex;gap:14px;align-items:center;padding:0 14px 10px;font:11.5px Inter,system-ui,sans-serif;color:#8ea1b2">' +
-          '<label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="auraCopVoice"> Speak answers</label>' +
-          '<button id="auraCopShut" type="button" style="background:none;border:0;color:#8ea1b2;font:11.5px Inter,system-ui,sans-serif;cursor:pointer;padding:0">Stop voice</button>' +
-          '<span id="auraCopHint">Ask by typing or by \uD83C\uDFA4</span>' +
+        '<div id="auraCopLog" style="display:none;margin:0 12px 8px;padding:6px 0 0;border-top:1px solid rgba(255,255,255,.07)"></div>' +
+        '<div id="auraCopAnswer" style="display:none;margin:0 12px 10px;padding:9px 11px;border-radius:10px;max-height:34vh;overflow:auto;' +
+          'background:rgba(120,215,255,.08);border:1px solid rgba(120,215,255,.18);font-size:12.6px;white-space:pre-wrap"></div>' +
+        '<div style="display:flex;gap:12px;align-items:center;padding:0 12px 9px;font:11px Inter,system-ui,sans-serif;color:#8ea1b2">' +
+          '<label style="display:flex;gap:5px;align-items:center;cursor:pointer"><input type="checkbox" id="auraCopVoice"> Speak answers</label>' +
+          '<button id="auraCopShut" type="button" style="background:none;border:0;color:#8ea1b2;font:11px Inter,system-ui,sans-serif;cursor:pointer;padding:0">Stop voice</button>' +
         '</div>' +
-        '<div id="auraCopLog" style="display:none;margin:0 14px 12px;padding:0 0 2px;border-top:1px solid rgba(255,255,255,.07)"></div>' +
-        '<div id="auraCopAnswer" style="display:none;margin:0 14px 12px;padding:10px 12px;border-radius:10px;' +
-          'background:rgba(120,215,255,.08);border:1px solid rgba(120,215,255,.18);font-size:12.8px;white-space:pre-wrap"></div>' +
-        '<details style="padding:0 14px 12px">' +
-          '<summary style="cursor:pointer;color:#7f8b9a;font-size:11.5px;letter-spacing:.04em">Advanced</summary>' +
-          '<div id="auraCopAdv" style="margin-top:6px;color:#8ea1b2;font-size:11.5px"></div>' +
+        '<details style="padding:0 12px 10px">' +
+          '<summary style="cursor:pointer;color:#7f8b9a;font-size:10.8px;letter-spacing:.04em">Advanced</summary>' +
+          '<div id="auraCopAdv" style="margin-top:6px;color:#8ea1b2;font-size:11px"></div>' +
         '</details>';
       document.body.appendChild(p);
 
@@ -3417,7 +3551,14 @@ function makeQR(text) {
       advEl = p.querySelector('#auraCopAdv');
 
       p.querySelector('#auraCopClose').onclick = function(){ p.style.display = 'none'; };
-      p.querySelector('#auraCopToggle').onclick = function(){ co.on ? copStop() : copStart(); copStatus(); };
+      p.querySelector('#auraCopMin').onclick = function(){ copMinimise(); };
+      p.querySelector('#auraCopPip').onclick = function(){ copFloat(); };
+      copDrag(p.querySelector('#auraCopHead'), p, 'aura_cop_pos');
+
+      p.querySelector('#auraCopToggle').onclick = function(){
+        co.on ? copStop() : copStart();
+        copStatus();
+      };
       p.querySelector('#auraCopMode').onclick = function(){
         try{ if(typeof setMode === 'function') setMode(copMode() === 'Zeus Mode' ? 'aura' : 'zeus'); }catch(e){}
         p.querySelector('#auraCopMode').textContent = copMode() === 'Zeus Mode' ? 'Zeus' : 'Standard';
@@ -3426,31 +3567,20 @@ function makeQR(text) {
       var ask = async function(){
         var q = (p.querySelector('#auraCopQ').value || '').trim();
         if(!q) return;
-        /* the question stays above the answer so a second question does not look like a
-           rewrite of the first */
         var qline = 'Q: ' + q + '\n\n';
-        copAnswer(qline + 'Looking at your screen…');
+        co.qline = qline;
+        copProgress(co.on ? 'Looking at your screen\u2026' : 'Starting the screen share\u2026');
         var out = await copAsk(q);
-        /* the vision lanes are shared and one of them is often out of quota for a moment,
-           so a single silent retry turns most "busy" into an answer */
-        if(!out){
-          copAnswer(qline + 'One more try\u2026');
-          await new Promise(function(res){ setTimeout(res, 3500); });
-          out = await copAsk(q);
-        }
         if(out){
           copAnswer(qline + out.answer, out.model);
           if(copVoiceOn()) copSpeak(out.answer);
+        } else {
+          copAnswer(qline + 'Screen abhi read nahi kar paya. Share chalu rakho aur ek baar phir bhejo \u2014 ya jo error text dikh raha hai wo yahin paste kar do.');
         }
-        else copAnswer(qline + 'Screen reading is busy right now, so I could not see it. Share chalu rakho aur ek baar phir poochho — ya screen par jo error likha hai wo yahin paste kar do, main usi par seedha fix bata deti hoon.');
       };
-      /* voice: answers can be spoken, and a question can be asked by talking. Both go
-         through the same copAsk, so the panel and the background watcher share a brain. */
-      /* one-tap questions: the useful half of a screen assistant is not talking to it,
-         it is not having to type the obvious question */
       [].forEach.call(p.querySelectorAll('.auracop-chip'), function(ch){
-        ch.style.cssText = 'padding:6px 10px;border-radius:999px;border:1px solid rgba(120,215,255,.22);' +
-          'background:rgba(120,215,255,.07);color:#cfe9ff;font:11.5px Inter,system-ui,sans-serif;cursor:pointer';
+        ch.style.cssText = 'padding:5px 9px;border-radius:999px;border:1px solid rgba(120,215,255,.22);' +
+          'background:rgba(120,215,255,.07);color:#cfe9ff;font:11px Inter,system-ui,sans-serif;cursor:pointer';
         ch.onclick = function(){
           p.querySelector('#auraCopQ').value = ch.getAttribute('data-q');
           ask();
@@ -3480,23 +3610,91 @@ function makeQR(text) {
       };
       p.querySelector('#auraCopAsk').onclick = ask;
       p.querySelector('#auraCopQ').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); ask(); } });
+      /* the PiP button only exists where the browser can float a real window */
+      if(!('documentPictureInPicture' in window)) p.querySelector('#auraCopPip').style.display = 'none';
       return p;
+    }
+
+    /* float the panel over other apps as a real always-on-top window */
+    var pipWin = null;
+    async function copFloat(){
+      try{
+        if(!('documentPictureInPicture' in window)) return tell('This browser cannot float the window. Use the orb and drag the panel.');
+        if(pipWin){ try{ pipWin.close(); }catch(e){} pipWin = null; }
+        var p = buildPanel();
+        pipWin = await window.documentPictureInPicture.requestWindow({ width: 360, height: 470 });
+        /* carry the page styles over so the panel looks the same in the new window */
+        var st = pipWin.document.createElement('style');
+        st.textContent = 'html,body{margin:0;height:100%;background:#070c14;color:#e9f5ff;font:13px/1.5 Inter,system-ui,sans-serif;overflow:hidden}' +
+          '#auraCopPanel{position:static!important;display:block!important;width:100%!important;height:100%!important;' +
+          'border:0!important;border-radius:0!important;box-shadow:none!important;max-height:100%!important}' +
+          '#auraCopHead{cursor:default}' +
+          '#auraCopAnswer{max-height:38vh}' +
+          'button{font-family:inherit}';
+        pipWin.document.head.appendChild(st);
+        pipWin.document.body.appendChild(p);
+        pipWin.addEventListener('pagehide', function(){
+          try{ document.body.appendChild(p); p.style.display = 'none'; }catch(e){}
+          pipWin = null;
+        });
+        tell('Floating window \\u2014 drag it anywhere over your screen');
+        copSyncMini(); copStatus();
+      }catch(e){
+        tell('Float failed: ' + (e && e.message || 'not allowed'));
+      }
+    }
+
+    function copMinimise(){
+      var p = panelEl; if(!p) return;
+      p.style.display = 'none';
+      copLauncher();
+      copPill(true);
     }
     function copPanel(show){
       buildPanel();
       var p = panelEl;
-      p.style.display = (show === undefined) ? (p.style.display === 'none' ? 'block' : 'none') : (show ? 'block' : 'none');
-      if(p.style.display === 'block'){
-        /* sit above the composer, like the suggestion card */
+      var want = (show === undefined) ? (p.style.display === 'none') : !!show;
+      if(pipWin){ try{ if(want) pipWin.focus(); }catch(e){} return; }
+      p.style.display = want ? 'block' : 'none';
+      if(!want) return;
+      var pos = copPosGet('aura_cop_pos');
+      if(pos){ p.style.left = pos.l + 'px'; p.style.top = pos.t + 'px'; p.style.right = 'auto'; p.style.bottom = 'auto'; }
+      else {
+        var b = 96;
         try{
           var box = document.getElementById('card') || document.getElementById('inp');
-          var b = 96;
           if(box){ var t = box.getBoundingClientRect().top; if(t > 40 && t < innerHeight - 30) b = Math.max(20, innerHeight - t + 12); }
-          p.style.bottom = b + 'px';
         }catch(e){}
-        copStatus();
-        try{ p.querySelector('#auraCopQ').focus(); }catch(e){}
+        p.style.right = '14px'; p.style.bottom = b + 'px'; p.style.left = 'auto'; p.style.top = 'auto';
       }
+      copClamp(p);
+      copSyncMini();
+      copStatus();
+      if(!co.on){ try{ p.querySelector('#auraCopQ').focus(); }catch(e){} }
+    }
+    /* the LIVE thumbnail is the proof the screen is really being seen */
+    function copSyncMini(){
+      var mini = document.getElementById('auraCopMini');
+      var pv = document.getElementById('auraCopPrev');
+      if(mini) mini.style.display = co.on ? 'block' : 'none';
+      if(pv){
+        try{
+          if(co.on && co.stream){ if(pv.srcObject !== co.stream) pv.srcObject = co.stream; if(pv.play) pv.play().catch(function(){}); }
+          else pv.srcObject = null;
+        }catch(e){}
+      }
+      var tog = document.getElementById('auraCopToggle');
+      if(tog){
+        tog.textContent = co.on ? 'Stop screen share' : 'Start screen share';
+        tog.style.background = co.on ? 'rgba(255,90,90,.16)' : 'linear-gradient(135deg,#48c8ff,#2f7bff)';
+        tog.style.color = co.on ? '#ffd7d7' : '#04121f';
+        tog.style.borderColor = co.on ? 'rgba(255,120,120,.5)' : 'rgba(120,215,255,.45)';
+      }
+    }
+    function copProgress(msg){
+      if(!answerEl) return;
+      answerEl.style.display = 'block';
+      answerEl.textContent = (co.qline || '') + msg;
     }
 
     /* grab one frame right now (used by the Ask box, ignores the change gate) */
@@ -3504,6 +3702,85 @@ function makeQR(text) {
       var video = co.stream && co.stream.__video;
       if(!video || video.readyState < 2) return null;
       return copFrame(video);
+    }
+
+    /* ---------- reading the screen without a vision model ----------
+       The free vision lanes run out of quota and then "screen reading is busy" is all
+       the user ever gets. A browser can read its own frame, so the co-pilot falls back
+       to: OCR the frame locally, then answer with the text brain. No quota, no upload,
+       and it is the same text an error message is made of. */
+    var ocrLib = null;
+    function loadOCR(){
+      if(window.Tesseract) return Promise.resolve(window.Tesseract);
+      if(ocrLib) return ocrLib;
+      ocrLib = new Promise(function(res, rej){
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+        s.onload = function(){ window.Tesseract ? res(window.Tesseract) : rej(new Error('ocr missing')); };
+        s.onerror = function(){ ocrLib = null; rej(new Error('ocr load failed')); };
+        document.head.appendChild(s);
+      });
+      return ocrLib;
+    }
+    async function copOCR(cv){
+      try{
+        var T = await loadOCR();
+        var r = await T.recognize(cv, 'eng');
+        var t = String((r && r.data && r.data.text) || '');
+        return t.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      }catch(e){ return ''; }
+    }
+    async function copAskText(screenText, question){
+      try{
+        var sys = 'You are AURA co-pilot looking at the user screen. Below is the TEXT read off that screen ' +
+          '(OCR, may be messy). Answer the question from it in under 90 words, plain text, no markdown headers, ' +
+          'no preamble. If the answer is not on the screen, say that in one line and give the most useful next step. ' +
+          'Never repeat passwords, tokens or private messages you happen to read.';
+        var r = await fetch(BASE + '/v1/chat/completions', {
+          method: 'POST', headers: hdrs(),
+          body: JSON.stringify({
+            model: 'aura', stream: false,
+            messages: [
+              { role: 'system', content: sys },
+              { role: 'user', content: 'SCREEN TEXT:\n' + String(screenText).slice(0, 3500) + '\n\nQUESTION: ' + question }
+            ]
+          }),
+          signal: AbortSignal.timeout(50000)
+        });
+        if(!r.ok) return null;
+        var j = await r.json();
+        var t = String((((j.choices || [])[0] || {}).message || {}).content || '').trim();
+        return t || null;
+      }catch(e){ return null; }
+    }
+
+    /* the image lane: unchanged behaviour, just split out so OCR can be the fallback */
+    async function copVision(cv, question){
+      try{
+        var send = async function(){
+          return await fetch(BASE + '/api/passive-vision', {
+            method: 'POST', headers: hdrs(),
+            body: JSON.stringify({ image: cv.toDataURL('image/jpeg', 0.62), question: question, mode: copMode(), context: copLogText() }),
+            signal: AbortSignal.timeout(45000)
+          });
+        };
+        var r = await send();
+        if(r.status === 429){
+          await new Promise(function(res){ setTimeout(res, 1400); });
+          r = await send();
+        }
+        if(!r.ok) return null;
+        var j = await r.json();
+        if(j && j.action === 'ANSWER' && j.answer){
+          co.asked = (co.asked || 0) + 1;
+          co.log.push({ q: question, a: j.answer });
+          if(co.log.length > 6) co.log.shift();
+          copLogRender();
+          copStatus();
+          return j;
+        }
+      }catch(e){}
+      return null;
     }
 
     async function copAsk(question){
@@ -3514,37 +3791,29 @@ function makeQR(text) {
       /* the first frame arrives a moment after the share starts — wait for a real one
          instead of failing the question in the first 200ms */
       var cv = copNow();
-      for(var i = 0; i < 30 && !cv; i++){   /* up to ~6s: a share can take a moment to paint */
+      for(var i = 0; i < 30 && !cv; i++){
         await new Promise(function(res){ setTimeout(res, 200); });
         cv = copNow();
       }
       if(!cv) return null;
-      try{
-        var send = async function(){
-          var r = await fetch(BASE + '/api/passive-vision', {
-            method: 'POST', headers: hdrs(),
-            body: JSON.stringify({ image: cv.toDataURL('image/jpeg', 0.6), question: question, mode: copMode(), context: copLogText() }),
-            signal: AbortSignal.timeout(45000)
-          });
-          return r;
-        };
-        var r = await send();
-        if(r.status === 429){
-          await new Promise(function(res){ setTimeout(res, 1300); });
-          r = await send();
-        }
-        if(!r.ok) return null;
-        var j = await r.json();
-        if(j && j.action === 'ANSWER' && j.answer){
+      copProgress((co.qline || '') + 'Looking at your screen\u2026');
+      var out = await copVision(cv, question);
+      if(out) return out;
+      /* vision quota gone → read the words on the screen locally, answer with the text brain */
+      copProgress((co.qline || '') + 'Reading the text on your screen\u2026');
+      var text = await copOCR(cv);
+      if(text && text.replace(/\s/g, '').length > 10){
+        copProgress((co.qline || '') + 'Thinking about what it says\u2026');
+        var ans = await copAskText(text, question);
+        if(ans){
           co.asked = (co.asked || 0) + 1;
-          co.log.push({ q: question, a: j.answer });
+          co.log.push({ q: question, a: ans });
           if(co.log.length > 6) co.log.shift();
           copLogRender();
-          copAnswer(j.answer, j.model);
           copStatus();
-          return j;
+          return { action: 'ANSWER', answer: ans, model: 'screen-text' };
         }
-      }catch(e){}
+      }
       return null;
     }
 
@@ -3572,6 +3841,8 @@ function makeQR(text) {
       b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} window.__auraCopilot.panel(true); };
       tools.appendChild(b);
     }, 1200);
+    /* the orb is the way in — present on every page load, draggable, never hidden */
+    setTimeout(function(){ try{ copLauncher(); }catch(e){} }, 900);
   }catch(e){}
 
   /* ---------------- Google sign-in ----------------
