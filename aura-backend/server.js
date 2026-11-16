@@ -3297,6 +3297,8 @@ const SIGN_PROMPT = [
   "You are AURA's sign-language reader. The image is one camera frame of a person signing (ASL / ISL / general hand gestures).",
   "Reply with ONE compact JSON object and nothing else, no code fences:",
   '{"seen":"at most 10 words on hand shape and position","sign":"short gloss such as HELLO, THANK-YOU, YES, NO, WATER, NAME, HELP, SORRY, PLEASE, or an empty string","speech":"one short natural sentence in simple English that this sign means","confidence":0.0}',
+  "Judge a sign by four things: handshape, palm orientation, where the hands are (face, chest, waist) and movement between frames. Mention the one you used in seen.",
+  "Labels you may use: HELLO, THANK-YOU, PLEASE, SORRY, YES, NO, HELP, WATER, FOOD, NAME, GOOD, BAD, MORE, STOP, WAIT, DOCTOR, HOSPITAL, HOME, FRIEND, LOVE, UNDERSTAND, AGAIN, SLOW, FINISH.",
   "Only name a sign you can actually see. If the hands are not clear, use sign:\"\" and describe why in seen. Never invent."
 ].join(" ");
 
@@ -3314,7 +3316,12 @@ app.post(["/v1/sign", "/api/sign"], async (req, res) => {
   const data = m[2].replace(/\s+/g, "");
   if (data.length < 500 || data.length > 5_500_000) return res.status(400).json({ ok: false, error: "bad image size" });
   const history = String(body.history || "").replace(/\s+/g, " ").slice(0, 240);
-  const instruction = SIGN_PROMPT + (history ? "\nRECENT SIGNS (context only, do not repeat them): " + history : "");
+  /* signs this user taught: the reader prefers their labels over guessing */
+  const vocab = Array.isArray(body.vocab)
+    ? body.vocab.map(function(v){ return String(v).replace(/[^A-Za-z0-9 _-]/g, "").slice(0, 24); }).filter(Boolean).slice(0, 14)
+    : [];
+  const instruction = SIGN_PROMPT + (history ? "\nRECENT SIGNS (context only, do not repeat them): " + history : "") +
+    (vocab.length ? "\nTHE USER TAUGHT THESE SIGNS, prefer them when the handshape matches: " + vocab.join(", ") : "");
   const cap = new Promise(r => setTimeout(() => r(null), 30_000));
   let out = null;
   try {
