@@ -3290,6 +3290,55 @@ async function copilotAnswer(image, question, context) {
   return { action: "ANSWER", answer: String(out.text).trim().slice(0, 1400), model: out.model };
 }
 
+/* --- SIGN LANGUAGE (16 Nov, owner ask): a deaf user shows a sign to the camera and
+   AURA says what it means, in text and out loud. The reader is a vision model, so it is
+   told to say what it actually sees instead of inventing a sign. */
+const SIGN_PROMPT = [
+  "You are AURA's sign-language reader. The image is one camera frame of a person signing (ASL / ISL / general hand gestures).",
+  "Reply with ONE compact JSON object and nothing else, no code fences:",
+  '{"seen":"at most 10 words on hand shape and position","sign":"short gloss such as HELLO, THANK-YOU, YES, NO, WATER, NAME, HELP, SORRY, PLEASE, or an empty string","speech":"one short natural sentence in simple English that this sign means","confidence":0.0}',
+  "Only name a sign you can actually see. If the hands are not clear, use sign:\"\" and describe why in seen. Never invent."
+].join(" ");
+
+const signSeen = new Map(); /* ip → last call, so one camera cannot hammer the model */
+app.post(["/v1/sign", "/api/sign"], async (req, res) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const body = req.body || {};
+  const ip = String(req.headers["x-forwarded-for"] || req.ip || "anon").split(",")[0].trim();
+  const now = Date.now();
+  if ((signSeen.get(ip) || 0) + 900 > now) return res.json({ ok: true, busy: true, sign: "", speech: "" });
+  signSeen.set(ip, now);
+  if (signSeen.size > 3000) signSeen.clear();
+  const m = String(body.image || "").match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/);
+  if (!m) return res.status(400).json({ ok: false, error: "image required" });
+  const data = m[2].replace(/\s+/g, "");
+  if (data.length < 500 || data.length > 5_500_000) return res.status(400).json({ ok: false, error: "bad image size" });
+  const history = String(body.history || "").replace(/\s+/g, " ").slice(0, 240);
+  const instruction = SIGN_PROMPT + (history ? "\nRECENT SIGNS (context only, do not repeat them): " + history : "");
+  const cap = new Promise(r => setTimeout(() => r(null), 30_000));
+  let out = null;
+  try {
+    out = await Promise.race([
+      copilotGemini(instruction, m[1], data, { raw: true, maxTok: 400 }),
+      copilotAlt(instruction, m[1], data, { raw: true, maxTok: 400, userText: "Read the sign in this frame. Reply only with the JSON described." }),
+      cap
+    ]);
+  } catch (e) { out = null; }
+  if (!out || !out.text) return res.status(503).json({ ok: false, error: "vision busy" });
+  const txt = String(out.text).replace(/```json/gi, "").replace(/```/g, "").trim();
+  let j = null;
+  try { j = JSON.parse(txt.slice(txt.indexOf("{"), txt.lastIndexOf("}") + 1)); } catch (e) { j = null; }
+  if (!j) return res.json({ ok: true, sign: "", speech: txt.slice(0, 200), seen: txt.slice(0, 160), model: out.model });
+  res.json({
+    ok: true,
+    sign: String(j.sign || "").slice(0, 40),
+    speech: String(j.speech || "").slice(0, 240),
+    seen: String(j.seen || "").slice(0, 160),
+    confidence: Number(j.confidence) || 0,
+    model: out.model
+  });
+});
+
 async function copilotAnalyze(image, mode) {
   const m = String(image).match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=\s]+)$/);
   if (!m) return null;
