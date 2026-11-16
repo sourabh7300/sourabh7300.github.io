@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="907ed2267f1e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="d5c185306fa7"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2049,6 +2049,7 @@ function makeQR(text) {
   function host(){
     api("/v1/mesh/register", { hostId: nodeId }).then(function(j){
       mesh.code = j.code; mesh.role = "host";
+      try{ localStorage.setItem("aura_mesh_role", "host"); }catch(e){}
       try{ localStorage.setItem("aura_mesh_code", mesh.code); }catch(e){}
       codeShow(); qrDraw(); meshRoleUI(); setStatus("Hosting \u00b7 code " + j.code + " \u00b7 waiting for a device");
       tell("Mesh hosted \u00b7 code " + j.code);
@@ -2065,6 +2066,7 @@ function makeQR(text) {
     meshSetAllow(true);
     api("/v1/mesh/join", { code: c, nodeId: nodeId, name: devName(), allow: true }).then(function(j){
       mesh.code = c; mesh.role = "node";
+      try{ localStorage.setItem("aura_mesh_role", "node"); }catch(e){}
       try{ localStorage.setItem("aura_mesh_code", c); }catch(e){}
       setStatus("Joined \u00b7 code " + c); qrDraw();
       meshRoleUI();
@@ -2075,6 +2077,7 @@ function makeQR(text) {
     var c = mesh.code; if(!c) return;
     api("/v1/mesh/leave", { code: c, nodeId: nodeId }).catch(function(){});
     mesh.code = null; mesh.role = null; mesh.seen = [];
+    try{ localStorage.removeItem("aura_mesh_role"); }catch(e){}
     try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
     if(mesh.timer){ clearInterval(mesh.timer); mesh.timer = null; }
     var ci = $("#amuCode"); if(ci) ci.value = "";
@@ -4185,6 +4188,248 @@ function makeQR(text) {
           }
         }catch(e){}
       }, 1300);
+    })();
+  }catch(e){}
+
+  /* ---------------- THE + MENU CAMERA, WIRED (16 Nov) ----------------
+     The reference camera modal opened a stream and then said "connect a vision model",
+     which is why it looked broken. Here the same live camera actually reaches AURA:
+     📸 Ask sends the frame with your question, 👁 Live keeps reading the frame (and
+     reads sign language out loud), and 🤟 jumps into the full sign window. */
+  try{
+    (function cameraWired(){
+      function el(id){ return document.getElementById(id); }
+      function note(t){
+        var n = el('camText');
+        if(n) n.textContent = t;
+        var st = el('cst');
+        if(st && t && t.length < 90) st.textContent = t;
+      }
+      function mount(){
+        var ov = el('camov');
+        if(!ov) return false;
+        var mod = ov.querySelector('.mod');
+        if(mod && !el('camText')){
+          var box = document.createElement('div');
+          box.id = 'camText';
+          box.style.cssText = 'margin:10px 0;padding:10px 12px;border-radius:10px;background:rgba(120,215,255,.08);' +
+            'border:1px solid rgba(120,215,255,.2);font:13px/1.45 Inter,system-ui,sans-serif;color:#e9f5ff;white-space:pre-wrap;min-height:20px';
+          mod.appendChild(box);
+          var row = document.querySelector('#camov .mod div[style*="display:flex"]');
+          if(row && !el('camsign')){
+            var s = document.createElement('button');
+            s.className = 'b'; s.id = 'camsign'; s.textContent = '🤟 Sign';
+            row.appendChild(s);
+            s.onclick = function(){ try{ camClose(); }catch(e){} try{ window.__auraSign.open(); }catch(e){} };
+          }
+        }
+        return true;
+      }
+      function frame(maxSide){
+        var v = el('cvid');
+        if(!v || !v.videoWidth) return null;
+        var k = Math.min(1, (maxSide || 1000) / Math.max(v.videoWidth, v.videoHeight));
+        var cv = document.createElement('canvas');
+        cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+        try{ cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height); }catch(e){ return null; }
+        return cv;
+      }
+      function sig(cv){
+        var s = document.createElement('canvas'); s.width = 40; s.height = 24;
+        var c = s.getContext('2d'); c.drawImage(cv, 0, 0, 40, 24);
+        var d = c.getImageData(0, 0, 40, 24).data, out = new Uint8Array(40 * 24);
+        for(var i = 0, p = 0; i < d.length; i += 4, p++) out[p] = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) | 0;
+        return out;
+      }
+      function moved(a, b){
+        if(!a || !b) return true;
+        var n = 0;
+        for(var i = 0; i < a.length; i++) if(Math.abs(a[i] - b[i]) > 12) n++;
+        return n / a.length > 0.05;
+      }
+      function speak(t){
+        try{
+          if(auraMuted() || !window.speechSynthesis || !t) return;
+          var u = new SpeechSynthesisUtterance(String(t).replace(/[*_`#]/g, '').slice(0, 240));
+          u.rate = 1; u.lang = /[\u0900-\u097F]/.test(t) ? 'hi-IN' : 'en-US';
+          speechSynthesis.cancel(); speechSynthesis.speak(u);
+        }catch(e){}
+      }
+      async function ask(){
+        mount();
+        var cv = frame(1100);
+        if(!cv){ note('Camera not ready — open 📷 Camera again.'); return; }
+        var q = (el('inp') && el('inp').value || '').trim() || 'What is this? Answer in 3 short lines.';
+        note('AURA is looking…');
+        try{
+          var r = await fetch(BASE + '/api/passive-vision', {
+            method: 'POST', headers: hdrs(),
+            body: JSON.stringify({ image: cv.toDataURL('image/jpeg', 0.72), question: q }),
+            signal: AbortSignal.timeout(45000)
+          });
+          var j = await r.json().catch(function(){ return {}; });
+          if(j && j.answer){
+            note(j.answer);
+            speak(j.answer);
+            try{ if(typeof addMsg === 'function') addMsg('a', j.answer); }catch(e){}
+          } else {
+            note('AURA could not read this frame. Try again in a moment.');
+          }
+        }catch(e){ note('Network slow — try again.'); }
+      }
+      var live = null, prev = null, busy = false, last = '';
+      async function tick(){
+        if(busy) return;
+        var cv = frame(900);
+        if(!cv) return;
+        var sg = sig(cv);
+        if(prev && !moved(prev, sg)) return;
+        prev = sg;
+        busy = true;
+        try{
+          var r = await fetch(BASE + '/v1/sign', {
+            method: 'POST', headers: hdrs(),
+            body: JSON.stringify({ image: cv.toDataURL('image/jpeg', 0.7) }),
+            signal: AbortSignal.timeout(30000)
+          });
+          var j = await r.json().catch(function(){ return {}; });
+          var line = (j && (j.speech || j.sign)) || '';
+          if(line && line !== last){
+            last = line;
+            note(line + (j.seen ? '\n' + j.seen : ''));
+            speak(line);
+          } else if(j && j.seen && j.seen !== last){
+            note('looking… ' + j.seen);
+          }
+        }catch(e){}
+        finally{ busy = false; }
+      }
+      function toggleLive(){
+        mount();
+        if(live){ clearInterval(live); live = null; note('Live off'); return; }
+        note('Live on — AURA is watching this camera');
+        tick();
+        live = setInterval(tick, 2200);
+      }
+      /* the reference wired these two buttons to placeholders; replace them */
+      function wire(){
+        var askBtn = el('cask'), liveBtn = el('clive');
+        if(askBtn) askBtn.onclick = function(){ ask(); };
+        if(liveBtn) liveBtn.onclick = function(){ toggleLive(); };
+        var close = el('cclose');
+        if(close) close.addEventListener('click', function(){ if(live){ clearInterval(live); live = null; } prev = null; });
+        var ov = el('camov');
+        if(ov) ov.addEventListener('click', function(e){ if(e.target === ov && live){ clearInterval(live); live = null; } });
+      }
+      if(mount()) wire();
+      else setTimeout(function(){ if(mount()) wire(); }, 1200);
+      setTimeout(function(){ if(mount()) wire(); }, 2600);
+    })();
+  }catch(e){}
+
+  /* ---------------- one menu for everything (16 Nov) ----------------
+     Co-Pilot, Sign and Mesh were spread around; the owner wants them all under "+" so
+     they pop up from the same place. They are also kept connected: opening any of them
+     from here shares the same live camera / mesh session. */
+  try{
+    (function plusMenu(){
+      function menuBtn(id, label, fn){
+        var row = document.getElementById(id);
+        if(row){ row.onclick = fn; return row; }
+        var tools = document.getElementById('tools');
+        if(!tools) return null;
+        var b = document.createElement('button');
+        b.id = id; b.type = 'button'; b.textContent = label;
+        /* the same look as the reference menu rows, not a second design */
+        b.style.cssText = 'display:block;width:100%;text-align:left;padding:11px 14px;border:0;border-radius:10px;' +
+          'background:transparent;color:var(--dim);font:inherit;cursor:pointer';
+        b.onmouseenter = function(){ b.style.background = 'var(--hl, rgba(255,255,255,.06))'; b.style.color = '#fff'; };
+        b.onmouseleave = function(){ b.style.background = 'transparent'; b.style.color = 'var(--dim)'; };
+        b.onclick = fn;
+        tools.appendChild(b);
+        return b;
+      }
+      function closeAll(){ try{ document.getElementById('plusmenu').classList.remove('on'); }catch(e){} try{ closeMenus(); }catch(e){} }
+      menuBtn('auraCopMenuBtn', '👁 Co-Pilot', function(e){ e.stopPropagation(); closeAll(); try{ window.__auraCopilot.panel(true); }catch(err){} });
+      menuBtn('auraSignMenuBtn', '🤟 Sign language', function(e){ e.stopPropagation(); closeAll(); try{ window.__auraSign.open(); }catch(err){} });
+      menuBtn('auraMeshMenuBtn', '📡 Mesh (pair devices)', function(e){
+        e.stopPropagation(); closeAll();
+        try{ document.getElementById('auraMeshOv').classList.add('on'); }catch(err){}
+      });
+      /* the old custom-styled copies are removed so there is one clean list */
+      ['auraCopBtn', 'auraSignBtn'].forEach(function(id){
+        var old = document.getElementById(id);
+        if(old) old.remove();
+      });
+    })();
+  }catch(e){}
+
+  /* ---------------- survive a phone backgrounding ----------------
+     Mobile browsers kill a background tab and come back with a fresh page, which read
+     as "the whole app restarts". The state that matters is restored on the very first
+     paint instead: the tab you were on, the mesh you were in, the draft you were
+     typing, and any open panel. */
+  try{
+    (function keepState(){
+      function save(){
+        try{
+          var st = {
+            tab: (document.querySelector('#tabs button.on') || {}).getAttribute ? (document.querySelector('#tabs button.on') || {}).getAttribute('data-p') : null,
+            draft: (document.getElementById('inp') || {}).value || '',
+            meshCode: localStorage.getItem('aura_mesh_code') || '',
+            meshRole: localStorage.getItem('aura_mesh_role') || '',
+            at: Date.now()
+          };
+          localStorage.setItem('aura_ui_v1', JSON.stringify(st));
+        }catch(e){}
+      }
+      function restore(){
+        try{
+          var st = JSON.parse(localStorage.getItem('aura_ui_v1') || 'null');
+          if(!st) return;
+          var draft = document.getElementById('inp');
+          if(draft && !draft.value && st.draft && (Date.now() - (st.at || 0) < 6 * 3600e3)){
+            draft.value = st.draft;
+            draft.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          if(st.tab && st.tab !== 'chat'){
+            setTimeout(function(){ try{ goTab(st.tab); }catch(e){} }, 400);
+          }
+        }catch(e){}
+      }
+      restore();
+      setInterval(save, 4000);
+      document.addEventListener('visibilitychange', function(){ if(document.hidden) save(); else restore(); });
+      window.addEventListener('pagehide', save);
+      /* the mesh comes back by itself, so a backgrounded host is not "logged out" */
+      try{
+        var code = localStorage.getItem('aura_mesh_code') || '';
+        var role = localStorage.getItem('aura_mesh_role') || '';
+        if(code){
+          setTimeout(function(){
+            try{
+              var inp = document.getElementById('amuCode');
+              if(inp) inp.value = code;
+              var codeEl = document.getElementById('amuCode');
+              if(codeEl) codeEl.value = code;
+              if(role === 'host' && typeof host === 'function'){ host(); }
+              else if(role === 'node' && typeof join === 'function'){ join(); }
+            }catch(e){}
+          }, 900);
+        }
+      }catch(e){}
+    })();
+  }catch(e){}
+
+  /* keep the reload check from turning a phone resume into a restart loop */
+  try{
+    (function calmReload(){
+      var orig = window.__auraReloaded;
+      if(orig) return;
+      document.addEventListener('visibilitychange', function(){
+        if(document.hidden) return;
+        try{ sessionStorage.removeItem('aura_reload_at'); }catch(e){}
+      });
     })();
   }catch(e){}
 
