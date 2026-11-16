@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="973c05b5eeab"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="042c203408ca"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2093,7 +2093,11 @@ function makeQR(text) {
   }
   function refresh(){
     if(!mesh.code) return;
+    /* remember which mesh this answer belongs to: a Leave can land while the request is
+       in flight, and painting that reply afterwards produced "Joined · code null" */
+    var askedFor = String(mesh.code);
     api("/v1/mesh/state?code=" + mesh.code + "&since=0").then(function(j){
+      if(!mesh.code || String(mesh.code) !== askedFor) return;
       var devs = j.devices || [];
       if(!Array.isArray(devs)) devs = Object.keys(devs).map(function(k){ var v = devs[k] || {}; v.id = k; return v; });
       /* this tab is by definition awake — a host that never polls must not look asleep */
@@ -2357,6 +2361,8 @@ function makeQR(text) {
       if(!mesh.code) return;
       api("/v1/mesh/poll", { code: mesh.code, nodeId: nodeId, name: devName(), seen: mesh.seen.slice(-40) })
         .then(function(j){
+          /* left the mesh while this poll was in flight — its commands are not ours */
+          if(!mesh.code) return;
           /* measurable, so "how fast does an order arrive" is a number, not a claim */
           window.__meshStats = window.__meshStats || { polls: [], cmds: [] };
           window.__meshStats.polls.push({ at: Date.now(), hidden: document.hidden, n: (j.cmds || []).length });
@@ -3806,7 +3812,15 @@ function makeQR(text) {
         var p = buildPanel();
         var win = null;
         if('documentPictureInPicture' in window){
-          win = await window.documentPictureInPicture.requestWindow({ width: 360, height: 470 });
+          /* Chrome only opens this window for a REAL tap. Without one the promise can sit
+             pending for ever, which looked like a dead button — so it gets a deadline and
+             an honest message instead of silence. */
+          win = await Promise.race([
+            window.documentPictureInPicture.requestWindow({ width: 360, height: 470 }),
+            new Promise(function(_, rej){
+              setTimeout(function(){ rej(new Error('the browser did not open the floating window — tap \u29c9 again, and allow popups for this site')); }, 6000);
+            })
+          ]);
         } else {
           /* no Document PiP (Firefox/Safari/older Chrome): a plain popup still gives a
              separate window you can drag beside another app. It is NOT always-on-top,
