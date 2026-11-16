@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="abbad3345256"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="64b3c64c703f"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3503,9 +3503,11 @@ function makeQR(text) {
       var dot = document.getElementById("auraCopDot");
       if(dot){ dot.style.background = co.on ? "#5ee7a0" : "#6a7787"; dot.style.boxShadow = co.on ? "0 0 9px #5ee7a0" : "none"; }
       if(statusEl){
+        var canFloat = ("documentPictureInPicture" in window) && !pipWin;
         statusEl.innerHTML = co.on
-          ? "Sharing your screen · watching quietly"
-          : "Not sharing — tap start and AURA can see this screen";
+          ? ("Sharing your screen \u00b7 watching quietly" + (canFloat
+              ? '<br><span style="color:#7fd7ff">\u29c9 Float it to keep AURA over other apps</span>' : ""))
+          : "Not sharing \u2014 tap start and AURA can see this screen";
       }
       copSyncMini();
       if(advEl) advEl.textContent = "Frames sent " + co.sent + " · skipped " + co.skipped + " · questions " + (co.asked || 0) + " · mode " + copMode();
@@ -3818,7 +3820,7 @@ function makeQR(text) {
           try{ document.body.appendChild(p); p.style.display = 'none'; }catch(e){}
           pipWin = null;
         });
-        tell('Floating window \\u2014 drag it anywhere over your screen');
+        tell('Floating \u00b7 always on top \u2014 drag it over any app');
         copSyncMini(); copStatus();
       }catch(e){
         tell('Float failed: ' + (e && e.message || 'not allowed'));
@@ -4766,14 +4768,76 @@ function makeQR(text) {
         });
       }
 
-      function paint(name, sub){
-        var acn = document.getElementById("acn");
-        if(acn) acn.textContent = name || "Guest";
+      var PROFILE_KEY = "aura_profile_v1";
+      function esc(s){
+        return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+          return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+        });
+      }
+      function profileGet(){ try{ return JSON.parse(localStorage.getItem(PROFILE_KEY) || "null"); }catch(e){ return null; } }
+      function profileSave(p){ try{ localStorage.setItem(PROFILE_KEY, JSON.stringify(p || {})); }catch(e){} }
+      function profileClear(){
+        try{ localStorage.removeItem(PROFILE_KEY); localStorage.removeItem("aura_id_token"); localStorage.removeItem("aura_email"); }catch(e){}
+      }
+      function initialsOf(name, email){
+        var s = String(name || email || "").trim();
+        if(!s) return "A";
+        var parts = s.split(/\s+/).filter(Boolean);
+        return ((parts[0] || "").slice(0, 1) + (parts.length > 1 ? parts[parts.length - 1].slice(0, 1) : "")).toUpperCase();
+      }
+      /* a real avatar when Google gave a photo, initials otherwise — never a broken img */
+      function avatarHTML(prof, px){
+        var size = px || 18;
+        if(prof && prof.photo)
+          return '<img alt="" src="' + esc(prof.photo) + '" width="' + size + '" height="' + size + '" ' +
+            'style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;display:block;' +
+            'border:1px solid rgba(120,215,255,.35);background:#0b1520" ' +
+            'onerror="this.outerHTML=window.__auraAvatarFallback(\'' + esc(initialsOf(prof.name, prof.email)) + '\',' + size + ')">';
+        return '<span style="display:flex;align-items:center;justify-content:center;width:' + size + 'px;height:' + size + 'px;' +
+          'border-radius:50%;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 ' +
+          (size < 20 ? 9 : 10) + 'px Inter,system-ui,sans-serif;letter-spacing:.02em">' + esc(initialsOf(prof && prof.name, prof && prof.email)) + '</span>';
+      }
+      window.__auraAvatarFallback = function(ini, size){
+        return '<span style="display:flex;align-items:center;justify-content:center;width:' + size + 'px;height:' + size + 'px;' +
+          'border-radius:50%;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 ' +
+          (size < 20 ? 9 : 10) + 'px Inter,system-ui,sans-serif">' + ini + '</span>';
+      };
+      function devLabel(){
+        var ua = navigator.userAgent || "";
+        var os = (ua.match(/Windows|Android|iPhone|iPad|Macintosh|Linux/i) || [""])[0];
+        var br = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
+        return [br, os].filter(Boolean).join(" · ") || "This device";
+      }
+      /* one painter for the header chip, the settings row and the welcome name */
+      function paint(name, sub, prof){
+        var show = name || "Guest";
+        var p = prof || profileGet();
+        var btn = document.getElementById("acct");
+        if(btn){
+          var inner = "\uD83D\uDC64 <span id=\"acn\">" + esc(show) + "</span>";
+          if(p && (p.photo || p.name)){
+            inner = '<span style="display:inline-flex;align-items:center;gap:7px">' + avatarHTML(p, 18) +
+              '<span id="acn">' + esc(p.name || show) + '</span></span>';
+          }
+          btn.innerHTML = inner;
+          btn.title = p && p.email ? p.email + " · click for account" : "Sign in or account";
+        }
         var accRow = document.querySelector("#p-set .row b");
         if(accRow && /account/i.test(accRow.textContent || "") && sub){
-          var p = accRow.parentNode.querySelector("p");
-          if(p) p.textContent = sub;
+          var q = accRow.parentNode.querySelector("p");
+          if(q) q.textContent = sub;
         }
+        /* the Settings card must agree with the header: signed in shows the account and a
+           real way out, instead of asking you to sign in again */
+        try{
+          var signedIn = !!(p && (p.uid || p.email));
+          var g1 = document.getElementById("g1"), g2 = document.getElementById("g2");
+          if(g1 && g1.dataset.auraSigned !== (signedIn ? "1" : "0")){
+            g1.dataset.auraSigned = signedIn ? "1" : "0";
+            g1.textContent = signedIn ? "Account" : "Continue with Google";
+            if(g2) g2.textContent = signedIn ? "Sign out" : "Phone";
+          }
+        }catch(e){}
         try{
           var un = document.getElementById("uname");
           if(name && un) un.textContent = String(name).split(" ")[0];
@@ -4873,7 +4937,9 @@ function makeQR(text) {
           who = name;
           remember(name);
           try{ localStorage.setItem("aura_email", user.email || ""); }catch(e){}
-          paint(name, "Signed in as " + (user.email || name) + " · chats and memory follow this account");
+          var prof = { name: name, email: user.email || "", photo: user.photoURL || "", uid: user.uid || "", at: Date.now() };
+          profileSave(prof);
+          paint(name, "Signed in as " + (user.email || name) + " · chats and memory follow this account", prof);
           try{ if(typeof tell === "function") tell("Signed in as " + (name || "you")); }catch(e){}
           return true;
         }catch(e){ return false; }
@@ -4900,6 +4966,59 @@ function makeQR(text) {
         }catch(e){ return false; }
       }
 
+      function btnStyle(kind){
+        if(kind === "danger") return 'padding:9px 13px;border-radius:10px;border:1px solid rgba(255,120,120,.42);background:rgba(255,90,90,.13);color:#ffd7d7;font:600 12.8px Inter,system-ui,sans-serif;cursor:pointer';
+        if(kind === "ghost") return 'padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:transparent;color:#cfe3f2;font:600 12.8px Inter,system-ui,sans-serif;cursor:pointer';
+        return 'padding:9px 13px;border-radius:10px;border:1px solid rgba(120,215,255,.4);background:rgba(120,215,255,.14);color:#dff4ff;font:600 12.8px Inter,system-ui,sans-serif;cursor:pointer';
+      }
+      function accRowHTML(label, value){
+        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;font:12.5px Inter,system-ui,sans-serif">' +
+          '<span style="color:#8ea1b2">' + esc(label) + '</span>' +
+          '<span style="color:#dceaf6;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(value) + '</span></div>';
+      }
+      /* what a signed-in person expects to see: who I am, which account, and a way out */
+      function accountSheet(){
+        var prof = profileGet() || {};
+        var name = prof.name || who || "Account";
+        var email = prof.email || "";
+        var box = sheet(
+          '<div style="display:flex;align-items:flex-start;gap:12px">' +
+            '<div style="flex:0 0 auto">' + avatarHTML({ name: name, email: email, photo: prof.photo }, 52) + '</div>' +
+            '<div style="min-width:0;flex:1">' +
+              '<div style="font:600 15.5px Inter,system-ui,sans-serif;color:#eaf6ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(name) + '</div>' +
+              '<div style="font:12.5px Inter,system-ui,sans-serif;color:#9fb6c8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(email || "Signed in on this device") + '</div>' +
+              '<span style="display:inline-block;margin-top:7px;padding:2px 8px;border-radius:999px;background:rgba(120,215,255,.12);border:1px solid rgba(120,215,255,.3);color:#bfe9ff;font:10px Inter,system-ui,sans-serif;letter-spacing:.06em">' +
+              (prof.uid ? "GOOGLE ACCOUNT" : "THIS DEVICE") + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div style="margin:14px 0 4px;height:1px;background:rgba(255,255,255,.08)"></div>' +
+          accRowHTML("Chats & memory", prof.uid ? "Synced to this account" : "Saved on this device") +
+          accRowHTML("Device", devLabel()) +
+          accRowHTML("Account ID", prof.uid ? String(prof.uid).slice(0, 12) : "\u2014") +
+          accRowHTML("Signed in", prof.at ? new Date(prof.at).toLocaleDateString() : "today") +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
+            '<button type="button" id="auraAccSwitch" style="' + btnStyle("main") + '">Switch account</button>' +
+            '<button type="button" id="auraAccOut" style="' + btnStyle("danger") + '">Sign out</button>' +
+            '<button type="button" id="auraAccClose" style="' + btnStyle("ghost") + '">Close</button>' +
+          '</div>' +
+          '<p style="margin:10px 0 0;font:11px/1.5 Inter,system-ui,sans-serif;color:#7f8b9a">Signing out keeps your chats on this device; they come back when you sign in again.</p>'
+        );
+        box.querySelector("#auraAccClose").onclick = closeSheet;
+        box.querySelector("#auraAccSwitch").onclick = function(){ closeSheet(); startGoogle(); };
+        box.querySelector("#auraAccOut").onclick = signOut;
+      }
+      async function signOut(){
+        try{
+          if(window.firebase && window.firebase.auth && window.firebase.apps && window.firebase.apps.length)
+            await window.firebase.auth().signOut();
+        }catch(e){}
+        profileClear();
+        who = null;
+        paint("Guest", "Guest session · sign in to keep chats and memory on every device");
+        closeSheet();
+        try{ if(typeof tell === "function") tell("Signed out"); }catch(e){}
+      }
+
       function phoneSheet(){
         sheet('<h3 style="margin:0 0 6px;font:600 16px Inter,system-ui,sans-serif">Phone sign-in</h3>' +
           '<p style="margin:0 0 12px;font:13px/1.55 Inter,system-ui,sans-serif;color:#9fb6c8">Phone OTP needs the same server config as Google sign-in, plus an SMS provider. Until it is set up, your chats stay on this device.</p>' +
@@ -4911,15 +5030,29 @@ function makeQR(text) {
       document.addEventListener("click", function(e){
         var t = e.target;
         if(!t || !t.closest) return;
-        if(t.closest("#g1")){ e.preventDefault(); e.stopPropagation(); startGoogle(); }
-        else if(t.closest("#g2")){ e.preventDefault(); e.stopPropagation(); phoneSheet(); }
-        else if(t.closest("#acct")){ e.preventDefault(); e.stopPropagation(); startGoogle(); }
+        if(t.closest("#g1")){
+          e.preventDefault(); e.stopPropagation();
+          var pp = profileGet();
+          if(pp && (pp.uid || pp.email)) accountSheet(); else startGoogle();
+        }
+        else if(t.closest("#g2")){
+          e.preventDefault(); e.stopPropagation();
+          var pq = profileGet();
+          if(pq && (pq.uid || pq.email)) signOut(); else phoneSheet();
+        }
+        else if(t.closest("#acct")){
+          e.preventDefault(); e.stopPropagation();
+          var p = profileGet();
+          if(p && (p.uid || p.email || p.name)) accountSheet(); else startGoogle();
+        }
       }, true);
 
       /* a returning signed-in user keeps their name on screen */
       try{
-        var saved = JSON.parse(localStorage.getItem("az.name") || '""');
-        if(saved) paint(saved);
+        var savedProf = profileGet();
+        var savedName = JSON.parse(localStorage.getItem("az.name") || '""');
+        if(savedProf && savedProf.name) paint(savedProf.name, undefined, savedProf);
+        else if(savedName) paint(savedName);
       }catch(e){}
 
       setTimeout(resumeRedirect, 1200);
