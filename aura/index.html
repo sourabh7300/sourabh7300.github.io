@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="042c203408ca"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e1e24e98b089"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1997,7 +1997,10 @@ function makeQR(text) {
 
   /* ---------------- Mesh ---------------- */
   var mesh = { code: null, timer: null, seen: [], role: null };
-  try{ mesh.code = localStorage.getItem("aura_mesh_code") || null; }catch(e){}
+  try{
+    mesh.code = localStorage.getItem("aura_mesh_code") || null;
+    mesh.role = localStorage.getItem("aura_mesh_role") || null;
+  }catch(e){}
 
   var ov = document.createElement("div");
   ov.className = "ov"; ov.id = "auraMeshOv";
@@ -2013,7 +2016,8 @@ function makeQR(text) {
       '<button class="b pr" id="amuHost">\u25c9 Host</button>' +
       '<input type="text" id="amuCode" inputmode="numeric" maxlength="6" placeholder="\u2014 \u2014 \u2014 \u2014 \u2014 \u2014" style="width:140px;letter-spacing:.24em;text-align:center">' +
       '<button class="b" id="amuJoin">\u21b3 Join</button>' +
-      '<button class="b" id="amuLeave">Leave</button>' +
+      '<button class="b" id="amuLeave">\u23cf Disconnect</button>' +
+      '<button class="b" id="amuRejoin" style="display:none">\u21bb Reconnect</button>' +
     '</div>' +
     '<div class="log" id="amuList" style="height:150px">not connected</div>' +
     '<div style="display:flex;gap:8px;margin-top:12px"><input type="text" id="amuSay" placeholder="Say something on every device"><button class="b pr" id="amuSend">\u25b8</button></div>' +
@@ -2081,7 +2085,12 @@ function makeQR(text) {
     }).catch(function(e){ listSet("<div>join failed: " + e.message + "</div>"); tell("Join failed \u00b7 " + e.message); });
   }
   function leave(){
-    var c = mesh.code; if(!c) return;
+    var c = mesh.code;
+    /* the LAST code is kept in memory only (never re-connected behind the owner's back):
+       it is what the Reconnect button offers after an explicit Disconnect */
+    if(c){ mesh.lastCode = c; mesh.lastRole = mesh.role || "node"; }
+    var rj = $("#amuRejoin"); if(rj) rj.style.display = c ? "" : "none";
+    if(!c) return;
     api("/v1/mesh/leave", { code: c, nodeId: nodeId }).catch(function(){});
     pushDetach(c);
     mesh.code = null; mesh.role = null; mesh.seen = [];
@@ -2089,7 +2098,50 @@ function makeQR(text) {
     try{ localStorage.removeItem("aura_mesh_code"); }catch(e){}
     if(mesh.timer){ clearInterval(mesh.timer); mesh.timer = null; }
     var ci = $("#amuCode"); if(ci) ci.value = "";
-    setStatus("not connected"); listSet("not connected"); qrDraw();
+    setStatus("Disconnected \u2014 this device is no longer controlled by the host");
+    listSet("Disconnected");
+    qrDraw();
+    tell("Disconnected from mesh " + c);
+  }
+  /* ---- auto-reconnect: the mesh must outlive an app switch ----
+     A phone/desktop kills the tab when you open another app; without this the whole mesh
+     had to be set up again (that was the complaint). The saved code is re-claimed
+     silently on boot and whenever the page comes back to the foreground. The device stays
+     connected until its OWN owner taps Disconnect — nothing else clears the saved code. */
+  function meshResume(){
+    if(!mesh.code || mesh.timer) return;
+    var role = "";
+    try{ role = localStorage.getItem("aura_mesh_role") || mesh.role || ""; }catch(e){ role = mesh.role || ""; }
+    if(!role) return;
+    mesh.role = role;
+    var ok = function(){
+      pollStart(); refresh(); meshRoleUI(); pushSync();
+      setStatus((role === "host" ? "Hosting" : "Joined") + " \u00b7 code " + mesh.code + " \u00b7 reconnected");
+      window.__meshResume = { at: Date.now(), code: mesh.code, role: role };
+    };
+    var gone = function(){
+      try{ localStorage.removeItem("aura_mesh_code"); localStorage.removeItem("aura_mesh_role"); }catch(e){}
+      mesh.code = null; mesh.role = null;
+      setStatus("not connected"); listSet("not connected"); qrDraw();
+      tell("Mesh band ho gaya tha \u2014 dobara host ya join karo");
+    };
+    if(role === "host"){
+      api("/v1/mesh/register", { hostId: nodeId, code: mesh.code }).then(function(j){
+        if(j && j.code) mesh.code = j.code;
+        ok();
+      }).catch(gone);
+    } else {
+      api("/v1/mesh/join", { code: mesh.code, nodeId: nodeId, name: devName(), allow: true })
+        .then(ok).catch(gone);
+    }
+  }
+  function rejoin(){
+    var c = mesh.lastCode || String(($("#amuCode") || {}).value || "").trim();
+    var r = mesh.lastRole || "node";
+    if(!/^\d{6}$/.test(String(c))) return tell("Pehle code daalo (host panel me dikhta hai)");
+    mesh.code = String(c); mesh.role = r; mesh.timer = null;
+    try{ localStorage.setItem("aura_mesh_code", mesh.code); localStorage.setItem("aura_mesh_role", r); }catch(e){}
+    meshResume();
   }
   function refresh(){
     if(!mesh.code) return;
@@ -2404,6 +2456,7 @@ function makeQR(text) {
     ["visibilitychange", "focus", "pageshow", "online"].forEach(function(ev){
       document.addEventListener(ev, function(){
         if(!mesh.code || document.hidden) return;
+        try{ meshResume(); }catch(e){}
         /* a background tab throttles timers, so catch up in a short burst */
         [0, 350, 900, 1800].forEach(function(ms){ setTimeout(function(){ try{ mesh.tick && mesh.tick(); }catch(e){} }, ms); });
         try{ refresh(); }catch(e){}
@@ -2416,6 +2469,7 @@ function makeQR(text) {
   $("#amuHost").onclick = host;
   $("#amuJoin").onclick = join;
   $("#amuLeave").onclick = leave;
+  $("#amuRejoin").onclick = rejoin;
   $("#amuClose").onclick = function(){ ov.classList.remove("on"); };
   $("#amuRefresh").onclick = function(){ if(!mesh.code) return tell("Host or join first"); refresh(); tell("Refreshed"); };
   $("#amuCopy").onclick = function(){
@@ -2630,6 +2684,8 @@ function makeQR(text) {
     });
   }catch(e){}
   try{ setTimeout(pushInit, 1500); }catch(e){}
+
+  setTimeout(function(){ try{ meshResume(); }catch(e){} }, 900);
 
   /* scanned QR → this page with ?mesh=CODE: open the panel and join straight away, so
      the other device never has to type the code */
@@ -5238,6 +5294,90 @@ function makeQR(text) {
      into a button that never changes, and nothing appears until the reply. This tap
      is replaced with a guided flow — a pill shows the words as they are heard, the
      text lands in the composer, and it sends itself after a short pause. */
+  /* ---- spoken / typed orders ----
+     "play kesariya on youtube" used to be treated as a question, so nothing played. Now a
+     clear order is EXECUTED (YouTube / a site / search / call) and only everything else
+     goes to the chat. Kept local on purpose: an order must not wait for a model. */
+  var AURA_SITES = {
+    youtube: "https://www.youtube.com", yt: "https://www.youtube.com", google: "https://www.google.com",
+    whatsapp: "https://web.whatsapp.com", instagram: "https://www.instagram.com", gmail: "https://mail.google.com",
+    mail: "https://mail.google.com", maps: "https://maps.google.com", github: "https://github.com",
+    chatgpt: "https://chat.openai.com", gemini: "https://gemini.google.com", spotify: "https://open.spotify.com",
+    netflix: "https://www.netflix.com", prime: "https://www.primevideo.com", telegram: "https://web.telegram.org",
+    facebook: "https://www.facebook.com", twitter: "https://x.com", x: "https://x.com", linkedin: "https://www.linkedin.com",
+    amazon: "https://www.amazon.in", flipkart: "https://www.flipkart.com", swiggy: "https://www.swiggy.com",
+    zomato: "https://www.zomato.com", uber: "https://m.uber.com", ola: "https://book.olacabs.com",
+    drive: "https://drive.google.com", meet: "https://meet.google.com", calendar: "https://calendar.google.com",
+    render: "https://dashboard.render.com", vercel: "https://vercel.com/dashboard"
+  };
+  function auraLastWords(){
+    try{
+      var msgs = document.querySelectorAll("#msgs .m");
+      for(var i = msgs.length - 1; i >= 0; i--){
+        var t = String(msgs[i].textContent || "").replace(/^[QA]:\s*/, "").trim();
+        if(t && t.length > 2) return t.slice(0, 120);
+      }
+    }catch(e){}
+    return "";
+  }
+  function auraDo(url, note){
+    if(!url) return false;
+    var w = null;
+    try{ w = window.open(url, "_blank"); }catch(e){}
+    if(!w){
+      /* A spoken order finishes AFTER the tap, so the browser has already used up the
+         gesture and blocks the popup. A card with a real button opens it with one tap
+         instead of silently doing nothing (or throwing AURA away by navigating). */
+      try{
+        meshBanner("AURA", note + "<br><span style=\"color:#8ea1b2;font-size:11.5px\">Browser ne popup roka \u2014 ek tap se khul jayega.</span>",
+          "Open now", function(){ try{ window.open(url, "_blank"); }catch(e2){ location.href = url; } });
+      }catch(e2){ try{ location.href = url; }catch(e3){} }
+    }
+    try{ tell(note); }catch(e){}
+    try{ window.__auraLastIntent = { at: Date.now(), url: url, note: note }; }catch(e){}
+    return true;
+  }
+  window.__auraIntent = function(raw){
+    var t = String(raw || "").trim();
+    if(t.length < 3) return false;
+    var m = t.match(/^(?:play|bajao|chalao|chala do|sunao|gana chalao)\s+(.+)$/i);
+    if(m){
+      var q = t.replace(/^(?:play|bajao|chalao|chala do|sunao|gana chalao)\s+/i, "")
+               .replace(/\s+(?:on|par|pe)\s+youtube\s*$/i, "")
+               .replace(/\s+youtube\s+(?:par|pe)\s*$/i, "")
+               .replace(/\s+youtube$/i, "")
+               .trim();
+      /* "play this" has no title in it — use the last thing said on screen */
+      if(/^(this|it|that|ye|yeh|isko|ise|song|gaana|gana|same)$/i.test(q)) q = auraLastWords();
+      if(!q) return false;
+      return auraDo("https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(q),
+        "\u25B6 YouTube: " + q.slice(0, 46));
+    }
+    m = t.match(/^(?:open|kholo|khol do|khol)\s+(.+)$/i);
+    if(m){
+      var what = t.replace(/^(?:open|kholo|khol do|khol)\s+/i, "").trim();
+      var key = what.toLowerCase().replace(/[^a-z]/g, "");
+      var url = AURA_SITES[key];
+      if(!url && /^https?:\/\//i.test(what)) url = what;
+      if(!url && /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(what)) url = "https://" + what;
+      if(!url) url = "https://www.google.com/search?q=" + encodeURIComponent(what);
+      return auraDo(url, "\u25C6 " + what.slice(0, 40));
+    }
+    m = t.match(/^(?:search|google|khojo|dhundo)\s+(.+)$/i);
+    if(m){
+      var q2 = t.replace(/^(?:search|google|khojo|dhundo)\s+/i, "").trim();
+      return auraDo("https://www.google.com/search?q=" + encodeURIComponent(q2), "\uD83D\uDD0E " + q2.slice(0, 40));
+    }
+    m = t.match(/^(?:call|dial|phone)\s+([+\d][\d\s-]{5,})$/i);
+    if(m){
+      var num = m[1].replace(/[^\d+]/g, "");
+      try{ location.href = "tel:" + num; }catch(e){}
+      try{ tell("\uD83D\uDCDE Calling " + num); }catch(e){}
+      return true;
+    }
+    return false;
+  };
+
   try{
     (function voiceFlow(){
       var mic = document.getElementById('mic');
@@ -5246,6 +5386,23 @@ function makeQR(text) {
       var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       if(!mic || !inpEl || !sendBtn) return;
       var cardEl = document.getElementById('card');
+      /* round, obvious, and it visibly listens: a ring pulses out of the button and the
+         pill shows the words as they are heard */
+      var micCss = document.createElement('style');
+      micCss.textContent =
+        '#mic{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;position:relative;' +
+        'border:1px solid rgba(120,215,255,.35);background:linear-gradient(135deg,rgba(120,215,255,.16),rgba(47,123,255,.2));' +
+        'transition:transform .16s ease,box-shadow .22s ease,background .2s ease;cursor:pointer}' +
+        '#mic:hover{transform:scale(1.07)}' +
+        '#mic.on{background:linear-gradient(135deg,#48c8ff,#2f7bff);box-shadow:0 0 0 6px rgba(120,215,255,.14),0 0 26px rgba(72,200,255,.6)}' +
+        '#mic.on svg{stroke:#04121f}' +
+        '#mic.on::after{content:"";position:absolute;inset:-7px;border-radius:50%;border:2px solid rgba(120,215,255,.55);' +
+        'animation:auraMicPulse 1.3s ease-out infinite}' +
+        '@keyframes auraMicPulse{0%{transform:scale(.88);opacity:.85}100%{transform:scale(1.58);opacity:0}}' +
+        '#auraVoicePill .aura-bars{display:inline-flex;gap:3px;align-items:flex-end;height:15px;margin-right:2px}' +
+        '#auraVoicePill .aura-bars i{display:block;width:3px;border-radius:2px;background:#7fd7ff;animation:auraBar .85s ease-in-out infinite}' +
+        '@keyframes auraBar{0%,100%{height:4px}50%{height:15px}}';
+      document.head.appendChild(micCss);
       var pill = document.createElement('div');
       pill.id = 'auraVoicePill';
       pill.style.cssText = 'display:none;position:absolute;left:50%;transform:translateX(-50%);' +
@@ -5255,12 +5412,20 @@ function makeQR(text) {
         'overflow:hidden;text-overflow:ellipsis;box-shadow:0 8px 26px rgba(0,0,0,.45)';
       if(cardEl){ cardEl.style.position = 'relative'; cardEl.appendChild(pill); }
       function show(t, live){
-        pill.textContent = t;
+        if(live){
+          pill.innerHTML = '<span class="aura-bars"><i></i><i style="animation-delay:.15s"></i>' +
+            '<i style="animation-delay:.3s"></i><i style="animation-delay:.45s"></i></span><span id="auraVoiceTxt"></span>';
+          var tx = pill.querySelector('#auraVoiceTxt');
+          if(tx) tx.textContent = t;
+        } else {
+          pill.textContent = t;
+        }
         pill.style.display = 'flex';
         pill.style.borderColor = live ? 'rgba(120,215,255,.6)' : 'rgba(255,255,255,.18)';
       }
       function hide(){ pill.style.display = 'none'; }
       function mark(on){
+        try{ mic.classList.toggle('on', !!on); }catch(e){}
         mic.style.boxShadow = on ? '0 0 0 3px rgba(120,215,255,.28)' : '';
         mic.style.borderColor = on ? 'rgba(120,215,255,.7)' : '';
       }
@@ -5277,6 +5442,7 @@ function makeQR(text) {
         var t = String(inpEl.value || '').trim();
         hide();
         if(t.length < 2){ tell('Kuch sunai nahi diya — dobara bolo'); return; }
+        if(window.__auraIntent && window.__auraIntent(t)){ try{ inpEl.value = ''; }catch(e){} return; }
         sendBtn.click();
       }
       function stop(){
@@ -5325,6 +5491,16 @@ function makeQR(text) {
         clearTimeout(sendTimer);
         if(listening || pill.style.display === 'flex'){ stop(); hide(); return; }
         start();
+      }, true);
+
+      /* the same orders work when typed — otherwise "open youtube" became a chat message */
+      sendBtn.addEventListener('click', function(e){
+        var t = String(inpEl.value || '').trim();
+        if(!t) return;
+        if(window.__auraIntent && window.__auraIntent(t)){
+          e.preventDefault(); e.stopImmediatePropagation();
+          try{ inpEl.value = ''; }catch(err){}
+        }
       }, true);
 
       /* after Send, say what is happening instead of leaving a dead screen */
