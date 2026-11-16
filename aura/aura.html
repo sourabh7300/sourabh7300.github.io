@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="dbe62299ffd1"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="907ed2267f1e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3923,6 +3923,269 @@ function makeQR(text) {
     }, 1200);
     /* the orb is the way in — present on every page load, draggable, never hidden */
     setTimeout(function(){ try{ copLauncher(); }catch(e){} }, 900);
+  }catch(e){}
+
+  /* ---------------- SIGN LANGUAGE MODE (16 Nov) ----------------
+     A deaf user signs to the camera; AURA reads the frame, writes it big and speaks it
+     out loud so a hearing person understands. The same window takes typed text and the
+     other person's speech back as big readable text, and the whole conversation is
+     saved into Chats. */
+  try{
+    (function signMode(){
+      var S = { on: false, stream: null, timer: null, prev: null, log: [], speak: true, last: '', lastTs: 0, busy: false, mic: null };
+      function el(id){ return document.getElementById(id); }
+      function big(t, sub){
+        var b = el('asgBig');
+        if(b) b.textContent = t;
+        var s = el('asgSub');
+        if(s) s.textContent = sub || '';
+      }
+      function push(who, text){
+        text = String(text || '').trim();
+        if(!text) return;
+        S.log.push({ who: who, text: text, ts: Date.now() });
+        if(S.log.length > 300) S.log.shift();
+        var box = el('asgLog');
+        if(box){
+          var line = document.createElement('div');
+          line.style.cssText = 'padding:6px 0;border-top:1px solid rgba(255,255,255,.06)';
+          line.innerHTML = '<b style="color:' + (who === 'me' ? '#9fd8ff' : '#7ff0b4') + '">' +
+            (who === 'me' ? 'Sign' : 'AURA') + ':</b> ' +
+            String(text).replace(/[<>&]/g, '');
+          box.appendChild(line);
+          box.scrollTop = box.scrollHeight;
+        }
+      }
+      function say(text){
+        try{
+          if(auraMuted() || !S.speak || !window.speechSynthesis) return;
+          var s = String(text || '').replace(/[*_`#]/g, '').trim();
+          if(!s) return;
+          var u = new SpeechSynthesisUtterance(s.slice(0, 300));
+          u.rate = 1.0; u.pitch = 1;
+          u.lang = /[\u0900-\u097F]/.test(s) ? 'hi-IN' : 'en-US';
+          speechSynthesis.cancel(); speechSynthesis.speak(u);
+        }catch(e){}
+      }
+      function frame(video){
+        var vw = video.videoWidth || 0, vh = video.videoHeight || 0;
+        if(!vw || !vh) return null;
+        var k = Math.min(1, 900 / Math.max(vw, vh));
+        var cv = document.createElement('canvas');
+        cv.width = Math.round(vw * k); cv.height = Math.round(vh * k);
+        try{ cv.getContext('2d').drawImage(video, 0, 0, cv.width, cv.height); }catch(e){ return null; }
+        return cv;
+      }
+      function sig(cv){
+        var s = document.createElement('canvas'); s.width = 48; s.height = 27;
+        var c = s.getContext('2d');
+        c.drawImage(cv, 0, 0, 48, 27);
+        var d = c.getImageData(0, 0, 48, 27).data, out = new Uint8Array(48 * 27);
+        for(var i = 0, p = 0; i < d.length; i += 4, p++) out[p] = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) | 0;
+        return out;
+      }
+      function changed(a, b){
+        if(!a || !b) return true;
+        var n = 0;
+        for(var i = 0; i < a.length; i++) if(Math.abs(a[i] - b[i]) > 12) n++;
+        return n / a.length > 0.06;
+      }
+      async function readSign(cv){
+        try{
+          var r = await fetch(BASE + '/v1/sign', {
+            method: 'POST', headers: hdrs(),
+            body: JSON.stringify({
+              image: cv.toDataURL('image/jpeg', 0.72),
+              history: S.log.slice(-3).map(function(e){ return e.text; }).join(' | ').slice(0, 240)
+            }),
+            signal: AbortSignal.timeout(35000)
+          });
+          if(!r.ok) return null;
+          return await r.json();
+        }catch(e){ return null; }
+      }
+      async function tick(){
+        if(!S.on || S.busy) return;
+        var v = el('asgVideo');
+        if(!v || v.readyState < 2) return;
+        var cv = frame(v);
+        if(!cv) return;
+        var sg = sig(cv);
+        if(S.prev && !changed(S.prev, sg)) return;
+        S.prev = sg;
+        S.busy = true;
+        try{
+          var j = await readSign(cv);
+          if(j && j.ok && (j.sign || j.speech)){
+            var key = (j.sign || '') + '|' + (j.speech || '');
+            if(key === S.last && Date.now() - S.lastTs < 6000) return;
+            S.last = key; S.lastTs = Date.now();
+            var line = j.speech || j.sign;
+            big(line, j.sign ? ('sign: ' + j.sign + (j.confidence ? ' · ' + Math.round(j.confidence * 100) + '%' : '')) : (j.seen || ''));
+            push('me', line);
+            say(line);
+          } else if(j && j.ok && j.seen){
+            var st = el('asgSub'); if(st) st.textContent = 'looking… ' + j.seen.slice(0, 90);
+          }
+        } finally { S.busy = false; }
+      }
+      async function startCam(){
+        try{
+          if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+            big('Camera is not available in this browser', 'open AURA in Chrome or Safari');
+            return;
+          }
+          S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 1280, height: 720 }, audio: false });
+          var v = el('asgVideo');
+          v.srcObject = S.stream;
+          await v.play().catch(function(){});
+          S.on = true;
+          var badge = el('asgBadge'); if(badge){ badge.textContent = '● live'; badge.style.color = '#7ff0b4'; }
+          el('asgStart').textContent = 'Stop camera';
+          S.timer = setInterval(tick, 2200);
+          big('Camera on — sign now', 'hold one clear sign for a second');
+          tick();
+        }catch(e){
+          big('Camera could not start', String(e && e.message || e).slice(0, 90));
+        }
+      }
+      function stopCam(){
+        S.on = false;
+        if(S.timer){ clearInterval(S.timer); S.timer = null; }
+        if(S.stream){ try{ S.stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} S.stream = null; }
+        var v = el('asgVideo'); if(v) { try{ v.srcObject = null; }catch(e){} }
+        var badge = el('asgBadge'); if(badge){ badge.textContent = 'camera off'; badge.style.color = '#8ea1b2'; }
+        var b = el('asgStart'); if(b) b.textContent = 'Start camera';
+        S.prev = null;
+      }
+      function saveSession(){
+        try{
+          if(!S.log.length) return;
+          if(typeof chats !== 'undefined' && typeof store === 'object' && store && store.set){
+            var rec = {
+              id: 'sign' + Date.now(),
+              title: '🤟 Sign chat · ' + new Date().toLocaleString(),
+              ts: Date.now(),
+              msgs: S.log.map(function(e){ return { r: e.who === 'me' ? 'u' : 'a', t: e.text }; })
+            };
+            chats.unshift(rec);
+            store.set('chats', chats.slice(0, 40));
+          }
+          try{ localStorage.setItem('aura_sign_log_v1', JSON.stringify(S.log.slice(-60))); }catch(e){}
+        }catch(e){}
+      }
+      async function askAura(q){
+        q = String(q || '').trim();
+        if(!q) return;
+        big('AURA is thinking…', '');
+        push('me', q);
+        try{
+          var r = await fetch(BASE + '/v1/chat/completions', {
+            method: 'POST', headers: hdrs(),
+            body: JSON.stringify({
+              model: 'aura', stream: false,
+              messages: [
+                { role: 'system', content: 'The user is deaf and communicates by sign language or typing. Answer in very short, simple English — at most 40 words, no markdown, no lists. Be warm and concrete.' },
+                { role: 'user', content: q }
+              ]
+            }),
+            signal: AbortSignal.timeout(45000)
+          });
+          var j = await r.json().catch(function(){ return {}; });
+          var ans = String((((j.choices || [])[0] || {}).message || {}).content || '').trim();
+          if(!ans) ans = 'AURA could not answer just now. Try again.';
+          big(ans, '');
+          push('a', ans);
+          say(ans);
+        }catch(e){
+          big('Network slow — try again', '');
+        }
+      }
+      function hearThem(){
+        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if(!SR){ big('Voice input is not supported in this browser', 'type instead'); return; }
+        try{
+          if(S.mic){ S.mic.stop(); S.mic = null; }
+          var r = new SR(); S.mic = r;
+          r.lang = 'en-IN'; r.interimResults = true; r.continuous = false;
+          big('Listening to the other person…', '');
+          r.onresult = function(ev){
+            var said = String(ev.results[0][0].transcript || '').trim();
+            if(said) { big(said, 'they said'); }
+            if(ev.results[0].isFinal && said){ push('a', said); S.mic = null; }
+          };
+          r.onerror = function(e){ big('Mic error: ' + (e && e.error || 'not allowed'), 'type instead'); S.mic = null; };
+          r.onend = function(){ S.mic = null; };
+          r.start();
+        }catch(e){ big('Mic unavailable', String(e.message || e)); }
+      }
+      function open(){
+        var ov = el('auraSignOv');
+        if(!ov) return;
+        ov.classList.add('on');
+      }
+      function close(){
+        var ov = el('auraSignOv');
+        if(ov) ov.classList.remove('on');
+        stopCam();
+        saveSession();
+      }
+
+      var ov = document.createElement('div');
+      ov.className = 'ov'; ov.id = 'auraSignOv';
+      ov.innerHTML =
+        '<div class="mod pn" style="max-width:560px">' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<h3 style="margin:0">🤟 Sign language</h3>' +
+            '<button id="asgClose" type="button" style="margin-left:auto;background:none;border:0;color:#8ea1b2;font-size:16px;cursor:pointer">✕</button>' +
+          '</div>' +
+          '<p style="color:var(--dim);font:12.5px var(--f2);margin:6px 0 10px">Camera ke saamne sign karo — AURA padh kar bada likhega aur bol dega. Main samne wala insaan bolta hai, wo bhi yahan text me aayega.</p>' +
+          '<div style="position:relative;border-radius:14px;overflow:hidden;background:#05080d;border:1px solid rgba(120,215,255,.22)">' +
+            '<video id="asgVideo" playsinline muted style="width:100%;max-height:42vh;display:block;object-fit:cover;transform:scaleX(-1);background:#05080d"></video>' +
+            '<span id="asgBadge" style="position:absolute;left:10px;top:8px;font:700 10px Inter,system-ui,sans-serif;letter-spacing:.12em;color:#8ea1b2">camera off</span>' +
+          '</div>' +
+          '<div id="asgBig" style="margin:12px 0 4px;min-height:52px;padding:12px 14px;border-radius:12px;background:rgba(120,215,255,.09);border:1px solid rgba(120,215,255,.22);font:600 17px/1.4 Inter,system-ui,sans-serif;color:#eef8ff">Start the camera, then sign</div>' +
+          '<div id="asgSub" style="min-height:16px;color:#8ea1b2;font:11.5px var(--f2);margin-bottom:10px"></div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button class="b pr" id="asgStart">Start camera</button>' +
+            '<button class="b" id="asgSpeak">🔊 Speak: on</button>' +
+            '<button class="b" id="asgHear">🎧 Hear them</button>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="asgQ" placeholder="Type karo (AURA bolega) — e.g. where is the washroom?" style="flex:1"><button class="b pr" id="asgSend">Send</button></div>' +
+          '<div id="asgLog" style="margin-top:12px;max-height:26vh;overflow:auto;font:12.5px/1.5 var(--f2);color:#cfe9ff"></div>' +
+        '</div>';
+      document.body.appendChild(ov);
+
+      el('asgStart').onclick = function(){ S.on ? stopCam() : startCam(); };
+      el('asgSpeak').onclick = function(){
+        S.speak = !S.speak;
+        this.textContent = S.speak ? '🔊 Speak: on' : '🔇 Speak: off';
+        if(!S.speak){ try{ speechSynthesis.cancel(); }catch(e){} }
+      };
+      el('asgHear').onclick = hearThem;
+      el('asgSend').onclick = function(){ var i = el('asgQ'); var q = i.value; i.value = ''; askAura(q); };
+      el('asgQ').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); var q = this.value; this.value = ''; askAura(q); } });
+      el('asgClose').onclick = close;
+      ov.addEventListener('click', function(e){ if(e.target === ov) close(); });
+
+      /* entry points: the tools row and the co-pilot panel */
+      window.__auraSign = { open: open, close: close, ask: askAura };
+      setTimeout(function(){
+        try{
+          var tools = document.getElementById('tools');
+          if(tools && !document.getElementById('auraSignBtn')){
+            var b = document.createElement('button');
+            b.id = 'auraSignBtn'; b.type = 'button';
+            b.textContent = '🤟 Sign';
+            b.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;' +
+              'border:1px solid rgba(120,215,255,.22);background:rgba(120,215,255,.08);color:#dff4ff;' +
+              "font:12.5px/1.4 Inter,system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;user-select:none";
+            b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} open(); };
+            tools.appendChild(b);
+          }
+        }catch(e){}
+      }, 1300);
+    })();
   }catch(e){}
 
   /* ---------------- Google sign-in ----------------
