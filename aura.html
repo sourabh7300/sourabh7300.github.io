@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="14be492e5cd1"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="540c99b92942"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2041,6 +2041,23 @@ function makeQR(text) {
       '</div>' +
       '<div id="amuPushState" style="font:11.5px/1.45 var(--f2);color:var(--dim);margin-top:6px">Off \u2014 orders arrive only while AURA is open</div>' +
     '</div>' +
+    '<div id="amuContactsRow" style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">' +
+      '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
+        '<button class="b" id="amuContacts">\uD83D\uDCD3 Contacts (0)</button>' +
+        '<span style="font:11px var(--f2);color:var(--dim)">host bol sakta hai: \u201ccall Rahul\u201d</span>' +
+      '</div>' +
+      '<div id="amuContactsBox" style="display:none;margin-top:8px">' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
+          '<button class="b" id="amuCImport">\u2193 Import from this device</button>' +
+        '</div>' +
+        '<div style="display:flex;gap:6px;flex-wrap:wrap">' +
+          '<input id="amuCName" placeholder="Name" style="flex:1;min-width:110px">' +
+          '<input id="amuCNum" placeholder="Number" inputmode="tel" style="flex:1;min-width:110px">' +
+          '<button class="b pr" id="amuCAdd">Add</button>' +
+        '</div>' +
+        '<div class="log" id="amuCList" style="height:110px;margin-top:8px;font-size:11.5px"></div>' +
+      '</div>' +
+    '</div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px">' +
       '<button class="b" id="amuCopy">\u29c9 Copy code</button>' +
       '<button class="b" id="amuRefresh">\u21bb Refresh</button>' +
@@ -2260,6 +2277,91 @@ function makeQR(text) {
     if(/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(t)) return "https://" + t;
     return "https://www.google.com/search?q=" + encodeURIComponent(t);
   }
+  /* ---------------- contacts (what "call <name>" needs) ----------------
+     A web page cannot read the phone's address book by itself. The Web Contact Picker is
+     the one legitimate door: the device owner taps 📇 and picks contacts once. The map of
+     name→number stays on THAT device; the host only ever sends a name over the mesh, so a
+     number never travels anywhere. Manual add is the fallback for every other browser. */
+  function contactsGet(){
+    try{ var a = JSON.parse(localStorage.getItem("aura_contacts_v1") || "[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; }
+  }
+  function contactsSet(list){
+    try{ localStorage.setItem("aura_contacts_v1", JSON.stringify((list || []).slice(0, 500))); }catch(e){}
+    contactsPaint();
+  }
+  function contactsFind(name){
+    var q = String(name || "").toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    if(!q) return null;
+    var all = contactsGet();
+    if(!all.length) return null;
+    var norm = function(c){ return String(c.n || "").toLowerCase().replace(/\s+/g, " ").trim(); };
+    var exact = all.filter(function(c){ return norm(c) === q; });
+    if(exact.length) return exact[0];
+    var starts = all.filter(function(c){ return norm(c).indexOf(q) === 0; });
+    if(starts.length) return starts[0];
+    var words = q.split(" ").filter(Boolean);
+    var every = all.filter(function(c){
+      var nm = norm(c);
+      return words.every(function(w){ return nm.indexOf(w) >= 0; });
+    });
+    if(every.length) return every[0];
+    var some = all.filter(function(c){ return norm(c).indexOf(q) >= 0; });
+    return some[0] || null;
+  }
+  function contactsNear(name, max){
+    var q = String(name || "").toLowerCase().slice(0, 3);
+    return contactsGet().filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) >= 0; })
+      .slice(0, max || 3).map(function(c){ return c.n; });
+  }
+  function contactsPaint(){
+    var list = contactsGet();
+    var box = $("#amuCList");
+    var btn = $("#amuContacts");
+    if(btn) btn.textContent = "\uD83D\uDCD3 Contacts (" + list.length + ")";
+    if(!box) return;
+    if(!list.length){ box.innerHTML = '<div style="color:var(--dim)">No contacts on this device yet.</div>'; return; }
+    box.innerHTML = list.slice(0, 60).map(function(c, i){
+      return '<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
+        '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + String(c.n || "").replace(/[<>&]/g, "") + '</span>' +
+        '<span style="display:flex;gap:8px;align-items:center"><a href="tel:' + String(c.t || "").replace(/[^\d+]/g, "") + '" style="color:#7fd7ff;text-decoration:none">' + String(c.t || "").replace(/[<>&]/g, "") + '</a>' +
+        '<button data-ci="' + i + '" style="background:none;border:0;color:#ff9b9b;cursor:pointer">\u2715</button></span></div>';
+    }).join("");
+    [].forEach.call(box.querySelectorAll("button[data-ci]"), function(b){
+      b.onclick = function(){
+        var idx = Number(b.getAttribute("data-ci"));
+        var all = contactsGet(); all.splice(idx, 1); contactsSet(all);
+      };
+    });
+  }
+  function contactsAdd(name, tel){
+    var nm = String(name || "").trim(), t = String(tel || "").trim();
+    if(!nm || t.replace(/\D/g, "").length < 6) return tell("Naam aur sahi number dono chahiye");
+    var all = contactsGet();
+    var i = all.findIndex(function(c){ return String(c.n).toLowerCase() === nm.toLowerCase() || String(c.t).replace(/\D/g, "") === t.replace(/\D/g, ""); });
+    if(i >= 0) all[i] = { n: nm, t: t }; else all.push({ n: nm, t: t });
+    contactsSet(all);
+    tell("\u2713 " + nm + " saved \u00b7 host ab 'call " + nm + "' bhej sakta hai");
+  }
+  function contactsImport(){
+    var picker = navigator.contacts && navigator.contacts.select;
+    if(!picker) return tell("Is browser me contact picker nahi hai \u2014 neeche naam + number add karo (Chrome on Android me picker chalta hai)");
+    navigator.contacts.select(["name", "tel"], { multiple: true }).then(function(list){
+      var add = [];
+      (list || []).forEach(function(p){
+        var nm = (p.name && p.name[0]) || "";
+        (p.tel || []).forEach(function(t){ if(nm && t) add.push({ n: nm, t: String(t) }); });
+      });
+      if(!add.length) return tell("Koi contact select nahi hua");
+      var all = contactsGet();
+      add.forEach(function(c){
+        var i = all.findIndex(function(x){ return String(x.t).replace(/\D/g, "") === c.t.replace(/\D/g, "") || String(x.n).toLowerCase() === c.n.toLowerCase(); });
+        if(i >= 0) all[i] = c; else all.push(c);
+      });
+      contactsSet(all);
+      tell(add.length + " contact(s) added");
+    }).catch(function(e){ tell("Import nahi hua \u00b7 " + ((e && e.message) || "blocked")); });
+  }
+
   /* only the host may drive other devices — the joined phone sees the panel without the
      control row, and the backend rejects orders from a non-host node too */
   function meshRoleUI(){
@@ -2299,6 +2401,23 @@ function makeQR(text) {
         });
         done("asked the user to tap (popup blocked)");
       } else done("playing: " + q);
+      return;
+    }
+    if(cmd === "callname" || (cmd === "call" && /[a-z]/i.test(String(arg || "")))){
+      /* the host sent a NAME; the number is resolved HERE, on the device that owns it */
+      var who = String(arg || "").trim();
+      var hit = contactsFind(who);
+      if(!hit){
+        var near = contactsNear(who, 3);
+        meshBanner("AURA mesh", "Is device me <b>" + who + "</b> naam ka contact nahi mila." +
+          (near.length ? "<br><span style='color:#8ea1b2'>Kya aapka matlab: " + near.join(", ") + "</span>" : "") +
+          "<br><span style='color:#8ea1b2'>Mesh panel \u2192 \uD83D\uDCD3 Contacts me number add karo.</span>", "OK", null);
+        done("no contact named " + who);
+        return;
+      }
+      try{ location.href = "tel:" + String(hit.t).replace(/[^\d+]/g, ""); }catch(e){}
+      meshBanner("AURA mesh", "Calling <b>" + hit.n + "</b> \u2026", "OK", null);
+      done("calling " + hit.n);
       return;
     }
     if(cmd === "call"){
@@ -2363,7 +2482,7 @@ function makeQR(text) {
     var m = t.match(/^(play|chalao|chala|bajao|baja)\s+(.+)$/i);
     if(m) return { cmd: "play", arg: m[2] };
     m = t.match(/^(call|dial|phone|milao)\s+(.+)$/i);
-    if(m) return { cmd: "call", arg: m[2] };
+    if(m) return { cmd: /^[+\d][\d\s-]{5,}$/.test(m[2].trim()) ? "call" : "callname", arg: m[2].trim() };
     m = t.match(/^(whatsapp|wa)\s+([^|]+)(?:\|([\s\S]+))?$/i);
     if(m) return { cmd: "whatsapp", arg: m[2].trim() + (m[3] ? "|" + m[3] : "") };
     m = t.match(/^(notify|notification|alert)\s+([\s\S]+)$/i);
@@ -2470,6 +2589,23 @@ function makeQR(text) {
   $("#amuJoin").onclick = join;
   $("#amuLeave").onclick = leave;
   $("#amuRejoin").onclick = rejoin;
+  (function(){
+    var t = $("#amuContacts"), box = $("#amuContactsBox");
+    if(t && box){
+      t.onclick = function(){
+        var open = box.style.display === "none";
+        box.style.display = open ? "block" : "none";
+        if(open) contactsPaint();
+      };
+    }
+    var imp = $("#amuCImport"); if(imp) imp.onclick = contactsImport;
+    var add = $("#amuCAdd");
+    if(add) add.onclick = function(){
+      contactsAdd(($("#amuCName") || {}).value, ($("#amuCNum") || {}).value);
+      var a = $("#amuCName"), b = $("#amuCNum"); if(a) a.value = ""; if(b) b.value = "";
+    };
+    contactsPaint();
+  })();
   $("#amuClose").onclick = function(){ ov.classList.remove("on"); };
   $("#amuRefresh").onclick = function(){ if(!mesh.code) return tell("Host or join first"); refresh(); tell("Refreshed"); };
   $("#amuCopy").onclick = function(){
@@ -5373,11 +5509,31 @@ function makeQR(text) {
       var q2 = t.replace(/^(?:search|google|khojo|dhundo)\s+/i, "").trim();
       return auraDo("https://www.google.com/search?q=" + encodeURIComponent(q2), "\uD83D\uDD0E " + q2.slice(0, 40));
     }
-    m = t.match(/^(?:call|dial|phone)\s+([+\d][\d\s-]{5,})$/i);
+    m = t.match(/^(?:call|dial|phone|milao)\s+(.+)$/i);
     if(m){
-      var num = m[1].replace(/[^\d+]/g, "");
-      try{ location.href = "tel:" + num; }catch(e){}
-      try{ tell("\uD83D\uDCDE Calling " + num); }catch(e){}
+      var who = m[1].trim();
+      var digits = who.replace(/[^\d+]/g, "").replace(/\D/g, "");
+      if(digits.length >= 6){
+        try{ location.href = "tel:" + who.replace(/[^\d+]/g, ""); }catch(e){}
+        try{ tell("\uD83D\uDCDE Calling " + who); }catch(e){}
+        return true;
+      }
+      /* a NAME: the number lives on the joined device, so the host orders the DEVICE to
+         dial — that is the whole point of "full control" for the mesh host */
+      if(mesh.code && mesh.role === "host"){
+        api("/v1/mesh/command", { code: mesh.code, cmd: "callname", arg: who, from: nodeId })
+          .then(function(j){
+            tell(j.queued ? ("\uD83D\uDCDE " + who + " ko call laga rahi hoon \u00b7 " + j.queued + " device") : "Koi device mesh me nahi hai");
+          }).catch(function(e){ tell("Call nahi bhej paya \u00b7 " + e.message); });
+        return true;
+      }
+      var hit = contactsFind(who);
+      if(hit){
+        try{ location.href = "tel:" + String(hit.t).replace(/[^\d+]/g, ""); }catch(e){}
+        try{ tell("\uD83D\uDCDE Calling " + hit.n); }catch(e){}
+        return true;
+      }
+      try{ var near = contactsNear(who, 3); tell("Contact nahi mila: " + who + (near.length ? " \u00b7 matlab: " + near.join(", ") : "") + " \u00b7 mesh panel me \uD83D\uDCD3 Contacts add karo"); }catch(e){}
       return true;
     }
     return false;
