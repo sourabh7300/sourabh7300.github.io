@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e32d07ef1031"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="630cc5a2fb21"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2098,7 +2098,7 @@ function makeQR(text) {
                (d.battery != null ? " \u00b7 " + d.battery + "%" : "") + (on ? "" : " \u00b7 asleep") + '</div>';
       }).join("");
       setStatus((mesh.role === "host" ? "Hosting" : "Joined") + " \u00b7 code " + mesh.code +
-        " \u00b7 " + devs.length + " device(s), " + live + " live");
+        " \u00b7 " + devs.length + " device(s), " + live + " live \u00b7 orders land in ~0-2s while this page is open" );
       /* results come back from the other device, so the host can see whether the order
          actually ran instead of guessing */
       var results = (j.results || []).slice(-3).map(function(r){
@@ -2382,7 +2382,7 @@ function makeQR(text) {
       var hostIdle = mesh.role === "host" && document.hidden && !$("#auraMeshOv").classList.contains("on");
       if(hostIdle) return;
       tick();
-    }, 2500);
+    }, 1500);
   }
   /* phones freeze timers in a background tab, so the moment the page is visible again
      the mesh catches up instead of waiting for the next tick */
@@ -4001,13 +4001,17 @@ function makeQR(text) {
         for(var i = 0; i < a.length; i++) if(Math.abs(a[i] - b[i]) > 12) n++;
         return n / a.length > 0.06;
       }
+      function taught(){
+        try{ return JSON.parse(localStorage.getItem("aura_sign_teach_v1") || "[]"); }catch(e){ return []; }
+      }
       async function readSign(cv){
         try{
           var r = await fetch(BASE + '/v1/sign', {
             method: 'POST', headers: hdrs(),
             body: JSON.stringify({
               image: cv.toDataURL('image/jpeg', 0.72),
-              history: S.log.slice(-3).map(function(e){ return e.text; }).join(' | ').slice(0, 240)
+              history: S.log.slice(-3).map(function(e){ return e.text; }).join(" | ").slice(0, 240),
+              vocab: taught().map(function(x){ return x.label; })
             }),
             signal: AbortSignal.timeout(35000)
           });
@@ -4162,6 +4166,8 @@ function makeQR(text) {
             '<button class="b" id="asgSpeak">🔊 Speak: on</button>' +
             '<button class="b" id="asgHear">🎧 Hear them</button>' +
           '</div>' +
+          '<div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="asgTeach" placeholder="Teach a sign: type its name (e.g. HELLO) then press Teach" style="flex:1"><button class="b" id="asgTeachBtn">Teach</button></div>' +
+          '<div id="asgTaught" style="margin:6px 0 4px;font:11.5px var(--f2);color:#8ea1b2"></div>' +
           '<div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="asgQ" placeholder="Type karo (AURA bolega) — e.g. where is the washroom?" style="flex:1"><button class="b pr" id="asgSend">Send</button></div>' +
           '<div id="asgLog" style="margin-top:12px;max-height:26vh;overflow:auto;font:12.5px/1.5 var(--f2);color:#cfe9ff"></div>' +
         '</div>';
@@ -4176,6 +4182,31 @@ function makeQR(text) {
       el('asgHear').onclick = hearThem;
       el('asgSend').onclick = function(){ var i = el('asgQ'); var q = i.value; i.value = ''; askAura(q); };
       el('asgQ').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); var q = this.value; this.value = ''; askAura(q); } });
+      function paintTaught(){
+        var box = el('asgTaught');
+        if(!box) return;
+        var list = taught();
+        box.textContent = list.length ? ('Taught: ' + list.map(function(x){ return x.label; }).join(', ')) : 'No taught signs yet — AURA reads common signs on its own.';
+      }
+      var teachBtn = el('asgTeachBtn');
+      if(teachBtn) teachBtn.onclick = function(){
+        var inp = el('asgTeach');
+        var label = String(inp.value || '').trim().toUpperCase().replace(/[^A-Z0-9 _-]/g, '').slice(0, 20);
+        if(!label){ big('Sign ka naam likho pehle', 'example: HELLO'); return; }
+        var v = el('asgVideo');
+        var cv = v ? frame(v) : null;
+        var list = taught();
+        var rec = { label: label, at: Date.now() };
+        if(cv){ try{ rec.thumb = cv.toDataURL('image/jpeg', 0.4).slice(0, 20000); }catch(e){} }
+        list = list.filter(function(x){ return x.label !== label; });
+        list.unshift(rec);
+        try{ localStorage.setItem('aura_sign_teach_v1', JSON.stringify(list.slice(0, 14))); }catch(e){}
+        inp.value = '';
+        paintTaught();
+        big('Taught: ' + label, 'AURA ab is naam ko prefer karega jab haath match karein');
+        say(label + ' taught');
+      };
+      paintTaught();
       el('asgClose').onclick = close;
       ov.addEventListener('click', function(e){ if(e.target === ov) close(); });
 
@@ -4229,6 +4260,16 @@ function makeQR(text) {
             s.className = 'b'; s.id = 'camsign'; s.textContent = '🤟 Sign';
             row.appendChild(s);
             s.onclick = function(){ try{ camClose(); }catch(e){} try{ window.__auraSign.open(); }catch(e){} };
+            var tb = document.createElement("button");
+            tb.className = "b"; tb.id = "camtalk"; tb.textContent = "💬 Talk back: off";
+            row.appendChild(tb);
+            tb.onclick = function(){
+              var mod = document.getElementById("camov");
+              var on = mod && mod.getAttribute("data-talk") === "1";
+              tb.textContent = on ? "💬 Talk back: off" : "💬 Talk back: on";
+              if(mod) mod.setAttribute("data-talk", on ? "0" : "1");
+              if(!on) note("Talk back on — AURA will answer your signs out loud");
+            };
           }
         }
         return true;
@@ -4286,7 +4327,37 @@ function makeQR(text) {
         }catch(e){ note('Network slow — try again.'); }
       }
       var live = null, prev = null, busy = false, last = '';
+      var talkBack = false, convo = [];
+
+      /* the camera is not a scanner: after a sign AURA answers, out loud, so the
+         conversation happens in the live camera itself */
+      async function auraReply(text){
+        if(!text) return;
+        convo.push(text);
+        if(convo.length > 6) convo.shift();
+        try{
+          var r = await fetch(BASE + "/v1/chat/completions", {
+            method: "POST", headers: hdrs(),
+            body: JSON.stringify({
+              model: "aura", stream: false,
+              messages: [
+                { role: "system", content: "You are talking with a deaf person through a live camera that reads their signs. Keep every reply under 25 words, simple English, warm, and answer what they actually meant. No markdown." },
+                { role: "user", content: "They signed: " + convo.join(" / ") }
+              ]
+            }),
+            signal: AbortSignal.timeout(40000)
+          });
+          var j = await r.json().catch(function(){ return {}; });
+          var ans = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
+          if(!ans) return;
+          note("AURA: " + ans);
+          speak(ans);
+          try{ if(typeof addMsg === "function") addMsg("a", ans); }catch(e){}
+        }catch(e){}
+      }
       async function tick(){
+        var mod = document.getElementById("camov");
+        talkBack = !!(mod && mod.getAttribute("data-talk") === "1");
         if(busy) return;
         var cv = frame(900);
         if(!cv) return;
@@ -4306,6 +4377,7 @@ function makeQR(text) {
             last = line;
             note(line + (j.seen ? '\n' + j.seen : ''));
             speak(line);
+            if(talkBack) auraReply(line);
           } else if(j && j.seen && j.seen !== last){
             note('looking… ' + j.seen);
           }
