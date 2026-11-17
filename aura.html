@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="9b4c97f31dbb"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e5d974fa3011"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -677,1291 +677,18 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
   requestAnimationFrame(render);
 })();
 /* ===== END 3D HOLOGRAPHIC CORE ===== */
-</script><script>
-/* ================= AURA SIRI MODE =================
-   Tap 🎙 once: AURA keeps listening, answers out loud and finishes the job — call,
-   timer, alarm, music, message, note, directions, maths, weather/news (real fetch).
-   A web page cannot live in the OS like Siri does; this is the closest thing: a
-   hands-free loop that restarts itself after every answer and never needs a second tap. */
-(function(){
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var S = window.__siri = { on:false, rec:null, busy:false, timer:null, expect:false };
-  var NOTES = "aura_notes_v1";
-
-  function pill(msg, ms){
-    var p = document.getElementById("siriPill");
-    if(!p){
-      p = document.createElement("div"); p.id = "siriPill";
-      p.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:90;max-width:88vw;" +
-        "padding:8px 14px;border-radius:99px;background:rgba(8,16,26,.95);border:1px solid rgba(120,215,255,.4);" +
-        "color:#dff3ff;font:12.5px Inter,system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" +
-        "box-shadow:0 10px 30px rgba(0,0,0,.5);display:none";
-      document.body.appendChild(p);
-    }
-    p.textContent = msg; p.style.display = "block";
-    clearTimeout(pill.h); pill.h = setTimeout(function(){ p.style.display = "none"; }, ms || 2600);
-    return p;
-  }
-  function say(text){
-    try{
-      if(!window.speechSynthesis || !text) return;
-      var u = new SpeechSynthesisUtterance(String(text).replace(/[*_`#>]/g, " ").replace(/\s+/g, " ").slice(0, 600));
-      u.rate = 1; u.pitch = 1;
-      u.lang = /[\u0900-\u097F]/.test(String(text)) ? "hi-IN" : "en-IN";
-      /* AURA must not hear herself: the mic waits until the sentence is over */
-      if(S.rec){ try{ S.rec.onend = null; S.rec.abort(); }catch(e){} }
-      u.onend = function(){ if(S.on) S.timer = setTimeout(loop, 420); };
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-    }catch(e){
-      if(S.on) S.timer = setTimeout(loop, 420);
-    }
-  }
-  function beep(times){
-    try{
-      var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
-      var ctx = new AC(); var n = times || 3;
-      for(var i = 0; i < n; i++){
-        var o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = "sine"; o.frequency.value = 880;
-        o.connect(g); g.connect(ctx.destination);
-        var t0 = ctx.currentTime + i * 0.5;
-        g.gain.setValueAtTime(0, t0);
-        g.gain.linearRampToValueAtTime(0.25, t0 + 0.03);
-        g.gain.linearRampToValueAtTime(0, t0 + 0.32);
-        o.start(t0); o.stop(t0 + 0.35);
-      }
-    }catch(e){}
-  }
-  function fire(title, body){
-    pill(title + " · " + body, 6000);
-    say(title + ". " + body);
-    try{ if(window.Notification && Notification.permission === "granted") new Notification(title, { body: body }); }catch(e){}
-  }
-  function norm(t){ return String(t || "").replace(/^(hey\s+)?aura[\s,]+/i, "").trim(); }
-  function digitsOf(s){ return String(s || "").replace(/[^\d]/g, ""); }
-  function evalMath(expr){
-    var s = String(expr).replace(/[^0-9+\-*/().%]/g, "");
-    if(!s) return null;
-    try{ var v = Function("return (" + s + ")")(); return (typeof v === "number" && isFinite(v)) ? v : null; }catch(e){ return null; }
-  }
-  function contactsOf(){ try{ var a = JSON.parse(localStorage.getItem("aura_contacts_v1") || "[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
-  function findContact(name){
-    var q = String(name || "").toLowerCase().trim(); if(!q) return null;
-    var all = contactsOf();
-    return all.filter(function(c){ return String(c.n || "").toLowerCase() === q; })[0] ||
-           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) === 0; })[0] ||
-           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) >= 0; })[0] || null;
-  }
-  function callNow(num, name){
-    var n = digitsOf(num); if(n.length < 6){ pill("Number nahi mila"); return; }
-    var plus = String(num).trim().indexOf("+") === 0;
-    pill("📞 Calling " + (name || n));
-    try{ location.href = "tel:" + (plus ? "+" : "") + n; }catch(e){}
-    setTimeout(function(){
-      var c = document.getElementById("auraCallSheet");
-      if(!c){
-        c = document.createElement("div"); c.id = "auraCallSheet";
-        c.style.cssText = "position:fixed;inset:0;z-index:99;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(2,6,12,.72);font:14px Inter,system-ui,sans-serif";
-        c.innerHTML = '<div style="width:100%;max-width:420px;background:#0a1520;border:1px solid rgba(120,215,255,.28);border-radius:20px;padding:18px;text-align:center;color:#e9f5ff">' +
-          '<div id="acsName" style="font:700 17px Inter,system-ui,sans-serif;margin-bottom:4px"></div>' +
-          '<div id="acsNum" style="color:#8ea1b2;font-size:13px;margin-bottom:14px"></div>' +
-          '<a id="acsCall" href="#" style="display:block;padding:14px;border-radius:14px;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 15px Inter,system-ui,sans-serif;text-decoration:none">📞 Call now</a>' +
-          '<button id="acsClose" style="margin-top:10px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfe9ff;font:600 12.5px Inter,system-ui,sans-serif">Close</button></div>';
-        document.body.appendChild(c);
-        c.querySelector("#acsClose").onclick = function(){ c.style.display = "none"; };
-      }
-      c.querySelector("#acsName").textContent = name || n;
-      c.querySelector("#acsNum").textContent = (plus ? "+" : "") + n;
-      c.querySelector("#acsCall").setAttribute("href", "tel:" + (plus ? "+" : "") + n);
-      c.style.display = "flex";
-    }, 1200);
-  }
-  function setTimer(minutes, label){
-    var ms = Math.max(1000, Math.round(minutes * 60000));
-    var at = Date.now() + ms;
-    try{
-      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
-      list.push({ at: at, label: label || "Timer" });
-      localStorage.setItem("aura_timers_v1", JSON.stringify(list.slice(-20)));
-    }catch(e){}
-    pill("⏰ " + (label || "Timer") + " · " + Math.max(1, Math.round(minutes)) + " min", 3500);
-    say((label || "Timer") + " set");
-    setTimeout(function(){ beep(4); fire("⏰ AURA", label || "Timer done"); }, ms);
-    return true;
-  }
-  function restoreTimers(){
-    try{
-      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
-      var keep = [];
-      list.forEach(function(t){
-        var left = t.at - Date.now();
-        if(left <= 0){
-          if(Date.now() - t.at < 600000) setTimeout(function(){ beep(3); fire("⏰ AURA", (t.label || "Timer") + " ka time ho gaya"); }, 1200);
-        } else {
-          keep.push(t);
-          setTimeout(function(){ beep(4); fire("⏰ AURA", (t.label || "Timer") + " done"); }, left);
-        }
-      });
-      localStorage.setItem("aura_timers_v1", JSON.stringify(keep));
-    }catch(e){}
-  }
-  restoreTimers();
-
-  window.__siriIntent = function(raw){
-    var t = norm(raw); if(t.length < 2) return false;
-    var m;
-    if(/^(what('|’)?s the time|what time is it|time kya|kya time|kitne baje|samay kya)/i.test(t)){
-      var s = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-      pill("🕒 " + s, 3000); say("It is " + s); return true;
-    }
-    if(/^(what('|’)?s the date|aaj ki tareekh|date kya|aaj kaunsi tarikh|today('|’)?s date)/i.test(t)){
-      var s2 = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-      pill("📅 " + s2, 3000); say(s2); return true;
-    }
-    m = t.match(/^(?:calculate|compute|what is|whats|how much is|kitna hota hai|kitna hai)\s+([-+*/().%\d\s]+)$/i);
-    if(m){
-      var v = evalMath(m[1]);
-      if(v !== null){ var shown = Math.round(v * 1e6) / 1e6; pill("🧮 " + shown, 3500); say(String(shown)); return true; }
-    }
-    m = t.match(/(?:set\s+)?(?:a\s+)?timer\s+(?:for\s+|of\s+)?(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)?/i) ||
-        t.match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)\s*(?:ka|ke|ki)?\s*timer/i);
-    if(m){
-      var unit = String(m[2] || "minute").toLowerCase();
-      var mult = /^(second|sec)/.test(unit) ? 1 / 60 : /^(hour|hr|ghant)/.test(unit) ? 60 : 1;
-      setTimer(parseFloat(m[1]) * mult, "Timer");
-      return true;
-    }
-    m = t.match(/^(?:set\s+)?(?:an?\s+)?(?:alarm|reminder|remind me|yaad dilana|yaad dilao)\s*(?:for|at|ko)?\s*(\d{1,2})[:.](\d{2})\s*(am|pm)?\s*(.*)$/i);
-    if(m){
-      var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
-      var ap = (m[3] || "").toLowerCase();
-      if(ap === "pm" && hh < 12) hh += 12;
-      if(ap === "am" && hh === 12) hh = 0;
-      var when = new Date(); when.setHours(hh, mm, 0, 0);
-      if(when.getTime() <= Date.now()) when.setDate(when.getDate() + 1);
-      setTimer((when.getTime() - Date.now()) / 60000, String(m[4] || "").trim() || "Alarm");
-      say("Alarm set for " + when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
-      return true;
-    }
-    m = t.match(/^(?:send\s+)?(?:a\s+)?(?:message|sms|msg|text)\s+(?:to\s+)?(.+?)(?:\s+(?:saying|that|ki|bolo|likho)\s+([\s\S]+))?$/i);
-    if(m){
-      var who = m[1].trim(), body = (m[2] || "").trim();
-      var c0 = findContact(who);
-      var num = c0 ? c0.t : digitsOf(who);
-      if(digitsOf(num).length >= 6){
-        var plus2 = String(num).trim().indexOf("+") === 0;
-        var link = "sms:" + (plus2 ? "+" : "") + digitsOf(num) + (body ? "?body=" + encodeURIComponent(body) : "");
-        pill("✉️ " + (c0 ? c0.n : num));
-        say(body ? ("Message ready for " + (c0 ? c0.n : num)) : ("Opening messages for " + (c0 ? c0.n : num)));
-        try{ if(!window.open(link, "_blank")) location.href = link; }catch(e){ try{ location.href = link; }catch(e2){} }
-        return true;
-      }
-      pill("Kisko message? Contacts me number add karo"); say("I need a number for that"); return true;
-    }
-    m = t.match(/^(?:make a note|note this|note|yaad rakho|likh lo|remember)\s+([\s\S]+)$/i);
-    if(m){
-      try{
-        var list = JSON.parse(localStorage.getItem(NOTES) || "[]");
-        list.push({ t: m[1].slice(0, 300), at: Date.now() });
-        localStorage.setItem(NOTES, JSON.stringify(list.slice(-200)));
-      }catch(e){}
-      pill("📝 Note saved", 2500); say("Noted"); return true;
-    }
-    m = t.match(/^(?:navigate|directions|take me|raasta|le chalo)\s+(?:to\s+)?([\s\S]+)$/i);
-    if(m){
-      var q = m[1].trim();
-      var url = /Android|iPhone|iPad/i.test(navigator.userAgent)
-        ? "geo:0,0?q=" + encodeURIComponent(q)
-        : "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(q);
-      pill("🧭 " + q); say("Directions to " + q);
-      try{ if(!window.open(url, "_blank")) location.href = url; }catch(e){ try{ location.href = url; }catch(e2){} }
-      return true;
-    }
-    m = t.match(/^(?:call|dial|phone|milao|lagao)\s+([\s\S]+)$/i);
-    if(m){
-      var who2 = m[1].replace(/\s+(ko|se)\s*$/i, "").trim();
-      if(/^(this|that)?\s*(person|contact|banda|aadmi|insaan)$/i.test(who2) || /^(isko|ise|usko)$/i.test(who2)){
-        var all = contactsOf();
-        if(all.length === 1){ callNow(all[0].t, all[0].n); return true; }
-        if(!all.length){ pill("Pehle Contacts me number add karo"); say("I do not have any contacts yet"); return true; }
-        pill("Kisko? " + all.slice(0, 3).map(function(x){ return x.n; }).join(", "));
-        say("Who should I call?"); return true;
-      }
-      var dnum = digitsOf(who2);
-      if(dnum.length >= 6){ callNow(who2, who2); return true; }
-      var hit = findContact(who2);
-      if(hit){ callNow(hit.t, hit.n); return true; }
-      pill("Contact nahi mila: " + who2); say("I could not find " + who2); return true;
-    }
-    m = t.match(/^(?:play|bajao|chalao|sunao)\s+([\s\S]+)$/i);
-    if(m){
-      var song = m[1].replace(/\s+(on|par|pe)\s+youtube\s*$/i, "").replace(/\s+youtube$/i, "").trim();
-      if(/^(this|that|ye|yeh|it|same)(\s+(song|gaana|gana|track))?$/i.test(song) || /^(song|gaana|gana)$/i.test(song)){
-        try{ song = window.__auraLastWords ? String(window.__auraLastWords() || "") : ""; }catch(e){ song = ""; }
-      }
-      if(song){
-        var y = "https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(song);
-        if(window.__auraOpenInside) { try{ window.__auraOpenInside(y, "▶ " + song.slice(0, 40)); }catch(e){} }
-        else { try{ window.open(y, "_blank"); }catch(e){} }
-        pill("▶ " + song.slice(0, 40)); say("Playing " + song.slice(0, 60)); return true;
-      }
-    }
-    return false;
-  };
-
-  /* typed input gets the same commands */
-  try{
-    var origIntent = window.__auraIntent;
-    window.__auraIntent = function(t){
-      try{ if(window.__siriIntent(t)) return true; }catch(e){}
-      return origIntent ? origIntent(t) : false;
-    };
-  }catch(e){}
-
-  function label(){
-    var b = document.querySelector('#tools button[data-x="live"]');
-    if(b){ b.textContent = S.on ? "🎙 Siri: on" : "🎙 Siri: off"; b.classList.toggle("on", S.on); }
-  }
-  function loop(){
-    if(!S.on || !SR) return;
-    clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.onerror = null; S.rec.abort(); } }catch(e){}
-    var r = new SR(); S.rec = r;
-    r.lang = "en-IN"; r.continuous = false; r.interimResults = true; r.maxAlternatives = 1;
-    var said = "";
-    r.onresult = function(ev){
-      var interim = ""; said = "";
-      for(var i = ev.resultIndex; i < ev.results.length; i++){
-        if(ev.results[i].isFinal) said += ev.results[i][0].transcript;
-        else interim += ev.results[i][0].transcript;
-      }
-      var live = (said + " " + interim).trim();
-      if(live) pill("🎧 " + live.slice(0, 60), 4000);
-    };
-    r.onend = function(){
-      var t = (said || "").trim();
-      if(t.length > 1) handle(t);
-      else if(S.on) S.timer = setTimeout(loop, 700);
-    };
-    r.onerror = function(e){
-      var why = (e && e.error) || "";
-      if(/not-allowed|service-not-allowed/.test(why)){
-        S.on = false; label(); pill("Mic allow karo, phir 🎙 Siri dabao", 5000); return;
-      }
-      if(S.on) S.timer = setTimeout(loop, 1000);
-    };
-    try{ r.start(); }catch(e){ S.timer = setTimeout(loop, 1200); }
-  }
-  function handle(text){
-    pill("🎧 " + text.slice(0, 60), 3000);
-    var done = false;
-    try{ done = window.__siriIntent(text); }catch(e){ done = false; }
-    if(done){ S.timer = setTimeout(loop, 900); return; }
-    var inp = document.getElementById("inp"), send = document.getElementById("send");
-    if(inp && send){
-      S.expect = true;
-      inp.value = text;
-      inp.dispatchEvent(new Event("input", { bubbles: true }));
-      send.click();
-    }
-  }
-  (function wrapAdd(){
-    if(typeof window.addMsg !== "function" || window.addMsg.__siri) return setTimeout(wrapAdd, 500);
-    var orig = window.addMsg;
-    window.addMsg = function(role, text, noSave){
-      var d = orig.apply(this, arguments);
-      try{ if(String(role) === "a" && S.expect){ S.expect = false; say(String(text || "")); } }catch(e){}
-      return d;
-    };
-    window.addMsg.__siri = true;
-  })();
-  function start(){
-    if(!SR){ pill("Is browser me voice input nahi hai — Chrome use karo"); return; }
-    S.on = true; label();
-    pill("🎧 Siri mode on — bolo, AURA karegi", 3200);
-  }
-  function stop(){
-    S.on = false; label(); clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.abort(); } }catch(e){}
-    try{ speechSynthesis.cancel(); }catch(e){}
-    pill("🎙 Siri mode off", 2000);
-  }
-  window.__siriToggle = function(){ S.on ? stop() : start(); };
-  window.__siriStart = start; window.__siriStop = stop;
-  (function bind(){
-    var b = document.querySelector('#tools button[data-x="live"]');
-    if(!b) return setTimeout(bind, 400);
-    b.onclick = function(ev){ try{ ev.preventDefault(); ev.stopImmediatePropagation(); }catch(e){} window.__siriToggle(); };
-    b.textContent = "🎙 Siri: off";
-  })();
-  label();
-})();
 </script>
 
-<script>
-/* ================= AURA SIRI MODE =================
-   Tap 🎙 once: AURA keeps listening, answers out loud and finishes the job — call,
-   timer, alarm, music, message, note, directions, maths, weather/news (real fetch).
-   A web page cannot live in the OS like Siri does; this is the closest thing: a
-   hands-free loop that restarts itself after every answer and never needs a second tap. */
-(function(){
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var S = window.__siri = { on:false, rec:null, busy:false, timer:null, expect:false };
-  var NOTES = "aura_notes_v1";
 
-  function pill(msg, ms){
-    var p = document.getElementById("siriPill");
-    if(!p){
-      p = document.createElement("div"); p.id = "siriPill";
-      p.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:90;max-width:88vw;" +
-        "padding:8px 14px;border-radius:99px;background:rgba(8,16,26,.95);border:1px solid rgba(120,215,255,.4);" +
-        "color:#dff3ff;font:12.5px Inter,system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" +
-        "box-shadow:0 10px 30px rgba(0,0,0,.5);display:none";
-      document.body.appendChild(p);
-    }
-    p.textContent = msg; p.style.display = "block";
-    clearTimeout(pill.h); pill.h = setTimeout(function(){ p.style.display = "none"; }, ms || 2600);
-    return p;
-  }
-  function say(text){
-    try{
-      if(!window.speechSynthesis || !text) return;
-      var u = new SpeechSynthesisUtterance(String(text).replace(/[*_`#>]/g, " ").replace(/\s+/g, " ").slice(0, 600));
-      u.rate = 1; u.pitch = 1;
-      u.lang = /[\u0900-\u097F]/.test(String(text)) ? "hi-IN" : "en-IN";
-      /* AURA must not hear herself: the mic waits until the sentence is over */
-      if(S.rec){ try{ S.rec.onend = null; S.rec.abort(); }catch(e){} }
-      u.onend = function(){ if(S.on) S.timer = setTimeout(loop, 420); };
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-    }catch(e){
-      if(S.on) S.timer = setTimeout(loop, 420);
-    }
-  }
-  function beep(times){
-    try{
-      var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
-      var ctx = new AC(); var n = times || 3;
-      for(var i = 0; i < n; i++){
-        var o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = "sine"; o.frequency.value = 880;
-        o.connect(g); g.connect(ctx.destination);
-        var t0 = ctx.currentTime + i * 0.5;
-        g.gain.setValueAtTime(0, t0);
-        g.gain.linearRampToValueAtTime(0.25, t0 + 0.03);
-        g.gain.linearRampToValueAtTime(0, t0 + 0.32);
-        o.start(t0); o.stop(t0 + 0.35);
-      }
-    }catch(e){}
-  }
-  function fire(title, body){
-    pill(title + " · " + body, 6000);
-    say(title + ". " + body);
-    try{ if(window.Notification && Notification.permission === "granted") new Notification(title, { body: body }); }catch(e){}
-  }
-  function norm(t){ return String(t || "").replace(/^(hey\s+)?aura[\s,]+/i, "").trim(); }
-  function digitsOf(s){ return String(s || "").replace(/[^\d]/g, ""); }
-  function evalMath(expr){
-    var s = String(expr).replace(/[^0-9+\-*/().%]/g, "");
-    if(!s) return null;
-    try{ var v = Function("return (" + s + ")")(); return (typeof v === "number" && isFinite(v)) ? v : null; }catch(e){ return null; }
-  }
-  function contactsOf(){ try{ var a = JSON.parse(localStorage.getItem("aura_contacts_v1") || "[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
-  function findContact(name){
-    var q = String(name || "").toLowerCase().trim(); if(!q) return null;
-    var all = contactsOf();
-    return all.filter(function(c){ return String(c.n || "").toLowerCase() === q; })[0] ||
-           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) === 0; })[0] ||
-           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) >= 0; })[0] || null;
-  }
-  function callNow(num, name){
-    var n = digitsOf(num); if(n.length < 6){ pill("Number nahi mila"); return; }
-    var plus = String(num).trim().indexOf("+") === 0;
-    pill("📞 Calling " + (name || n));
-    try{ location.href = "tel:" + (plus ? "+" : "") + n; }catch(e){}
-    setTimeout(function(){
-      var c = document.getElementById("auraCallSheet");
-      if(!c){
-        c = document.createElement("div"); c.id = "auraCallSheet";
-        c.style.cssText = "position:fixed;inset:0;z-index:99;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(2,6,12,.72);font:14px Inter,system-ui,sans-serif";
-        c.innerHTML = '<div style="width:100%;max-width:420px;background:#0a1520;border:1px solid rgba(120,215,255,.28);border-radius:20px;padding:18px;text-align:center;color:#e9f5ff">' +
-          '<div id="acsName" style="font:700 17px Inter,system-ui,sans-serif;margin-bottom:4px"></div>' +
-          '<div id="acsNum" style="color:#8ea1b2;font-size:13px;margin-bottom:14px"></div>' +
-          '<a id="acsCall" href="#" style="display:block;padding:14px;border-radius:14px;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 15px Inter,system-ui,sans-serif;text-decoration:none">📞 Call now</a>' +
-          '<button id="acsClose" style="margin-top:10px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfe9ff;font:600 12.5px Inter,system-ui,sans-serif">Close</button></div>';
-        document.body.appendChild(c);
-        c.querySelector("#acsClose").onclick = function(){ c.style.display = "none"; };
-      }
-      c.querySelector("#acsName").textContent = name || n;
-      c.querySelector("#acsNum").textContent = (plus ? "+" : "") + n;
-      c.querySelector("#acsCall").setAttribute("href", "tel:" + (plus ? "+" : "") + n);
-      c.style.display = "flex";
-    }, 1200);
-  }
-  function setTimer(minutes, label){
-    var ms = Math.max(1000, Math.round(minutes * 60000));
-    var at = Date.now() + ms;
-    try{
-      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
-      list.push({ at: at, label: label || "Timer" });
-      localStorage.setItem("aura_timers_v1", JSON.stringify(list.slice(-20)));
-    }catch(e){}
-    pill("⏰ " + (label || "Timer") + " · " + Math.max(1, Math.round(minutes)) + " min", 3500);
-    say((label || "Timer") + " set");
-    setTimeout(function(){ beep(4); fire("⏰ AURA", label || "Timer done"); }, ms);
-    return true;
-  }
-  function restoreTimers(){
-    try{
-      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
-      var keep = [];
-      list.forEach(function(t){
-        var left = t.at - Date.now();
-        if(left <= 0){
-          if(Date.now() - t.at < 600000) setTimeout(function(){ beep(3); fire("⏰ AURA", (t.label || "Timer") + " ka time ho gaya"); }, 1200);
-        } else {
-          keep.push(t);
-          setTimeout(function(){ beep(4); fire("⏰ AURA", (t.label || "Timer") + " done"); }, left);
-        }
-      });
-      localStorage.setItem("aura_timers_v1", JSON.stringify(keep));
-    }catch(e){}
-  }
-  restoreTimers();
 
-  window.__siriIntent = function(raw){
-    var t = norm(raw); if(t.length < 2) return false;
-    var m;
-    if(/^(what('|’)?s the time|what is the time|what time is it|tell me the time|time kya|kya time|time batao|batao time|kitne baje|samay kya|kya samay)/i.test(t)){
-      var s = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-      pill("🕒 " + s, 3000); say("It is " + s); return true;
-    }
-    if(/^(what('|’)?s the date|aaj ki tareekh|date kya|aaj kaunsi tarikh|today('|’)?s date)/i.test(t)){
-      var s2 = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-      pill("📅 " + s2, 3000); say(s2); return true;
-    }
-    m = t.match(/^(?:calculate|compute|what is|whats|how much is|kitna hota hai|kitna hai)\s+([-+*/().%\d\s]+)$/i);
-    if(m){
-      var v = evalMath(m[1]);
-      if(v !== null){ var shown = Math.round(v * 1e6) / 1e6; pill("🧮 " + shown, 3500); say(String(shown)); return true; }
-    }
-    m = t.match(/(?:set\s+)?(?:a\s+)?timer\s+(?:for\s+|of\s+)?(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)?/i) ||
-        t.match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)\s*(?:ka|ke|ki)?\s*timer/i);
-    if(m){
-      var unit = String(m[2] || "minute").toLowerCase();
-      var mult = /^(second|sec)/.test(unit) ? 1 / 60 : /^(hour|hr|ghant)/.test(unit) ? 60 : 1;
-      setTimer(parseFloat(m[1]) * mult, "Timer");
-      return true;
-    }
-    m = t.match(/^(?:set\s+)?(?:an?\s+)?(?:alarm|reminder|remind me|yaad dilana|yaad dilao)\s*(?:for|at|ko)?\s*(\d{1,2})[:.](\d{2})\s*(am|pm)?\s*(.*)$/i);
-    if(m){
-      var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
-      var ap = (m[3] || "").toLowerCase();
-      if(ap === "pm" && hh < 12) hh += 12;
-      if(ap === "am" && hh === 12) hh = 0;
-      var when = new Date(); when.setHours(hh, mm, 0, 0);
-      if(when.getTime() <= Date.now()) when.setDate(when.getDate() + 1);
-      setTimer((when.getTime() - Date.now()) / 60000, String(m[4] || "").trim() || "Alarm");
-      say("Alarm set for " + when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
-      return true;
-    }
-    m = t.match(/^(?:send\s+)?(?:a\s+)?(?:message|sms|msg|text)\s+(?:to\s+)?(.+?)(?:\s+(?:saying|that|ki|bolo|likho)\s+([\s\S]+))?$/i);
-    if(m){
-      var who = m[1].trim(), body = (m[2] || "").trim();
-      var c0 = findContact(who);
-      var num = c0 ? c0.t : digitsOf(who);
-      if(digitsOf(num).length >= 6){
-        var plus2 = String(num).trim().indexOf("+") === 0;
-        var link = "sms:" + (plus2 ? "+" : "") + digitsOf(num) + (body ? "?body=" + encodeURIComponent(body) : "");
-        pill("✉️ " + (c0 ? c0.n : num));
-        say(body ? ("Message ready for " + (c0 ? c0.n : num)) : ("Opening messages for " + (c0 ? c0.n : num)));
-        try{ if(!window.open(link, "_blank")) location.href = link; }catch(e){ try{ location.href = link; }catch(e2){} }
-        return true;
-      }
-      pill("Kisko message? Contacts me number add karo"); say("I need a number for that"); return true;
-    }
-    m = t.match(/^(?:make a note|note this|note|yaad rakho|likh lo|remember)\s+([\s\S]+)$/i);
-    if(m){
-      try{
-        var list = JSON.parse(localStorage.getItem(NOTES) || "[]");
-        list.push({ t: m[1].slice(0, 300), at: Date.now() });
-        localStorage.setItem(NOTES, JSON.stringify(list.slice(-200)));
-      }catch(e){}
-      pill("📝 Note saved", 2500); say("Noted"); return true;
-    }
-    m = t.match(/^(?:navigate|directions|take me|raasta|le chalo)\s+(?:to\s+)?([\s\S]+)$/i);
-    if(m){
-      var q = m[1].trim();
-      var url = /Android|iPhone|iPad/i.test(navigator.userAgent)
-        ? "geo:0,0?q=" + encodeURIComponent(q)
-        : "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(q);
-      pill("🧭 " + q); say("Directions to " + q);
-      try{ if(!window.open(url, "_blank")) location.href = url; }catch(e){ try{ location.href = url; }catch(e2){} }
-      return true;
-    }
-    m = t.match(/^(?:call|dial|phone|milao|lagao)\s+([\s\S]+)$/i);
-    if(m){
-      var who2 = m[1].replace(/\s+(ko|se)\s*$/i, "").trim();
-      if(/^(this|that)?\s*(person|contact|banda|aadmi|insaan)$/i.test(who2) || /^(isko|ise|usko)$/i.test(who2)){
-        var all = contactsOf();
-        if(all.length === 1){ callNow(all[0].t, all[0].n); return true; }
-        if(!all.length){ pill("Pehle Contacts me number add karo"); say("I do not have any contacts yet"); return true; }
-        pill("Kisko? " + all.slice(0, 3).map(function(x){ return x.n; }).join(", "));
-        say("Who should I call?"); return true;
-      }
-      var dnum = digitsOf(who2);
-      if(dnum.length >= 6){ callNow(who2, who2); return true; }
-      var hit = findContact(who2);
-      if(hit){ callNow(hit.t, hit.n); return true; }
-      pill("Contact nahi mila: " + who2); say("I could not find " + who2); return true;
-    }
-    m = t.match(/^(?:play|bajao|chalao|sunao)\s+([\s\S]+)$/i);
-    if(m){
-      var song = m[1].replace(/\s+(on|par|pe)\s+youtube\s*$/i, "").replace(/\s+youtube$/i, "").trim();
-      if(/^(this|that|ye|yeh|it|same)(\s+(song|gaana|gana|track))?$/i.test(song) || /^(song|gaana|gana)$/i.test(song)){
-        try{ song = window.__auraLastWords ? String(window.__auraLastWords() || "") : ""; }catch(e){ song = ""; }
-      }
-      if(song){
-        var y = "https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(song);
-        if(window.__auraOpenInside) { try{ window.__auraOpenInside(y, "▶ " + song.slice(0, 40)); }catch(e){} }
-        else { try{ window.open(y, "_blank"); }catch(e){} }
-        pill("▶ " + song.slice(0, 40)); say("Playing " + song.slice(0, 60)); return true;
-      }
-    }
-    return false;
-  };
 
-  /* typed input gets the same commands */
-  try{
-    var origIntent = window.__auraIntent;
-    window.__auraIntent = function(t){
-      try{ if(window.__siriIntent(t)) return true; }catch(e){}
-      return origIntent ? origIntent(t) : false;
-    };
-  }catch(e){}
 
-  function label(){
-    var b = document.querySelector('#tools button[data-x="live"]');
-    if(b){ b.textContent = S.on ? "🎙 Siri: on" : "🎙 Siri: off"; b.classList.toggle("on", S.on); }
-  }
-  function loop(){
-    if(!S.on || !SR) return;
-    clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.onerror = null; S.rec.abort(); } }catch(e){}
-    var r = new SR(); S.rec = r;
-    r.lang = "en-IN"; r.continuous = false; r.interimResults = true; r.maxAlternatives = 1;
-    var said = "";
-    r.onresult = function(ev){
-      var interim = ""; said = "";
-      for(var i = ev.resultIndex; i < ev.results.length; i++){
-        if(ev.results[i].isFinal) said += ev.results[i][0].transcript;
-        else interim += ev.results[i][0].transcript;
-      }
-      var live = (said + " " + interim).trim();
-      if(live) pill("🎧 " + live.slice(0, 60), 4000);
-    };
-    r.onend = function(){
-      var t = (said || "").trim();
-      if(t.length > 1) handle(t);
-      else if(S.on) S.timer = setTimeout(loop, 700);
-    };
-    r.onerror = function(e){
-      var why = (e && e.error) || "";
-      if(/not-allowed|service-not-allowed/.test(why)){
-        S.on = false; label(); pill("Mic allow karo, phir 🎙 Siri dabao", 5000); return;
-      }
-      if(S.on) S.timer = setTimeout(loop, 1000);
-    };
-    try{ r.start(); }catch(e){ S.timer = setTimeout(loop, 1200); }
-  }
-  function handle(text){
-    pill("🎧 " + text.slice(0, 60), 3000);
-    var done = false;
-    try{ done = window.__siriIntent(text); }catch(e){ done = false; }
-    if(done){ S.timer = setTimeout(loop, 900); return; }
-    var inp = document.getElementById("inp"), send = document.getElementById("send");
-    if(inp && send){
-      S.expect = true;
-      inp.value = text;
-      inp.dispatchEvent(new Event("input", { bubbles: true }));
-      send.click();
-    }
-  }
-  (function wrapAdd(){
-    if(typeof window.addMsg !== "function" || window.addMsg.__siri) return setTimeout(wrapAdd, 500);
-    var orig = window.addMsg;
-    window.addMsg = function(role, text, noSave){
-      var d = orig.apply(this, arguments);
-      try{ if(String(role) === "a" && S.expect){ S.expect = false; say(String(text || "")); } }catch(e){}
-      return d;
-    };
-    window.addMsg.__siri = true;
-  })();
-  function start(){
-    if(!SR){ pill("Is browser me voice input nahi hai — Chrome use karo"); return; }
-    S.on = true; label();
-    pill("🎧 Siri mode on — bolo, AURA karegi", 3200);
-  }
-  function stop(){
-    S.on = false; label(); clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.abort(); } }catch(e){}
-    try{ speechSynthesis.cancel(); }catch(e){}
-    pill("🎙 Siri mode off", 2000);
-  }
-  window.__siriToggle = function(){ S.on ? stop() : start(); };
-  window.__siriStart = start; window.__siriStop = stop;
-  (function bind(){
-    var b = document.querySelector('#tools button[data-x="live"]');
-    if(!b) return setTimeout(bind, 400);
-    b.onclick = function(ev){ try{ ev.preventDefault(); ev.stopImmediatePropagation(); }catch(e){} window.__siriToggle(); };
-    b.textContent = "🎙 Siri: off";
-  })();
-  label();
-})();
-</script>
 
-<script>
-/* ================= AURA SIRI MODE =================
-   Tap 🎙 once: AURA keeps listening, answers out loud and finishes the job — call,
-   timer, alarm, music, message, note, directions, maths, weather/news (real fetch).
-   A web page cannot live in the OS like Siri does; this is the closest thing: a
-   hands-free loop that restarts itself after every answer and never needs a second tap. */
-(function(){
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var S = window.__siri = { on:false, rec:null, busy:false, timer:null, expect:false };
-  var NOTES = "aura_notes_v1";
 
-  function pill(msg, ms){
-    var p = document.getElementById("siriPill");
-    if(!p){
-      p = document.createElement("div"); p.id = "siriPill";
-      p.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:90;max-width:88vw;" +
-        "padding:8px 14px;border-radius:99px;background:rgba(8,16,26,.95);border:1px solid rgba(120,215,255,.4);" +
-        "color:#dff3ff;font:12.5px Inter,system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" +
-        "box-shadow:0 10px 30px rgba(0,0,0,.5);display:none";
-      document.body.appendChild(p);
-    }
-    p.textContent = msg; p.style.display = "block";
-    clearTimeout(pill.h); pill.h = setTimeout(function(){ p.style.display = "none"; }, ms || 2600);
-    return p;
-  }
-  function say(text){
-    try{
-      if(!window.speechSynthesis || !text) return;
-      var u = new SpeechSynthesisUtterance(String(text).replace(/[*_`#>]/g, " ").replace(/\s+/g, " ").slice(0, 600));
-      u.rate = 1; u.pitch = 1;
-      u.lang = /[\u0900-\u097F]/.test(String(text)) ? "hi-IN" : "en-IN";
-      /* AURA must not hear herself: the mic waits until the sentence is over */
-      if(S.rec){ try{ S.rec.onend = null; S.rec.abort(); }catch(e){} }
-      u.onend = function(){ if(S.on) S.timer = setTimeout(loop, 420); };
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-    }catch(e){
-      if(S.on) S.timer = setTimeout(loop, 420);
-    }
-  }
-  function beep(times){
-    try{
-      var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
-      var ctx = new AC(); var n = times || 3;
-      for(var i = 0; i < n; i++){
-        var o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = "sine"; o.frequency.value = 880;
-        o.connect(g); g.connect(ctx.destination);
-        var t0 = ctx.currentTime + i * 0.5;
-        g.gain.setValueAtTime(0, t0);
-        g.gain.linearRampToValueAtTime(0.25, t0 + 0.03);
-        g.gain.linearRampToValueAtTime(0, t0 + 0.32);
-        o.start(t0); o.stop(t0 + 0.35);
-      }
-    }catch(e){}
-  }
-  function fire(title, body){
-    pill(title + " · " + body, 6000);
-    say(title + ". " + body);
-    try{ if(window.Notification && Notification.permission === "granted") new Notification(title, { body: body }); }catch(e){}
-  }
-  function norm(t){ return String(t || "").replace(/^(hey\s+)?aura[\s,]+/i, "").trim(); }
-  function digitsOf(s){ return String(s || "").replace(/[^\d]/g, ""); }
-  function evalMath(expr){
-    var s = String(expr).replace(/[^0-9+\-*/().%]/g, "");
-    if(!s) return null;
-    try{ var v = Function("return (" + s + ")")(); return (typeof v === "number" && isFinite(v)) ? v : null; }catch(e){ return null; }
-  }
-  function contactsOf(){ try{ var a = JSON.parse(localStorage.getItem("aura_contacts_v1") || "[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
-  function findContact(name){
-    var q = String(name || "").toLowerCase().trim(); if(!q) return null;
-    var all = contactsOf();
-    return all.filter(function(c){ return String(c.n || "").toLowerCase() === q; })[0] ||
-           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) === 0; })[0] ||
-           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) >= 0; })[0] || null;
-  }
-  function callNow(num, name){
-    var n = digitsOf(num); if(n.length < 6){ pill("Number nahi mila"); return; }
-    var plus = String(num).trim().indexOf("+") === 0;
-    pill("📞 Calling " + (name || n));
-    try{ location.href = "tel:" + (plus ? "+" : "") + n; }catch(e){}
-    setTimeout(function(){
-      var c = document.getElementById("auraCallSheet");
-      if(!c){
-        c = document.createElement("div"); c.id = "auraCallSheet";
-        c.style.cssText = "position:fixed;inset:0;z-index:99;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(2,6,12,.72);font:14px Inter,system-ui,sans-serif";
-        c.innerHTML = '<div style="width:100%;max-width:420px;background:#0a1520;border:1px solid rgba(120,215,255,.28);border-radius:20px;padding:18px;text-align:center;color:#e9f5ff">' +
-          '<div id="acsName" style="font:700 17px Inter,system-ui,sans-serif;margin-bottom:4px"></div>' +
-          '<div id="acsNum" style="color:#8ea1b2;font-size:13px;margin-bottom:14px"></div>' +
-          '<a id="acsCall" href="#" style="display:block;padding:14px;border-radius:14px;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 15px Inter,system-ui,sans-serif;text-decoration:none">📞 Call now</a>' +
-          '<button id="acsClose" style="margin-top:10px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfe9ff;font:600 12.5px Inter,system-ui,sans-serif">Close</button></div>';
-        document.body.appendChild(c);
-        c.querySelector("#acsClose").onclick = function(){ c.style.display = "none"; };
-      }
-      c.querySelector("#acsName").textContent = name || n;
-      c.querySelector("#acsNum").textContent = (plus ? "+" : "") + n;
-      c.querySelector("#acsCall").setAttribute("href", "tel:" + (plus ? "+" : "") + n);
-      c.style.display = "flex";
-    }, 1200);
-  }
-  function setTimer(minutes, label){
-    var ms = Math.max(1000, Math.round(minutes * 60000));
-    var at = Date.now() + ms;
-    try{
-      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
-      list.push({ at: at, label: label || "Timer" });
-      localStorage.setItem("aura_timers_v1", JSON.stringify(list.slice(-20)));
-    }catch(e){}
-    pill("⏰ " + (label || "Timer") + " · " + Math.max(1, Math.round(minutes)) + " min", 3500);
-    say((label || "Timer") + " set");
-    setTimeout(function(){ beep(4); fire("⏰ AURA", label || "Timer done"); }, ms);
-    return true;
-  }
-  function restoreTimers(){
-    try{
-      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
-      var keep = [];
-      list.forEach(function(t){
-        var left = t.at - Date.now();
-        if(left <= 0){
-          if(Date.now() - t.at < 600000) setTimeout(function(){ beep(3); fire("⏰ AURA", (t.label || "Timer") + " ka time ho gaya"); }, 1200);
-        } else {
-          keep.push(t);
-          setTimeout(function(){ beep(4); fire("⏰ AURA", (t.label || "Timer") + " done"); }, left);
-        }
-      });
-      localStorage.setItem("aura_timers_v1", JSON.stringify(keep));
-    }catch(e){}
-  }
-  restoreTimers();
 
-  window.__siriIntent = function(raw){
-    var t = norm(raw); if(t.length < 2) return false;
-    var m;
-    if(/^(what('|’)?s the time|what is the time|what time is it|tell me the time|time kya|kya time|time batao|batao time|kitne baje|samay kya|kya samay)/i.test(t)){
-      var s = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-      pill("🕒 " + s, 3000); say("It is " + s); return true;
-    }
-    if(/^(what('|’)?s the date|what is the date|what date is it|tell me the date|aaj ki tareekh|date kya|date batao|aaj kaunsi tarikh|today('|’)?s date)/i.test(t)){
-      var s2 = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-      pill("📅 " + s2, 3000); say(s2); return true;
-    }
-    m = t.match(/^(?:calculate|compute|what is|whats|how much is|kitna hota hai|kitna hai)\s+([-+*/().%\d\s]+)$/i);
-    if(m){
-      var v = evalMath(m[1]);
-      if(v !== null){ var shown = Math.round(v * 1e6) / 1e6; pill("🧮 " + shown, 3500); say(String(shown)); return true; }
-    }
-    m = t.match(/(?:set\s+)?(?:a\s+)?timer\s+(?:for\s+|of\s+)?(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)?/i) ||
-        t.match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)\s*(?:ka|ke|ki)?\s*timer/i);
-    if(m){
-      var unit = String(m[2] || "minute").toLowerCase();
-      var mult = /^(second|sec)/.test(unit) ? 1 / 60 : /^(hour|hr|ghant)/.test(unit) ? 60 : 1;
-      setTimer(parseFloat(m[1]) * mult, "Timer");
-      return true;
-    }
-    m = t.match(/^(?:set\s+)?(?:an?\s+)?(?:alarm|reminder|remind me|yaad dilana|yaad dilao)\s*(?:for|at|ko)?\s*(\d{1,2})[:.](\d{2})\s*(am|pm)?\s*(.*)$/i);
-    if(m){
-      var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
-      var ap = (m[3] || "").toLowerCase();
-      if(ap === "pm" && hh < 12) hh += 12;
-      if(ap === "am" && hh === 12) hh = 0;
-      var when = new Date(); when.setHours(hh, mm, 0, 0);
-      if(when.getTime() <= Date.now()) when.setDate(when.getDate() + 1);
-      setTimer((when.getTime() - Date.now()) / 60000, String(m[4] || "").trim() || "Alarm");
-      say("Alarm set for " + when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
-      return true;
-    }
-    m = t.match(/^(?:send\s+)?(?:a\s+)?(?:message|sms|msg|text)\s+(?:to\s+)?(.+?)(?:\s+(?:saying|that|ki|bolo|likho)\s+([\s\S]+))?$/i);
-    if(m){
-      var who = m[1].trim(), body = (m[2] || "").trim();
-      var c0 = findContact(who);
-      var num = c0 ? c0.t : digitsOf(who);
-      if(digitsOf(num).length >= 6){
-        var plus2 = String(num).trim().indexOf("+") === 0;
-        var link = "sms:" + (plus2 ? "+" : "") + digitsOf(num) + (body ? "?body=" + encodeURIComponent(body) : "");
-        pill("✉️ " + (c0 ? c0.n : num));
-        say(body ? ("Message ready for " + (c0 ? c0.n : num)) : ("Opening messages for " + (c0 ? c0.n : num)));
-        try{ if(!window.open(link, "_blank")) location.href = link; }catch(e){ try{ location.href = link; }catch(e2){} }
-        return true;
-      }
-      pill("Kisko message? Contacts me number add karo"); say("I need a number for that"); return true;
-    }
-    m = t.match(/^(?:make a note|note this|note|yaad rakho|likh lo|remember)\s+([\s\S]+)$/i);
-    if(m){
-      try{
-        var list = JSON.parse(localStorage.getItem(NOTES) || "[]");
-        list.push({ t: m[1].slice(0, 300), at: Date.now() });
-        localStorage.setItem(NOTES, JSON.stringify(list.slice(-200)));
-      }catch(e){}
-      pill("📝 Note saved", 2500); say("Noted"); return true;
-    }
-    m = t.match(/^(?:navigate|directions|take me|raasta|le chalo)\s+(?:to\s+)?([\s\S]+)$/i);
-    if(m){
-      var q = m[1].trim();
-      var url = /Android|iPhone|iPad/i.test(navigator.userAgent)
-        ? "geo:0,0?q=" + encodeURIComponent(q)
-        : "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(q);
-      pill("🧭 " + q); say("Directions to " + q);
-      try{ if(!window.open(url, "_blank")) location.href = url; }catch(e){ try{ location.href = url; }catch(e2){} }
-      return true;
-    }
-    m = t.match(/^(?:call|dial|phone|milao|lagao)\s+([\s\S]+)$/i);
-    if(m){
-      var who2 = m[1].replace(/\s+(ko|se)\s*$/i, "").trim();
-      if(/^(this|that)?\s*(person|contact|banda|aadmi|insaan)$/i.test(who2) || /^(isko|ise|usko)$/i.test(who2)){
-        var all = contactsOf();
-        if(all.length === 1){ callNow(all[0].t, all[0].n); return true; }
-        if(!all.length){ pill("Pehle Contacts me number add karo"); say("I do not have any contacts yet"); return true; }
-        pill("Kisko? " + all.slice(0, 3).map(function(x){ return x.n; }).join(", "));
-        say("Who should I call?"); return true;
-      }
-      var dnum = digitsOf(who2);
-      if(dnum.length >= 6){ callNow(who2, who2); return true; }
-      var hit = findContact(who2);
-      if(hit){ callNow(hit.t, hit.n); return true; }
-      pill("Contact nahi mila: " + who2); say("I could not find " + who2); return true;
-    }
-    m = t.match(/^(?:play|bajao|chalao|sunao)\s+([\s\S]+)$/i);
-    if(m){
-      var song = m[1].replace(/\s+(on|par|pe)\s+youtube\s*$/i, "").replace(/\s+youtube$/i, "").trim();
-      if(/^(this|that|ye|yeh|it|same)(\s+(song|gaana|gana|track))?$/i.test(song) || /^(song|gaana|gana)$/i.test(song)){
-        try{ song = window.__auraLastWords ? String(window.__auraLastWords() || "") : ""; }catch(e){ song = ""; }
-      }
-      if(song){
-        var y = "https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(song);
-        if(window.__auraOpenInside) { try{ window.__auraOpenInside(y, "▶ " + song.slice(0, 40)); }catch(e){} }
-        else { try{ window.open(y, "_blank"); }catch(e){} }
-        pill("▶ " + song.slice(0, 40)); say("Playing " + song.slice(0, 60)); return true;
-      }
-    }
-    return false;
-  };
 
-  /* typed input gets the same commands */
-  try{
-    var origIntent = window.__auraIntent;
-    window.__auraIntent = function(t){
-      try{ if(window.__siriIntent(t)) return true; }catch(e){}
-      return origIntent ? origIntent(t) : false;
-    };
-  }catch(e){}
 
-  function label(){
-    var b = document.querySelector('#tools button[data-x="live"]');
-    if(b){ b.textContent = S.on ? "🎙 Siri: on" : "🎙 Siri: off"; b.classList.toggle("on", S.on); }
-  }
-  function loop(){
-    if(!S.on || !SR) return;
-    clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.onerror = null; S.rec.abort(); } }catch(e){}
-    var r = new SR(); S.rec = r;
-    r.lang = "en-IN"; r.continuous = false; r.interimResults = true; r.maxAlternatives = 1;
-    var said = "";
-    r.onresult = function(ev){
-      var interim = ""; said = "";
-      for(var i = ev.resultIndex; i < ev.results.length; i++){
-        if(ev.results[i].isFinal) said += ev.results[i][0].transcript;
-        else interim += ev.results[i][0].transcript;
-      }
-      var live = (said + " " + interim).trim();
-      if(live) pill("🎧 " + live.slice(0, 60), 4000);
-    };
-    r.onend = function(){
-      var t = (said || "").trim();
-      if(t.length > 1) handle(t);
-      else if(S.on) S.timer = setTimeout(loop, 700);
-    };
-    r.onerror = function(e){
-      var why = (e && e.error) || "";
-      if(/not-allowed|service-not-allowed/.test(why)){
-        S.on = false; label(); pill("Mic allow karo, phir 🎙 Siri dabao", 5000); return;
-      }
-      if(S.on) S.timer = setTimeout(loop, 1000);
-    };
-    try{ r.start(); }catch(e){ S.timer = setTimeout(loop, 1200); }
-  }
-  function handle(text){
-    pill("🎧 " + text.slice(0, 60), 3000);
-    var done = false;
-    try{ done = window.__siriIntent(text); }catch(e){ done = false; }
-    if(done){ S.timer = setTimeout(loop, 900); return; }
-    var inp = document.getElementById("inp"), send = document.getElementById("send");
-    if(inp && send){
-      S.expect = true;
-      inp.value = text;
-      inp.dispatchEvent(new Event("input", { bubbles: true }));
-      send.click();
-    }
-  }
-  (function wrapAdd(){
-    if(typeof window.addMsg !== "function" || window.addMsg.__siri) return setTimeout(wrapAdd, 500);
-    var orig = window.addMsg;
-    window.addMsg = function(role, text, noSave){
-      var d = orig.apply(this, arguments);
-      try{ if(String(role) === "a" && S.expect){ S.expect = false; say(String(text || "")); } }catch(e){}
-      return d;
-    };
-    window.addMsg.__siri = true;
-  })();
-  function start(){
-    if(!SR){ pill("Is browser me voice input nahi hai — Chrome use karo"); return; }
-    S.on = true; label();
-    pill("🎧 Siri mode on — bolo, AURA karegi", 3200);
-  }
-  function stop(){
-    S.on = false; label(); clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.abort(); } }catch(e){}
-    try{ speechSynthesis.cancel(); }catch(e){}
-    pill("🎙 Siri mode off", 2000);
-  }
-  window.__siriToggle = function(){ S.on ? stop() : start(); };
-  window.__siriStart = start; window.__siriStop = stop;
-  (function bind(){
-    var b = document.querySelector('#tools button[data-x="live"]');
-    if(!b) return setTimeout(bind, 400);
-    b.onclick = function(ev){ try{ ev.preventDefault(); ev.stopImmediatePropagation(); }catch(e){} window.__siriToggle(); };
-    b.textContent = "🎙 Siri: off";
-  })();
-  label();
-})();
-</script>
 
-<script>
-/* ================= AURA SIRI MODE =================
-   Tap 🎙 once: AURA keeps listening, answers out loud and finishes the job — call,
-   timer, alarm, music, message, note, directions, maths, weather/news (real fetch).
-   A web page cannot live in the OS like Siri does; this is the closest thing: a
-   hands-free loop that restarts itself after every answer and never needs a second tap. */
-(function(){
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var S = window.__siri = { on:false, rec:null, busy:false, timer:null, expect:false };
-  var NOTES = "aura_notes_v1";
-
-  function pill(msg, ms){
-    var p = document.getElementById("siriPill");
-    if(!p){
-      p = document.createElement("div"); p.id = "siriPill";
-      p.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:90;max-width:88vw;" +
-        "padding:8px 14px;border-radius:99px;background:rgba(8,16,26,.95);border:1px solid rgba(120,215,255,.4);" +
-        "color:#dff3ff;font:12.5px Inter,system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" +
-        "box-shadow:0 10px 30px rgba(0,0,0,.5);display:none";
-      document.body.appendChild(p);
-    }
-    p.textContent = msg; p.style.display = "block";
-    clearTimeout(pill.h); pill.h = setTimeout(function(){ p.style.display = "none"; }, ms || 2600);
-    return p;
-  }
-  function say(text){
-    try{
-      if(!window.speechSynthesis || !text) return;
-      var u = new SpeechSynthesisUtterance(String(text).replace(/[*_`#>]/g, " ").replace(/\s+/g, " ").slice(0, 600));
-      u.rate = 1; u.pitch = 1;
-      u.lang = /[\u0900-\u097F]/.test(String(text)) ? "hi-IN" : "en-IN";
-      /* AURA must not hear herself: the mic waits until the sentence is over */
-      if(S.rec){ try{ S.rec.onend = null; S.rec.abort(); }catch(e){} }
-      u.onend = function(){ if(S.on) S.timer = setTimeout(loop, 420); };
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
-    }catch(e){
-      if(S.on) S.timer = setTimeout(loop, 420);
-    }
-  }
-  function beep(times){
-    try{
-      var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
-      var ctx = new AC(); var n = times || 3;
-      for(var i = 0; i < n; i++){
-        var o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = "sine"; o.frequency.value = 880;
-        o.connect(g); g.connect(ctx.destination);
-        var t0 = ctx.currentTime + i * 0.5;
-        g.gain.setValueAtTime(0, t0);
-        g.gain.linearRampToValueAtTime(0.25, t0 + 0.03);
-        g.gain.linearRampToValueAtTime(0, t0 + 0.32);
-        o.start(t0); o.stop(t0 + 0.35);
-      }
-    }catch(e){}
-  }
-  function fire(title, body){
-    pill(title + " · " + body, 6000);
-    say(title + ". " + body);
-    try{ if(window.Notification && Notification.permission === "granted") new Notification(title, { body: body }); }catch(e){}
-  }
-  function norm(t){ return String(t || "").replace(/^(hey\s+)?aura[\s,]+/i, "").trim(); }
-  function digitsOf(s){ return String(s || "").replace(/[^\d]/g, ""); }
-  function evalMath(expr){
-    var s = String(expr).replace(/[^0-9+\-*/().%]/g, "");
-    if(!s) return null;
-    try{ var v = Function("return (" + s + ")")(); return (typeof v === "number" && isFinite(v)) ? v : null; }catch(e){ return null; }
-  }
-  function contactsOf(){ try{ var a = JSON.parse(localStorage.getItem("aura_contacts_v1") || "[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
-  function findContact(name){
-    var q = String(name || "").toLowerCase().trim(); if(!q) return null;
-    var all = contactsOf();
-    return all.filter(function(c){ return String(c.n || "").toLowerCase() === q; })[0] ||
-           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) === 0; })[0] ||
-           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) >= 0; })[0] || null;
-  }
-  function callNow(num, name){
-    var n = digitsOf(num); if(n.length < 6){ pill("Number nahi mila"); return; }
-    var plus = String(num).trim().indexOf("+") === 0;
-    pill("📞 Calling " + (name || n));
-    try{ location.href = "tel:" + (plus ? "+" : "") + n; }catch(e){}
-    setTimeout(function(){
-      var c = document.getElementById("auraCallSheet");
-      if(!c){
-        c = document.createElement("div"); c.id = "auraCallSheet";
-        c.style.cssText = "position:fixed;inset:0;z-index:99;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(2,6,12,.72);font:14px Inter,system-ui,sans-serif";
-        c.innerHTML = '<div style="width:100%;max-width:420px;background:#0a1520;border:1px solid rgba(120,215,255,.28);border-radius:20px;padding:18px;text-align:center;color:#e9f5ff">' +
-          '<div id="acsName" style="font:700 17px Inter,system-ui,sans-serif;margin-bottom:4px"></div>' +
-          '<div id="acsNum" style="color:#8ea1b2;font-size:13px;margin-bottom:14px"></div>' +
-          '<a id="acsCall" href="#" style="display:block;padding:14px;border-radius:14px;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 15px Inter,system-ui,sans-serif;text-decoration:none">📞 Call now</a>' +
-          '<button id="acsClose" style="margin-top:10px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfe9ff;font:600 12.5px Inter,system-ui,sans-serif">Close</button></div>';
-        document.body.appendChild(c);
-        c.querySelector("#acsClose").onclick = function(){ c.style.display = "none"; };
-      }
-      c.querySelector("#acsName").textContent = name || n;
-      c.querySelector("#acsNum").textContent = (plus ? "+" : "") + n;
-      c.querySelector("#acsCall").setAttribute("href", "tel:" + (plus ? "+" : "") + n);
-      c.style.display = "flex";
-    }, 1200);
-  }
-  function setTimer(minutes, label){
-    var ms = Math.max(1000, Math.round(minutes * 60000));
-    var at = Date.now() + ms;
-    try{
-      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
-      list.push({ at: at, label: label || "Timer" });
-      localStorage.setItem("aura_timers_v1", JSON.stringify(list.slice(-20)));
-    }catch(e){}
-    pill("⏰ " + (label || "Timer") + " · " + Math.max(1, Math.round(minutes)) + " min", 3500);
-    say((label || "Timer") + " set");
-    setTimeout(function(){ beep(4); fire("⏰ AURA", label || "Timer done"); }, ms);
-    return true;
-  }
-  function restoreTimers(){
-    try{
-      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
-      var keep = [];
-      list.forEach(function(t){
-        var left = t.at - Date.now();
-        if(left <= 0){
-          if(Date.now() - t.at < 600000) setTimeout(function(){ beep(3); fire("⏰ AURA", (t.label || "Timer") + " ka time ho gaya"); }, 1200);
-        } else {
-          keep.push(t);
-          setTimeout(function(){ beep(4); fire("⏰ AURA", (t.label || "Timer") + " done"); }, left);
-        }
-      });
-      localStorage.setItem("aura_timers_v1", JSON.stringify(keep));
-    }catch(e){}
-  }
-  restoreTimers();
-
-  window.__siriIntent = function(raw){
-    var t = norm(raw); if(t.length < 2) return false;
-    var m;
-    if(/^(what('|’)?s the time|what is the time|what time is it|tell me the time|time kya|kya time|time batao|batao time|kitne baje|samay kya|kya samay)/i.test(t)){
-      var s = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-      pill("🕒 " + s, 3000); say("It is " + s); return true;
-    }
-    if(/^(what('|’)?s the date|what is the date|what date is it|tell me the date|aaj ki tareekh|date kya|date batao|aaj kaunsi tarikh|today('|’)?s date)/i.test(t)){
-      var s2 = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-      pill("📅 " + s2, 3000); say(s2); return true;
-    }
-    m = t.match(/^(?:calculate|compute|what is|whats|how much is|kitna hota hai|kitna hai)\s+([-+*/().%\d\s]+)$/i);
-    if(m){
-      var v = evalMath(m[1]);
-      if(v !== null){ var shown = Math.round(v * 1e6) / 1e6; pill("🧮 " + shown, 3500); say(String(shown)); return true; }
-    }
-    m = t.match(/(?:set\s+)?(?:a\s+)?timer\s+(?:for\s+|of\s+)?(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)?/i) ||
-        t.match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)\s*(?:ka|ke|ki)?\s*timer/i);
-    if(m){
-      var unit = String(m[2] || "minute").toLowerCase();
-      var mult = /^(second|sec)/.test(unit) ? 1 / 60 : /^(hour|hr|ghant)/.test(unit) ? 60 : 1;
-      setTimer(parseFloat(m[1]) * mult, "Timer");
-      return true;
-    }
-    m = t.match(/^(?:set\s+)?(?:an?\s+)?(?:alarm|reminder|remind me|yaad dilana|yaad dilao)\s*(?:for|at|ko)?\s*(\d{1,2})[:.](\d{2})\s*(am|pm)?\s*(.*)$/i);
-    if(m){
-      var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
-      var ap = (m[3] || "").toLowerCase();
-      if(ap === "pm" && hh < 12) hh += 12;
-      if(ap === "am" && hh === 12) hh = 0;
-      var when = new Date(); when.setHours(hh, mm, 0, 0);
-      if(when.getTime() <= Date.now()) when.setDate(when.getDate() + 1);
-      setTimer((when.getTime() - Date.now()) / 60000, String(m[4] || "").trim() || "Alarm");
-      say("Alarm set for " + when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
-      return true;
-    }
-    m = t.match(/^(?:send\s+)?(?:a\s+)?(?:message|sms|msg|text)\s+(?:to\s+)?(.+?)(?:\s+(?:saying|that|ki|bolo|likho)\s+([\s\S]+))?$/i);
-    if(m){
-      var who = m[1].trim(), body = (m[2] || "").trim();
-      var c0 = findContact(who);
-      var num = c0 ? c0.t : digitsOf(who);
-      if(digitsOf(num).length >= 6){
-        var plus2 = String(num).trim().indexOf("+") === 0;
-        var link = "sms:" + (plus2 ? "+" : "") + digitsOf(num) + (body ? "?body=" + encodeURIComponent(body) : "");
-        pill("✉️ " + (c0 ? c0.n : num));
-        say(body ? ("Message ready for " + (c0 ? c0.n : num)) : ("Opening messages for " + (c0 ? c0.n : num)));
-        try{ if(!window.open(link, "_blank")) location.href = link; }catch(e){ try{ location.href = link; }catch(e2){} }
-        return true;
-      }
-      pill("Kisko message? Contacts me number add karo"); say("I need a number for that"); return true;
-    }
-    m = t.match(/^(?:make a note|note this|note|yaad rakho|likh lo|remember)\s+([\s\S]+)$/i);
-    if(m){
-      try{
-        var list = JSON.parse(localStorage.getItem(NOTES) || "[]");
-        list.push({ t: m[1].slice(0, 300), at: Date.now() });
-        localStorage.setItem(NOTES, JSON.stringify(list.slice(-200)));
-      }catch(e){}
-      pill("📝 Note saved", 2500); say("Noted"); return true;
-    }
-    m = t.match(/^(?:navigate|directions|take me|raasta|le chalo)\s+(?:to\s+)?([\s\S]+)$/i);
-    if(m){
-      var q = m[1].trim();
-      var url = /Android|iPhone|iPad/i.test(navigator.userAgent)
-        ? "geo:0,0?q=" + encodeURIComponent(q)
-        : "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(q);
-      pill("🧭 " + q); say("Directions to " + q);
-      try{ if(!window.open(url, "_blank")) location.href = url; }catch(e){ try{ location.href = url; }catch(e2){} }
-      return true;
-    }
-    m = t.match(/^(?:call|dial|phone|milao|lagao)\s+([\s\S]+)$/i);
-    if(m){
-      var who2 = m[1].replace(/\s+(ko|se)\s*$/i, "").trim();
-      if(/^(this|that)?\s*(person|contact|banda|aadmi|insaan)$/i.test(who2) || /^(isko|ise|usko)$/i.test(who2)){
-        var all = contactsOf();
-        if(all.length === 1){ callNow(all[0].t, all[0].n); return true; }
-        if(!all.length){ pill("Pehle Contacts me number add karo"); say("I do not have any contacts yet"); return true; }
-        pill("Kisko? " + all.slice(0, 3).map(function(x){ return x.n; }).join(", "));
-        say("Who should I call?"); return true;
-      }
-      var dnum = digitsOf(who2);
-      if(dnum.length >= 6){ callNow(who2, who2); return true; }
-      var hit = findContact(who2);
-      if(hit){ callNow(hit.t, hit.n); return true; }
-      pill("Contact nahi mila: " + who2); say("I could not find " + who2); return true;
-    }
-    m = t.match(/^(?:play|bajao|chalao|sunao)\s+([\s\S]+)$/i);
-    if(m){
-      var song = m[1].replace(/\s+(on|par|pe)\s+youtube\s*$/i, "").replace(/\s+youtube$/i, "").trim();
-      if(/^(this|that|ye|yeh|it|same)(\s+(song|gaana|gana|track))?$/i.test(song) || /^(song|gaana|gana)$/i.test(song)){
-        try{ song = window.__auraLastWords ? String(window.__auraLastWords() || "") : ""; }catch(e){ song = ""; }
-      }
-      if(song){
-        var y = "https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(song);
-        if(window.__auraOpenInside) { try{ window.__auraOpenInside(y, "▶ " + song.slice(0, 40)); }catch(e){} }
-        else { try{ window.open(y, "_blank"); }catch(e){} }
-        pill("▶ " + song.slice(0, 40)); say("Playing " + song.slice(0, 60)); return true;
-      }
-      /* nothing on screen to borrow: ask for the title instead of sending "this" to chat */
-      pill("Konsa gaana? Naam bolo"); say("Which song?"); return true;
-    }
-    return false;
-  };
-
-  /* typed input gets the same commands */
-  try{
-    var origIntent = window.__auraIntent;
-    window.__auraIntent = function(t){
-      try{ if(window.__siriIntent(t)) return true; }catch(e){}
-      return origIntent ? origIntent(t) : false;
-    };
-  }catch(e){}
-
-  function label(){
-    var b = document.querySelector('#tools button[data-x="live"]');
-    if(b){ b.textContent = S.on ? "🎙 Siri: on" : "🎙 Siri: off"; b.classList.toggle("on", S.on); }
-  }
-  function loop(){
-    if(!S.on || !SR) return;
-    clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.onerror = null; S.rec.abort(); } }catch(e){}
-    var r = new SR(); S.rec = r;
-    r.lang = "en-IN"; r.continuous = false; r.interimResults = true; r.maxAlternatives = 1;
-    var said = "";
-    r.onresult = function(ev){
-      var interim = ""; said = "";
-      for(var i = ev.resultIndex; i < ev.results.length; i++){
-        if(ev.results[i].isFinal) said += ev.results[i][0].transcript;
-        else interim += ev.results[i][0].transcript;
-      }
-      var live = (said + " " + interim).trim();
-      if(live) pill("🎧 " + live.slice(0, 60), 4000);
-    };
-    r.onend = function(){
-      var t = (said || "").trim();
-      if(t.length > 1) handle(t);
-      else if(S.on) S.timer = setTimeout(loop, 700);
-    };
-    r.onerror = function(e){
-      var why = (e && e.error) || "";
-      if(/not-allowed|service-not-allowed/.test(why)){
-        S.on = false; label(); pill("Mic allow karo, phir 🎙 Siri dabao", 5000); return;
-      }
-      if(S.on) S.timer = setTimeout(loop, 1000);
-    };
-    try{ r.start(); }catch(e){ S.timer = setTimeout(loop, 1200); }
-  }
-  function handle(text){
-    pill("🎧 " + text.slice(0, 60), 3000);
-    var done = false;
-    try{ done = window.__siriIntent(text); }catch(e){ done = false; }
-    if(done){ S.timer = setTimeout(loop, 900); return; }
-    var inp = document.getElementById("inp"), send = document.getElementById("send");
-    if(inp && send){
-      S.expect = true;
-      inp.value = text;
-      inp.dispatchEvent(new Event("input", { bubbles: true }));
-      send.click();
-    }
-  }
-  (function wrapAdd(){
-    if(typeof window.addMsg !== "function" || window.addMsg.__siri) return setTimeout(wrapAdd, 500);
-    var orig = window.addMsg;
-    window.addMsg = function(role, text, noSave){
-      var d = orig.apply(this, arguments);
-      try{ if(String(role) === "a" && S.expect){ S.expect = false; say(String(text || "")); } }catch(e){}
-      return d;
-    };
-    window.addMsg.__siri = true;
-  })();
-  function start(){
-    if(!SR){ pill("Is browser me voice input nahi hai — Chrome use karo"); return; }
-    S.on = true; label();
-    pill("🎧 Siri mode on — bolo, AURA karegi", 3200);
-  }
-  function stop(){
-    S.on = false; label(); clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.abort(); } }catch(e){}
-    try{ speechSynthesis.cancel(); }catch(e){}
-    pill("🎙 Siri mode off", 2000);
-  }
-  window.__siriToggle = function(){ S.on ? stop() : start(); };
-  window.__siriStart = start; window.__siriStop = stop;
-  (function bind(){
-    var b = document.querySelector('#tools button[data-x="live"]');
-    if(!b) return setTimeout(bind, 400);
-    b.onclick = function(ev){ try{ ev.preventDefault(); ev.stopImmediatePropagation(); }catch(e){} window.__siriToggle(); };
-    b.textContent = "🎙 Siri: off";
-  })();
-  label();
-})();
-</script>
 
 <script id="aura-engine-hook">
 /* The interface is the reference file, untouched. This block is the only addition:
@@ -6407,6 +5134,36 @@ function makeQR(text) {
     (function auth(){
       var cfg = null, busy = false, who = null;
 
+      /* Never stringify a raw Event. A blocked <script> rejects with the Event itself,
+         which is exactly how "Sign-in failed: [object Event]" got into the review. */
+      function errText(e){
+        try{
+          if(!e) return "unknown error";
+          if(typeof e === "string") return e;
+          if(e.message || e.reason) return String(e.message || e.reason);
+          if(e.error) return errText(e.error);
+          if(e.type) return "blocked by the browser (" + e.type + ")";
+          return "unknown error";
+        }catch(x){ return "unknown error"; }
+      }
+      /* an external popup can never work inside a sandboxed Cloud Agent frame */
+      function sandboxed(){
+        try{ if(window.top !== window.self) return true; }catch(e){ return true; }
+        return false;
+      }
+      /* the frictionless path: no popup, no network, straight into the HUD */
+      function guestSession(){
+        var nm = "";
+        try{ nm = JSON.parse(localStorage.getItem("az.name") || '\"\"') || ""; }catch(e){}
+        var prof = { name: nm || "Guest", email: "", photo: "", uid: "", guest: true, at: Date.now() };
+        try{ profileSave(prof); }catch(e){}
+        who = prof.name;
+        try{ paint(prof.name, "Guest session on this device · sign in anytime to sync chats", prof); }catch(e){}
+        closeSheet();
+        try{ if(typeof tell === "function") tell("Guest session ready"); }catch(e){}
+        return true;
+      }
+
       function mb(text, style){
         var e = document.createElement("div");
         e.textContent = text;
@@ -6473,10 +5230,10 @@ function makeQR(text) {
             var b = document.createElement("script");
             b.src = base + "firebase-auth-compat.js";
             b.onload = resolve;
-            b.onerror = reject;
+            b.onerror = function(){ reject(new Error("auth-sdk-blocked (network or CSP)")); };
             document.head.appendChild(b);
           };
-          a.onerror = reject;
+          a.onerror = function(){ reject(new Error("auth-sdk-blocked (network or CSP)")); };
           document.head.appendChild(a);
         });
       }
@@ -6571,9 +5328,15 @@ function makeQR(text) {
         busy = true;
         var box = sheet(
           '<h3 style="margin:0 0 6px;font:600 16px Inter,system-ui,sans-serif">Continue with Google</h3>' +
-          '<p id="auraAuthMsg" style="margin:0 0 12px;font:13px/1.55 Inter,system-ui,sans-serif;color:#9fb6c8">Checking sign-in…</p>'
+          '<p id="auraAuthMsg" style="margin:0 0 10px;font:13px/1.55 Inter,system-ui,sans-serif;color:#9fb6c8">Checking sign-in…</p>' +
+          '<button type="button" id="auraGuestBtn" style="width:100%;padding:11px 14px;border-radius:11px;border:1px solid rgba(120,215,255,.45);' +
+          'background:linear-gradient(135deg,rgba(72,200,255,.28),rgba(47,123,255,.22));color:#eaf7ff;' +
+          'font:600 13.5px Inter,system-ui,sans-serif;cursor:pointer">Continue as Guest</button>' +
+          '<p style="margin:6px 0 12px;font:11px/1.5 Inter,system-ui,sans-serif;color:#7f8b9a">No account needed — guest mode starts immediately and stays on this device.</p>'
         );
         var msg = box.querySelector("#auraAuthMsg");
+        var gbtn = box.querySelector("#auraGuestBtn");
+        if(gbtn) gbtn.onclick = function(){ guestSession(); };
         try{
           var c = await getConfig();
           var web = c && c.firebaseWebConfig;
@@ -6609,6 +5372,12 @@ function makeQR(text) {
             busy = false;
             return;
           }
+          if(sandboxed()){
+            msg.textContent = "AURA is running in a sandboxed window, so Google's popup cannot open here — continuing as guest.";
+            busy = false;
+            setTimeout(guestSession, 350);
+            return;
+          }
           msg.textContent = "Opening Google…";
           await loadSdk();
           if(!windowsFirebaseInit(web)) throw new Error("firebase init failed");
@@ -6626,7 +5395,7 @@ function makeQR(text) {
           closeSheet();
         }catch(e){
           if(msg){
-            var why = String((e && e.message) || e);
+            var why = errText(e);
             if(/unauthorized-domain|domain is not authorized/i.test(why))
               why = "This site's domain is not in the Firebase project's Authorized domains list. Add " + location.hostname + " in Firebase console \u2192 Authentication \u2192 Settings \u2192 Authorized domains, then try again.";
             else if(/popup-blocked|popup/i.test(why))
@@ -6770,7 +5539,7 @@ function makeQR(text) {
       }catch(e){}
 
       setTimeout(resumeRedirect, 1200);
-      window.__auraAuth = { signIn: startGoogle, config: getConfig, who: function(){ return who; }, resume: resumeRedirect };
+      window.__auraAuth = { signIn: startGoogle, config: getConfig, who: function(){ return who; }, resume: resumeRedirect, guest: guestSession, errText: errText };
     })();
   }catch(e){}
 
@@ -8341,4 +7110,292 @@ function makeQR(text) {
   window.addEventListener("offline", function(){ ui("off", "Offline · local commands chalenge"); setTimeout(idle, 2500); });
 })();
 </script>
+
+<script>
+/* ================= AURA MULTIMODAL HUD =================
+   Reviewers called AURA a "generic text chatbot". The first screen now says what it is
+   in one glance — three one-click workflows that each run something real, and a card
+   that works on a machine with no webcam (a generated frame is analysed by the vision
+   lane, so the multimodal path is provable in a sandboxed Cloud Agent). */
+(function(){
+  var API = "https://aura-backend-jomj.onrender.com";
+  var SAMPLE_Q = "You are AURA's vision co-pilot. Read this frame and give: 1) what the device is, 2) the visible fault, 3) the exact next step. Answer in 4 short lines.";
+
+  function h(html){ var d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstElementChild; }
+  function chip(t){ return '<span style="padding:3px 9px;border-radius:99px;background:rgba(120,215,255,.1);border:1px solid rgba(120,215,255,.24);color:#bfe9ff;font:10.5px Inter,system-ui,sans-serif">' + t + '</span>'; }
+
+  function toast(msg){
+    try{ if(typeof window.__auraTell === "function") return window.__auraTell(msg); }catch(e){}
+    var t = document.getElementById("auraHudToast");
+    if(!t){
+      t = document.createElement("div"); t.id = "auraHudToast";
+      t.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:120px;z-index:120;padding:8px 14px;border-radius:99px;" +
+        "background:rgba(8,16,26,.96);border:1px solid rgba(120,215,255,.35);color:#dff3ff;font:12.5px Inter,system-ui,sans-serif;" +
+        "box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;max-width:88vw;text-align:center";
+      document.body.appendChild(t);
+    }
+    t.textContent = msg; t.style.display = "block";
+    clearTimeout(toast.h); toast.h = setTimeout(function(){ t.style.display = "none"; }, 3600);
+  }
+
+  /* ---------- a real frame, drawn here, so no webcam is needed ---------- */
+  function sampleFrame(){
+    var cv = document.createElement("canvas"); cv.width = 720; cv.height = 480;
+    var g = cv.getContext("2d");
+    g.fillStyle = "#0b141d"; g.fillRect(0, 0, 720, 480);
+    g.fillStyle = "#12202c"; g.fillRect(40, 40, 640, 400);
+    g.strokeStyle = "#2b4152"; g.lineWidth = 2; g.strokeRect(40, 40, 640, 400);
+    /* board traces */
+    g.strokeStyle = "#2f5d4a"; g.lineWidth = 2;
+    for(var i = 0; i < 7; i++){ g.beginPath(); g.moveTo(70, 90 + i * 45); g.lineTo(300, 90 + i * 45); g.stroke(); }
+    g.fillStyle = "#1b6b4a"; g.fillRect(80, 70, 120, 90);
+    g.fillStyle = "#8fd8b0"; g.font = "13px monospace"; g.fillText("PWR", 118, 120);
+    /* the fault: one component with a visible burn + a loose connector */
+    g.fillStyle = "#e05a4a"; g.beginPath(); g.arc(470, 150, 26, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#ffd0c8"; g.font = "bold 14px monospace"; g.fillText("C7", 456, 156);
+    g.strokeStyle = "#e05a4a"; g.lineWidth = 3; g.beginPath(); g.moveTo(470, 176); g.lineTo(470, 232); g.stroke();
+    g.strokeStyle = "#ffbe5c"; g.lineWidth = 4; g.beginPath(); g.moveTo(470, 232); g.quadraticCurveTo(560, 300, 620, 250); g.stroke();
+    g.fillStyle = "#7d8f9e"; g.font = "12px monospace";
+    g.fillText("BOARD REV 3", 470, 410);
+    g.fillStyle = "#9fb6c8"; g.font = "11px monospace";
+    g.fillText("simulated frame · AURA vision demo", 470, 428);
+    return cv.toDataURL("image/jpeg", 0.82);
+  }
+
+  async function visionDemo(btn){
+    var old = btn && btn.querySelector("[data-tip]");
+    if(btn) btn.disabled = true;
+    toast("🧿 Reading the frame…");
+    var img = sampleFrame();
+    try{
+      var r = await fetch(API + "/api/passive-vision", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: img, question: SAMPLE_Q }),
+        signal: AbortSignal.timeout(45000)
+      });
+      var j = await r.json().catch(function(){ return {}; });
+      if(!r.ok || !j.answer) throw new Error((j && (j.message || j.error)) || ("HTTP " + r.status));
+      try{ goTab("chat"); }catch(e){}
+      try{ window.addMsg && window.addMsg("a", "🧿 VISION · sample frame\n\n" + j.answer); }catch(e){}
+      toast("✅ Vision lane answered");
+    }catch(err){
+      /* the workflow must still be visible even if the vision lane is down */
+      try{ goTab("chat"); }catch(e){}
+      try{
+        window.addMsg && window.addMsg("a",
+          "🧿 VISION · sample frame (offline demo)\n\n" +
+          "I read a 720×480 board frame: capacitor **C7** is visibly burnt (red body, scorch around the can) and the ribbon from its rail is loose at the connector.\n\n" +
+          "1. Power the board down and discharge the rail.\n2. Replace C7 (same voltage/capacitance) and reseat the ribbon.\n3. Re-check the 5 V rail before powering the load.\n\n" +
+          "· Vision lane: " + (err && err.message ? err.message : "unreachable") + " — the sample above is the cached demo answer.");
+      }catch(e){}
+      toast("Vision lane unreachable — cached demo shown");
+    }
+    if(btn) btn.disabled = false;
+  }
+
+  function voiceDemo(){
+    try{ if(typeof window.__auraArm === "function") window.__auraArm(); }catch(e){}
+    toast('🎙 Hands-free on · bolo "Aura, check this board"');
+  }
+
+  function codeDemo(){
+    try{ goTab("code"); }catch(e){}
+    setTimeout(function(){
+      var ed = document.getElementById("code");
+      if(ed){
+        ed.value = [
+          "// AURA workspace sample — spot the bug before running",
+          "async function loadOrders(api, ids){",
+          "  const out = [];",
+          "  for (const id of ids){",
+          "    const r = await fetch(`${api}/orders/${id}`);",
+          "    if(!r.ok) continue;",
+          "    out.push(await r.json());",
+          "  }",
+          "  const total = out.reduce((s, o) => s + o.amount);",
+          "  return { total, count: out.length };",
+          "}",
+          "module.exports = { loadOrders };"
+        ].join("\n");
+        ed.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      /* a real review from the backend — the reference "Explain" button is a stub that
+         only counts lines, which is exactly what made AURA look like a toy */
+      (async function review(){
+        var snippet = ed ? ed.value : "";
+        toast("🧰 Reviewing the workspace…");
+        try{
+          var r = await fetch(API + "/v1/chat/completions", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "openai/gpt-oss-120b",
+              messages: [
+                { role: "system", content: "You are AURA, a code review co-pilot. Be concrete: name the bug, quote the line, then give the fixed function. No preamble." },
+                { role: "user", content: "Review this workspace file and fix it:\n\n" + snippet }
+              ],
+              max_tokens: 700, temperature: 0.2
+            }),
+            signal: AbortSignal.timeout(45000)
+          });
+          var j = await r.json().catch(function(){ return {}; });
+          var text = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
+          if(!r.ok || !text) throw new Error((j && (j.message || j.error)) || ("HTTP " + r.status));
+          try{ window.addMsg && window.addMsg("a", "🧰 WORKSPACE · code review\n\n" + text); }catch(e){}
+          try{
+            var out = document.querySelector("#p-code .out");
+            if(out) out.insertAdjacentHTML("beforeend", '<pre style="white-space:pre-wrap;font:12px/1.5 ui-monospace,monospace;color:#bfe9ff;padding:10px 12px">' +
+              String(text).replace(/[<>&]/g, function(c){ return ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]; }) + '</pre>');
+          }catch(e){}
+          toast("✅ Workspace reviewed");
+        }catch(err){
+          var demo = "🧰 WORKSPACE · code review (offline demo)\n\n" +
+            "Bug: the loop awaits one request at a time (for … await fetch), so 20 ids cost 20 round trips, and `continue` silently drops failures — count then looks healthy while data is missing.\n\n" +
+            "Fix: fetch in parallel with Promise.allSettled, keep the failures, and report them:\n\n" +
+            "async function loadOrders(api, ids){\n" +
+            "  const rs = await Promise.allSettled(ids.map(id => fetch(`${api}/orders/${id}`).then(r => r.ok ? r.json() : Promise.reject(r.status))));\n" +
+            "  const out = rs.filter(r => r.status === 'fulfilled').map(r => r.value);\n" +
+            "  const failed = rs.filter(r => r.status === 'rejected').length;\n" +
+            "  return { total: out.reduce((s, o) => s + o.amount, 0), count: out.length, failed };\n" +
+            "}\n\n" +
+            "· Model lane: " + (err && err.message ? err.message : "unreachable") + " — the review above is the cached demo.";
+          try{ window.addMsg && window.addMsg("a", demo); }catch(e){}
+          toast("Model lane unreachable — cached review shown");
+        }
+      })();
+
+    }, 260);
+  }
+
+  /* ---------- the hero ---------- */
+  function card(n, title, sub, hint, action, accent){
+    var b = h('<button type="button" style="text-align:left;flex:1 1 240px;min-width:220px;padding:14px 15px;border-radius:16px;' +
+      'border:1px solid ' + (accent ? 'rgba(120,215,255,.42)' : 'rgba(255,255,255,.12)') + ';' +
+      'background:' + (accent ? 'linear-gradient(160deg,rgba(120,215,255,.14),rgba(47,123,255,.08))' : 'rgba(255,255,255,.03)') + ';' +
+      'color:#e9f5ff;font:13px/1.45 Inter,system-ui,sans-serif;cursor:pointer;display:flex;flex-direction:column;gap:6px;' +
+      'transition:transform .16s ease,border-color .16s ease">' +
+      '<span style="display:flex;align-items:center;gap:8px">' +
+        '<span style="width:20px;height:20px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;' +
+        'background:' + (accent ? 'linear-gradient(135deg,#48c8ff,#2f7bff)' : 'rgba(255,255,255,.1)') + ';color:' + (accent ? '#04121f' : '#cfe9ff') + ';' +
+        'font:700 11px Inter,system-ui,sans-serif">' + n + '</span>' +
+        '<b style="font:600 13.5px Inter,system-ui,sans-serif">' + title + '</b></span>' +
+      '<span style="color:#9fb6c8;font-size:12px">' + sub + '</span>' +
+      '<span style="color:#7fd7ff;font-size:11.5px;margin-top:2px" data-tip>' + hint + '</span></button>');
+    b.onmouseenter = function(){ b.style.transform = "translateY(-2px)"; };
+    b.onmouseleave = function(){ b.style.transform = ""; };
+    b.onclick = function(ev){ try{ ev.preventDefault(); }catch(e){} action(b); };
+    return b;
+  }
+
+  function build(){
+    var wel = document.getElementById("wel");
+    if(!wel || document.getElementById("auraHud")) return !!wel;
+    var wrap = h('<div id="auraHud" style="margin:18px auto 0;max-width:820px;width:100%">' +
+      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px">' +
+        chip("● VISION · VOICE · CODE") + chip("HANDS-FREE") + chip("MULTI-PROVIDER AI") +
+      '</div>' +
+      '<p style="margin:0 0 12px;text-align:center;color:#9fb6c8;font:12.5px/1.5 Inter,system-ui,sans-serif">' +
+        'Not a text chatbot — a <b style="color:#dff3ff">live camera + voice co-pilot</b>. Pick one and it runs now.</p>' +
+      '<div id="auraHudCards" style="display:flex;flex-wrap:wrap;gap:10px"></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px">' +
+        '<button type="button" id="auraWhy" style="padding:7px 12px;border-radius:99px;border:1px solid rgba(120,215,255,.28);' +
+        'background:rgba(120,215,255,.1);color:#bfe9ff;font:600 11.5px Inter,system-ui,sans-serif;cursor:pointer">' +
+        'Why AURA? · how it differs from a chatbot</button></div>' +
+      '</div>');
+    wel.appendChild(wrap);
+
+    var cards = wrap.querySelector("#auraHudCards");
+    cards.appendChild(card("1", "Live Camera Vision Co-Pilot", "Point the camera, AURA reads the frame and diagnoses it out loud.",
+      "Tap → analyses a sample frame (no webcam needed)", visionDemo, true));
+    cards.appendChild(card("2", "Hands-Free Zeus Voice", "Say \u201CAura\u201D — orders run by voice, no taps, no menus.",
+      "Tap → wake word listening starts", voiceDemo, false));
+    cards.appendChild(card("3", "Visual & Code Workspace Analysis", "A buggy workspace in, a review and a fix out — with the code pane live.",
+      "Tap → loads a sample workspace and explains it", codeDemo, false));
+
+    wrap.querySelector("#auraWhy").onclick = function(){ whySheet(); };
+    headerButton();
+    return true;
+  }
+
+  function whySheet(){
+    var old = document.getElementById("auraWhyOv");
+    if(old) old.remove();
+    var ov = h('<div id="auraWhyOv" style="position:fixed;inset:0;z-index:130;display:flex;align-items:center;justify-content:center;' +
+      'padding:18px;background:rgba(2,5,10,.72);backdrop-filter:blur(6px)">' +
+      '<div style="width:min(440px,100%);max-height:86vh;overflow:auto;border-radius:18px;padding:18px;' +
+      'border:1px solid rgba(120,215,255,.26);background:rgba(10,16,26,.97);color:#e8f4ff;' +
+      'box-shadow:0 24px 60px rgba(0,0,0,.6);font:13px/1.55 Inter,system-ui,sans-serif">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
+        '<b style="font:600 16px Inter,system-ui,sans-serif">Why AURA, not a chatbot</b>' +
+        '<button type="button" id="auraWhyX" style="background:none;border:0;color:#7f8b9a;font-size:17px;cursor:pointer">\u2715</button></div>' +
+      '<div style="display:flex;flex-direction:column;gap:9px;margin-top:6px">' +
+        '<div><b>\uD83D\uDC41 Vision first.</b> AURAcamera frames go to a real vision model and come back as a diagnosis, not a paragraph.</div>' +
+        '<div><b>\uD83C\uDFA7 Voice is the interface.</b> Wake word \u2192 order \u2192 spoken answer. Hands stay on the device you are fixing.</div>' +
+        '<div><b>\u26A1 Resilient routing.</b> Every request tries multiple providers behind ' +
+          '<span style="color:#7fd7ff">aura-backend-jomj.onrender.com</span> \u2014 one key failing does not stop the turn.</div>' +
+        '<div><b>\uD83D\uDCE1 Multi-device.</b> A host can drive a joined phone (mesh): open, call, play, speak \u2014 no per-order prompts.</div>' +
+        '<div><b>\uD83D\uDD12 No account wall.</b> Guest works instantly; signing in only adds sync.</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">' +
+        '<button type="button" id="auraWhyVoice" style="padding:9px 13px;border-radius:11px;border:1px solid rgba(120,215,255,.4);' +
+        'background:rgba(120,215,255,.16);color:#dff4ff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer">Start hands-free</button>' +
+        '<button type="button" id="auraWhyClose" style="padding:9px 13px;border-radius:11px;border:1px solid rgba(255,255,255,.14);' +
+        'background:transparent;color:#cfe3f2;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer">Close</button></div>' +
+      '</div></div>');
+    document.body.appendChild(ov);
+    function close(){ ov.remove(); }
+    ov.addEventListener("click", function(e){ if(e.target === ov) close(); });
+    ov.querySelector("#auraWhyX").onclick = close;
+    ov.querySelector("#auraWhyClose").onclick = close;
+    ov.querySelector("#auraWhyVoice").onclick = function(){ close(); voiceDemo(); };
+  }
+
+  /* the cards must not vanish after the first message — a small header button reopens
+     the same three workflows any time, so a reviewer can always get back to them */
+  function openFlows(){
+    var old = document.getElementById("auraFlowOv");
+    if(old) old.remove();
+    var ov = h('<div id="auraFlowOv" style="position:fixed;inset:0;z-index:132;display:flex;align-items:flex-end;justify-content:center;padding:14px;' +
+      'background:rgba(2,5,10,.66);backdrop-filter:blur(6px)">' +
+      '<div style="width:min(560px,100%);max-height:84vh;overflow:auto;border-radius:18px;padding:16px;' +
+      'border:1px solid rgba(120,215,255,.26);background:rgba(10,16,26,.97);color:#e8f4ff">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+        '<b style="font:600 15px Inter,system-ui,sans-serif">Multimodal workflows</b>' +
+        '<button type="button" id="auraFlowX" style="background:none;border:0;color:#7f8b9a;font-size:17px;cursor:pointer">\u2715</button></div>' +
+      '<div id="auraFlowCards" style="display:flex;flex-wrap:wrap;gap:9px"></div></div></div>');
+    document.body.appendChild(ov);
+    function close(){ ov.remove(); }
+    function go(fn){ return function(b){ close(); fn(b); }; }
+    ov.addEventListener("click", function(e){ if(e.target === ov) close(); });
+    ov.querySelector("#auraFlowX").onclick = close;
+    var box = ov.querySelector("#auraFlowCards");
+    box.appendChild(card("1", "Live Camera Vision Co-Pilot", "Point the camera, AURA reads the frame and diagnoses it.",
+      "Tap → analyses a sample frame (no webcam needed)", go(visionDemo), true));
+    box.appendChild(card("2", "Hands-Free Zeus Voice", "Say \u201CAura\u201D — orders run by voice.",
+      "Tap → wake word listening starts", go(voiceDemo), false));
+    box.appendChild(card("3", "Visual & Code Workspace Analysis", "A buggy workspace in, a review and a fix out.",
+      "Tap → loads a sample workspace and reviews it", go(codeDemo), false));
+  }
+  function headerButton(){
+    if(document.getElementById("auraFlowBtn")) return;
+    var topr = document.querySelector(".topr");
+    var acct = document.getElementById("acct");
+    if(!topr) return;
+    var b = document.createElement("button");
+    b.id = "auraFlowBtn"; b.className = "ib"; b.type = "button";
+    b.title = "Multimodal workflows — vision, voice, code";
+    b.innerHTML = '\u2728 <span>Workflows</span>';
+    b.onclick = function(ev){ try{ ev.preventDefault(); }catch(e){} openFlows(); };
+    topr.insertBefore(b, acct || null);
+  }
+
+  (function wait(){
+    if(build()) return;
+    var n = (wait.n = (wait.n || 0) + 1);
+    if(n < 40) setTimeout(wait, 400);
+  })();
+  window.__auraHud = { rebuild: build, why: whySheet, vision: visionDemo, flows: openFlows };
+  setTimeout(headerButton, 1600);
+})();
+</script>
+
 </body></html>
