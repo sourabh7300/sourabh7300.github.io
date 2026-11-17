@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="540c99b92942"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="b283c71fbba3"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1996,7 +1996,7 @@ function makeQR(text) {
   })();
 
   /* ---------------- Mesh ---------------- */
-  var mesh = { code: null, timer: null, seen: [], role: null };
+  var mesh = { code: null, timer: null, seen: [], role: null, peers: 0 };
   try{
     mesh.code = localStorage.getItem("aura_mesh_code") || null;
     mesh.role = localStorage.getItem("aura_mesh_role") || null;
@@ -2172,6 +2172,9 @@ function makeQR(text) {
       /* this tab is by definition awake — a host that never polls must not look asleep */
       function alive(d){ return String(d.id || "") === nodeId || (d.ts && (Date.now() - d.ts < 20000)); }
       var live = devs.filter(alive).length;
+      /* how many OTHER devices are joined: the host only sends an order over the mesh
+         when there is somebody to send it to, otherwise it runs it locally */
+      mesh.peers = devs.filter(function(d){ return String(d.id || "") !== nodeId; }).length;
       var rows = devs.map(function(d){
         var on = alive(d);
         var me = String(d.id || "") === nodeId ? " \u00b7 this device" : "";
@@ -2214,9 +2217,9 @@ function makeQR(text) {
     setStatus("not connected"); listSet("not connected"); qrDraw();
   }
   /* ---------- remote control ----------
-     "open youtube", "speak hello", "vibrate" — the joined device performs it and
-     reports back, so the host sees what happened. Permission is per device and
-     remembered; without it nothing runs. */
+     "open youtube", "app whatsapp", "speak hello", "vibrate" — the joined device performs
+     it and reports back. There is no per-device permission gate any more: joining the
+     mesh IS the consent, so an order from the host always runs. */
   function meshAllow(){
     try{ return localStorage.getItem("aura_mesh_allow") === "1"; }catch(e){ return false; }
   }
@@ -2276,6 +2279,72 @@ function makeQR(text) {
     if(/^https?:\/\//i.test(t)) return t;
     if(/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(t)) return "https://" + t;
     return "https://www.google.com/search?q=" + encodeURIComponent(t);
+  }
+  /* ---------- apps on the joined device: no prompt, no permission ----------
+     The host says "open whatsapp" / "app camera"; the device itself does it. On a phone
+     the app's own scheme is answered by Android directly, and anything else is loaded
+     straight in the tab — there is no "Open now?" card left anywhere in this path. */
+  var AURA_APP_SCHEMES = {
+    whatsapp: "whatsapp://send", whatsappbusiness: "whatsapp://send",
+    instagram: "instagram://app", facebook: "fb://", messenger: "fb-messenger://",
+    telegram: "tg://", snapchat: "snapchat://", twitter: "twitter://", x: "twitter://",
+    youtube: "vnd.youtube://", spotify: "spotify://", netflix: "nflx://",
+    maps: "geo:0,0?q=", googlemaps: "geo:0,0?q=", camera: "camera://",
+    settings: "intent://settings/#Intent;scheme=android-app;end",
+    dialer: "tel:", phone: "tel:", sms: "sms:", messages: "sms:",
+    mail: "mailto:", email: "mailto:", gmail: "googlegmail://", drive: "googledrive://",
+    paytm: "paytmmp://", phonepe: "phonepe://", gpay: "tez://upi/",
+    swiggy: "swiggy://", zomato: "zomato://", uber: "uber://", ola: "olacabs://",
+    amazon: "amzn://", flipkart: "flipkart://", calculator: "calculator://",
+    clock: "clock://", alarm: "clock://", calendar: "content://com.android.calendar/time",
+    playstore: "market://search?q=", chrome: "googlechrome://"
+  };
+  function meshIsPhone(){
+    try{ return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || ""); }catch(e){ return false; }
+  }
+  /* "app whatsapp" forces the app; on a phone a known app name also means the app */
+  function meshOpenTarget(arg){
+    var raw = String(arg || "").trim().replace(/^app[:\s]+/i, "");
+    var k = raw.toLowerCase().replace(/[^a-z]/g, "");
+    var sch = AURA_APP_SCHEMES[k] || "";
+    var forced = /^app[:\s]/i.test(String(arg || "").trim());
+    if(!sch && /^[a-z0-9-]+$/.test(raw) && !/\.[a-z]/i.test(raw)){
+      /* an unknown single word still gets the Play Store on a phone instead of a web search */
+      if(meshIsPhone()) return { scheme: "market://search?q=" + encodeURIComponent(raw), url: meshTargetUrl(raw) };
+    }
+    if(sch && (forced || meshIsPhone())) return { scheme: sch, url: meshTargetUrl(raw) };
+    return { scheme: "", url: meshTargetUrl(raw) };
+  }
+  /* a site that allows framing is shown INSIDE AURA (mesh stays connected, the video
+     keeps playing); everything else opens in the tab itself — never a "tap to allow" card */
+  function meshCanFrame(url){
+    return /youtube\.com\/embed|youtube-nocookie\.com\/embed|player\.vimeo\.com|open\.spotify\.com\/embed|wikipedia\.org|archive\.org/.test(String(url || ""));
+  }
+  function meshView(url, title){
+    if(!url) return false;
+    var v = document.getElementById("auraMeshView");
+    if(!v){
+      v = document.createElement("div"); v.id = "auraMeshView";
+      v.style.cssText = "position:fixed;inset:0;z-index:95;background:#04080e;display:none;flex-direction:column";
+      v.innerHTML = '<div style="display:flex;gap:8px;align-items:center;padding:8px 12px;background:#081120;border-bottom:1px solid rgba(120,215,255,.22);font:12.5px Inter,system-ui,sans-serif;color:#dff3ff">' +
+        '<b id="amvTitle" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></b>' +
+        '<button id="amvTab" style="padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfe9ff;font:600 12px Inter,system-ui,sans-serif;cursor:pointer">\u2197 Tab</button>' +
+        '<button id="amvClose" style="padding:6px 10px;border-radius:8px;border:0;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 12px Inter,system-ui,sans-serif;cursor:pointer">Close</button></div>' +
+        '<iframe id="amvFrame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" style="flex:1;width:100%;border:0;background:#000"></iframe>';
+      document.body.appendChild(v);
+      v.querySelector("#amvClose").onclick = function(){ v.style.display = "none"; try{ v.querySelector("#amvFrame").src = "about:blank"; }catch(e){} };
+      v.querySelector("#amvTab").onclick = function(){
+        var u = ""; try{ u = v.querySelector("#amvFrame").src; }catch(e){}
+        v.style.display = "none";
+        if(!u || u === "about:blank") return;
+        try{ if(!window.open(u, "_blank")) location.href = u; }catch(e){ location.href = u; }
+      };
+    }
+    v.querySelector("#amvTitle").textContent = title || url;
+    v.style.display = "flex";
+    try{ v.querySelector("#amvFrame").src = url; }catch(e){}
+    try{ window.__meshViewLast = { at: Date.now(), url: url }; }catch(e){}
+    return true;
   }
   /* ---------------- contacts (what "call <name>" needs) ----------------
      A web page cannot read the phone's address book by itself. The Web Contact Picker is
@@ -2393,14 +2462,10 @@ function makeQR(text) {
       var q = String(arg || "").trim();
       if(!q) { done("nothing to play"); return; }
       var purl = "https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(q);
-      var pw = null;
-      try{ pw = window.open(purl, "_blank"); }catch(e){}
-      if(!pw){
-        meshBanner("AURA mesh", "Play <b>" + q + "</b> on this device?", "Play now", function(){
-          try{ window.open(purl, "_blank"); }catch(e){ location.href = purl; }
-        });
-        done("asked the user to tap (popup blocked)");
-      } else done("playing: " + q);
+      /* plays right here on the joined device, no tap and no popup */
+      meshView(purl, "\u25b6 " + q);
+      tell("\u25b6 " + q.slice(0, 50));
+      done("playing: " + q);
       return;
     }
     if(cmd === "callname" || (cmd === "call" && /[a-z]/i.test(String(arg || "")))){
@@ -2433,7 +2498,8 @@ function makeQR(text) {
       var msg = String(parts[1] || "").trim();
       if(phone.length < 8){ meshBanner("AURA mesh", "WhatsApp ke liye number chahiye (whatsapp 919876543210|hello).", "OK", null); done("no number"); return; }
       var wurl = "https://wa.me/" + phone + (msg ? "?text=" + encodeURIComponent(msg) : "");
-      try{ window.open(wurl, "_blank"); }catch(e){}
+      /* wa.me opens the app on a phone and the web client on a desktop, no prompt */
+      try{ if(!window.open(wurl, "_blank")) location.href = wurl; }catch(e){ location.href = wurl; }
       done("whatsapp " + phone);
       return;
     }
@@ -2449,17 +2515,24 @@ function makeQR(text) {
       }catch(e){ done("notify failed"); }
       return;
     }
-    if(cmd === "open"){
-      var url = meshTargetUrl(arg);
-      var w = null;
-      try{ w = window.open(url, "_blank"); }catch(e){}
-      if(!w){
-        /* pop-ups need a gesture — hand the tap to the user instead of failing silently */
-        meshBanner("AURA mesh", "Open <b>" + url + "</b> on this device?", "Open now", function(){
-          try{ window.open(url, "_blank"); }catch(e){ location.href = url; }
-        });
-        done("blocked — asked the user to tap");
-      } else done("opened " + url);
+    if(cmd === "open" || cmd === "app"){
+      var tgt = meshOpenTarget(arg);
+      if(tgt.scheme){
+        /* the app's own scheme: Android opens it directly, no chooser forced by us */
+        try{ location.href = tgt.scheme; }catch(e){}
+        tell("\uD83D\uDCF1 " + String(arg).slice(0, 40));
+        done("opened app " + arg);
+        /* if no app answered the scheme we are still here — load the web version */
+        setTimeout(function(){
+          try{ if(!document.hidden && tgt.url) location.href = tgt.url; }catch(e){}
+        }, 1600);
+        return;
+      }
+      if(meshCanFrame(tgt.url)){ meshView(tgt.url, "\u25c6 " + String(arg).slice(0, 40)); done("opened " + tgt.url); return; }
+      /* any other site: straight into the tab, no permission card */
+      tell("\u25c6 " + String(arg).slice(0, 40));
+      try{ location.href = tgt.url; }catch(e){}
+      done("opened " + tgt.url);
       return;
     }
     if(cmd === "speak"){
@@ -2489,8 +2562,10 @@ function makeQR(text) {
     if(m) return { cmd: "notify", arg: m[2] };
     m = t.match(/^(search|google|khojo)\s+([\s\S]+)$/i);
     if(m) return { cmd: "open", arg: "https://www.google.com/search?q=" + encodeURIComponent(m[2]) };
+    m = t.match(/^(?:app|openapp|appkholo)\s+(.+)$/i);
+    if(m) return { cmd: "app", arg: m[1].trim() };
     m = t.match(/^(open|kholo|khol)\s+(.+)$/i);
-    if(m) return { cmd: "open", arg: m[2] };
+    if(m) return { cmd: /^app[:\s]/i.test(m[2].trim()) ? "app" : "open", arg: m[2] };
     m = t.match(/^(speak|bolo|bol|suno|say)\s+([\s\S]+)$/i);
     if(m) return { cmd: "speak", arg: m[2] };
     m = t.match(/^(toast|show|dikhao)\s+([\s\S]+)$/i);
@@ -2538,6 +2613,7 @@ function makeQR(text) {
           window.__meshStats = window.__meshStats || { polls: [], cmds: [] };
           window.__meshStats.polls.push({ at: Date.now(), hidden: document.hidden, n: (j.cmds || []).length });
           if(window.__meshStats.polls.length > 200) window.__meshStats.polls.shift();
+          if(typeof j.peers === "number") mesh.peers = Math.max(0, j.peers - (mesh.role === "host" ? 0 : 1));
           (j.cmds || []).forEach(function(c){
             window.__meshStats.cmds.push({ at: Date.now(), hidden: document.hidden, id: c.id, cmd: c.cmd, arg: String(c.arg || "").slice(0, 40) });
             if(window.__meshStats.cmds.length > 100) window.__meshStats.cmds.shift();
@@ -2549,8 +2625,8 @@ function makeQR(text) {
               try{ if(typeof window.addMsg === "function") window.addMsg("a", "\uD83D\uDCE1 " + (c.arg || "")); }catch(e){}
               return;
             }
-            /* every other command ACTS on this device — it only runs when the owner of
-               this device allowed it, and the first order asks once */
+            /* every other command ACTS on this device — joining the mesh was the consent,
+               so an order from the host runs straight away with no prompt */
             meshExec(c);
           });
           if($("#auraMeshOv").classList.contains("on")) refresh();
@@ -5473,6 +5549,26 @@ function makeQR(text) {
     try{ window.__auraLastIntent = { at: Date.now(), url: url, note: note }; }catch(e){}
     return true;
   }
+  /* ---- the host's words go to the joined device, not to the host itself ----
+     "open youtube" spoken on the host used to load YouTube ON THE HOST. The whole point
+     of the mesh is the other way round: the host gives the order, the joined device does
+     it — with no permission prompt on either side. If nobody is joined it falls through
+     to the normal local behaviour. */
+  function meshHostSend(cmd, arg, note){
+    if(!(mesh.code && mesh.role === "host")) return false;
+    if(!(mesh.peers > 0)) return false;
+    var body = { code: mesh.code, cmd: cmd, arg: arg, from: nodeId };
+    api("/v1/mesh/command", body).then(function(j){
+      tell(j.queued ? (note + " \u2192 joined device") : "Koi device mesh me nahi hai");
+    }).catch(function(){
+      setTimeout(function(){
+        api("/v1/mesh/command", body).then(function(j){
+          tell(j.queued ? (note + " \u2192 joined device") : "Koi device mesh me nahi hai");
+        }).catch(function(){ tell("Order nahi gaya \u00b7 dobara bolo"); });
+      }, 900);
+    });
+    return true;
+  }
   window.__auraIntent = function(raw){
     var t = String(raw || "").trim();
     if(t.length < 3) return false;
@@ -5491,6 +5587,7 @@ function makeQR(text) {
         try{ tell("Konsa gaana? Naam bolo \u2014 jaise: play kesariya on youtube"); }catch(e){}
         return true;
       }
+      if(meshHostSend("play", q, "\u25B6 " + q.slice(0, 40))) return true;
       return auraDo("https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(q),
         "\u25B6 YouTube: " + q.slice(0, 46));
     }
@@ -5502,11 +5599,13 @@ function makeQR(text) {
       if(!url && /^https?:\/\//i.test(what)) url = what;
       if(!url && /^[a-z0-9-]+(\.[a-z0-9-]+)+(\/.*)?$/i.test(what)) url = "https://" + what;
       if(!url) url = "https://www.google.com/search?q=" + encodeURIComponent(what);
+      if(meshHostSend("open", what, "\u25c6 " + what.slice(0, 40))) return true;
       return auraDo(url, "\u25C6 " + what.slice(0, 40));
     }
     m = t.match(/^(?:search|google|khojo|dhundo)\s+(.+)$/i);
     if(m){
       var q2 = t.replace(/^(?:search|google|khojo|dhundo)\s+/i, "").trim();
+      if(meshHostSend("open", "https://www.google.com/search?q=" + encodeURIComponent(q2), "\uD83D\uDD0E " + q2.slice(0, 30))) return true;
       return auraDo("https://www.google.com/search?q=" + encodeURIComponent(q2), "\uD83D\uDD0E " + q2.slice(0, 40));
     }
     m = t.match(/^(?:call|dial|phone|milao)\s+(.+)$/i);
@@ -5514,6 +5613,7 @@ function makeQR(text) {
       var who = m[1].trim();
       var digits = who.replace(/[^\d+]/g, "").replace(/\D/g, "");
       if(digits.length >= 6){
+        if(meshHostSend("call", who, "\uD83D\uDCDE " + who.slice(0, 20))) return true;
         try{ location.href = "tel:" + who.replace(/[^\d+]/g, ""); }catch(e){}
         try{ tell("\uD83D\uDCDE Calling " + who); }catch(e){}
         return true;
