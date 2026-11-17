@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="d7ce87326f71"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="71d8e19b9ed5"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2321,8 +2321,25 @@ function makeQR(text) {
   }
   /* a site that allows framing is shown INSIDE AURA (mesh stays connected, the video
      keeps playing); everything else opens in the tab itself — never a "tap to allow" card */
+  /* hosts that send X-Frame-Options / frame-ancestors and therefore CANNOT be shown in
+     the in-app viewer — they get a real tab instead of a blank "unavailable" screen */
+  var AURA_NOFRAME = /(^|\.)(google\.com|google\.co\.in|youtube\.com|youtu\.be|gmail\.com|spotify\.com|instagram\.com|facebook\.com|x\.com|twitter\.com|whatsapp\.com|netflix\.com|amazon\.|flipkart\.com|paytm\.com|phonepe\.com|linkedin\.com|reddit\.com|quora\.com|chatgpt\.com|openai\.com|gemini\.google\.com|drive\.google\.com|docs\.google\.com|swiggy\.com|zomato\.com|uber\.com|olacabs\.com|telegram\.org|zoom\.us)/i;
   function meshCanFrame(url){
-    return /youtube\.com\/embed|youtube-nocookie\.com\/embed|player\.vimeo\.com|open\.spotify\.com\/embed|wikipedia\.org|archive\.org/.test(String(url || ""));
+    var u = String(url || "");
+    if(/youtube\.com\/embed|youtube-nocookie\.com\/embed/.test(u)) return true;
+    try{ if(AURA_NOFRAME.test(new URL(u).hostname)) return false; }catch(e){}
+    return /player\.vimeo\.com|open\.spotify\.com\/embed|wikipedia\.org|archive\.org/.test(u);
+  }
+  /* the viewer must never be a black "unavailable" screen: if the page does not load,
+     a plain card offers the real tab with one tap (a tap is what every mobile browser
+     needs to open a new tab — nothing here asks for permission). */
+  function meshViewFail(v, url){
+    var box = v.querySelector("#amvFallback");
+    if(box) box.style.display = "flex";
+    var a = v.querySelector("#amvFallbackLink");
+    if(a) a.setAttribute("href", url);
+    var n = v.querySelector("#amvFallbackUrl");
+    if(n) n.textContent = url;
   }
   /* open a page WITHOUT losing AURA: its own tab if the browser allows one, else the
      in-app viewer (AURA still runs, the mesh still polls) — never a same-tab navigation
@@ -2346,7 +2363,15 @@ function makeQR(text) {
         '<b id="amvTitle" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></b>' +
         '<button id="amvTab" style="padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfe9ff;font:600 12px Inter,system-ui,sans-serif;cursor:pointer">\u2197 Tab</button>' +
         '<button id="amvClose" style="padding:6px 10px;border-radius:8px;border:0;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 12px Inter,system-ui,sans-serif;cursor:pointer">Close</button></div>' +
-        '<iframe id="amvFrame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" style="flex:1;width:100%;border:0;background:#000"></iframe>';
+        '<div style="flex:1;position:relative;min-height:0;display:flex">' +
+          '<iframe id="amvFrame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" style="flex:1;width:100%;border:0;background:#000"></iframe>' +
+          '<div id="amvFallback" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:#04080e;color:#dff3ff;font:13px/1.5 Inter,system-ui,sans-serif">' +
+            '<div style="font-size:15px;font-weight:700">Yeh site andar nahi khulti</div>' +
+            '<div id="amvFallbackUrl" style="color:#8ea1b2;font-size:11.5px;word-break:break-all;max-width:92%"></div>' +
+            '<a id="amvFallbackLink" href="#" style="margin-top:6px;padding:11px 18px;border-radius:12px;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 13px Inter,system-ui,sans-serif;text-decoration:none">\u2197 Open in tab</a>' +
+            '<div style="color:#6f8496;font-size:11px">AURA khula rahega — wapas aake kuch setup nahi karna</div>' +
+          '</div>' +
+        '</div>';
       document.body.appendChild(v);
       v.querySelector("#amvClose").onclick = function(){
         v.style.display = "none"; try{ v.querySelector("#amvFrame").src = "about:blank"; }catch(e){}
@@ -2371,7 +2396,18 @@ function makeQR(text) {
     }
     v.querySelector("#amvTitle").textContent = title || url;
     v.style.display = "flex";
-    try{ v.querySelector("#amvFrame").src = url; }catch(e){}
+    var fb = v.querySelector("#amvFallback"); if(fb) fb.style.display = "none";
+    var fr = v.querySelector("#amvFrame");
+    var loaded = false;
+    try{
+      fr.onload = function(){ loaded = true; };
+      fr.src = url;
+    }catch(e){}
+    /* nothing rendered (framing refused / dead link) — hand over a real tab instead */
+    clearTimeout(meshView.failT);
+    meshView.failT = setTimeout(function(){
+      if(!loaded) meshViewFail(v, url);
+    }, 3200);
     try{ if(!(history.state && history.state.auraView)) history.pushState({ auraView: 1 }, ""); }catch(e){}
     try{ window.__meshViewLast = { at: Date.now(), url: url }; }catch(e){}
     return true;
@@ -2411,6 +2447,47 @@ function makeQR(text) {
     var q = String(name || "").toLowerCase().slice(0, 3);
     return contactsGet().filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) >= 0; })
       .slice(0, max || 3).map(function(c){ return c.n; });
+  }
+  /* Mobile browsers open the dialer only from a real tap, so the dial is tried at once and
+     a proper call card appears if the page is still here — that one tap is the only thing
+     a browser cannot do by itself, and it looks like a phone call, not a permission. */
+  function auraCall(number, name){
+    var num = String(number || "").replace(/[^+\d]/g, "");
+    if(!num) return false;
+    try{ tell("\uD83D\uDCDE Calling " + (name || num) + " \u2026"); }catch(e){}
+    try{ location.href = "tel:" + num; }catch(e){}
+    setTimeout(function(){
+      /* the dialer took over — nothing else to do. If AURA was in the background when the
+         order came, the card waits and shows the moment the owner is back on this page. */
+      var waitForView = document.visibilityState !== "visible";
+      if(waitForView && !auraCall.wired){
+        auraCall.wired = true;
+        document.addEventListener("visibilitychange", function(){
+          var el = document.getElementById("auraCallSheet");
+          if(el && el.getAttribute("data-pending") === "1" && document.visibilityState === "visible"){
+            el.setAttribute("data-pending", "0"); el.style.display = "flex";
+          }
+        });
+      }
+      var c = document.getElementById("auraCallSheet");
+      if(!c){
+        c = document.createElement("div"); c.id = "auraCallSheet";
+        c.style.cssText = "position:fixed;inset:0;z-index:99;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(2,6,12,.72);font:14px Inter,system-ui,sans-serif";
+        c.innerHTML = '<div style="width:100%;max-width:420px;background:#0a1520;border:1px solid rgba(120,215,255,.28);border-radius:20px;padding:18px;text-align:center;color:#e9f5ff">' +
+          '<div id="acsName" style="font:700 17px Inter,system-ui,sans-serif;margin-bottom:4px"></div>' +
+          '<div id="acsNum" style="color:#8ea1b2;font-size:13px;margin-bottom:14px"></div>' +
+          '<a id="acsCall" href="#" style="display:block;padding:14px;border-radius:14px;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 15px Inter,system-ui,sans-serif;text-decoration:none">\uD83D\uDCDE Call now</a>' +
+          '<button id="acsClose" style="margin-top:10px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfe9ff;font:600 12.5px Inter,system-ui,sans-serif">Close</button></div>';
+        document.body.appendChild(c);
+        c.querySelector("#acsClose").onclick = function(){ c.style.display = "none"; };
+      }
+      c.querySelector("#acsName").textContent = name || num;
+      c.querySelector("#acsNum").textContent = num;
+      c.querySelector("#acsCall").setAttribute("href", "tel:" + num);
+      if(waitForView){ c.setAttribute("data-pending", "1"); c.style.display = "none"; }
+      else { c.setAttribute("data-pending", "0"); c.style.display = "flex"; }
+    }, 1200);
+    return true;
   }
   function contactsPaint(){
     var list = contactsGet();
@@ -2508,15 +2585,14 @@ function makeQR(text) {
         done("no contact named " + who);
         return;
       }
-      try{ location.href = "tel:" + String(hit.t).replace(/[^\d+]/g, ""); }catch(e){}
-      meshBanner("AURA mesh", "Calling <b>" + hit.n + "</b> \u2026", "OK", null);
+      auraCall(hit.t, hit.n);
       done("calling " + hit.n);
       return;
     }
     if(cmd === "call"){
       var num = String(arg || "").replace(/[^\d+]/g, "");
       if(num.length < 6){ tell("Number chahiye \u2014 jaise: call 9876543210"); done("no number"); return; }
-      try{ location.href = "tel:" + num; }catch(e){}
+      auraCall(num, num);
       done("dialling " + num);
       return;
     }
@@ -5626,7 +5702,9 @@ function makeQR(text) {
                .replace(/\s+youtube$/i, "")
                .trim();
       /* "play this" has no title in it — use the last thing said on screen */
-      if(/^(this|it|that|ye|yeh|isko|ise|song|gaana|gana|same)$/i.test(q)) q = auraLastWords();
+      /* "play this song" / "yeh gaana chalao" means the song we were just talking about */
+      if(/^(this|it|that|ye|yeh|isko|ise|same)(\s+(song|gaana|gana|track|one|video))?$/i.test(q) ||
+         /^(song|gaana|gana|track)$/i.test(q)) q = auraLastWords();
       if(!q){
         /* nothing on screen to borrow a title from — ask for it instead of silently
            sending "play this" to the chat as if it were a question */
@@ -5654,14 +5732,28 @@ function makeQR(text) {
       if(meshHostSend("open", "https://www.google.com/search?q=" + encodeURIComponent(q2), "\uD83D\uDD0E " + q2.slice(0, 30))) return true;
       return auraDo("https://www.google.com/search?q=" + encodeURIComponent(q2), "\uD83D\uDD0E " + q2.slice(0, 40));
     }
-    m = t.match(/^(?:call|dial|phone|milao)\s+(.+)$/i);
+    m = t.match(/^(?:call|dial|phone|milao|lagao)\s+(.+)$/i);
     if(m){
-      var who = m[1].trim();
+      var who = m[1].trim().replace(/\s+(ko|se)\s*(call)?\s*$/i, "").replace(/\s+ko$/i, "").trim();
+      /* "call this person" — whatever contact AURA was just talking about, or the only one */
+      if(/(this|that)?\s*(person|contact|banda|aadmi|insaan)$/i.test(who) || /^(isko|ise|usko)$/i.test(who)){
+        var allc = contactsGet();
+        var guess = allc.length === 1 ? allc[0] : null;
+        if(!guess && allc.length){
+          var said = String(auraLastWords()).toLowerCase();
+          guess = allc.filter(function(c){ return said.indexOf(String(c.n || "").toLowerCase()) >= 0; })[0] || null;
+        }
+        if(!guess){
+          if(!allc.length) tell("Pehle Contacts me number add karo \u2014 mesh panel \u2192 \uD83D\uDCD3 Contacts");
+          else tell("Kisko call karna hai? " + allc.slice(0, 3).map(function(c){ return c.n; }).join(", "));
+          return true;
+        }
+        who = guess.n;
+      }
       var digits = who.replace(/[^\d+]/g, "").replace(/\D/g, "");
       if(digits.length >= 6){
         if(meshHostSend("call", who, "\uD83D\uDCDE " + who.slice(0, 20))) return true;
-        try{ location.href = "tel:" + who.replace(/[^\d+]/g, ""); }catch(e){}
-        try{ tell("\uD83D\uDCDE Calling " + who); }catch(e){}
+        auraCall(who, who);
         return true;
       }
       /* a NAME: the number lives on the joined device, so the host orders the DEVICE to
@@ -5675,12 +5767,21 @@ function makeQR(text) {
       }
       var hit = contactsFind(who);
       if(hit){
-        try{ location.href = "tel:" + String(hit.t).replace(/[^\d+]/g, ""); }catch(e){}
-        try{ tell("\uD83D\uDCDE Calling " + hit.n); }catch(e){}
+        auraCall(hit.t, hit.n);
         return true;
       }
       try{ var near = contactsNear(who, 3); tell("Contact nahi mila: " + who + (near.length ? " \u00b7 matlab: " + near.join(", ") : "") + " \u00b7 mesh panel me \uD83D\uDCD3 Contacts add karo"); }catch(e){}
       return true;
+    }
+    /* "stop" / "band karo" closes whatever AURA opened, without leaving the app */
+    if(/^(stop|band|band karo|ruko|chup|close)\b/i.test(t)){
+      var vv = document.getElementById("auraMeshView");
+      if(vv && vv.style.display !== "none"){
+        vv.style.display = "none";
+        try{ vv.querySelector("#amvFrame").src = "about:blank"; }catch(e){}
+        try{ tell("\u23f9 Band kar diya"); }catch(e){}
+        return true;
+      }
     }
     return false;
   };
