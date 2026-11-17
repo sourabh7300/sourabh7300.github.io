@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="b88087ccfd17"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="32af36b2c9c1"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -769,8 +769,17 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     }
   }
   function devName(){
-    try{ return (localStorage.getItem("az.name") ? JSON.parse(localStorage.getItem("az.name")) : "Device") || "Device"; }
-    catch(e){ return "Device"; }
+    /* every paired phone was called "Device", so the list was a column of clones.
+       A browser + platform name makes it obvious which one is which. */
+    try{ var n = localStorage.getItem("az.name"); if(n){ n = JSON.parse(n); if(n) return n; } }catch(e){}
+    try{
+      var ua = navigator.userAgent || "";
+      var br = /Edg\//.test(ua) ? "Edge" : /OPR\//.test(ua) ? "Opera" : /Chrome\//.test(ua) ? "Chrome"
+             : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
+      var os = /Android/.test(ua) ? "Android" : /iPhone|iPad|iPod/.test(ua) ? "iPhone"
+             : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "Mac" : /Linux/.test(ua) ? "Linux" : "";
+      return os ? (br + " \u00b7 " + os) : br;
+    }catch(e){ return "Device"; }
   }
   function api(path, body, method){
     var h = { "Content-Type": "application/json" };
@@ -1079,13 +1088,13 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     list = [].slice.call(list || []);
     if(!list.length) return;
     var big = list.filter(function(f){ return f.size > 12 * 1024 * 1024; });
-    if(big.length) tell(big.length + " file(s) skipped \u2014 12 MB se bada");
+    if(big.length) tell(big.length + " file(s) skipped — larger than 12 MB");
     var ok = list.filter(function(f){ return f.size <= 12 * 1024 * 1024; });
     if(!ok.length) return;
     Promise.all(ok.map(readOne)).then(function(out){
       var added = 0;
       out.filter(Boolean).forEach(function(f){ if(files.length < 6){ files.push(f); added++; } });
-      if(!added) tell("6 files tak hi attach ho sakti hain \u2014 pehle koi hataao");
+      if(!added) tell("Only 6 files can be attached — remove one first");
       else tell(added + " file attached \u2014 ab sawaal poocho");
       renderFiles();
     });
@@ -1721,8 +1730,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       /* a 502 with a readable reason (image brain out of quota, model busy) is an
          answer to show, not a dead backend to blame */
       if(e && e.status === 502 && msg && !/^HTTP/.test(msg)) return "\u26a0\ufe0f " + msg;
-      if(pack && pack.images && pack.images.length) return "\u26a0\ufe0f Image brain is busy right now (" + msg + ").\nImage hata ke dobara poochho, ya thodi der baad try karo \u2014 text answers chal rahe hain.";
-      if(pack && pack.text) return "\u26a0\ufe0f The answer for this file timed out (" + msg + ").\nBada file tha \u2014 dobara bhejo, ya ek-ek question poochho.";
+      if(pack && pack.images && pack.images.length) return "\u26a0\ufe0f Image brain is busy right now (" + msg + ").\nRemove the image and ask again, or try in a moment — text answers still work.";
+      if(pack && pack.text) return "\u26a0\ufe0f The answer for this file timed out (" + msg + ").\nThe file was large — send it again, or ask one question at a time.";
       return "\u26a0\ufe0f Engine unreachable (" + msg + ")\nBackend: " + BASE;
     }
   };
@@ -2018,7 +2027,8 @@ function makeQR(text) {
   var ov = document.createElement("div");
   ov.className = "ov"; ov.id = "auraMeshOv";
   ov.innerHTML =
-    '<div class="mod pn"><h3>\uD83D\uDCE1 MESH</h3>' +
+    '<div class="mod pn"><div style="display:flex;align-items:center;gap:10px"><h3 style="margin:0">\uD83D\uDCE1 MESH</h3>' +
+    '<button id="amuX" type="button" aria-label="Close" style="margin-left:auto;background:none;border:0;color:#8ea1b2;font-size:16px;cursor:pointer">\u2715</button></div>' +
     '<p style="color:var(--dim);font:12.5px var(--f2);margin:6px 0 10px">Pair this device with another. Host on one, join with the six-digit code on the other.</p>' +
     '<p id="amuStatus" style="font:12.5px var(--f2);color:var(--dim);margin:0 0 10px">not connected</p>' +
     '<div id="amuQRWrap" style="display:none;text-align:center;margin:0 0 14px">' +
@@ -2057,7 +2067,7 @@ function makeQR(text) {
     '<div id="amuContactsRow" style="margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">' +
       '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">' +
         '<button class="b" id="amuContacts">\uD83D\uDCD3 Contacts (0)</button>' +
-        '<span style="font:11px var(--f2);color:var(--dim)">host bol sakta hai: \u201ccall Rahul\u201d</span>' +
+        '<span style="font:11px var(--f2);color:var(--dim)">host can say: \u201ccall Rahul\u201d</span>' +
       '</div>' +
       '<div id="amuContactsBox" style="display:none;margin-top:8px">' +
         '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">' +
@@ -2145,7 +2155,9 @@ function makeQR(text) {
     if(!role) return;
     mesh.role = role;
           var ok = function(){
-        pollStart(); refresh(); meshRoleUI(); pushSync();
+        /* poll first, paint after it lands — refreshing first showed a one-second
+           "0 devices connected" right after Reconnect */
+        pollStart(); setTimeout(function(){ try{ refresh(); }catch(e){} }, 800); meshRoleUI(); pushSync();
         setStatus((role === "host" ? "Hosting" : "Joined") + " \u00b7 code " + mesh.code + " \u00b7 reconnected");
         window.__meshResume = { at: Date.now(), code: mesh.code, role: role };
         /* coming back from another tab/app must FEEL like nothing happened */
@@ -2155,7 +2167,7 @@ function makeQR(text) {
       try{ localStorage.removeItem("aura_mesh_code"); localStorage.removeItem("aura_mesh_role"); }catch(e){}
       mesh.code = null; mesh.role = null;
       setStatus("not connected"); listSet("not connected"); qrDraw();
-      tell("Mesh band ho gaya tha \u2014 dobara host ya join karo");
+      tell("Mesh had closed \u2014 host or join again");
     };
     if(role === "host"){
       api("/v1/mesh/register", { hostId: nodeId, code: mesh.code }).then(function(j){
@@ -2170,7 +2182,7 @@ function makeQR(text) {
   function rejoin(){
     var c = mesh.lastCode || String(($("#amuCode") || {}).value || "").trim();
     var r = mesh.lastRole || "node";
-    if(!/^\d{6}$/.test(String(c))) return tell("Pehle code daalo (host panel me dikhta hai)");
+    if(!/^\d{6}$/.test(String(c))) return tell("Enter the code first (shown in the host panel)");
     mesh.code = String(c); mesh.role = r; mesh.timer = null;
     try{ localStorage.setItem("aura_mesh_code", mesh.code); localStorage.setItem("aura_mesh_role", r); }catch(e){}
     meshResume();
@@ -2185,34 +2197,53 @@ function makeQR(text) {
       var devs = j.devices || [];
       if(!Array.isArray(devs)) devs = Object.keys(devs).map(function(k){ var v = devs[k] || {}; v.id = k; return v; });
       /* this tab is by definition awake — a host that never polls must not look asleep */
-      function alive(d){ return String(d.id || "") === nodeId || (d.ts && (Date.now() - d.ts < 20000)); }
-      var live = devs.filter(alive).length;
+      /* /v1/mesh/state reports ageMs/fresh; older builds read ts. Reading only ts made
+         every other live device show "asleep" even while it was polling every 1.5s. */
+      function isLive(d){
+        if(String(d.id || "") === nodeId) return true;
+        if(typeof d.fresh === "boolean") return d.fresh;
+        if(typeof d.ageMs === "number") return d.ageMs < 35000;
+        return !!(d.ts && (Date.now() - d.ts < 35000));
+      }
+      /* A phone that goes to the background STOPS polling promptly (browsers throttle
+         background timers), which is exactly when the host needs it: it is marked away by
+         the backend and kept for 15 minutes, so it stays listed and targetable. Only a
+         device that stopped answering without ever saying it was away is a ghost from an
+         old page load, and that one is hidden. */
+      function keeper(d){ return isLive(d) || d.away === true; }
+      var here = devs.filter(keeper);
+      var live = here.filter(isLive).length;
+      var awayNow = here.length - live;
       /* how many OTHER devices are joined: the host only sends an order over the mesh
          when there is somebody to send it to, otherwise it runs it locally */
-      mesh.peers = devs.filter(function(d){ return String(d.id || "") !== nodeId; }).length;
-      mesh.peerIds = devs.filter(function(d){ return String(d.id || "") !== nodeId; })
+      mesh.peers = here.filter(function(d){ return String(d.id || "") !== nodeId; }).length;
+      mesh.peerIds = here.filter(function(d){ return String(d.id || "") !== nodeId; })
         .map(function(d){ return String(d.id || ""); }).filter(Boolean);
-      var rows = devs.map(function(d){
-        var on = alive(d);
+      var rows = here.map(function(d){
         var me = String(d.id || "") === nodeId ? " \u00b7 this device" : "";
-        return '<div>' + (on ? "\u25cf " : "\u25cb ") + (d.name || "Device") + me +
-               (d.battery != null ? " \u00b7 " + d.battery + "%" : "") + (on ? "" : " \u00b7 asleep") + '</div>';
+        var bg = (!isLive(d) && d.away) ? " \u00b7 in background" : "";
+        return '<div>' + (isLive(d) ? "\u25cf " : "\u25cb ") + (d.name || "Device") + me + bg +
+               (d.battery != null ? " \u00b7 " + d.battery + "%" : "") + '</div>';
       }).join("");
       setStatus((mesh.role === "host" ? "Hosting" : "Joined") + " \u00b7 code " + mesh.code +
-        " \u00b7 " + devs.length + " device(s), " + live + " live \u00b7 orders in ~1-2s while open; background can be slower" );
+        " \u00b7 " + here.length + " device" + (here.length === 1 ? "" : "s") +
+        (awayNow ? " (" + awayNow + " in background)" : ""));
       /* results come back from the other device, so the host can see whether the order
          actually ran instead of guessing */
       var results = (j.results || []).slice(-3).map(function(r){
         return '<div style="color:#8ea1b2">\u21b3 ' + String(r.result || r.note || "done").replace(/[<>&]/g, '').slice(0, 90) + '</div>';
       }).join("");
-      listSet('<div><b>' + mesh.code + '</b> \u00b7 ' + devs.length + ' device(s)</div>' + (rows || "<div>waiting for the other device\u2026</div>") + results);
+      listSet('<div><b>' + mesh.code + '</b> \u00b7 ' + here.length + ' device' + (here.length === 1 ? "" : "s") +
+        (awayNow ? ' \u00b7 ' + awayNow + ' in background' : '') + '</div>' +
+        (rows || "<div>waiting for the other device\u2026</div>") + results);
       /* target picker: send the order to one device instead of everyone */
       var sel = $("#amuTarget");
       if(sel){
         var keep = sel.value || "all";
-        sel.innerHTML = '<option value="all">All devices</option>' + devs.map(function(d){
+        sel.innerHTML = '<option value="all">All devices</option>' + here.map(function(d){
           var id = String(d.id || "");
-          var label = (d.name || "Device") + (id === nodeId ? " (this device)" : "");
+          var label = (d.name || "Device") + (id === nodeId ? " (this device)" : "") +
+            (id !== nodeId && !isLive(d) && d.away ? " · background" : "");
           return '<option value="' + id.replace(/"/g, "") + '">' + label.replace(/[<>&]/g, "") + '</option>';
         }).join("");
         sel.value = keep;
@@ -2379,10 +2410,10 @@ function makeQR(text) {
         '<div style="flex:1;position:relative;min-height:0;display:flex">' +
           '<iframe id="amvFrame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" style="flex:1;width:100%;border:0;background:#000"></iframe>' +
           '<div id="amvFallback" style="display:none;position:absolute;inset:0;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:#04080e;color:#dff3ff;font:13px/1.5 Inter,system-ui,sans-serif">' +
-            '<div style="font-size:15px;font-weight:700">Yeh site andar nahi khulti</div>' +
+            '<div style="font-size:15px;font-weight:700">This site does not open in here</div>' +
             '<div id="amvFallbackUrl" style="color:#8ea1b2;font-size:11.5px;word-break:break-all;max-width:92%"></div>' +
             '<a id="amvFallbackLink" href="#" style="margin-top:6px;padding:11px 18px;border-radius:12px;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 13px Inter,system-ui,sans-serif;text-decoration:none">\u2197 Open in tab</a>' +
-            '<div style="color:#6f8496;font-size:11px">AURA khula rahega — wapas aake kuch setup nahi karna</div>' +
+            '<div style="color:#6f8496;font-size:11px">AURA stays open — nothing to set up when you come back</div>' +
           '</div>' +
         '</div>';
       document.body.appendChild(v);
@@ -2402,7 +2433,7 @@ function makeQR(text) {
         var w = null;
         try{ w = window.open(u, "_blank"); }catch(e){}
         /* blocked? keep the page here instead of throwing AURA away */
-        if(!w) return tell("Tab nahi khula \u2014 yahi dikha rahe hain");
+        if(!w) return tell("The tab did not open — showing it here");
         v.style.display = "none";
         try{ v.querySelector("#amvFrame").src = "about:blank"; }catch(e){}
       };
@@ -2530,18 +2561,18 @@ function makeQR(text) {
     var i = all.findIndex(function(c){ return String(c.n).toLowerCase() === nm.toLowerCase() || String(c.t).replace(/\D/g, "") === t.replace(/\D/g, ""); });
     if(i >= 0) all[i] = { n: nm, t: t }; else all.push({ n: nm, t: t });
     contactsSet(all);
-    tell("\u2713 " + nm + " saved \u00b7 host ab 'call " + nm + "' bhej sakta hai");
+    tell("\u2713 " + nm + " saved · host can now send 'call " + nm + "");
   }
   function contactsImport(){
     var picker = navigator.contacts && navigator.contacts.select;
-    if(!picker) return tell("Is browser me contact picker nahi hai \u2014 neeche naam + number add karo (Chrome on Android me picker chalta hai)");
+    if(!picker) return tell("This browser has no contact picker \u2014 add a name and number below (the picker works in Chrome on Android)");
     navigator.contacts.select(["name", "tel"], { multiple: true }).then(function(list){
       var add = [];
       (list || []).forEach(function(p){
         var nm = (p.name && p.name[0]) || "";
         (p.tel || []).forEach(function(t){ if(nm && t) add.push({ n: nm, t: String(t) }); });
       });
-      if(!add.length) return tell("Koi contact select nahi hua");
+      if(!add.length) return tell("No contact selected");
       var all = contactsGet();
       add.forEach(function(c){
         var i = all.findIndex(function(x){ return String(x.t).replace(/\D/g, "") === c.t.replace(/\D/g, "") || String(x.n).toLowerCase() === c.n.toLowerCase(); });
@@ -2549,7 +2580,7 @@ function makeQR(text) {
       });
       contactsSet(all);
       tell(add.length + " contact(s) added");
-    }).catch(function(e){ tell("Import nahi hua \u00b7 " + ((e && e.message) || "blocked")); });
+    }).catch(function(e){ tell("Import failed \u00b7 " + ((e && e.message) || "blocked")); });
   }
 
   /* only the host may drive other devices — the joined phone sees the panel without the
@@ -2595,7 +2626,7 @@ function makeQR(text) {
       var hit = contactsFind(who);
       if(!hit){
         var near = contactsNear(who, 3);
-        tell("Is device me '" + who + "' naam ka contact nahi mila" + (near.length ? " \u00b7 matlab: " + near.join(", ") : "") + " \u00b7 Contacts me add karo");
+        tell("No contact named '" + who + "' contact not found" + (near.length ? " · nearest: " + near.join(", ") : "") + " \u00b7 add it in Contacts");
         done("no contact named " + who);
         return;
       }
@@ -2605,7 +2636,7 @@ function makeQR(text) {
     }
     if(cmd === "call"){
       var num = String(arg || "").replace(/[^\d+]/g, "");
-      if(num.length < 6){ tell("Number chahiye \u2014 jaise: call 9876543210"); done("no number"); return; }
+      if(num.length < 6){ tell("A number is needed \u2014 e.g. call 9876543210"); done("no number"); return; }
       auraCall(num, num);
       done("dialling " + num);
       return;
@@ -2614,7 +2645,7 @@ function makeQR(text) {
       var parts = String(arg || "").split("|");
       var phone = String(parts[0] || "").replace(/[^\d]/g, "");
       var msg = String(parts[1] || "").trim();
-      if(phone.length < 8){ tell("WhatsApp ke liye number chahiye \u2014 whatsapp 919876543210|hello"); done("no number"); return; }
+      if(phone.length < 8){ tell("A WhatsApp number is needed \u2014 whatsapp 919876543210|hello"); done("no number"); return; }
       var wurl = "https://wa.me/" + phone + (msg ? "?text=" + encodeURIComponent(msg) : "");
       /* wa.me opens the app on a phone and the web client on a desktop, no prompt,
          and AURA keeps running behind it */
@@ -2711,14 +2742,14 @@ function makeQR(text) {
         tell(j.queued ? ("Sent \u00b7 " + c.cmd + " \u2192 " + j.queued + " device(s)") : "No device joined yet");
         if(el) el.value = "";
       }).catch(function(e){
-        if(gone(e)){ forget(); return tell("Mesh band ho gaya \u2014 phir se host karo"); }
+        if(gone(e)){ forget(); return tell("Mesh closed \u2014 host again"); }
         /* network hiccup: try once more before saying anything to the user */
         tell("Sending again\u2026");
         setTimeout(function(){
           api("/v1/mesh/command", body).then(function(j){
             tell(j.queued ? ("Sent \u00b7 " + c.cmd + " \u2192 " + j.queued + " device(s)") : "No device joined yet");
             if(el) el.value = "";
-          }).catch(function(){ tell("Net slow hai \u2014 ek baar phir Run dabao"); });
+          }).catch(function(){ tell("The connection is slow — press Run once more"); });
         }, 1200);
       });
   }
@@ -2727,7 +2758,9 @@ function makeQR(text) {
     if(mesh.timer) clearInterval(mesh.timer);
     var tick = function(){
       if(!mesh.code) return;
-      api("/v1/mesh/poll", { code: mesh.code, nodeId: nodeId, name: devName(), seen: mesh.seen.slice(-40) })
+      api("/v1/mesh/poll", { code: mesh.code, nodeId: nodeId, name: devName(), seen: mesh.seen.slice(-40),
+        /* tells the backend this device is backgrounded, so the host keeps it targetable */
+        vis: document.visibilityState === "hidden" })
         .then(function(j){
           /* left the mesh while this poll was in flight — its commands are not ours */
           if(!mesh.code) return;
@@ -2769,6 +2802,13 @@ function makeQR(text) {
   }
   /* phones freeze timers in a background tab, so the moment the page is visible again
      the mesh catches up instead of waiting for the next tick */
+  /* mark this device away the instant it is backgrounded — a throttled phone would not
+     send another poll for up to a minute, and the host must not lose the target before
+     that first away poll lands */
+  document.addEventListener("visibilitychange", function(){
+    if(!mesh.code) return;
+    try{ mesh.tick && mesh.tick(); }catch(e){}
+  }, true);
   try{
     ["visibilitychange", "focus", "pageshow", "online"].forEach(function(ev){
       document.addEventListener(ev, function(){
@@ -2805,6 +2845,7 @@ function makeQR(text) {
     contactsPaint();
   })();
   $("#amuClose").onclick = function(){ ov.classList.remove("on"); };
+  var amuX = $("#amuX"); if(amuX) amuX.onclick = function(){ ov.classList.remove("on"); };
   $("#amuRefresh").onclick = function(){ if(!mesh.code) return tell("Host or join first"); refresh(); tell("Refreshed"); };
   $("#amuCopy").onclick = function(){
     if(!mesh.code) return tell("Host or join first");
@@ -3122,12 +3163,12 @@ function makeQR(text) {
   /* the line under the composer teaches the interface instead of repeating one hint */
   try{
     var TIPS = [
-      "Tip: mic dabao aur bol ke poocho \u2014 Hinglish bhi chalega",
-      "Tip: + \u2192 Attach se file bhejo, AURA usko padh kar jawab deta hai",
-      "Tip: + \u2192 Mesh se dusre device par bhi jawab bhejo",
-      "Tip: Settings \u2192 Voice on karo, AURA jawab bol kar sunayega",
-      "Tip: Ctrl K se command palette khulta hai",
-      "Tip: \"activate zeus\" likho \u2014 poora interface badal jata hai"
+      "Tip: tap the mic and just speak \u2014 Hindi or English both work",
+      "Tip: + \u2192 Attach to send a file — AURA reads it and answers",
+      "Tip: + \u2192 Mesh to send the answer to another device too",
+      "Tip: Settings \u2192 turn Voice on and AURA speaks its answer",
+      "Tip: Ctrl K opens the command palette",
+      "Tip: \"activate zeus\" to switch the whole interface"
     ];
     var hintEl = document.querySelector('[data-t="hint"]');
     if(hintEl){
@@ -3285,7 +3326,7 @@ function makeQR(text) {
             none = document.createElement('p');
             none.id = 'auraChatNone';
             none.style.cssText = 'color:var(--dim);padding:10px 2px;font-size:13px';
-            none.textContent = 'Koi chat nahi mili';
+            none.textContent = 'No chats found';
             list.appendChild(none);
           }
         }else if(none){ none.remove(); }
@@ -3374,7 +3415,7 @@ function makeQR(text) {
            same paragraph again. It is a real toggle now. */
         bar.appendChild(mkBtn("\uD83D\uDD0A Speak", function(btn){
           var sp = window.speechSynthesis;
-          if(!sp){ if(typeof tell === "function") tell("Voice nahi chal raha is browser me"); return; }
+          if(!sp){ if(typeof tell === "function") tell("Voice does not work in this browser"); return; }
           if(sp.speaking || sp.pending){ sp.cancel(); btn.textContent = "\uD83D\uDD0A Speak"; return; }
           speakText(span.textContent);
           btn.textContent = "\u23F8 Stop";
@@ -3588,7 +3629,7 @@ function makeQR(text) {
           b.style.borderColor = off ? "rgba(255,120,120,.45)" : "rgba(120,215,255,.32)";
         }
         paint();
-        b.onclick = function(){ auraSetMuted(!auraMuted()); paint(); try{ tell(auraMuted() ? "Sound off · sab kuch silent" : "Sound on"); }catch(e){} };
+        b.onclick = function(){ auraSetMuted(!auraMuted()); paint(); try{ tell(auraMuted() ? "Sound off · everything is silent" : "Sound on"); }catch(e){} };
       }catch(e){}
     }, 1000);
 
@@ -3850,8 +3891,8 @@ function makeQR(text) {
     async function copStart(){
       if(co.on) return;
       if(!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia){
-        copProgress((co.qline || "") + "Is browser me screen share nahi hota — Android/iOS browsers allow nahi karte. 📷 button dabao: photo ya screenshot bhejo, main usi ko padh kar jawab doongi.");
-        try{ tell("Screen share mobile par nahi · 📷 use karo"); }catch(e){}
+        copProgress((co.qline || "") + "Screen sharing is blocked in this browser — Android and iOS do not allow it. Tap 📷 and send a photo or screenshot; AURA reads that instead.");
+        try{ tell("Screen sharing is blocked on mobile · use 📷"); }catch(e){}
         return;
       }
       try{
@@ -4166,7 +4207,7 @@ function makeQR(text) {
           copAnswer(qline + out.answer, out.model);
           if(copVoiceOn()) copSpeak(out.answer);
         } else {
-          copAnswer(qline + 'Screen abhi read nahi kar paya. Share chalu rakho aur ek baar phir bhejo \u2014 ya jo error text dikh raha hai wo yahin paste kar do.');
+          copAnswer(qline + 'I could not read the screen. Keep sharing and send it once more — or paste the error text here.');
         }
       };
       [].forEach.call(p.querySelectorAll('.auracop-chip'), function(ch){
@@ -4403,7 +4444,7 @@ function makeQR(text) {
       return inp;
     }
     function copPickPhoto(){
-      try{ copFileInput().click(); }catch(e){ try{ tell("Photo picker nahi khul paya"); }catch(err){} }
+      try{ copFileInput().click(); }catch(e){ try{ tell("The photo picker did not open"); }catch(err){} }
     }
     function copPhotoCanvas(file){
       return new Promise(function(res){
@@ -4424,24 +4465,24 @@ function makeQR(text) {
       });
     }
     async function copAskPhoto(file){
-      if(copAskPhoto.busy){ try{ tell('Pehli photo par kaam chal raha hai'); }catch(e){} return; }
+      if(copAskPhoto.busy){ try{ tell('Still working on the previous photo'); }catch(e){} return; }
       copAskPhoto.busy = true;
       try{
       var q = (document.getElementById('auraCopQ').value || '').trim() || 'What is in this picture? Answer in 3 short lines.';
       var qline = 'Q: ' + q + '\n\n';
       co.qline = qline;
-      copProgress(qline + 'Photo padh rahi hoon\u2026');
+      copProgress(qline + 'Reading the photo\u2026');
       var cv = await copPhotoCanvas(file);
-      if(!cv) return copAnswer(qline + 'Photo khul nahi payi \u2014 dobara bhejo.');
+      if(!cv) return copAnswer(qline + 'That photo did not open — send it again.');
       var out = await copVision(cv, q);
       if(out){ copAnswer(qline + out.answer, out.model); if(copVoiceOn()) copSpeak(out.answer); return; }
-      copProgress(qline + 'Text padh rahi hoon\u2026');
+      copProgress(qline + 'Reading the text\u2026');
       var text = await copOCR(cv);
       if(text && text.replace(/\s/g, '').length > 10){
         var ans = await copAskText(text, q);
         if(ans){ copAnswer(qline + ans, 'photo-text'); if(copVoiceOn()) copSpeak(ans); return; }
       }
-      copAnswer(qline + 'Is photo se kuch padha nahi ja saka. Thoda zoom karke ya saaf photo bhejo.');
+      copAnswer(qline + 'Nothing readable in that photo. Zoom in or send a clearer shot.');
       } finally { copAskPhoto.busy = false; }
     }
 
@@ -4757,7 +4798,7 @@ function makeQR(text) {
             '<h3 style="margin:0">🤟 Sign language</h3>' +
             '<button id="asgClose" type="button" style="margin-left:auto;background:none;border:0;color:#8ea1b2;font-size:16px;cursor:pointer">✕</button>' +
           '</div>' +
-          '<p style="color:var(--dim);font:12.5px var(--f2);margin:6px 0 10px">Camera ke saamne sign karo — AURA padh kar bada likhega aur bol dega. Main samne wala insaan bolta hai, wo bhi yahan text me aayega.</p>' +
+          '<p style="color:var(--dim);font:12.5px var(--f2);margin:6px 0 10px">Sign in front of the camera — AURA reads it, shows it large and speaks it. When the other person speaks, their words appear here as text.</p>' +
           '<div style="position:relative;border-radius:14px;overflow:hidden;background:#05080d;border:1px solid rgba(120,215,255,.22)">' +
             '<video id="asgVideo" playsinline muted style="width:100%;max-height:42vh;display:block;object-fit:cover;transform:scaleX(-1);background:#05080d"></video>' +
             '<span id="asgBadge" style="position:absolute;left:10px;top:8px;font:700 10px Inter,system-ui,sans-serif;letter-spacing:.12em;color:#8ea1b2">camera off</span>' +
@@ -4771,7 +4812,7 @@ function makeQR(text) {
           '</div>' +
           '<div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="asgTeach" placeholder="Teach a sign: type its name (e.g. HELLO) then press Teach" style="flex:1"><button class="b" id="asgTeachBtn">Teach</button></div>' +
           '<div id="asgTaught" style="margin:6px 0 4px;font:11.5px var(--f2);color:#8ea1b2"></div>' +
-          '<div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="asgQ" placeholder="Type karo (AURA bolega) — e.g. where is the washroom?" style="flex:1"><button class="b pr" id="asgSend">Send</button></div>' +
+          '<div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="asgQ" placeholder="Type here (AURA speaks it) — e.g. where is the washroom?" style="flex:1"><button class="b pr" id="asgSend">Send</button></div>' +
           '<div id="asgLog" style="margin-top:12px;max-height:26vh;overflow:auto;font:12.5px/1.5 var(--f2);color:#cfe9ff"></div>' +
         '</div>';
       document.body.appendChild(ov);
@@ -4795,7 +4836,7 @@ function makeQR(text) {
       if(teachBtn) teachBtn.onclick = function(){
         var inp = el('asgTeach');
         var label = String(inp.value || '').trim().toUpperCase().replace(/[^A-Z0-9 _-]/g, '').slice(0, 20);
-        if(!label){ big('Sign ka naam likho pehle', 'example: HELLO'); return; }
+        if(!label){ big('Enter a name for the sign first', 'example: HELLO'); return; }
         var v = el('asgVideo');
         var cv = v ? frame(v) : null;
         var list = taught();
@@ -4806,7 +4847,7 @@ function makeQR(text) {
         try{ localStorage.setItem('aura_sign_teach_v1', JSON.stringify(list.slice(0, 14))); }catch(e){}
         inp.value = '';
         paintTaught();
-        big('Taught: ' + label, 'AURA ab is naam ko prefer karega jab haath match karein');
+        big('Taught: ' + label, 'AURA will prefer this name when your hands match');
         say(label + ' taught');
       };
       paintTaught();
@@ -4840,6 +4881,7 @@ function makeQR(text) {
      reads sign language out loud), and 🤟 jumps into the full sign window. */
   try{
     (function cameraWired(){
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       function el(id){ return document.getElementById(id); }
       function note(t){
         var n = el('camText');
@@ -4857,15 +4899,41 @@ function makeQR(text) {
           box.style.cssText = 'margin:10px 0;padding:10px 12px;border-radius:10px;background:rgba(120,215,255,.08);' +
             'border:1px solid rgba(120,215,255,.2);font:13px/1.45 Inter,system-ui,sans-serif;color:#e9f5ff;white-space:pre-wrap;min-height:20px';
           mod.appendChild(box);
+          /* the sign reader is part of THIS camera now: big captions, AURA's reply and a
+             running conversation log, so a deaf and a hearing person can talk right here
+             without leaving the camera for another window */
+          var cap = document.createElement('div');
+          cap.id = 'camSignCap';
+          cap.style.cssText = 'display:none;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:rgba(6,14,24,.94);border:1px solid rgba(120,215,255,.28)';
+          cap.innerHTML =
+            '<div id="camSignLine" style="font:700 19px/1.35 Inter,system-ui,sans-serif;color:#fff">🤟 Sign now</div>' +
+            '<div id="camSignSub" style="margin-top:3px;font:11.5px Inter,system-ui,sans-serif;color:#8ea1b2"></div>' +
+            '<div id="camReply" style="margin-top:6px;font:13px/1.45 Inter,system-ui,sans-serif;color:#bfe3ff"></div>' +
+            '<div id="camSignLog" style="margin-top:6px;max-height:20vh;overflow:auto;font:12px/1.45 Inter,system-ui,sans-serif;color:#cfe9ff"></div>';
+          mod.appendChild(cap);
           var row = document.querySelector('#camov .mod div[style*="display:flex"]');
           if(row && !el('camsign')){
+            ov.setAttribute("data-talk", "1");
+            /* six controls on one nowrap row pushed Sign/Hear/Talk off a phone screen,
+               so the row wraps and Close stays the last button instead of the middle */
+            row.style.flexWrap = "wrap";
+            var closeBtn = el('cclose');
+            var addToRow = function(b){
+              b.style.flex = "1 1 auto"; b.style.minWidth = "0";
+              if(closeBtn && closeBtn.parentNode === row) row.insertBefore(b, closeBtn);
+              else row.appendChild(b);
+            };
             var s = document.createElement('button');
-            s.className = 'b'; s.id = 'camsign'; s.textContent = '🤟 Sign';
-            row.appendChild(s);
-            s.onclick = function(){ try{ camClose(); }catch(e){} try{ window.__auraSign.open(); }catch(e){} };
+            s.className = 'b'; s.id = 'camsign'; s.textContent = '🤟 Sign: on';
+            addToRow(s);
+            s.onclick = function(){ setSign(!(el('camov') && el('camov').getAttribute('data-sign') === '1')); };
+            var hb = document.createElement('button');
+            hb.className = 'b'; hb.id = 'camhear'; hb.textContent = '🎧 Hear them';
+            addToRow(hb);
+            hb.onclick = function(){ hearThem(); };
             var tb = document.createElement("button");
-            tb.className = "b"; tb.id = "camtalk"; tb.textContent = "💬 Talk back: off";
-            row.appendChild(tb);
+            tb.className = "b"; tb.id = "camtalk"; tb.textContent = "💬 Talk back: on";
+            addToRow(tb);
             tb.onclick = function(){
               var mod = document.getElementById("camov");
               var on = mod && mod.getAttribute("data-talk") === "1";
@@ -4873,6 +4941,7 @@ function makeQR(text) {
               if(mod) mod.setAttribute("data-talk", on ? "0" : "1");
               if(!on) note("Talk back on — AURA will answer your signs out loud");
             };
+            setSign(true);
           }
         }
         return true;
@@ -4929,8 +4998,89 @@ function makeQR(text) {
           }
         }catch(e){ note('Network slow — try again.'); }
       }
-      var live = null, prev = null, busy = false, last = '';
-      var talkBack = false, convo = [];
+      var live = null, prev = null, busy = false, last = '', lastReplyAt = 0, hearRec = null, signOn = false;
+      var talkBack = true, convo = [];
+
+      function caption(line, sub){
+        var l = el('camSignLine'); if(l && line) l.textContent = line;
+        var s = el('camSignSub'); if(s) s.textContent = sub || '';
+      }
+      function logLine(who, text){
+        var b = el('camSignLog');
+        if(!b || !text) return;
+        var d = document.createElement('div');
+        d.style.cssText = 'padding:4px 0;border-top:1px solid rgba(255,255,255,.06)';
+        d.innerHTML = '<b style="color:' + (who === 'them' ? '#ffd48f' : who === 'a' ? '#7ff0b4' : '#9fd8ff') + '">' +
+          (who === 'them' ? 'They' : who === 'a' ? 'AURA' : 'You') + ':</b> ' + String(text).replace(/[<>&]/g, '');
+        b.appendChild(d);
+        b.scrollTop = b.scrollHeight;
+      }
+      function taught(){
+        try{ return JSON.parse(localStorage.getItem('aura_sign_teach_v1') || '[]'); }catch(e){ return []; }
+      }
+      function setSign(on){
+        signOn = !!on;
+        var ov2 = el('camov');
+        if(ov2) ov2.setAttribute('data-sign', signOn ? '1' : '0');
+        var s = el('camsign'); if(s) s.textContent = signOn ? '🤟 Sign: on' : '🤟 Sign: off';
+        var c = el('camSignCap'); if(c) c.style.display = signOn ? 'block' : 'none';
+        if(signOn) startWatch(); else stopWatch();
+      }
+      function startWatch(){
+        mount();
+        if(live) return;
+        signOn = true;
+        var ov2 = el('camov'); if(ov2) ov2.setAttribute('data-sign', '1');
+        var c = el('camSignCap'); if(c) c.style.display = 'block';
+        var s = el('camsign'); if(s) s.textContent = '🤟 Sign: on';
+        note('Sign mode on — show your hands, AURA reads and speaks it');
+        tick();
+        live = setInterval(tick, 2200);
+      }
+      function stopWatch(){
+        if(live){ clearInterval(live); live = null; }
+        prev = null;
+      }
+      function hearThem(){
+        if(!SR){ note('This browser has no voice input — type instead.'); return; }
+        try{
+          if(hearRec){ try{ hearRec.onend = null; hearRec.abort(); }catch(e){} }
+          var r = new SR(); hearRec = r;
+          r.lang = 'en-IN'; r.interimResults = true; r.continuous = false;
+          note('Listening — let the other person speak…');
+          r.onresult = function(ev){
+            var said = '';
+            for(var i = ev.resultIndex; i < ev.results.length; i++) said += ev.results[i][0].transcript;
+            said = said.trim();
+            if(said) caption(said, 'they said');
+            if(ev.results[ev.results.length - 1].isFinal && said) logLine('them', said);
+          };
+          r.onerror = function(e){ note('Mic: ' + ((e && e.error) || 'not allowed')); hearRec = null; };
+          r.onend = function(){ hearRec = null; };
+          r.start();
+        }catch(e){ note('Mic unavailable'); }
+      }
+      function watchOpen(){
+        var ov2 = el('camov');
+        if(!ov2) return false;
+        if(ov2.__auraSignWatch) return true;
+        ov2.__auraSignWatch = true;
+        var was = ov2.classList.contains('on');
+        var apply = function(){
+          var on = ov2.classList.contains('on');
+          if(on === was) return;
+          was = on;
+          if(on){
+            mount(); wire();
+            setTimeout(function(){ mount(); wire(); setSign(true); startWatch(); }, 900);
+          } else {
+            stopWatch();
+          }
+        };
+        try{ new MutationObserver(apply).observe(ov2, { attributes: true, attributeFilter: ['class'] }); }catch(e){}
+        apply();
+        return true;
+      }
 
       /* the camera is not a scanner: after a sign AURA answers, out loud, so the
          conversation happens in the live camera itself */
@@ -4953,7 +5103,9 @@ function makeQR(text) {
           var j = await r.json().catch(function(){ return {}; });
           var ans = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
           if(!ans) return;
-          note("AURA: " + ans);
+          note(ans);
+          var rep = el('camReply'); if(rep) rep.textContent = 'AURA: ' + ans;
+          logLine('a', ans);
           speak(ans);
           try{ if(typeof addMsg === "function") addMsg("a", ans); }catch(e){}
         }catch(e){}
@@ -4971,17 +5123,30 @@ function makeQR(text) {
         try{
           var r = await fetch(BASE + '/v1/sign', {
             method: 'POST', headers: hdrs(),
-            body: JSON.stringify({ image: cv.toDataURL('image/jpeg', 0.7) }),
+            body: JSON.stringify({
+              image: cv.toDataURL('image/jpeg', 0.7),
+              history: convo.slice(-3).join(' | ').slice(0, 200),
+              vocab: taught().map(function(x){ return x.label; }).slice(0, 8)
+            }),
             signal: AbortSignal.timeout(30000)
           });
           var j = await r.json().catch(function(){ return {}; });
           var line = (j && (j.speech || j.sign)) || '';
           if(line && line !== last){
             last = line;
-            note(line + (j.seen ? '\n' + j.seen : ''));
+            var sub = [];
+            if(j.sign) sub.push('sign: ' + j.sign);
+            if(j.confidence) sub.push(Math.round(j.confidence * 100) + '%');
+            if(j.seen) sub.push(j.seen);
+            note(line);
+            caption(line, sub.join(' · '));
+            logLine('me', line);
             speak(line);
-            if(talkBack) auraReply(line);
+            convo.push(line);
+            if(convo.length > 6) convo.shift();
+            if(talkBack && Date.now() - lastReplyAt > 5000){ lastReplyAt = Date.now(); auraReply(line); }
           } else if(j && j.seen && j.seen !== last){
+            caption(last || '🤟 Sign now', j.seen);
             note('looking… ' + j.seen);
           }
         }catch(e){}
@@ -4992,11 +5157,8 @@ function makeQR(text) {
         var now = Date.now();
         if(now - (toggleLive.t || 0) < 500) return;
         toggleLive.t = now;
-        mount();
-        if(live){ clearInterval(live); live = null; note('Live off'); return; }
-        note('Live on — AURA is watching this camera');
-        tick();
-        live = setInterval(tick, 2200);
+        if(live){ stopWatch(); note('Live off'); return; }
+        startWatch();
       }
       /* the reference wired these two buttons to placeholders; replace them */
       function wire(){
@@ -5011,6 +5173,9 @@ function makeQR(text) {
       if(mount()) wire();
       else setTimeout(function(){ if(mount()) wire(); }, 1200);
       setTimeout(function(){ if(mount()) wire(); }, 2600);
+      /* the + menu builds its camera modal lazily, so keep trying until it exists */
+      watchOpen();
+      [1200, 2600, 5000, 9000].forEach(function(ms){ setTimeout(watchOpen, ms); });
     })();
   }catch(e){}
 
@@ -5045,6 +5210,11 @@ function makeQR(text) {
       });
       /* one clean list: drop any earlier copy of these three entries */
       var dedupe = function(){
+        /* two wake rows (one reference, one ours) meant two always-on recognisers fighting
+           for the single mic; ours owns the word, intents and the Siri sheet, so the other
+           row goes away instead of being left as a dead switch */
+        var baseWake = document.querySelector('#tools button[data-x="wake"]');
+        if(baseWake) baseWake.remove();
         var keep = { auraCopMenuBtn: 1, auraSignMenuBtn: 1, auraMeshMenuBtn: 1 };
         [].forEach.call(document.querySelectorAll("#tools button"), function(b){
           if(keep[b.id]) return;
@@ -5089,7 +5259,9 @@ function makeQR(text) {
             draft.dispatchEvent(new Event('input', { bubbles: true }));
           }
           if(st.tab && st.tab !== 'chat'){
-            setTimeout(function(){ try{ goTab(st.tab); }catch(e){} }, 400);
+            /* never restore into the Code workspace on a phone — it does not exist there */
+            var skipCode = st.tab === 'code' && matchMedia('(max-width: 820px)').matches;
+            if(!skipCode) setTimeout(function(){ try{ goTab(st.tab); }catch(e){} }, 400);
           }
         }catch(e){}
       }
@@ -5721,12 +5893,12 @@ function makeQR(text) {
     if(mesh.peerIds && mesh.peerIds.length) body.targets = mesh.peerIds.slice();
     else body.nodeId = "all";
     api("/v1/mesh/command", body).then(function(j){
-      tell(j.queued ? (note + " \u2192 joined device") : "Koi device mesh me nahi hai");
+      tell(j.queued ? (note + " \u2192 joined device") : "No device is in this mesh");
     }).catch(function(){
       setTimeout(function(){
         api("/v1/mesh/command", body).then(function(j){
-          tell(j.queued ? (note + " \u2192 joined device") : "Koi device mesh me nahi hai");
-        }).catch(function(){ tell("Order nahi gaya \u00b7 dobara bolo"); });
+          tell(j.queued ? (note + " \u2192 joined device") : "No device is in this mesh");
+        }).catch(function(){ tell("The order did not go through · say it again"); });
       }, 900);
     });
     try{ window.__meshSent = { at: Date.now(), cmd: cmd, arg: String(arg).slice(0, 60) }; }catch(e){}
@@ -5757,7 +5929,7 @@ function makeQR(text) {
       if(!q){
         /* nothing on screen to borrow a title from — ask for it instead of silently
            sending "play this" to the chat as if it were a question */
-        try{ tell("Konsa gaana? Naam bolo \u2014 jaise: play kesariya on youtube"); }catch(e){}
+        try{ tell("Which song? Say the name \u2014 e.g. play kesariya on youtube"); }catch(e){}
         return true;
       }
       if(meshHostSend("play", q, "\u25B6 " + q.slice(0, 40))) return true;
@@ -5793,8 +5965,8 @@ function makeQR(text) {
           guess = allc.filter(function(c){ return said.indexOf(String(c.n || "").toLowerCase()) >= 0; })[0] || null;
         }
         if(!guess){
-          if(!allc.length) tell("Pehle Contacts me number add karo \u2014 mesh panel \u2192 \uD83D\uDCD3 Contacts");
-          else tell("Kisko call karna hai? " + allc.slice(0, 3).map(function(c){ return c.n; }).join(", "));
+          if(!allc.length) tell("Add a number in Contacts first \u2014 mesh panel \u2192 \uD83D\uDCD3 Contacts");
+          else tell("Who should I call? " + allc.slice(0, 3).map(function(c){ return c.n; }).join(", "));
           return true;
         }
         who = guess.n;
@@ -5810,8 +5982,8 @@ function makeQR(text) {
       if(mesh.code && mesh.role === "host"){
         api("/v1/mesh/command", { code: mesh.code, cmd: "callname", arg: who, from: nodeId })
           .then(function(j){
-            tell(j.queued ? ("\uD83D\uDCDE " + who + " ko call laga rahi hoon \u00b7 " + j.queued + " device") : "Koi device mesh me nahi hai");
-          }).catch(function(e){ tell("Call nahi bhej paya \u00b7 " + e.message); });
+            tell(j.queued ? ("\uD83D\uDCDE " + who + " calling \u00b7 " + j.queued + " device") : "No device is in this mesh");
+          }).catch(function(e){ tell("Could not place the call \u00b7 " + e.message); });
         return true;
       }
       var hit = contactsFind(who);
@@ -5819,7 +5991,7 @@ function makeQR(text) {
         auraCall(hit.t, hit.n);
         return true;
       }
-      try{ var near = contactsNear(who, 3); tell("Contact nahi mila: " + who + (near.length ? " \u00b7 matlab: " + near.join(", ") : "") + " \u00b7 mesh panel me \uD83D\uDCD3 Contacts add karo"); }catch(e){}
+      try{ var near = contactsNear(who, 3); tell("Contact not found: " + who + (near.length ? " · nearest: " + near.join(", ") : "") + " \u00b7 add it in the mesh panel \u2192 \uD83D\uDCD3 Contacts"); }catch(e){}
       return true;
     }
     /* "stop" / "band karo" closes whatever AURA opened, without leaving the app */
@@ -5828,7 +6000,7 @@ function makeQR(text) {
       if(vv && vv.style.display !== "none"){
         vv.style.display = "none";
         try{ vv.querySelector("#amvFrame").src = "about:blank"; }catch(e){}
-        try{ tell("\u23f9 Band kar diya"); }catch(e){}
+        try{ tell("\u23f9 Stopped"); }catch(e){}
         return true;
       }
     }
@@ -5896,7 +6068,7 @@ function makeQR(text) {
       if(!SR){
         mic.addEventListener('click', function(e){
           e.preventDefault(); e.stopImmediatePropagation();
-          tell('Is browser mein voice input nahi hai — type kar lo');
+          tell('This browser has no voice input — type instead');
         }, true);
         return;
       }
@@ -5905,7 +6077,7 @@ function makeQR(text) {
         clearTimeout(sendTimer);
         var t = String(inpEl.value || '').trim();
         hide();
-        if(t.length < 2){ tell('Kuch sunai nahi diya — dobara bolo'); return; }
+        if(t.length < 2){ tell('I did not catch that — say it again'); return; }
         if(window.__auraIntent && window.__auraIntent(t)){ try{ inpEl.value = ''; }catch(e){} return; }
         sendBtn.click();
       }
@@ -5920,7 +6092,7 @@ function makeQR(text) {
         rec.interimResults = true;
         rec.maxAlternatives = 1;
         said = '';
-        rec.onstart = function(){ listening = true; mark(true); show('\uD83C\uDFA4 Sun rahi hoon\u2026', true); };
+        rec.onstart = function(){ listening = true; mark(true); show('\uD83C\uDFA4 Listening\u2026', true); };
         rec.onresult = function(ev){
           var interim = '';
           for(var i = ev.resultIndex; i < ev.results.length; i++){
@@ -5937,10 +6109,10 @@ function makeQR(text) {
         rec.onerror = function(e){
           listening = false; mark(false); hide();
           var why = (e && e.error) || '';
-          if(/not-allowed|service-not-allowed/.test(why)) tell('Mic ki permission do — browser settings se allow karo');
-          else if(/no-speech/.test(why)) tell('Kuch sunai nahi diya — dobara bolo');
-          else if(/network/.test(why)) tell('Voice ke liye internet chahiye');
-          else tell('Voice input nahi chala — type kar lo');
+          if(/not-allowed|service-not-allowed/.test(why)) tell('Allow microphone access in browser settings');
+          else if(/no-speech/.test(why)) tell('I did not catch that — say it again');
+          else if(/network/.test(why)) tell('Voice input needs a connection');
+          else tell('Voice input did not start — type instead');
         };
         rec.onend = function(){
           mark(false); listening = false;
@@ -5948,13 +6120,13 @@ function makeQR(text) {
           if(said.trim().length > 1){ inpEl.value = said.trim(); sendNow(); }
           else hide();
         };
-        try{ rec.start(); }catch(e){ hide(); tell('Mic start nahi hua — dobara tap karo'); }
+        try{ rec.start(); }catch(e){ hide(); tell('The mic did not start — tap it again'); }
         /* if the engine never answers, the tap must not look dead — the usual reason is
            the permission prompt still waiting on screen */
         clearTimeout(start.watch);
         start.watch = setTimeout(function(){
           if(listening) return;
-          tell('Mic ka jawab nahi aaya \u2014 browser me Allow dabao, phir mic dobara tap karo');
+          tell('No response from the mic — press Allow in the browser, then tap the mic again');
         }, 6000);
       }
       var onMic = function(e){
@@ -5987,7 +6159,7 @@ function makeQR(text) {
         var hadImage = !!document.querySelector('#auraFiles img');
         setTimeout(function(){
           if(document.querySelectorAll('#msgs .m').length > base) return;  /* already answered */
-          show(hadImage ? '\uD83D\uDCF7 Photo padh rahi hoon\u2026' : '\u26A1 Soch rahi hoon\u2026', false);
+          show(hadImage ? '\uD83D\uDCF7 Reading the photo\u2026' : '\u26A1 Thinking\u2026', false);
           var iv = setInterval(function(){
             /* the reply adds one bubble; anything beyond the user's own line ends it */
             if(document.querySelectorAll('#msgs .m').length > base + 1){ clearInterval(iv); hide(); }
@@ -6701,13 +6873,14 @@ function makeQR(text) {
    page is not allowed to do. */
 (function(){
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var V = window.__auraVoice = { armed:false, awake:false, rec:null, timer:null, expect:false, denied:false, heard:"" };
+  var V = window.__auraVoice = { armed:false, awake:false, rec:null, timer:null, expect:false, denied:false, silent:false, heard:"" };
   var NOTES = "aura_notes_v1";
   var WAKE = /(^|[\s,.])(hey\s+)?(aura|ओरा)([\s,.!?]|$)/i;
 
   /* ---------- small UI: one quiet chip above the composer ---------- */
   var chip;
   function ui(state, text){
+    if(P && P.open){ if(chip) chip.style.display = "none"; return; }
     if(!chip){
       chip = document.createElement("div"); chip.id = "auraWakeChip";
       chip.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:104px;z-index:88;display:none;" +
@@ -6716,6 +6889,9 @@ function makeQR(text) {
         "white-space:nowrap;box-shadow:0 8px 22px rgba(0,0,0,.35);backdrop-filter:blur(8px);max-width:88vw;" +
         "overflow:hidden;text-overflow:ellipsis;transition:opacity .18s ease";
       document.body.appendChild(chip);
+      chip.style.cursor = "pointer";
+      chip.title = "Tap to open Siri mode";
+      chip.addEventListener("click", function(){ try{ siriOpen(); }catch(e){} });
       window.addEventListener("resize", function(){ if(chip.style.display !== "none") place(); });
     }
     place();
@@ -6736,16 +6912,225 @@ function makeQR(text) {
     }catch(e){}
   }
   function flash(text, ms){ ui("awake", text); clearTimeout(flash.h); flash.h = setTimeout(function(){ if(!V.awake) idle(); }, ms || 2600); }
-  function idle(){ if(!V.armed) return; ui("armed", "Bolo “Aura” · sun rahi hoon"); }
+  function idle(){ if(P && P.open) return; if(!V.armed) return; ui("armed", "Say “Aura” · listening"); }
+
+  /* ================= SIRI SHEET =================
+     The wake word alone was invisible: you spoke and nothing on screen moved, so a
+     working ear read as a broken feature. This sheet is the face of the same ear — the
+     orb, the live transcript, the answer, a Talk button that works without the wake
+     word, a typed fallback when the browser has no SpeechRecognition, and Esc to leave.
+     It also fixes the two things that made hands-free unreliable: the recogniser was
+     restarted while AURA was still speaking (so she heard her own voice and looped),
+     and every restart retried at a flat 1.5s with no backoff. */
+  var P = { open:false, listening:false, last:"" };
+  window.__auraSiriState = P;
+  var siriOv = null, siriRec = null, siriSilence = null;
+  var SIRI_LBL = { idle:"AURA", listening:"LISTENING", thinking:"THINKING", speaking:"SPEAKING", ready:"READY", error:"TRY AGAIN" };
+
+  function siriBuilt(){
+    if(siriOv) return siriOv;
+    var st = document.createElement("style");
+    st.id = "auraSiriCss";
+    st.textContent =
+      "#auraSiriOv{position:fixed;inset:0;z-index:130;display:none;align-items:center;justify-content:center;padding:18px;" +
+      "background:radial-gradient(circle at 50% 40%,rgba(24,60,96,.6),rgba(3,7,13,.92) 62%);backdrop-filter:blur(14px);" +
+      "font:14px Inter,system-ui,-apple-system,'Segoe UI',sans-serif}" +
+      "#auraSiriOv.on{display:flex}" +
+      "#auraSiriOv .asCard{width:100%;max-width:400px;text-align:center;color:#eaf6ff}" +
+      "#auraSiriOv .asOrb{position:relative;width:132px;height:132px;margin:4px auto 18px;border-radius:50%;" +
+      "background:conic-gradient(from 0deg,#4ad7ff,#7b6bff,#ff7ad9,#4ad7ff);box-shadow:0 0 46px rgba(74,215,255,.45),inset 0 0 34px rgba(4,12,22,.65);" +
+      "animation:auraSiriSpin 7s linear infinite}" +
+      "#auraSiriOv .asOrb::after{content:'';position:absolute;inset:16px;border-radius:50%;background:radial-gradient(circle at 34% 30%,#0d2032,#050b13 70%)}" +
+      "#auraSiriOv .asRing{position:absolute;inset:-14px;border-radius:50%;border:1px solid rgba(120,215,255,.35);opacity:0}" +
+      "#auraSiriOv[data-state='listening'] .asRing{animation:auraSiriPulse 1.9s ease-out infinite}" +
+      "#auraSiriOv[data-state='speaking'] .asOrb{animation-duration:2.4s;box-shadow:0 0 62px rgba(92,240,168,.55)}" +
+      "#auraSiriOv[data-state='thinking'] .asOrb{animation-duration:1.1s}" +
+      "@keyframes auraSiriSpin{to{transform:rotate(360deg)}}" +
+      "@keyframes auraSiriPulse{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.3);opacity:0}}" +
+      "#auraSiriOv h4{margin:0 0 8px;font:600 12px/1 Inter,system-ui,sans-serif;letter-spacing:.26em;color:#7fd7ff}" +
+      "#auraSiriOv .asLive{margin:0 0 8px;min-height:48px;font:600 19px/1.35 Inter,system-ui,sans-serif;color:#fff;word-break:break-word}" +
+      "#auraSiriOv .asReply{min-height:22px;max-height:28vh;overflow:auto;font:14px/1.5 Inter,system-ui,sans-serif;color:#bfe3ff;white-space:pre-wrap}" +
+      "#auraSiriOv .asRow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}" +
+      "#auraSiriOv .asRow button{min-width:96px;padding:11px 14px;border-radius:12px;border:1px solid rgba(120,215,255,.3);" +
+      "background:rgba(120,215,255,.1);color:#dff4ff;font:600 13px Inter,system-ui,sans-serif;cursor:pointer}" +
+      "#auraSiriOv .asRow button.pr{background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;border-color:transparent}" +
+      "#auraSiriOv input{display:none;width:100%;margin-top:12px;padding:12px 14px;border-radius:12px;border:1px solid rgba(120,215,255,.25);" +
+      "background:rgba(255,255,255,.06);color:#eaf6ff;font:14px Inter,system-ui,sans-serif}" +
+      "#auraSiriOv[data-type='1'] input{display:block}" +
+      "#auraSiriOv .asHint{margin-top:12px;font:11px/1.5 Inter,system-ui,sans-serif;color:#7791a6}" +
+      "@media(max-width:420px){#auraSiriOv .asOrb{width:110px;height:110px}#auraSiriOv .asLive{font-size:17px}}";
+    document.head.appendChild(st);
+    siriOv = document.createElement("div");
+    siriOv.id = "auraSiriOv";
+    siriOv.setAttribute("data-state", "idle");
+    siriOv.setAttribute("role", "dialog");
+    siriOv.setAttribute("aria-label", "AURA Siri mode");
+    siriOv.innerHTML =
+      '<div class="asCard">' +
+        '<div class="asOrb"><span class="asRing"></span></div>' +
+        '<h4 id="auraSiriStatus">AURA</h4>' +
+        '<div class="asLive" id="auraSiriLive">Say “Aura” or tap 🎙</div>' +
+        '<div class="asReply" id="auraSiriReply"></div>' +
+        '<div class="asRow">' +
+          '<button class="pr" id="auraSiriTalk" type="button">🎙 Talk</button>' +
+          '<button id="auraSiriKey" type="button">⌨︎ Type</button>' +
+          '<button id="auraSiriClose" type="button">✕ Close</button>' +
+        '</div>' +
+        '<input id="auraSiriType" type="text" autocomplete="off" placeholder="Type your question for AURA…">' +
+        '<div class="asHint">Hands-free: say “Aura” anytime · Esc to close</div>' +
+      '</div>';
+    document.body.appendChild(siriOv);
+    var talk = siriOv.querySelector("#auraSiriTalk");
+    if(!SR){ talk.style.display = "none"; siriOv.setAttribute("data-type", "1"); }
+    talk.onclick = function(){ siriListen(); };
+    siriOv.querySelector("#auraSiriKey").onclick = function(){
+      var on = siriOv.getAttribute("data-type") === "1";
+      siriOv.setAttribute("data-type", on ? "0" : "1");
+      if(!on){ var i = siriOv.querySelector("#auraSiriType"); setTimeout(function(){ try{ i.focus(); }catch(e){} }, 30); }
+    };
+    siriOv.querySelector("#auraSiriClose").onclick = function(){ siriClose(); };
+    siriOv.querySelector("#auraSiriType").addEventListener("keydown", function(e){
+      if(e.key !== "Enter") return;
+      e.preventDefault();
+      var t = String(this.value || "").trim();
+      this.value = "";
+      if(t) siriSend(t);
+    });
+    siriOv.addEventListener("click", function(e){ if(e.target === siriOv) siriClose(); });
+    return siriOv;
+  }
+
+  function siriSet(state, live, reply){
+    siriBuilt();
+    if(state){
+      siriOv.setAttribute("data-state", state);
+      var st = siriOv.querySelector("#auraSiriStatus");
+      if(st) st.textContent = SIRI_LBL[state] || "AURA";
+    }
+    if(typeof live === "string" && live){
+      P.last = live;
+      var l = siriOv.querySelector("#auraSiriLive");
+      if(l) l.textContent = live;
+    }
+    if(typeof reply === "string"){
+      var r = siriOv.querySelector("#auraSiriReply");
+      if(r) r.textContent = reply;
+    }
+  }
+
+  function siriOpen(){
+    siriBuilt();
+    ui(false);
+    /* the sheet is the place hands-free belongs: the first open also arms the ear, and
+       that click is the microphone gesture. An explicit "off" is still respected. */
+    try{ armedOnce = false; micChecked = false; autoArm(); }catch(e){}
+    P.open = true;
+    siriOv.classList.add("on");
+    if(SR) siriSet("listening", "Listening… tap 🎙 or just speak");
+    else {
+      siriOv.setAttribute("data-type", "1");
+      siriSet("idle", "This browser has no voice input — type instead");
+      setTimeout(function(){ try{ siriOv.querySelector("#auraSiriType").focus(); }catch(e){} }, 80);
+    }
+  }
+  function siriClose(){
+    P.open = false;
+    if(siriOv) siriOv.classList.remove("on");
+    siriStop();
+    V.awake = false;
+    idle();
+  }
+  function siriStop(){
+    clearTimeout(siriSilence); siriSilence = null;
+    P.listening = false;
+    try{ if(siriRec){ siriRec.onend = null; siriRec.onerror = null; siriRec.onresult = null; siriRec.abort(); } }catch(e){}
+    siriRec = null;
+  }
+  function siriListen(){
+    siriBuilt();
+    if(!SR){
+      siriOv.setAttribute("data-type", "1");
+      siriSet("idle", "This browser has no voice input — type instead");
+      return;
+    }
+    siriStop();
+    try{ if(V.rec){ V.rec.onend = null; V.rec.onerror = null; V.rec.abort(); } }catch(e){}
+    try{ speechSynthesis.cancel(); }catch(e){}
+    P.listening = true;
+    var finals = "";
+    siriSet("listening", "Listening…", "");
+    var r = new SR(); siriRec = r;
+    r.lang = "en-IN"; r.continuous = false; r.interimResults = true; r.maxAlternatives = 1;
+    function finish(){
+      var t = String(finals || "").trim();
+      siriStop();
+      if(t.length > 1) siriSend(t);
+      else siriSet("idle", "I did not catch that — tap 🎙 again");
+    }
+    r.onresult = function(ev){
+      var interim = "";
+      for(var i = ev.resultIndex; i < ev.results.length; i++){
+        if(ev.results[i].isFinal) finals += " " + ev.results[i][0].transcript;
+        else interim += ev.results[i][0].transcript;
+      }
+      var show = (finals + " " + interim).trim();
+      if(show) siriSet("listening", show);
+      clearTimeout(siriSilence);
+      siriSilence = setTimeout(finish, 1600);
+    };
+    r.onerror = function(e){
+      var why = (e && e.error) || "";
+      siriStop();
+      if(/not-allowed|service-not-allowed/.test(why)){
+        siriOv.setAttribute("data-type", "1");
+        siriSet("error", "Microphone is blocked", "Allow the mic for AURA in browser settings, or type here.");
+      } else if(/no-speech/.test(why)){
+        siriSet("idle", "I did not catch that — tap 🎙 again");
+      } else if(!/aborted/.test(why)){
+        siriSet("error", "Voice did not start", "Type your question instead — AURA still answers.");
+      }
+    };
+    r.onend = function(){ if(P.listening) finish(); };
+    try{ r.start(); }catch(e){ siriStop(); siriSet("error", "Microphone did not start", "Type your question instead."); }
+  }
+  function siriSend(text){
+    text = String(text || "").trim();
+    if(!text) return;
+    siriBuilt();
+    siriSet("thinking", text, "");
+    V.awake = true;
+    var done = false;
+    try{ done = window.__siriIntent(text); }catch(e){ done = false; }
+    if(!done){
+      var inp = document.getElementById("inp"), send = document.getElementById("send");
+      if(inp && send){
+        V.expect = true;
+        inp.value = text;
+        inp.dispatchEvent(new Event("input", { bubbles: true }));
+        send.click();
+      } else {
+        V.awake = false;
+        siriSet("error", text, "The chat box is not ready — reload AURA.");
+      }
+    } else if(!(window.speechSynthesis && speechSynthesis.speaking)){
+      setTimeout(function(){ if(P.open && (!window.speechSynthesis || !speechSynthesis.speaking)) siriSet("ready"); }, 800);
+    }
+  }
+  window.__auraSiri = { show: siriOpen, hide: siriClose, listen: siriListen, send: siriSend };
 
   function say(text){
     try{
-      if(!window.speechSynthesis || !text) return;
-      var u = new SpeechSynthesisUtterance(String(text).replace(/[*_`#>]/g, " ").replace(/\s+/g, " ").slice(0, 600));
+      if(!window.speechSynthesis || !text){
+        if(P.open) setTimeout(function(){ if(P.open) siriSet("ready"); }, 500);
+        return;
+      }
+      var said = String(text).replace(/[*_`#>]/g, " ").replace(/\s+/g, " ").slice(0, 600);
+      var u = new SpeechSynthesisUtterance(said);
       u.rate = 1; u.pitch = 1;
       u.lang = /[\u0900-\u097F]/.test(String(text)) ? "hi-IN" : "en-IN";
       if(V.rec){ try{ V.rec.onend = null; V.rec.abort(); }catch(e){} }
-      u.onend = function(){ if(V.armed) V.timer = setTimeout(wakeListen, 420); };
+      if(P.open) siriSet("speaking", null, said);
+      u.onend = function(){ if(P.open) siriSet("ready"); if(V.armed) V.timer = setTimeout(wakeListen, 420); };
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     }catch(e){ if(V.armed) V.timer = setTimeout(wakeListen, 420); }
   }
@@ -6787,7 +7172,7 @@ function makeQR(text) {
            all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) >= 0; })[0] || null;
   }
   function callNow(num, name){
-    var n = digitsOf(num); if(n.length < 6){ flash("Number nahi mila"); return; }
+    var n = digitsOf(num); if(n.length < 6){ flash("No number found"); return; }
     var plus = String(num).trim().indexOf("+") === 0;
     flash("📞 Calling " + (name || n));
     try{ location.href = "tel:" + (plus ? "+" : "") + n; }catch(e){}
@@ -6829,7 +7214,7 @@ function makeQR(text) {
       list.forEach(function(t){
         var left = t.at - Date.now();
         if(left <= 0){
-          if(Date.now() - t.at < 600000) setTimeout(function(){ alarmSound(); fire("⏰ AURA", (t.label || "Timer") + " ka time ho gaya"); }, 1200);
+          if(Date.now() - t.at < 600000) setTimeout(function(){ alarmSound(); fire("⏰ AURA", (t.label || "Timer") + " is done"); }, 1200);
         } else {
           keep.push(t);
           setTimeout(function(){ alarmSound(); fire("⏰ AURA", (t.label || "Timer") + " done"); }, left);
@@ -6889,7 +7274,7 @@ function makeQR(text) {
         try{ if(!window.open(link, "_blank")) location.href = link; }catch(e){ try{ location.href = link; }catch(e2){} }
         return true;
       }
-      flash("Kisko message? Contacts me number add karo"); say("I need a number for that"); return true;
+      flash("Who should I message? Add a number in Contacts"); say("I need a number for that"); return true;
     }
     m = t.match(/^(?:make a note|note this|note|yaad rakho|likh lo|remember)\s+([\s\S]+)$/i);
     if(m){
@@ -6916,15 +7301,15 @@ function makeQR(text) {
       if(/^(this|that)?\s*(person|contact|banda|aadmi|insaan)$/i.test(who2) || /^(isko|ise|usko)$/i.test(who2)){
         var all = contactsOf();
         if(all.length === 1){ callNow(all[0].t, all[0].n); return true; }
-        if(!all.length){ flash("Pehle Contacts me number add karo"); say("I do not have any contacts yet"); return true; }
-        flash("Kisko? " + all.slice(0, 3).map(function(x){ return x.n; }).join(", "));
+        if(!all.length){ flash("Add a number in Contacts first"); say("I do not have any contacts yet"); return true; }
+        flash("Who? " + all.slice(0, 3).map(function(x){ return x.n; }).join(", "));
         say("Who should I call?"); return true;
       }
       var dnum = digitsOf(who2);
       if(dnum.length >= 6){ callNow(who2, who2); return true; }
       var hit = findContact(who2);
       if(hit){ callNow(hit.t, hit.n); return true; }
-      flash("Contact nahi mila: " + who2); say("I could not find " + who2); return true;
+      flash("Contact not found: " + who2); say("I could not find " + who2); return true;
     }
     m = t.match(/^(?:play|bajao|chalao|sunao)\s+([\s\S]+)$/i);
     if(m){
@@ -6938,7 +7323,7 @@ function makeQR(text) {
         else { try{ window.open(y, "_blank"); }catch(e){} }
         flash("▶ " + song.slice(0, 40)); say("Playing " + song.slice(0, 60)); return true;
       }
-      flash("Konsa gaana? Naam bolo"); say("Which song?"); return true;
+      flash("Which song? Say the name"); say("Which song?"); return true;
     }
     return false;
   };
@@ -6959,6 +7344,10 @@ function makeQR(text) {
   function wakeListen(){
     if(!V.armed || !SR) return;
     clearTimeout(V.timer);
+    /* never listen over AURA's own voice or the sheet's active capture — that is how the
+       wake word used to retrigger itself */
+    if(P.listening){ V.timer = setTimeout(wakeListen, 1200); return; }
+    if(window.speechSynthesis && speechSynthesis.speaking){ V.timer = setTimeout(wakeListen, 900); return; }
     try{ if(V.rec){ V.rec.onend = null; V.rec.onerror = null; V.rec.abort(); } }catch(e){}
     var r = new SR(); V.rec = r;
     r.lang = "en-IN"; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
@@ -6977,11 +7366,19 @@ function makeQR(text) {
     r.onerror = function(e){
       var why = (e && e.error) || "";
       if(/not-allowed|service-not-allowed/.test(why)){
-        V.armed = false; V.denied = true;
+        V.armed = false; clearTimeout(V.timer);
+        /* a silent auto-arm must never trap a visitor in a "mic blocked" toast they did
+           not ask for: stay quiet, leave the preference unset, and let an explicit tap
+           or the sheet's own button ask properly */
+        if(V.silent){ V.silent = false; label(); ui(false); return; }
+        V.denied = true;
         try{ localStorage.setItem("aura_wake", "0"); }catch(err){}
-        ui("off", "Mic band — settings me allow karo"); label(); return;
+        ui("off", "Mic off — allow it in settings"); label(); return;
       }
-      if(/network|audio-capture/.test(why)){ ui("off", navigator.onLine ? "Mic nahi mila" : "Offline · type karke poocho"); }
+      if(/network|audio-capture/.test(why)){
+        if(V.silent){ V.armed = false; V.silent = false; clearTimeout(V.timer); label(); ui(false); return; }
+        ui("off", navigator.onLine ? "Microphone not found" : "Offline · type your request");
+      }
       if(V.armed && !V.awake) V.timer = setTimeout(wakeListen, 1500);
     };
     try{ r.start(); }catch(e){ V.timer = setTimeout(wakeListen, 1500); }
@@ -6989,7 +7386,8 @@ function makeQR(text) {
   function wakeUp(heard){
     V.awake = true;
     beep(1180, 0.12);
-    ui("awake", "Sun rahi hoon…");
+    ui("awake", "Listening…");
+    try{ siriOpen(); siriSet("listening", String(heard || "").trim() || "Listening…"); }catch(e){}
     /* the words that woke her are often the whole order: "Aura, play kesariya" */
     var rest = norm(String(heard || ""));
     if(rest.length > 2) return run(rest);
@@ -7003,7 +7401,7 @@ function makeQR(text) {
         else interim += ev.results[i][0].transcript;
       }
       var live = (said + " " + interim).trim();
-      if(live) ui("awake", live.slice(0, 58));
+      if(live){ ui("awake", live.slice(0, 58)); if(P.open) siriSet("listening", live); }
     };
     r.onend = function(){
       var t = (said || "").trim();
@@ -7016,6 +7414,7 @@ function makeQR(text) {
   }
   function run(text){
     var done = false;
+    if(P.open) siriSet("thinking", text);
     try{ done = window.__siriIntent(text); }catch(e){ done = false; }
     if(!done){
       var inp = document.getElementById("inp"), send = document.getElementById("send");
@@ -7043,22 +7442,25 @@ function makeQR(text) {
 
   function label(){
     var b = document.querySelector('#tools button[data-x="live"]');
-    if(b){ b.textContent = V.armed ? "🎙 “Aura” bolo: on" : "🎙 “Aura” bolo: off"; b.classList.toggle("on", V.armed); }
+    if(b){ b.textContent = V.armed ? "🎙 Hands-free: on" : "🎙 Hands-free: off"; b.classList.toggle("on", V.armed); }
     var mic = document.getElementById("mic");
     if(mic) mic.classList.toggle("on", V.armed && !V.awake);
   }
   function arm(manual){
     if(V.armed) return;
-    if(!SR){ ui("off", "Is browser me voice nahi hai"); return; }
+    if(!SR){ ui("off", "This browser has no voice input"); return; }
     V.armed = true; V.denied = false;
+    /* a silent arm (first touch, first sheet) reports problems only in the chip, never
+       as a toast — the visitor did not ask for anything yet */
+    V.silent = !manual;
     try{ localStorage.setItem("aura_wake", "1"); }catch(e){}
     label(); idle();
     beep(760, 0.1);
     wakeListen();
-    if(manual) flash("🎙 Bolo “Aura” — phir order", 3200);
+    if(manual) flash("🎙 Say “Aura”, then your request", 3200);
   }
   function disarm(){
-    V.armed = false; V.awake = false; clearTimeout(V.timer);
+    V.armed = false; V.awake = false; V.silent = false; clearTimeout(V.timer);
     try{ if(V.rec){ V.rec.onend = null; V.rec.abort(); } }catch(e){}
     try{ speechSynthesis.cancel(); }catch(e){}
     try{ localStorage.setItem("aura_wake", "0"); }catch(e){}
@@ -7066,7 +7468,30 @@ function makeQR(text) {
   }
   window.__auraArm = function(){ arm(true); };
   window.__auraDisarm = disarm;
-  window.__auraVoiceToggle = function(){ V.armed ? disarm() : arm(true); };
+  window.__auraVoiceToggle = function(){ if(V.armed){ disarm(); } else { arm(true); siriOpen(); } };
+
+  /* a visible way in for anyone who does not know the wake word: tools row + keys */
+  function siriLauncher(){
+    try{
+      var tools = document.getElementById("tools");
+      if(tools && !document.getElementById("auraSiriBtn")){
+        var b = document.createElement("button");
+        b.id = "auraSiriBtn"; b.type = "button"; b.textContent = "✨ Siri";
+        b.title = "Talk to AURA hands-free";
+        b.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;" +
+          "border:1px solid rgba(120,215,255,.22);background:rgba(120,215,255,.08);color:#dff4ff;" +
+          "font:12.5px/1.4 Inter,system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;user-select:none";
+        b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} siriOpen(); };
+        tools.appendChild(b);
+      }
+    }catch(e){}
+  }
+  setTimeout(siriLauncher, 1400);
+  setTimeout(siriLauncher, 3200);
+  document.addEventListener("keydown", function(e){
+    if(e.key === "Escape" && P.open){ siriClose(); return; }
+    if((e.ctrlKey || e.metaKey) && e.code === "Space"){ e.preventDefault(); if(P.open) siriListen(); else siriOpen(); }
+  }, true);
 
   /* the menu row is now just the switch for the wake word — nothing to "enter" */
   (function bind(){
@@ -7076,319 +7501,59 @@ function makeQR(text) {
     label();
   })();
 
-  /* arms itself: the first real touch on the page is the microphone permission gesture,
-     and the choice is remembered, so AURA is listening again on the next visit */
-  var armedOnce = false;
+  /* Hands-free is on by default, Siri-style, without ever nagging: nothing on first
+     paint (no prompt, no chip, no mic error), then the first real touch arms the ear
+     silently. Only a machine with no microphone is skipped, and an explicit "off" is
+     remembered forever. */
+  var armedOnce = false, micChecked = false;
+  function hasMic(cb){
+    var done = function(ok){ if(micChecked) return; micChecked = true; cb(ok); };
+    try{
+      if(!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return done(true);
+      var afterPerm = function(state){
+        if(state === "denied") return done(false);
+        navigator.mediaDevices.enumerateDevices().then(function(list){
+          var ins = (list || []).filter(function(d){ return d.kind === "audioinput"; });
+          done(ins.length > 0 || state === "granted");
+        }).catch(function(){ done(true); });
+      };
+      var p = null;
+      try{ if(navigator.permissions && navigator.permissions.query) p = navigator.permissions.query({ name: "microphone" }); }catch(e){}
+      if(p && p.then) p.then(function(s){ afterPerm(s.state); }, function(){ afterPerm("prompt"); });
+      else afterPerm("prompt");
+    }catch(e){ done(true); }
+  }
   function autoArm(){
     if(armedOnce) return;
-    armedOnce = true;
-    var pref = "1";
-    try{ pref = localStorage.getItem("aura_wake") || "1"; }catch(e){}
+    var pref = null; try{ pref = localStorage.getItem("aura_wake"); }catch(e){}
+    /* "0" means the visitor turned it off on purpose; that choice wins */
     if(pref === "0" || V.armed || V.denied) return;
-    arm(false);
+    armedOnce = true;
+    hasMic(function(ok){
+      if(!ok) return;
+      var now = null; try{ now = localStorage.getItem("aura_wake"); }catch(e){}
+      if(now === "0" || V.armed || V.denied) return;
+      arm(false);
+    });
   }
   ["pointerdown", "touchstart", "keydown"].forEach(function(ev){
     window.addEventListener(ev, autoArm, { once: true, capture: true });
   });
   /* a returning visit is already trusted: try straight away, and fall back to tap */
   setTimeout(function(){
-    var pref = "1"; try{ pref = localStorage.getItem("aura_wake") || "1"; }catch(e){}
-    if(pref !== "0" && !V.armed) autoArm();
+    var pref = null; try{ pref = localStorage.getItem("aura_wake"); }catch(e){}
+    /* a returning visit is already trusted: arm even without a fresh tap */
+    if(pref === "1" && !V.armed) autoArm();
   }, 2200);
   document.addEventListener("visibilitychange", function(){
     if(document.visibilityState === "visible" && V.armed && !V.awake && !speechSynthesis.speaking) wakeListen();
   });
   window.addEventListener("online", function(){ if(V.armed && !V.awake) wakeListen(); });
-  window.addEventListener("offline", function(){ ui("off", "Offline · local commands chalenge"); setTimeout(idle, 2500); });
+  window.addEventListener("offline", function(){ ui("off", "Offline · local commands still work"); setTimeout(idle, 2500); });
 })();
 </script>
 
-<script>
-/* ================= AURA MULTIMODAL HUD =================
-   Reviewers called AURA a "generic text chatbot". The first screen now says what it is
-   in one glance — three one-click workflows that each run something real, and a card
-   that works on a machine with no webcam (a generated frame is analysed by the vision
-   lane, so the multimodal path is provable in a sandboxed Cloud Agent). */
-(function(){
-  var API = "https://aura-backend-jomj.onrender.com";
-  var SAMPLE_Q = "You are AURA's vision co-pilot. Read this frame and give: 1) what the device is, 2) the visible fault, 3) the exact next step. Answer in 4 short lines.";
 
-  function h(html){ var d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstElementChild; }
-  function chip(t){ return '<span style="padding:3px 9px;border-radius:99px;background:rgba(120,215,255,.1);border:1px solid rgba(120,215,255,.24);color:#bfe9ff;font:10.5px Inter,system-ui,sans-serif">' + t + '</span>'; }
-
-  function toast(msg){
-    try{ if(typeof window.__auraTell === "function") return window.__auraTell(msg); }catch(e){}
-    var t = document.getElementById("auraHudToast");
-    if(!t){
-      t = document.createElement("div"); t.id = "auraHudToast";
-      t.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:120px;z-index:120;padding:8px 14px;border-radius:99px;" +
-        "background:rgba(8,16,26,.96);border:1px solid rgba(120,215,255,.35);color:#dff3ff;font:12.5px Inter,system-ui,sans-serif;" +
-        "box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;max-width:88vw;text-align:center";
-      document.body.appendChild(t);
-    }
-    t.textContent = msg; t.style.display = "block";
-    clearTimeout(toast.h); toast.h = setTimeout(function(){ t.style.display = "none"; }, 3600);
-  }
-
-  /* ---------- a real frame, drawn here, so no webcam is needed ---------- */
-  function sampleFrame(){
-    var cv = document.createElement("canvas"); cv.width = 720; cv.height = 480;
-    var g = cv.getContext("2d");
-    g.fillStyle = "#0b141d"; g.fillRect(0, 0, 720, 480);
-    g.fillStyle = "#12202c"; g.fillRect(40, 40, 640, 400);
-    g.strokeStyle = "#2b4152"; g.lineWidth = 2; g.strokeRect(40, 40, 640, 400);
-    /* board traces */
-    g.strokeStyle = "#2f5d4a"; g.lineWidth = 2;
-    for(var i = 0; i < 7; i++){ g.beginPath(); g.moveTo(70, 90 + i * 45); g.lineTo(300, 90 + i * 45); g.stroke(); }
-    g.fillStyle = "#1b6b4a"; g.fillRect(80, 70, 120, 90);
-    g.fillStyle = "#8fd8b0"; g.font = "13px monospace"; g.fillText("PWR", 118, 120);
-    /* the fault: one component with a visible burn + a loose connector */
-    g.fillStyle = "#e05a4a"; g.beginPath(); g.arc(470, 150, 26, 0, Math.PI * 2); g.fill();
-    g.fillStyle = "#ffd0c8"; g.font = "bold 14px monospace"; g.fillText("C7", 456, 156);
-    g.strokeStyle = "#e05a4a"; g.lineWidth = 3; g.beginPath(); g.moveTo(470, 176); g.lineTo(470, 232); g.stroke();
-    g.strokeStyle = "#ffbe5c"; g.lineWidth = 4; g.beginPath(); g.moveTo(470, 232); g.quadraticCurveTo(560, 300, 620, 250); g.stroke();
-    g.fillStyle = "#7d8f9e"; g.font = "12px monospace";
-    g.fillText("BOARD REV 3", 470, 410);
-    g.fillStyle = "#9fb6c8"; g.font = "11px monospace";
-    g.fillText("simulated frame · AURA vision demo", 470, 428);
-    return cv.toDataURL("image/jpeg", 0.82);
-  }
-
-  async function visionDemo(btn){
-    var old = btn && btn.querySelector("[data-tip]");
-    if(btn) btn.disabled = true;
-    toast("🧿 Reading the frame…");
-    var img = sampleFrame();
-    try{
-      var r = await fetch(API + "/api/passive-vision", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: img, question: SAMPLE_Q }),
-        signal: AbortSignal.timeout(45000)
-      });
-      var j = await r.json().catch(function(){ return {}; });
-      if(!r.ok || !j.answer) throw new Error((j && (j.message || j.error)) || ("HTTP " + r.status));
-      try{ goTab("chat"); }catch(e){}
-      try{ window.addMsg && window.addMsg("a", "🧿 VISION · sample frame\n\n" + j.answer); }catch(e){}
-      toast("✅ Vision lane answered");
-    }catch(err){
-      /* the workflow must still be visible even if the vision lane is down */
-      try{ goTab("chat"); }catch(e){}
-      try{
-        window.addMsg && window.addMsg("a",
-          "🧿 VISION · sample frame (offline demo)\n\n" +
-          "I read a 720×480 board frame: capacitor **C7** is visibly burnt (red body, scorch around the can) and the ribbon from its rail is loose at the connector.\n\n" +
-          "1. Power the board down and discharge the rail.\n2. Replace C7 (same voltage/capacitance) and reseat the ribbon.\n3. Re-check the 5 V rail before powering the load.\n\n" +
-          "· Vision lane: " + (err && err.message ? err.message : "unreachable") + " — the sample above is the cached demo answer.");
-      }catch(e){}
-      toast("Vision lane unreachable — cached demo shown");
-    }
-    if(btn) btn.disabled = false;
-  }
-
-  function voiceDemo(){
-    try{ if(typeof window.__auraArm === "function") window.__auraArm(); }catch(e){}
-    toast('🎙 Hands-free on · bolo "Aura, check this board"');
-  }
-
-  function codeDemo(){
-    try{ goTab("code"); }catch(e){}
-    setTimeout(function(){
-      var ed = document.getElementById("code");
-      if(ed){
-        ed.value = [
-          "// AURA workspace sample — spot the bug before running",
-          "async function loadOrders(api, ids){",
-          "  const out = [];",
-          "  for (const id of ids){",
-          "    const r = await fetch(`${api}/orders/${id}`);",
-          "    if(!r.ok) continue;",
-          "    out.push(await r.json());",
-          "  }",
-          "  const total = out.reduce((s, o) => s + o.amount);",
-          "  return { total, count: out.length };",
-          "}",
-          "module.exports = { loadOrders };"
-        ].join("\n");
-        ed.dispatchEvent(new Event("input", { bubbles: true }));
-      }
-      /* a real review from the backend — the reference "Explain" button is a stub that
-         only counts lines, which is exactly what made AURA look like a toy */
-      (async function review(){
-        var snippet = ed ? ed.value : "";
-        toast("🧰 Reviewing the workspace…");
-        try{
-          var r = await fetch(API + "/v1/chat/completions", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: "openai/gpt-oss-120b",
-              messages: [
-                { role: "system", content: "You are AURA, a code review co-pilot. Be concrete: name the bug, quote the line, then give the fixed function. No preamble." },
-                { role: "user", content: "Review this workspace file and fix it:\n\n" + snippet }
-              ],
-              max_tokens: 700, temperature: 0.2
-            }),
-            signal: AbortSignal.timeout(45000)
-          });
-          var j = await r.json().catch(function(){ return {}; });
-          var text = String((((j.choices || [])[0] || {}).message || {}).content || "").trim();
-          if(!r.ok || !text) throw new Error((j && (j.message || j.error)) || ("HTTP " + r.status));
-          try{ window.addMsg && window.addMsg("a", "🧰 WORKSPACE · code review\n\n" + text); }catch(e){}
-          try{
-            var out = document.querySelector("#p-code .out");
-            if(out) out.insertAdjacentHTML("beforeend", '<pre style="white-space:pre-wrap;font:12px/1.5 ui-monospace,monospace;color:#bfe9ff;padding:10px 12px">' +
-              String(text).replace(/[<>&]/g, function(c){ return ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]; }) + '</pre>');
-          }catch(e){}
-          toast("✅ Workspace reviewed");
-        }catch(err){
-          var demo = "🧰 WORKSPACE · code review (offline demo)\n\n" +
-            "Bug: the loop awaits one request at a time (for … await fetch), so 20 ids cost 20 round trips, and `continue` silently drops failures — count then looks healthy while data is missing.\n\n" +
-            "Fix: fetch in parallel with Promise.allSettled, keep the failures, and report them:\n\n" +
-            "async function loadOrders(api, ids){\n" +
-            "  const rs = await Promise.allSettled(ids.map(id => fetch(`${api}/orders/${id}`).then(r => r.ok ? r.json() : Promise.reject(r.status))));\n" +
-            "  const out = rs.filter(r => r.status === 'fulfilled').map(r => r.value);\n" +
-            "  const failed = rs.filter(r => r.status === 'rejected').length;\n" +
-            "  return { total: out.reduce((s, o) => s + o.amount, 0), count: out.length, failed };\n" +
-            "}\n\n" +
-            "· Model lane: " + (err && err.message ? err.message : "unreachable") + " — the review above is the cached demo.";
-          try{ window.addMsg && window.addMsg("a", demo); }catch(e){}
-          toast("Model lane unreachable — cached review shown");
-        }
-      })();
-
-    }, 260);
-  }
-
-  /* ---------- the hero ---------- */
-  function card(n, title, sub, hint, action, accent){
-    var b = h('<button type="button" style="text-align:left;flex:1 1 240px;min-width:220px;padding:14px 15px;border-radius:16px;' +
-      'border:1px solid ' + (accent ? 'rgba(120,215,255,.42)' : 'rgba(255,255,255,.12)') + ';' +
-      'background:' + (accent ? 'linear-gradient(160deg,rgba(120,215,255,.14),rgba(47,123,255,.08))' : 'rgba(255,255,255,.03)') + ';' +
-      'color:#e9f5ff;font:13px/1.45 Inter,system-ui,sans-serif;cursor:pointer;display:flex;flex-direction:column;gap:6px;' +
-      'transition:transform .16s ease,border-color .16s ease">' +
-      '<span style="display:flex;align-items:center;gap:8px">' +
-        '<span style="width:20px;height:20px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;' +
-        'background:' + (accent ? 'linear-gradient(135deg,#48c8ff,#2f7bff)' : 'rgba(255,255,255,.1)') + ';color:' + (accent ? '#04121f' : '#cfe9ff') + ';' +
-        'font:700 11px Inter,system-ui,sans-serif">' + n + '</span>' +
-        '<b style="font:600 13.5px Inter,system-ui,sans-serif">' + title + '</b></span>' +
-      '<span style="color:#9fb6c8;font-size:12px">' + sub + '</span>' +
-      '<span style="color:#7fd7ff;font-size:11.5px;margin-top:2px" data-tip>' + hint + '</span></button>');
-    b.onmouseenter = function(){ b.style.transform = "translateY(-2px)"; };
-    b.onmouseleave = function(){ b.style.transform = ""; };
-    b.onclick = function(ev){ try{ ev.preventDefault(); }catch(e){} action(b); };
-    return b;
-  }
-
-  function build(){
-    var wel = document.getElementById("wel");
-    if(!wel || document.getElementById("auraHud")) return !!wel;
-    var wrap = h('<div id="auraHud" style="margin:18px auto 0;max-width:820px;width:100%">' +
-      '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:10px">' +
-        chip("● VISION · VOICE · CODE") + chip("HANDS-FREE") + chip("MULTI-PROVIDER AI") +
-      '</div>' +
-      '<p style="margin:0 0 12px;text-align:center;color:#9fb6c8;font:12.5px/1.5 Inter,system-ui,sans-serif">' +
-        'Not a text chatbot — a <b style="color:#dff3ff">live camera + voice co-pilot</b>. Pick one and it runs now.</p>' +
-      '<div id="auraHudCards" style="display:flex;flex-wrap:wrap;gap:10px"></div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px">' +
-        '<button type="button" id="auraWhy" style="padding:7px 12px;border-radius:99px;border:1px solid rgba(120,215,255,.28);' +
-        'background:rgba(120,215,255,.1);color:#bfe9ff;font:600 11.5px Inter,system-ui,sans-serif;cursor:pointer">' +
-        'Why AURA? · how it differs from a chatbot</button></div>' +
-      '</div>');
-    wel.appendChild(wrap);
-
-    var cards = wrap.querySelector("#auraHudCards");
-    cards.appendChild(card("1", "Live Camera Vision Co-Pilot", "Point the camera, AURA reads the frame and diagnoses it out loud.",
-      "Tap → analyses a sample frame (no webcam needed)", visionDemo, true));
-    cards.appendChild(card("2", "Hands-Free Zeus Voice", "Say \u201CAura\u201D — orders run by voice, no taps, no menus.",
-      "Tap → wake word listening starts", voiceDemo, false));
-    cards.appendChild(card("3", "Visual & Code Workspace Analysis", "A buggy workspace in, a review and a fix out — with the code pane live.",
-      "Tap → loads a sample workspace and explains it", codeDemo, false));
-
-    wrap.querySelector("#auraWhy").onclick = function(){ whySheet(); };
-    headerButton();
-    return true;
-  }
-
-  function whySheet(){
-    var old = document.getElementById("auraWhyOv");
-    if(old) old.remove();
-    var ov = h('<div id="auraWhyOv" style="position:fixed;inset:0;z-index:130;display:flex;align-items:center;justify-content:center;' +
-      'padding:18px;background:rgba(2,5,10,.72);backdrop-filter:blur(6px)">' +
-      '<div style="width:min(440px,100%);max-height:86vh;overflow:auto;border-radius:18px;padding:18px;' +
-      'border:1px solid rgba(120,215,255,.26);background:rgba(10,16,26,.97);color:#e8f4ff;' +
-      'box-shadow:0 24px 60px rgba(0,0,0,.6);font:13px/1.55 Inter,system-ui,sans-serif">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">' +
-        '<b style="font:600 16px Inter,system-ui,sans-serif">Why AURA, not a chatbot</b>' +
-        '<button type="button" id="auraWhyX" style="background:none;border:0;color:#7f8b9a;font-size:17px;cursor:pointer">\u2715</button></div>' +
-      '<div style="display:flex;flex-direction:column;gap:9px;margin-top:6px">' +
-        '<div><b>\uD83D\uDC41 Vision first.</b> AURAcamera frames go to a real vision model and come back as a diagnosis, not a paragraph.</div>' +
-        '<div><b>\uD83C\uDFA7 Voice is the interface.</b> Wake word \u2192 order \u2192 spoken answer. Hands stay on the device you are fixing.</div>' +
-        '<div><b>\u26A1 Resilient routing.</b> Every request tries multiple providers behind ' +
-          '<span style="color:#7fd7ff">aura-backend-jomj.onrender.com</span> \u2014 one key failing does not stop the turn.</div>' +
-        '<div><b>\uD83D\uDCE1 Multi-device.</b> A host can drive a joined phone (mesh): open, call, play, speak \u2014 no per-order prompts.</div>' +
-        '<div><b>\uD83D\uDD12 No account wall.</b> Guest works instantly; signing in only adds sync.</div>' +
-      '</div>' +
-      '<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">' +
-        '<button type="button" id="auraWhyVoice" style="padding:9px 13px;border-radius:11px;border:1px solid rgba(120,215,255,.4);' +
-        'background:rgba(120,215,255,.16);color:#dff4ff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer">Start hands-free</button>' +
-        '<button type="button" id="auraWhyClose" style="padding:9px 13px;border-radius:11px;border:1px solid rgba(255,255,255,.14);' +
-        'background:transparent;color:#cfe3f2;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer">Close</button></div>' +
-      '</div></div>');
-    document.body.appendChild(ov);
-    function close(){ ov.remove(); }
-    ov.addEventListener("click", function(e){ if(e.target === ov) close(); });
-    ov.querySelector("#auraWhyX").onclick = close;
-    ov.querySelector("#auraWhyClose").onclick = close;
-    ov.querySelector("#auraWhyVoice").onclick = function(){ close(); voiceDemo(); };
-  }
-
-  /* the cards must not vanish after the first message — a small header button reopens
-     the same three workflows any time, so a reviewer can always get back to them */
-  function openFlows(){
-    var old = document.getElementById("auraFlowOv");
-    if(old) old.remove();
-    var ov = h('<div id="auraFlowOv" style="position:fixed;inset:0;z-index:132;display:flex;align-items:flex-end;justify-content:center;padding:14px;' +
-      'background:rgba(2,5,10,.66);backdrop-filter:blur(6px)">' +
-      '<div style="width:min(560px,100%);max-height:84vh;overflow:auto;border-radius:18px;padding:16px;' +
-      'border:1px solid rgba(120,215,255,.26);background:rgba(10,16,26,.97);color:#e8f4ff">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
-        '<b style="font:600 15px Inter,system-ui,sans-serif">Multimodal workflows</b>' +
-        '<button type="button" id="auraFlowX" style="background:none;border:0;color:#7f8b9a;font-size:17px;cursor:pointer">\u2715</button></div>' +
-      '<div id="auraFlowCards" style="display:flex;flex-wrap:wrap;gap:9px"></div></div></div>');
-    document.body.appendChild(ov);
-    function close(){ ov.remove(); }
-    function go(fn){ return function(b){ close(); fn(b); }; }
-    ov.addEventListener("click", function(e){ if(e.target === ov) close(); });
-    ov.querySelector("#auraFlowX").onclick = close;
-    var box = ov.querySelector("#auraFlowCards");
-    box.appendChild(card("1", "Live Camera Vision Co-Pilot", "Point the camera, AURA reads the frame and diagnoses it.",
-      "Tap → analyses a sample frame (no webcam needed)", go(visionDemo), true));
-    box.appendChild(card("2", "Hands-Free Zeus Voice", "Say \u201CAura\u201D — orders run by voice.",
-      "Tap → wake word listening starts", go(voiceDemo), false));
-    box.appendChild(card("3", "Visual & Code Workspace Analysis", "A buggy workspace in, a review and a fix out.",
-      "Tap → loads a sample workspace and reviews it", go(codeDemo), false));
-  }
-  function headerButton(){
-    if(document.getElementById("auraFlowBtn")) return;
-    var topr = document.querySelector(".topr");
-    var acct = document.getElementById("acct");
-    if(!topr) return;
-    var b = document.createElement("button");
-    b.id = "auraFlowBtn"; b.className = "ib"; b.type = "button";
-    b.title = "Multimodal workflows — vision, voice, code";
-    b.innerHTML = '\u2728 <span>Workflows</span>';
-    b.onclick = function(ev){ try{ ev.preventDefault(); }catch(e){} openFlows(); };
-    topr.insertBefore(b, acct || null);
-  }
-
-  (function wait(){
-    if(build()) return;
-    var n = (wait.n = (wait.n || 0) + 1);
-    if(n < 40) setTimeout(wait, 400);
-  })();
-  window.__auraHud = { rebuild: build, why: whySheet, vision: visionDemo, flows: openFlows };
-  setTimeout(headerButton, 1600);
-})();
-</script>
 
 <script>/* ================= AURA APP SHELL =================
    Makes the web build behave like an installed app:
@@ -7417,6 +7582,20 @@ function makeQR(text) {
   meta('application-name', 'AURA');
   meta('og:title', 'AURA — an interface, not a chatbot', true);
 
+  /* ---- themed scrollbars ----
+     the mesh list, the command palette and the code output all showed a raw white OS
+     scrollbar on the dark panels, which looked unfinished */
+  try{
+    var sb = document.createElement('style'); sb.id = 'auraScrollCss';
+    sb.textContent = '*{scrollbar-width:thin;scrollbar-color:rgba(120,215,255,.32) transparent}' +
+      '::-webkit-scrollbar{width:8px;height:8px}' +
+      '::-webkit-scrollbar-track{background:transparent}' +
+      '::-webkit-scrollbar-thumb{background:rgba(120,215,255,.28);border-radius:8px}' +
+      '::-webkit-scrollbar-thumb:hover{background:rgba(120,215,255,.45)}' +
+      '::-webkit-scrollbar-corner{background:transparent}';
+    document.head.appendChild(sb);
+  }catch(e){}
+
   /* ---- 2. deep links ---- */
   var ACTIONS = { vision: 0, voice: 1, code: 2, flows: -1 };
   function wanted(){
@@ -7426,12 +7605,27 @@ function makeQR(text) {
     return String(q || '').toLowerCase();
   }
   function runAction(name){
-    var idx = ACTIONS[name];
-    if(idx === undefined) return false;
-    if(idx === -1){ try{ window.__auraHud.flows(); }catch(e){} return true; }
-    var cards = document.querySelectorAll('#auraHudCards button');
-    if(!cards[idx]) return false;
-    try{ cards[idx].click(); return true; }catch(e){ return false; }
+    /* the workflow cards are gone, so a shortcut has to land somewhere real */
+    if(name === 'voice' || name === 'flows'){
+      try{
+        window.__auraSiri.show();
+        window.__auraArm();
+        return true;
+      }catch(e){ return false; }
+    }
+    if(name === 'vision'){
+      var camBtn = document.querySelector('#tools button[data-x="cam"]');
+      if(!camBtn) return false;
+      try{ camBtn.click(); return true; }catch(e){ return false; }
+    }
+    if(name === 'code'){
+      /* phones do not carry the Code workspace; the shortcut must not force a hidden panel */
+      try{ if(matchMedia('(max-width: 820px)').matches) return false; }catch(e){}
+      var tab = document.querySelector('#tabs button[data-p="code"]');
+      if(!tab) return false;
+      try{ tab.click(); return true; }catch(e){ return false; }
+    }
+    return false;
   }
   function boot(){
     var want = wanted();
@@ -7449,6 +7643,8 @@ function makeQR(text) {
     var standalone = false;
     try{ standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }catch(e){}
     if(standalone) return;
+    /* the pill is a phone affordance; on a laptop it only covered the tips line */
+    try{ if(matchMedia('(min-width: 821px)').matches) return; }catch(e){}
     var ios = /iPad|iPhone|iPod/.test(navigator.userAgent || '');
     var b = document.createElement('button');
     b.id = 'auraInstallPill'; b.type = 'button';
@@ -7492,7 +7688,9 @@ function makeQR(text) {
     "/* the reference hides the workspace tab at every width — it is a real panel */",
     "#tabs button[data-p=\"code\"]{display:block !important}",
     "@media (max-width:820px){",
-    "#tabs button[data-p=\"code\"]{display:block !important;padding-left:8px;padding-right:8px}",
+    /* the Code workspace is a laptop surface: it is not offered on phones at all */
+    "#tabs button[data-p=\"code\"]{display:none !important}",
+    "#p-code{display:none !important}",
     "#tabs{gap:2px}",
     /* a panel other than Chat must never show the welcome copy behind it */
     "body[data-aura-tab]:not([data-aura-tab=\"chat\"]) #wel{display:none !important}",
@@ -7520,26 +7718,44 @@ function makeQR(text) {
     "#p-code .out{min-height:120px;max-height:30vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}",
     "#p-code select,#p-code button{font-size:12.5px}",
     /* floating chrome must not cover the editor or the output */
-    "#auraHudToast{bottom:calc(162px + env(safe-area-inset-bottom)) !important;top:auto !important;max-width:min(340px,calc(100vw - 28px));text-align:center}",
     "#wel{padding-bottom:190px !important}",
-    /* three stacked cards pushed the last one under the composer — a swipeable row
-       keeps all three reachable above it, which is how phone apps do pickers */
-    "#auraHudCards{display:flex !important;flex-wrap:nowrap !important;overflow-x:auto !important;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:8px !important;padding:2px 2px 8px !important}",
-    "#auraHudCards>*{flex:0 0 78% !important;min-width:0 !important;scroll-snap-align:start;padding:11px 12px !important}",
-    "#auraHudCards>* b{font-size:13.5px !important;line-height:1.3 !important}",
-    "#auraHudCards>* div,#auraHudCards>* p,#auraHudCards>* span{font-size:11.5px !important;line-height:1.45 !important}",
     /* the install pill sat on the composer — pin it under the tab bar instead */
     "#auraInstallPill{top:calc(122px + env(safe-area-inset-top)) !important;bottom:auto !important;left:auto !important;right:14px !important;transform:none !important;padding:7px 12px !important;font-size:12px !important}",
     "body[data-aura-tab]:not([data-aura-tab=\"chat\"]) #auraInstallPill{display:none !important}",
+    /* the System tab draws a fixed 900px waveform canvas, so that one panel scrolled
+       sideways on a phone while every other tab fit */
+    "#bigspk{width:100% !important;max-width:100% !important;height:auto !important;display:block}",
+    /* the stat grid's items kept an auto minimum, so "DISPLAY 390×844" pushed the second
+       column past the panel and the whole System tab scrolled sideways */
+    "#big4{grid-template-columns:1fr 1fr !important;gap:8px !important}",
+    "#big4 .bk{min-width:0 !important;width:auto !important;padding:10px 12px !important}",
+    "#big4 .bk b,#big4 .bk span{min-width:0 !important;overflow-wrap:anywhere}",
     "}",
     /* tablet / laptop: keep the editor honest but let it grow */
-    "@media (min-width:821px){#code{min-height:220px}}"
+    "@media (min-width:821px){#code{min-height:220px}}",
+    /* the pill is phone chrome; a window resized to desktop must not keep it over the tips */
+    "@media (min-width:821px){#auraInstallPill{display:none !important}}"
   ].join("\n");
 
   var st = document.createElement("style");
   st.id = "auraMobileFix";
   st.textContent = css;
   document.head.appendChild(st);
+
+  /* the "Code" suggestion chip is the same laptop surface: with the Code workspace gone
+     on phones, a chip that only writes code should not stay behind on its own */
+  try{
+    var hideCodeChip = function(){
+      var mobile = matchMedia('(max-width: 820px)').matches;
+      [].forEach.call(document.querySelectorAll('#qp button'), function(b){
+        if((b.textContent || '').trim() !== 'Code') return;
+        b.style.display = mobile ? 'none' : '';
+      });
+    };
+    hideCodeChip();
+    addEventListener("resize", hideCodeChip);
+    setTimeout(hideCodeChip, 1200);
+  }catch(e){}
 
   /* keep body[data-aura-tab] in sync with the reference's own tab state */
   function paint(){
