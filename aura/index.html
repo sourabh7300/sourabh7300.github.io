@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="b283c71fbba3"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="53c9c4d152fd"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2175,6 +2175,8 @@ function makeQR(text) {
       /* how many OTHER devices are joined: the host only sends an order over the mesh
          when there is somebody to send it to, otherwise it runs it locally */
       mesh.peers = devs.filter(function(d){ return String(d.id || "") !== nodeId; }).length;
+      mesh.peerIds = devs.filter(function(d){ return String(d.id || "") !== nodeId; })
+        .map(function(d){ return String(d.id || ""); }).filter(Boolean);
       var rows = devs.map(function(d){
         var on = alive(d);
         var me = String(d.id || "") === nodeId ? " \u00b7 this device" : "";
@@ -2583,7 +2585,9 @@ function makeQR(text) {
     var sel = $("#amuTarget");
     var to = sel && sel.value ? sel.value : "all";
     var body = { code: mesh.code, cmd: c.cmd, arg: c.arg, from: nodeId };
-    if(to !== "all") body.targets = [to]; else body.nodeId = "all";
+    if(to !== "all") body.targets = [to];
+    else if(mesh.peerIds && mesh.peerIds.length) body.targets = mesh.peerIds.slice();
+    else body.nodeId = "all";
     api("/v1/mesh/command", body)
       .then(function(j){
         tell(j.queued ? ("Sent \u00b7 " + c.cmd + " \u2192 " + j.queued + " device(s)") : "No device joined yet");
@@ -5557,7 +5561,12 @@ function makeQR(text) {
   function meshHostSend(cmd, arg, note){
     if(!(mesh.code && mesh.role === "host")) return false;
     if(!(mesh.peers > 0)) return false;
+    /* never addressed to this device: the host gives the order, the joined device does it */
     var body = { code: mesh.code, cmd: cmd, arg: arg, from: nodeId };
+    /* addressed at the joined devices by ID, so the order can never land back on the
+       host that spoke it (that bug loaded YouTube on the host) */
+    if(mesh.peerIds && mesh.peerIds.length) body.targets = mesh.peerIds.slice();
+    else body.nodeId = "all";
     api("/v1/mesh/command", body).then(function(j){
       tell(j.queued ? (note + " \u2192 joined device") : "Koi device mesh me nahi hai");
     }).catch(function(){
@@ -5567,8 +5576,17 @@ function makeQR(text) {
         }).catch(function(){ tell("Order nahi gaya \u00b7 dobara bolo"); });
       }, 900);
     });
+    try{ window.__meshSent = { at: Date.now(), cmd: cmd, arg: String(arg).slice(0, 60) }; }catch(e){}
     return true;
   }
+  try{ window.__meshHostSend = meshHostSend; window.__meshState = mesh; }catch(e){}
+  /* debug door: how the host decided, without guessing from the screen */
+  try{
+    window.__meshDbg = function(){
+      return { role: mesh.role, code: mesh.code, peers: mesh.peers, polling: !!mesh.timer, sent: window.__meshSent || null,
+               join: { ok: 0 }, view: window.__meshViewLast || null };
+    };
+  }catch(e){}
   window.__auraIntent = function(raw){
     var t = String(raw || "").trim();
     if(t.length < 3) return false;
