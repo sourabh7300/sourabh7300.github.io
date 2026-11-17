@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="a9247c7380d7"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="9b4c97f31dbb"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -1547,6 +1547,329 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         else { try{ window.open(y, "_blank"); }catch(e){} }
         pill("▶ " + song.slice(0, 40)); say("Playing " + song.slice(0, 60)); return true;
       }
+    }
+    return false;
+  };
+
+  /* typed input gets the same commands */
+  try{
+    var origIntent = window.__auraIntent;
+    window.__auraIntent = function(t){
+      try{ if(window.__siriIntent(t)) return true; }catch(e){}
+      return origIntent ? origIntent(t) : false;
+    };
+  }catch(e){}
+
+  function label(){
+    var b = document.querySelector('#tools button[data-x="live"]');
+    if(b){ b.textContent = S.on ? "🎙 Siri: on" : "🎙 Siri: off"; b.classList.toggle("on", S.on); }
+  }
+  function loop(){
+    if(!S.on || !SR) return;
+    clearTimeout(S.timer);
+    try{ if(S.rec){ S.rec.onend = null; S.rec.onerror = null; S.rec.abort(); } }catch(e){}
+    var r = new SR(); S.rec = r;
+    r.lang = "en-IN"; r.continuous = false; r.interimResults = true; r.maxAlternatives = 1;
+    var said = "";
+    r.onresult = function(ev){
+      var interim = ""; said = "";
+      for(var i = ev.resultIndex; i < ev.results.length; i++){
+        if(ev.results[i].isFinal) said += ev.results[i][0].transcript;
+        else interim += ev.results[i][0].transcript;
+      }
+      var live = (said + " " + interim).trim();
+      if(live) pill("🎧 " + live.slice(0, 60), 4000);
+    };
+    r.onend = function(){
+      var t = (said || "").trim();
+      if(t.length > 1) handle(t);
+      else if(S.on) S.timer = setTimeout(loop, 700);
+    };
+    r.onerror = function(e){
+      var why = (e && e.error) || "";
+      if(/not-allowed|service-not-allowed/.test(why)){
+        S.on = false; label(); pill("Mic allow karo, phir 🎙 Siri dabao", 5000); return;
+      }
+      if(S.on) S.timer = setTimeout(loop, 1000);
+    };
+    try{ r.start(); }catch(e){ S.timer = setTimeout(loop, 1200); }
+  }
+  function handle(text){
+    pill("🎧 " + text.slice(0, 60), 3000);
+    var done = false;
+    try{ done = window.__siriIntent(text); }catch(e){ done = false; }
+    if(done){ S.timer = setTimeout(loop, 900); return; }
+    var inp = document.getElementById("inp"), send = document.getElementById("send");
+    if(inp && send){
+      S.expect = true;
+      inp.value = text;
+      inp.dispatchEvent(new Event("input", { bubbles: true }));
+      send.click();
+    }
+  }
+  (function wrapAdd(){
+    if(typeof window.addMsg !== "function" || window.addMsg.__siri) return setTimeout(wrapAdd, 500);
+    var orig = window.addMsg;
+    window.addMsg = function(role, text, noSave){
+      var d = orig.apply(this, arguments);
+      try{ if(String(role) === "a" && S.expect){ S.expect = false; say(String(text || "")); } }catch(e){}
+      return d;
+    };
+    window.addMsg.__siri = true;
+  })();
+  function start(){
+    if(!SR){ pill("Is browser me voice input nahi hai — Chrome use karo"); return; }
+    S.on = true; label();
+    pill("🎧 Siri mode on — bolo, AURA karegi", 3200);
+  }
+  function stop(){
+    S.on = false; label(); clearTimeout(S.timer);
+    try{ if(S.rec){ S.rec.onend = null; S.rec.abort(); } }catch(e){}
+    try{ speechSynthesis.cancel(); }catch(e){}
+    pill("🎙 Siri mode off", 2000);
+  }
+  window.__siriToggle = function(){ S.on ? stop() : start(); };
+  window.__siriStart = start; window.__siriStop = stop;
+  (function bind(){
+    var b = document.querySelector('#tools button[data-x="live"]');
+    if(!b) return setTimeout(bind, 400);
+    b.onclick = function(ev){ try{ ev.preventDefault(); ev.stopImmediatePropagation(); }catch(e){} window.__siriToggle(); };
+    b.textContent = "🎙 Siri: off";
+  })();
+  label();
+})();
+</script>
+
+<script>
+/* ================= AURA SIRI MODE =================
+   Tap 🎙 once: AURA keeps listening, answers out loud and finishes the job — call,
+   timer, alarm, music, message, note, directions, maths, weather/news (real fetch).
+   A web page cannot live in the OS like Siri does; this is the closest thing: a
+   hands-free loop that restarts itself after every answer and never needs a second tap. */
+(function(){
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var S = window.__siri = { on:false, rec:null, busy:false, timer:null, expect:false };
+  var NOTES = "aura_notes_v1";
+
+  function pill(msg, ms){
+    var p = document.getElementById("siriPill");
+    if(!p){
+      p = document.createElement("div"); p.id = "siriPill";
+      p.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:90;max-width:88vw;" +
+        "padding:8px 14px;border-radius:99px;background:rgba(8,16,26,.95);border:1px solid rgba(120,215,255,.4);" +
+        "color:#dff3ff;font:12.5px Inter,system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" +
+        "box-shadow:0 10px 30px rgba(0,0,0,.5);display:none";
+      document.body.appendChild(p);
+    }
+    p.textContent = msg; p.style.display = "block";
+    clearTimeout(pill.h); pill.h = setTimeout(function(){ p.style.display = "none"; }, ms || 2600);
+    return p;
+  }
+  function say(text){
+    try{
+      if(!window.speechSynthesis || !text) return;
+      var u = new SpeechSynthesisUtterance(String(text).replace(/[*_`#>]/g, " ").replace(/\s+/g, " ").slice(0, 600));
+      u.rate = 1; u.pitch = 1;
+      u.lang = /[\u0900-\u097F]/.test(String(text)) ? "hi-IN" : "en-IN";
+      /* AURA must not hear herself: the mic waits until the sentence is over */
+      if(S.rec){ try{ S.rec.onend = null; S.rec.abort(); }catch(e){} }
+      u.onend = function(){ if(S.on) S.timer = setTimeout(loop, 420); };
+      speechSynthesis.cancel(); speechSynthesis.speak(u);
+    }catch(e){
+      if(S.on) S.timer = setTimeout(loop, 420);
+    }
+  }
+  function beep(times){
+    try{
+      var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
+      var ctx = new AC(); var n = times || 3;
+      for(var i = 0; i < n; i++){
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = "sine"; o.frequency.value = 880;
+        o.connect(g); g.connect(ctx.destination);
+        var t0 = ctx.currentTime + i * 0.5;
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(0.25, t0 + 0.03);
+        g.gain.linearRampToValueAtTime(0, t0 + 0.32);
+        o.start(t0); o.stop(t0 + 0.35);
+      }
+    }catch(e){}
+  }
+  function fire(title, body){
+    pill(title + " · " + body, 6000);
+    say(title + ". " + body);
+    try{ if(window.Notification && Notification.permission === "granted") new Notification(title, { body: body }); }catch(e){}
+  }
+  function norm(t){ return String(t || "").replace(/^(hey\s+)?aura[\s,]+/i, "").trim(); }
+  function digitsOf(s){ return String(s || "").replace(/[^\d]/g, ""); }
+  function evalMath(expr){
+    var s = String(expr).replace(/[^0-9+\-*/().%]/g, "");
+    if(!s) return null;
+    try{ var v = Function("return (" + s + ")")(); return (typeof v === "number" && isFinite(v)) ? v : null; }catch(e){ return null; }
+  }
+  function contactsOf(){ try{ var a = JSON.parse(localStorage.getItem("aura_contacts_v1") || "[]"); return Array.isArray(a) ? a : []; }catch(e){ return []; } }
+  function findContact(name){
+    var q = String(name || "").toLowerCase().trim(); if(!q) return null;
+    var all = contactsOf();
+    return all.filter(function(c){ return String(c.n || "").toLowerCase() === q; })[0] ||
+           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) === 0; })[0] ||
+           all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) >= 0; })[0] || null;
+  }
+  function callNow(num, name){
+    var n = digitsOf(num); if(n.length < 6){ pill("Number nahi mila"); return; }
+    var plus = String(num).trim().indexOf("+") === 0;
+    pill("📞 Calling " + (name || n));
+    try{ location.href = "tel:" + (plus ? "+" : "") + n; }catch(e){}
+    setTimeout(function(){
+      var c = document.getElementById("auraCallSheet");
+      if(!c){
+        c = document.createElement("div"); c.id = "auraCallSheet";
+        c.style.cssText = "position:fixed;inset:0;z-index:99;display:flex;align-items:flex-end;justify-content:center;padding:18px;background:rgba(2,6,12,.72);font:14px Inter,system-ui,sans-serif";
+        c.innerHTML = '<div style="width:100%;max-width:420px;background:#0a1520;border:1px solid rgba(120,215,255,.28);border-radius:20px;padding:18px;text-align:center;color:#e9f5ff">' +
+          '<div id="acsName" style="font:700 17px Inter,system-ui,sans-serif;margin-bottom:4px"></div>' +
+          '<div id="acsNum" style="color:#8ea1b2;font-size:13px;margin-bottom:14px"></div>' +
+          '<a id="acsCall" href="#" style="display:block;padding:14px;border-radius:14px;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 15px Inter,system-ui,sans-serif;text-decoration:none">📞 Call now</a>' +
+          '<button id="acsClose" style="margin-top:10px;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:transparent;color:#cfe9ff;font:600 12.5px Inter,system-ui,sans-serif">Close</button></div>';
+        document.body.appendChild(c);
+        c.querySelector("#acsClose").onclick = function(){ c.style.display = "none"; };
+      }
+      c.querySelector("#acsName").textContent = name || n;
+      c.querySelector("#acsNum").textContent = (plus ? "+" : "") + n;
+      c.querySelector("#acsCall").setAttribute("href", "tel:" + (plus ? "+" : "") + n);
+      c.style.display = "flex";
+    }, 1200);
+  }
+  function setTimer(minutes, label){
+    var ms = Math.max(1000, Math.round(minutes * 60000));
+    var at = Date.now() + ms;
+    try{
+      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
+      list.push({ at: at, label: label || "Timer" });
+      localStorage.setItem("aura_timers_v1", JSON.stringify(list.slice(-20)));
+    }catch(e){}
+    pill("⏰ " + (label || "Timer") + " · " + Math.max(1, Math.round(minutes)) + " min", 3500);
+    say((label || "Timer") + " set");
+    setTimeout(function(){ beep(4); fire("⏰ AURA", label || "Timer done"); }, ms);
+    return true;
+  }
+  function restoreTimers(){
+    try{
+      var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
+      var keep = [];
+      list.forEach(function(t){
+        var left = t.at - Date.now();
+        if(left <= 0){
+          if(Date.now() - t.at < 600000) setTimeout(function(){ beep(3); fire("⏰ AURA", (t.label || "Timer") + " ka time ho gaya"); }, 1200);
+        } else {
+          keep.push(t);
+          setTimeout(function(){ beep(4); fire("⏰ AURA", (t.label || "Timer") + " done"); }, left);
+        }
+      });
+      localStorage.setItem("aura_timers_v1", JSON.stringify(keep));
+    }catch(e){}
+  }
+  restoreTimers();
+
+  window.__siriIntent = function(raw){
+    var t = norm(raw); if(t.length < 2) return false;
+    var m;
+    if(/^(what('|’)?s the time|what is the time|what time is it|tell me the time|time kya|kya time|time batao|batao time|kitne baje|samay kya|kya samay)/i.test(t)){
+      var s = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+      pill("🕒 " + s, 3000); say("It is " + s); return true;
+    }
+    if(/^(what('|’)?s the date|what is the date|what date is it|tell me the date|aaj ki tareekh|date kya|date batao|aaj kaunsi tarikh|today('|’)?s date)/i.test(t)){
+      var s2 = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+      pill("📅 " + s2, 3000); say(s2); return true;
+    }
+    m = t.match(/^(?:calculate|compute|what is|whats|how much is|kitna hota hai|kitna hai)\s+([-+*/().%\d\s]+)$/i);
+    if(m){
+      var v = evalMath(m[1]);
+      if(v !== null){ var shown = Math.round(v * 1e6) / 1e6; pill("🧮 " + shown, 3500); say(String(shown)); return true; }
+    }
+    m = t.match(/(?:set\s+)?(?:a\s+)?timer\s+(?:for\s+|of\s+)?(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)?/i) ||
+        t.match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)\s*(?:ka|ke|ki)?\s*timer/i);
+    if(m){
+      var unit = String(m[2] || "minute").toLowerCase();
+      var mult = /^(second|sec)/.test(unit) ? 1 / 60 : /^(hour|hr|ghant)/.test(unit) ? 60 : 1;
+      setTimer(parseFloat(m[1]) * mult, "Timer");
+      return true;
+    }
+    m = t.match(/^(?:set\s+)?(?:an?\s+)?(?:alarm|reminder|remind me|yaad dilana|yaad dilao)\s*(?:for|at|ko)?\s*(\d{1,2})[:.](\d{2})\s*(am|pm)?\s*(.*)$/i);
+    if(m){
+      var hh = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+      var ap = (m[3] || "").toLowerCase();
+      if(ap === "pm" && hh < 12) hh += 12;
+      if(ap === "am" && hh === 12) hh = 0;
+      var when = new Date(); when.setHours(hh, mm, 0, 0);
+      if(when.getTime() <= Date.now()) when.setDate(when.getDate() + 1);
+      setTimer((when.getTime() - Date.now()) / 60000, String(m[4] || "").trim() || "Alarm");
+      say("Alarm set for " + when.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }));
+      return true;
+    }
+    m = t.match(/^(?:send\s+)?(?:a\s+)?(?:message|sms|msg|text)\s+(?:to\s+)?(.+?)(?:\s+(?:saying|that|ki|bolo|likho)\s+([\s\S]+))?$/i);
+    if(m){
+      var who = m[1].trim(), body = (m[2] || "").trim();
+      var c0 = findContact(who);
+      var num = c0 ? c0.t : digitsOf(who);
+      if(digitsOf(num).length >= 6){
+        var plus2 = String(num).trim().indexOf("+") === 0;
+        var link = "sms:" + (plus2 ? "+" : "") + digitsOf(num) + (body ? "?body=" + encodeURIComponent(body) : "");
+        pill("✉️ " + (c0 ? c0.n : num));
+        say(body ? ("Message ready for " + (c0 ? c0.n : num)) : ("Opening messages for " + (c0 ? c0.n : num)));
+        try{ if(!window.open(link, "_blank")) location.href = link; }catch(e){ try{ location.href = link; }catch(e2){} }
+        return true;
+      }
+      pill("Kisko message? Contacts me number add karo"); say("I need a number for that"); return true;
+    }
+    m = t.match(/^(?:make a note|note this|note|yaad rakho|likh lo|remember)\s+([\s\S]+)$/i);
+    if(m){
+      try{
+        var list = JSON.parse(localStorage.getItem(NOTES) || "[]");
+        list.push({ t: m[1].slice(0, 300), at: Date.now() });
+        localStorage.setItem(NOTES, JSON.stringify(list.slice(-200)));
+      }catch(e){}
+      pill("📝 Note saved", 2500); say("Noted"); return true;
+    }
+    m = t.match(/^(?:navigate|directions|take me|raasta|le chalo)\s+(?:to\s+)?([\s\S]+)$/i);
+    if(m){
+      var q = m[1].trim();
+      var url = /Android|iPhone|iPad/i.test(navigator.userAgent)
+        ? "geo:0,0?q=" + encodeURIComponent(q)
+        : "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(q);
+      pill("🧭 " + q); say("Directions to " + q);
+      try{ if(!window.open(url, "_blank")) location.href = url; }catch(e){ try{ location.href = url; }catch(e2){} }
+      return true;
+    }
+    m = t.match(/^(?:call|dial|phone|milao|lagao)\s+([\s\S]+)$/i);
+    if(m){
+      var who2 = m[1].replace(/\s+(ko|se)\s*$/i, "").trim();
+      if(/^(this|that)?\s*(person|contact|banda|aadmi|insaan)$/i.test(who2) || /^(isko|ise|usko)$/i.test(who2)){
+        var all = contactsOf();
+        if(all.length === 1){ callNow(all[0].t, all[0].n); return true; }
+        if(!all.length){ pill("Pehle Contacts me number add karo"); say("I do not have any contacts yet"); return true; }
+        pill("Kisko? " + all.slice(0, 3).map(function(x){ return x.n; }).join(", "));
+        say("Who should I call?"); return true;
+      }
+      var dnum = digitsOf(who2);
+      if(dnum.length >= 6){ callNow(who2, who2); return true; }
+      var hit = findContact(who2);
+      if(hit){ callNow(hit.t, hit.n); return true; }
+      pill("Contact nahi mila: " + who2); say("I could not find " + who2); return true;
+    }
+    m = t.match(/^(?:play|bajao|chalao|sunao)\s+([\s\S]+)$/i);
+    if(m){
+      var song = m[1].replace(/\s+(on|par|pe)\s+youtube\s*$/i, "").replace(/\s+youtube$/i, "").trim();
+      if(/^(this|that|ye|yeh|it|same)(\s+(song|gaana|gana|track))?$/i.test(song) || /^(song|gaana|gana)$/i.test(song)){
+        try{ song = window.__auraLastWords ? String(window.__auraLastWords() || "") : ""; }catch(e){ song = ""; }
+      }
+      if(song){
+        var y = "https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(song);
+        if(window.__auraOpenInside) { try{ window.__auraOpenInside(y, "▶ " + song.slice(0, 40)); }catch(e){} }
+        else { try{ window.open(y, "_blank"); }catch(e){} }
+        pill("▶ " + song.slice(0, 40)); say("Playing " + song.slice(0, 60)); return true;
+      }
+      /* nothing on screen to borrow: ask for the title instead of sending "this" to chat */
+      pill("Konsa gaana? Naam bolo"); say("Which song?"); return true;
     }
     return false;
   };
@@ -7607,66 +7930,87 @@ function makeQR(text) {
 </script>
 
 <script>
-/* ================= AURA SIRI MODE =================
-   Tap 🎙 once: AURA keeps listening, answers out loud and finishes the job — call,
-   timer, alarm, music, message, note, directions, maths, weather/news (real fetch).
-   A web page cannot live in the OS like Siri does; this is the closest thing: a
-   hands-free loop that restarts itself after every answer and never needs a second tap. */
+/* ================= AURA VOICE (wake word) =================
+   Not a mode and not a switch you hunt for: once the mic has been allowed, AURA keeps
+   a light ear open and wakes on the word "Aura" / "hey Aura", exactly like Siri. The
+   wake listen is free — only a recognised "Aura" starts a command, so it does not
+   chatter. Every command it can do offline (time, maths, timer, alarm, note, call,
+   message, music) runs with no network; questions go to the brain and are spoken back.
+   A browser cannot run while the phone is locked — that is the one Siri thing a web
+   page is not allowed to do. */
 (function(){
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var S = window.__siri = { on:false, rec:null, busy:false, timer:null, expect:false };
+  var V = window.__auraVoice = { armed:false, awake:false, rec:null, timer:null, expect:false, denied:false, heard:"" };
   var NOTES = "aura_notes_v1";
+  var WAKE = /(^|[\s,.])(hey\s+)?(aura|ओरा)([\s,.!?]|$)/i;
 
-  function pill(msg, ms){
-    var p = document.getElementById("siriPill");
-    if(!p){
-      p = document.createElement("div"); p.id = "siriPill";
-      p.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:90;max-width:88vw;" +
-        "padding:8px 14px;border-radius:99px;background:rgba(8,16,26,.95);border:1px solid rgba(120,215,255,.4);" +
-        "color:#dff3ff;font:12.5px Inter,system-ui,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" +
-        "box-shadow:0 10px 30px rgba(0,0,0,.5);display:none";
-      document.body.appendChild(p);
+  /* ---------- small UI: one quiet chip above the composer ---------- */
+  var chip;
+  function ui(state, text){
+    if(!chip){
+      chip = document.createElement("div"); chip.id = "auraWakeChip";
+      chip.style.cssText = "position:fixed;left:50%;transform:translateX(-50%);bottom:104px;z-index:88;display:none;" +
+        "align-items:center;gap:7px;padding:6px 12px;border-radius:99px;background:rgba(8,16,26,.86);" +
+        "border:1px solid rgba(120,215,255,.22);color:#bfe3ff;font:11.5px/1 Inter,system-ui,sans-serif;" +
+        "white-space:nowrap;box-shadow:0 8px 22px rgba(0,0,0,.35);backdrop-filter:blur(8px);max-width:88vw;" +
+        "overflow:hidden;text-overflow:ellipsis;transition:opacity .18s ease";
+      document.body.appendChild(chip);
+      window.addEventListener("resize", function(){ if(chip.style.display !== "none") place(); });
     }
-    p.textContent = msg; p.style.display = "block";
-    clearTimeout(pill.h); pill.h = setTimeout(function(){ p.style.display = "none"; }, ms || 2600);
-    return p;
+    place();
+    if(!state){ chip.style.display = "none"; return; }
+    chip.innerHTML = '<span style="width:6px;height:6px;border-radius:50%;background:' +
+      (state === "awake" ? "#5cf0a8" : state === "off" ? "#ff8f8f" : "#48c8ff") +
+      ';box-shadow:0 0 8px ' + (state === "awake" ? "#5cf0a8" : "#48c8ff") + '"></span>' +
+      '<span>' + text + '</span>';
+    chip.style.display = "inline-flex";
   }
+  /* sit just above the composer card whatever its height is */
+  function place(){
+    try{
+      var card = document.getElementById("card") || document.querySelector(".crow");
+      if(!card) return;
+      var r = card.getBoundingClientRect();
+      chip.style.bottom = Math.max(14, window.innerHeight - r.top + 10) + "px";
+    }catch(e){}
+  }
+  function flash(text, ms){ ui("awake", text); clearTimeout(flash.h); flash.h = setTimeout(function(){ if(!V.awake) idle(); }, ms || 2600); }
+  function idle(){ if(!V.armed) return; ui("armed", "Bolo “Aura” · sun rahi hoon"); }
+
   function say(text){
     try{
       if(!window.speechSynthesis || !text) return;
       var u = new SpeechSynthesisUtterance(String(text).replace(/[*_`#>]/g, " ").replace(/\s+/g, " ").slice(0, 600));
       u.rate = 1; u.pitch = 1;
       u.lang = /[\u0900-\u097F]/.test(String(text)) ? "hi-IN" : "en-IN";
-      /* AURA must not hear herself: the mic waits until the sentence is over */
-      if(S.rec){ try{ S.rec.onend = null; S.rec.abort(); }catch(e){} }
-      u.onend = function(){ if(S.on) S.timer = setTimeout(loop, 420); };
+      if(V.rec){ try{ V.rec.onend = null; V.rec.abort(); }catch(e){} }
+      u.onend = function(){ if(V.armed) V.timer = setTimeout(wakeListen, 420); };
       speechSynthesis.cancel(); speechSynthesis.speak(u);
-    }catch(e){
-      if(S.on) S.timer = setTimeout(loop, 420);
-    }
+    }catch(e){ if(V.armed) V.timer = setTimeout(wakeListen, 420); }
   }
-  function beep(times){
+  function beep(freq, dur){
     try{
       var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return;
-      var ctx = new AC(); var n = times || 3;
-      for(var i = 0; i < n; i++){
-        var o = ctx.createOscillator(), g = ctx.createGain();
-        o.type = "sine"; o.frequency.value = 880;
-        o.connect(g); g.connect(ctx.destination);
-        var t0 = ctx.currentTime + i * 0.5;
-        g.gain.setValueAtTime(0, t0);
-        g.gain.linearRampToValueAtTime(0.25, t0 + 0.03);
-        g.gain.linearRampToValueAtTime(0, t0 + 0.32);
-        o.start(t0); o.stop(t0 + 0.35);
-      }
+      var ctx = new AC(), o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = freq || 880;
+      o.connect(g); g.connect(ctx.destination);
+      var t0 = ctx.currentTime;
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.18, t0 + 0.02);
+      g.gain.linearRampToValueAtTime(0, t0 + (dur || 0.16));
+      o.start(t0); o.stop(t0 + (dur || 0.16) + 0.02);
     }catch(e){}
   }
+  function alarmSound(){
+    [0, 500, 1000].forEach(function(d){ setTimeout(function(){ beep(880, 0.3); }, d); });
+  }
   function fire(title, body){
-    pill(title + " · " + body, 6000);
-    say(title + ". " + body);
+    flash(title + " · " + body, 6000); say(title + ". " + body);
     try{ if(window.Notification && Notification.permission === "granted") new Notification(title, { body: body }); }catch(e){}
   }
-  function norm(t){ return String(t || "").replace(/^(hey\s+)?aura[\s,]+/i, "").trim(); }
+
+  /* ---------------- commands (all work with no network) ---------------- */
+  function norm(t){ return String(t || "").replace(/^(hey\s+)?aura[\s,.!?]+/i, "").replace(/^(aura)[\s,.!?]+/i, "").trim(); }
   function digitsOf(s){ return String(s || "").replace(/[^\d]/g, ""); }
   function evalMath(expr){
     var s = String(expr).replace(/[^0-9+\-*/().%]/g, "");
@@ -7682,9 +8026,9 @@ function makeQR(text) {
            all.filter(function(c){ return String(c.n || "").toLowerCase().indexOf(q) >= 0; })[0] || null;
   }
   function callNow(num, name){
-    var n = digitsOf(num); if(n.length < 6){ pill("Number nahi mila"); return; }
+    var n = digitsOf(num); if(n.length < 6){ flash("Number nahi mila"); return; }
     var plus = String(num).trim().indexOf("+") === 0;
-    pill("📞 Calling " + (name || n));
+    flash("📞 Calling " + (name || n));
     try{ location.href = "tel:" + (plus ? "+" : "") + n; }catch(e){}
     setTimeout(function(){
       var c = document.getElementById("auraCallSheet");
@@ -7707,15 +8051,14 @@ function makeQR(text) {
   }
   function setTimer(minutes, label){
     var ms = Math.max(1000, Math.round(minutes * 60000));
-    var at = Date.now() + ms;
     try{
       var list = JSON.parse(localStorage.getItem("aura_timers_v1") || "[]");
-      list.push({ at: at, label: label || "Timer" });
+      list.push({ at: Date.now() + ms, label: label || "Timer" });
       localStorage.setItem("aura_timers_v1", JSON.stringify(list.slice(-20)));
     }catch(e){}
-    pill("⏰ " + (label || "Timer") + " · " + Math.max(1, Math.round(minutes)) + " min", 3500);
+    flash("⏰ " + (label || "Timer") + " · " + Math.max(1, Math.round(minutes)) + " min", 3500);
     say((label || "Timer") + " set");
-    setTimeout(function(){ beep(4); fire("⏰ AURA", label || "Timer done"); }, ms);
+    setTimeout(function(){ alarmSound(); fire("⏰ AURA", label || "Timer done"); }, ms);
     return true;
   }
   function restoreTimers(){
@@ -7725,10 +8068,10 @@ function makeQR(text) {
       list.forEach(function(t){
         var left = t.at - Date.now();
         if(left <= 0){
-          if(Date.now() - t.at < 600000) setTimeout(function(){ beep(3); fire("⏰ AURA", (t.label || "Timer") + " ka time ho gaya"); }, 1200);
+          if(Date.now() - t.at < 600000) setTimeout(function(){ alarmSound(); fire("⏰ AURA", (t.label || "Timer") + " ka time ho gaya"); }, 1200);
         } else {
           keep.push(t);
-          setTimeout(function(){ beep(4); fire("⏰ AURA", (t.label || "Timer") + " done"); }, left);
+          setTimeout(function(){ alarmSound(); fire("⏰ AURA", (t.label || "Timer") + " done"); }, left);
         }
       });
       localStorage.setItem("aura_timers_v1", JSON.stringify(keep));
@@ -7741,16 +8084,16 @@ function makeQR(text) {
     var m;
     if(/^(what('|’)?s the time|what is the time|what time is it|tell me the time|time kya|kya time|time batao|batao time|kitne baje|samay kya|kya samay)/i.test(t)){
       var s = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-      pill("🕒 " + s, 3000); say("It is " + s); return true;
+      flash("🕒 " + s, 3000); say("It is " + s); return true;
     }
     if(/^(what('|’)?s the date|what is the date|what date is it|tell me the date|aaj ki tareekh|date kya|date batao|aaj kaunsi tarikh|today('|’)?s date)/i.test(t)){
       var s2 = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
-      pill("📅 " + s2, 3000); say(s2); return true;
+      flash("📅 " + s2, 3000); say(s2); return true;
     }
     m = t.match(/^(?:calculate|compute|what is|whats|how much is|kitna hota hai|kitna hai)\s+([-+*/().%\d\s]+)$/i);
     if(m){
       var v = evalMath(m[1]);
-      if(v !== null){ var shown = Math.round(v * 1e6) / 1e6; pill("🧮 " + shown, 3500); say(String(shown)); return true; }
+      if(v !== null){ var shown = Math.round(v * 1e6) / 1e6; flash("🧮 " + shown, 3500); say(String(shown)); return true; }
     }
     m = t.match(/(?:set\s+)?(?:a\s+)?timer\s+(?:for\s+|of\s+)?(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)?/i) ||
         t.match(/(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?|ghanta|ghante|min)\s*(?:ka|ke|ki)?\s*timer/i);
@@ -7780,12 +8123,12 @@ function makeQR(text) {
       if(digitsOf(num).length >= 6){
         var plus2 = String(num).trim().indexOf("+") === 0;
         var link = "sms:" + (plus2 ? "+" : "") + digitsOf(num) + (body ? "?body=" + encodeURIComponent(body) : "");
-        pill("✉️ " + (c0 ? c0.n : num));
+        flash("✉️ " + (c0 ? c0.n : num));
         say(body ? ("Message ready for " + (c0 ? c0.n : num)) : ("Opening messages for " + (c0 ? c0.n : num)));
         try{ if(!window.open(link, "_blank")) location.href = link; }catch(e){ try{ location.href = link; }catch(e2){} }
         return true;
       }
-      pill("Kisko message? Contacts me number add karo"); say("I need a number for that"); return true;
+      flash("Kisko message? Contacts me number add karo"); say("I need a number for that"); return true;
     }
     m = t.match(/^(?:make a note|note this|note|yaad rakho|likh lo|remember)\s+([\s\S]+)$/i);
     if(m){
@@ -7794,7 +8137,7 @@ function makeQR(text) {
         list.push({ t: m[1].slice(0, 300), at: Date.now() });
         localStorage.setItem(NOTES, JSON.stringify(list.slice(-200)));
       }catch(e){}
-      pill("📝 Note saved", 2500); say("Noted"); return true;
+      flash("📝 Note saved", 2500); say("Noted"); return true;
     }
     m = t.match(/^(?:navigate|directions|take me|raasta|le chalo)\s+(?:to\s+)?([\s\S]+)$/i);
     if(m){
@@ -7802,7 +8145,7 @@ function makeQR(text) {
       var url = /Android|iPhone|iPad/i.test(navigator.userAgent)
         ? "geo:0,0?q=" + encodeURIComponent(q)
         : "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(q);
-      pill("🧭 " + q); say("Directions to " + q);
+      flash("🧭 " + q); say("Directions to " + q);
       try{ if(!window.open(url, "_blank")) location.href = url; }catch(e){ try{ location.href = url; }catch(e2){} }
       return true;
     }
@@ -7812,15 +8155,15 @@ function makeQR(text) {
       if(/^(this|that)?\s*(person|contact|banda|aadmi|insaan)$/i.test(who2) || /^(isko|ise|usko)$/i.test(who2)){
         var all = contactsOf();
         if(all.length === 1){ callNow(all[0].t, all[0].n); return true; }
-        if(!all.length){ pill("Pehle Contacts me number add karo"); say("I do not have any contacts yet"); return true; }
-        pill("Kisko? " + all.slice(0, 3).map(function(x){ return x.n; }).join(", "));
+        if(!all.length){ flash("Pehle Contacts me number add karo"); say("I do not have any contacts yet"); return true; }
+        flash("Kisko? " + all.slice(0, 3).map(function(x){ return x.n; }).join(", "));
         say("Who should I call?"); return true;
       }
       var dnum = digitsOf(who2);
       if(dnum.length >= 6){ callNow(who2, who2); return true; }
       var hit = findContact(who2);
       if(hit){ callNow(hit.t, hit.n); return true; }
-      pill("Contact nahi mila: " + who2); say("I could not find " + who2); return true;
+      flash("Contact nahi mila: " + who2); say("I could not find " + who2); return true;
     }
     m = t.match(/^(?:play|bajao|chalao|sunao)\s+([\s\S]+)$/i);
     if(m){
@@ -7830,34 +8173,66 @@ function makeQR(text) {
       }
       if(song){
         var y = "https://www.youtube.com/embed?autoplay=1&listType=search&list=" + encodeURIComponent(song);
-        if(window.__auraOpenInside) { try{ window.__auraOpenInside(y, "▶ " + song.slice(0, 40)); }catch(e){} }
+        if(window.__auraOpenInside){ try{ window.__auraOpenInside(y, "▶ " + song.slice(0, 40)); }catch(e){} }
         else { try{ window.open(y, "_blank"); }catch(e){} }
-        pill("▶ " + song.slice(0, 40)); say("Playing " + song.slice(0, 60)); return true;
+        flash("▶ " + song.slice(0, 40)); say("Playing " + song.slice(0, 60)); return true;
       }
-      /* nothing on screen to borrow: ask for the title instead of sending "this" to chat */
-      pill("Konsa gaana? Naam bolo"); say("Which song?"); return true;
+      flash("Konsa gaana? Naam bolo"); say("Which song?"); return true;
     }
     return false;
   };
 
-  /* typed input gets the same commands */
+  /* typed text gets the same commands */
   try{
-    var origIntent = window.__auraIntent;
-    window.__auraIntent = function(t){
-      try{ if(window.__siriIntent(t)) return true; }catch(e){}
-      return origIntent ? origIntent(t) : false;
-    };
+    if(!window.__auraIntentWrapped){
+      var origIntent = window.__auraIntent;
+      window.__auraIntent = function(t){
+        try{ if(window.__siriIntent(t)) return true; }catch(e){}
+        return origIntent ? origIntent(t) : false;
+      };
+      window.__auraIntentWrapped = true;
+    }
   }catch(e){}
 
-  function label(){
-    var b = document.querySelector('#tools button[data-x="live"]');
-    if(b){ b.textContent = S.on ? "🎙 Siri: on" : "🎙 Siri: off"; b.classList.toggle("on", S.on); }
+  /* ---------------- the ear ---------------- */
+  function wakeListen(){
+    if(!V.armed || !SR) return;
+    clearTimeout(V.timer);
+    try{ if(V.rec){ V.rec.onend = null; V.rec.onerror = null; V.rec.abort(); } }catch(e){}
+    var r = new SR(); V.rec = r;
+    r.lang = "en-IN"; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    var fired = false;
+    r.onresult = function(ev){
+      var heard = "";
+      for(var i = ev.resultIndex; i < ev.results.length; i++) heard += ev.results[i][0].transcript;
+      V.heard = heard;
+      if(!fired && WAKE.test(heard)){
+        fired = true;
+        try{ r.onend = null; r.abort(); }catch(e){}
+        wakeUp(heard);
+      }
+    };
+    r.onend = function(){ if(V.armed && !V.awake) V.timer = setTimeout(wakeListen, 600); };
+    r.onerror = function(e){
+      var why = (e && e.error) || "";
+      if(/not-allowed|service-not-allowed/.test(why)){
+        V.armed = false; V.denied = true;
+        try{ localStorage.setItem("aura_wake", "0"); }catch(err){}
+        ui("off", "Mic band — settings me allow karo"); label(); return;
+      }
+      if(/network|audio-capture/.test(why)){ ui("off", navigator.onLine ? "Mic nahi mila" : "Offline · type karke poocho"); }
+      if(V.armed && !V.awake) V.timer = setTimeout(wakeListen, 1500);
+    };
+    try{ r.start(); }catch(e){ V.timer = setTimeout(wakeListen, 1500); }
   }
-  function loop(){
-    if(!S.on || !SR) return;
-    clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.onerror = null; S.rec.abort(); } }catch(e){}
-    var r = new SR(); S.rec = r;
+  function wakeUp(heard){
+    V.awake = true;
+    beep(1180, 0.12);
+    ui("awake", "Sun rahi hoon…");
+    /* the words that woke her are often the whole order: "Aura, play kesariya" */
+    var rest = norm(String(heard || ""));
+    if(rest.length > 2) return run(rest);
+    var r = new SR();
     r.lang = "en-IN"; r.continuous = false; r.interimResults = true; r.maxAlternatives = 1;
     var said = "";
     r.onresult = function(ev){
@@ -7867,66 +8242,103 @@ function makeQR(text) {
         else interim += ev.results[i][0].transcript;
       }
       var live = (said + " " + interim).trim();
-      if(live) pill("🎧 " + live.slice(0, 60), 4000);
+      if(live) ui("awake", live.slice(0, 58));
     };
     r.onend = function(){
       var t = (said || "").trim();
-      if(t.length > 1) handle(t);
-      else if(S.on) S.timer = setTimeout(loop, 700);
+      if(t.length > 1) run(t);
+      else { V.awake = false; idle(); if(V.armed) V.timer = setTimeout(wakeListen, 500); }
     };
-    r.onerror = function(e){
-      var why = (e && e.error) || "";
-      if(/not-allowed|service-not-allowed/.test(why)){
-        S.on = false; label(); pill("Mic allow karo, phir 🎙 Siri dabao", 5000); return;
-      }
-      if(S.on) S.timer = setTimeout(loop, 1000);
-    };
-    try{ r.start(); }catch(e){ S.timer = setTimeout(loop, 1200); }
+    r.onerror = function(){ V.awake = false; idle(); if(V.armed) V.timer = setTimeout(wakeListen, 800); };
+    V.rec = r;
+    try{ r.start(); }catch(e){ V.awake = false; idle(); }
   }
-  function handle(text){
-    pill("🎧 " + text.slice(0, 60), 3000);
+  function run(text){
     var done = false;
     try{ done = window.__siriIntent(text); }catch(e){ done = false; }
-    if(done){ S.timer = setTimeout(loop, 900); return; }
-    var inp = document.getElementById("inp"), send = document.getElementById("send");
-    if(inp && send){
-      S.expect = true;
-      inp.value = text;
-      inp.dispatchEvent(new Event("input", { bubbles: true }));
-      send.click();
+    if(!done){
+      var inp = document.getElementById("inp"), send = document.getElementById("send");
+      if(inp && send){
+        V.expect = true;
+        inp.value = text;
+        inp.dispatchEvent(new Event("input", { bubbles: true }));
+        send.click();
+      }
     }
+    /* a command usually ends here; the chat path returns to the ear when it speaks */
+    setTimeout(function(){ V.awake = false; if(V.armed && !speechSynthesis.speaking) V.timer = setTimeout(wakeListen, 700); else idle(); }, 1200);
   }
+  /* AURA answers the question out loud */
   (function wrapAdd(){
-    if(typeof window.addMsg !== "function" || window.addMsg.__siri) return setTimeout(wrapAdd, 500);
+    if(typeof window.addMsg !== "function" || window.addMsg.__auraVoice) return setTimeout(wrapAdd, 500);
     var orig = window.addMsg;
     window.addMsg = function(role, text, noSave){
       var d = orig.apply(this, arguments);
-      try{ if(String(role) === "a" && S.expect){ S.expect = false; say(String(text || "")); } }catch(e){}
+      try{ if(String(role) === "a" && V.expect){ V.expect = false; say(String(text || "")); } }catch(e){}
       return d;
     };
-    window.addMsg.__siri = true;
+    window.addMsg.__auraVoice = true;
   })();
-  function start(){
-    if(!SR){ pill("Is browser me voice input nahi hai — Chrome use karo"); return; }
-    S.on = true; label();
-    pill("🎧 Siri mode on — bolo, AURA karegi", 3200);
+
+  function label(){
+    var b = document.querySelector('#tools button[data-x="live"]');
+    if(b){ b.textContent = V.armed ? "🎙 “Aura” bolo: on" : "🎙 “Aura” bolo: off"; b.classList.toggle("on", V.armed); }
+    var mic = document.getElementById("mic");
+    if(mic) mic.classList.toggle("on", V.armed && !V.awake);
   }
-  function stop(){
-    S.on = false; label(); clearTimeout(S.timer);
-    try{ if(S.rec){ S.rec.onend = null; S.rec.abort(); } }catch(e){}
+  function arm(manual){
+    if(V.armed) return;
+    if(!SR){ ui("off", "Is browser me voice nahi hai"); return; }
+    V.armed = true; V.denied = false;
+    try{ localStorage.setItem("aura_wake", "1"); }catch(e){}
+    label(); idle();
+    beep(760, 0.1);
+    wakeListen();
+    if(manual) flash("🎙 Bolo “Aura” — phir order", 3200);
+  }
+  function disarm(){
+    V.armed = false; V.awake = false; clearTimeout(V.timer);
+    try{ if(V.rec){ V.rec.onend = null; V.rec.abort(); } }catch(e){}
     try{ speechSynthesis.cancel(); }catch(e){}
-    pill("🎙 Siri mode off", 2000);
+    try{ localStorage.setItem("aura_wake", "0"); }catch(e){}
+    label(); ui(false);
   }
-  window.__siriToggle = function(){ S.on ? stop() : start(); };
-  window.__siriStart = start; window.__siriStop = stop;
+  window.__auraArm = function(){ arm(true); };
+  window.__auraDisarm = disarm;
+  window.__auraVoiceToggle = function(){ V.armed ? disarm() : arm(true); };
+
+  /* the menu row is now just the switch for the wake word — nothing to "enter" */
   (function bind(){
     var b = document.querySelector('#tools button[data-x="live"]');
     if(!b) return setTimeout(bind, 400);
-    b.onclick = function(ev){ try{ ev.preventDefault(); ev.stopImmediatePropagation(); }catch(e){} window.__siriToggle(); };
-    b.textContent = "🎙 Siri: off";
+    b.onclick = function(ev){ try{ ev.preventDefault(); ev.stopImmediatePropagation(); }catch(e){} window.__auraVoiceToggle(); };
+    label();
   })();
-  label();
+
+  /* arms itself: the first real touch on the page is the microphone permission gesture,
+     and the choice is remembered, so AURA is listening again on the next visit */
+  var armedOnce = false;
+  function autoArm(){
+    if(armedOnce) return;
+    armedOnce = true;
+    var pref = "1";
+    try{ pref = localStorage.getItem("aura_wake") || "1"; }catch(e){}
+    if(pref === "0" || V.armed || V.denied) return;
+    arm(false);
+  }
+  ["pointerdown", "touchstart", "keydown"].forEach(function(ev){
+    window.addEventListener(ev, autoArm, { once: true, capture: true });
+  });
+  /* a returning visit is already trusted: try straight away, and fall back to tap */
+  setTimeout(function(){
+    var pref = "1"; try{ pref = localStorage.getItem("aura_wake") || "1"; }catch(e){}
+    if(pref !== "0" && !V.armed) autoArm();
+  }, 2200);
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "visible" && V.armed && !V.awake && !speechSynthesis.speaking) wakeListen();
+  });
+  window.addEventListener("online", function(){ if(V.armed && !V.awake) wakeListen(); });
+  window.addEventListener("offline", function(){ ui("off", "Offline · local commands chalenge"); setTimeout(idle, 2500); });
 })();
 </script>
-
 </body></html>
