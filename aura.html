@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="56400d46b0e2"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e67bb946a014"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -5323,68 +5323,55 @@ function makeQR(text) {
         paint(name, "Signed in · chats and memory follow this account");
       }
 
+      /* Opening the account sheet used to start Google immediately, so on a phone the
+         page redirected to accounts.google.com a second later — that is the "guest
+         sign-in crash" the reviewers saw. The sheet is now a chooser: guest starts
+         instantly, Google runs only when the button is actually tapped. */
       async function startGoogle(){
         if(busy) return;
         busy = true;
         var box = sheet(
-          '<h3 style="margin:0 0 6px;font:600 16px Inter,system-ui,sans-serif">Continue with Google</h3>' +
-          '<p id="auraAuthMsg" style="margin:0 0 10px;font:13px/1.55 Inter,system-ui,sans-serif;color:#9fb6c8">Checking sign-in…</p>' +
-          '<button type="button" id="auraGuestBtn" style="width:100%;padding:11px 14px;border-radius:11px;border:1px solid rgba(120,215,255,.45);' +
+          '<h3 style="margin:0 0 8px;font:600 16px Inter,system-ui,sans-serif">Sign in to AURA</h3>' +
+          '<button type="button" id="auraGuestBtn" style="width:100%;padding:12px 14px;border-radius:11px;border:1px solid rgba(120,215,255,.45);' +
           'background:linear-gradient(135deg,rgba(72,200,255,.28),rgba(47,123,255,.22));color:#eaf7ff;' +
           'font:600 13.5px Inter,system-ui,sans-serif;cursor:pointer">Continue as Guest</button>' +
-          '<p style="margin:6px 0 12px;font:11px/1.5 Inter,system-ui,sans-serif;color:#7f8b9a">No account needed — guest mode starts immediately and stays on this device.</p>'
+          '<p style="margin:6px 0 12px;font:11px/1.5 Inter,system-ui,sans-serif;color:#7f8b9a">No account needed — guest mode starts immediately and stays on this device.</p>' +
+          '<button type="button" id="auraGoogleBtn" style="width:100%;padding:11px 14px;border-radius:11px;border:1px solid rgba(255,255,255,.16);' +
+          'background:rgba(255,255,255,.05);color:#e8f4ff;font:600 13px Inter,system-ui,sans-serif;cursor:pointer">Continue with Google</button>' +
+          '<p id="auraAuthMsg" style="margin:10px 0 0;font:12px/1.5 Inter,system-ui,sans-serif;color:#7f8b9a"></p>'
         );
         var msg = box.querySelector("#auraAuthMsg");
         var gbtn = box.querySelector("#auraGuestBtn");
         if(gbtn) gbtn.onclick = function(){ guestSession(); };
+        var gog = box.querySelector("#auraGoogleBtn");
+        if(gog) gog.onclick = function(){ googleFlow(box, msg); };
+        busy = false;
+      }
+
+      async function googleFlow(box, msg){
+        if(busy) return;
+        busy = true;
         try{
           var c = await getConfig();
           var web = c && c.firebaseWebConfig;
           if(!web || !web.apiKey){
-            msg.textContent = "Google sign-in is not enabled on the server yet — the owner has to add the Firebase web config (FIREBASE_WEB_CONFIG). Until then AURA remembers you on this device.";
-            box.insertAdjacentHTML("beforeend",
-              '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">' +
-              '<button type="button" id="auraAuthDevice" style="padding:9px 13px;border-radius:10px;border:1px solid rgba(120,215,255,.35);background:rgba(120,215,255,.14);color:#dff4ff;font:600 13px Inter,system-ui,sans-serif;cursor:pointer">Use this device</button>' +
-              '<button type="button" id="auraAuthClose" style="padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,.14);background:transparent;color:#cfe3f2;font:13px Inter,system-ui,sans-serif;cursor:pointer">Close</button></div>');
-            box.querySelector("#auraAuthClose").onclick = closeSheet;
-            /* window.prompt is blocked in installed/PWA windows, so the name is asked
-               for inline instead of in a native dialog that may never appear */
-            box.querySelector("#auraAuthDevice").onclick = function(){
-              var nm = "";
-              try{ nm = JSON.parse(localStorage.getItem("az.name") || '""') || ""; }catch(e){}
-              box.insertAdjacentHTML("beforeend",
-                '<div style="margin-top:12px"><input id="auraAuthName" type="text" value="' +
-                String(nm || "").replace(/"/g, "&quot;") +
-                '" placeholder="Your name" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.16);' +
-                'background:rgba(255,255,255,.06);color:#eaf6ff;font:14px Inter,system-ui,sans-serif;outline:none"></div>' +
-                '<div style="display:flex;gap:8px;margin-top:10px"><button type="button" id="auraAuthSave" style="padding:9px 13px;border-radius:10px;' +
-                'border:1px solid rgba(120,215,255,.35);background:rgba(120,215,255,.18);color:#dff4ff;font:600 13px Inter,system-ui,sans-serif;cursor:pointer">Save</button></div>');
-              var inp = box.querySelector("#auraAuthName");
-              if(inp){ inp.focus(); inp.select(); }
-              box.querySelector("#auraAuthSave").onclick = function(){
-                var typed = (inp && inp.value || "").trim();
-                if(!typed){ if(inp) inp.focus(); return; }
-                remember(typed);
-                closeSheet();
-                try{ if(typeof tell === "function") tell("Saved on this device"); }catch(e){}
-              };
-            };
+            if(msg) msg.textContent = "Google sign-in is not enabled on the server yet — the owner has to add the Firebase web config (FIREBASE_WEB_CONFIG). Until then AURA remembers you on this device.";
+            var g = document.getElementById("auraGuestBtn");
+            if(g) g.textContent = "Continue as Guest";
             busy = false;
             return;
           }
           if(sandboxed()){
-            msg.textContent = "AURA is running in a sandboxed window, so Google's popup cannot open here — continuing as guest.";
+            if(msg) msg.textContent = "Google's window cannot open inside this sandboxed frame — starting guest mode instead.";
             busy = false;
             setTimeout(guestSession, 350);
             return;
           }
-          msg.textContent = "Opening Google…";
+          if(msg) msg.textContent = "Opening Google…";
           await loadSdk();
           if(!windowsFirebaseInit(web)) throw new Error("firebase init failed");
           var provider = new window.firebase.auth.GoogleAuthProvider();
-          /* phones block popups, and a blocked popup looked exactly like a dead button.
-             Mobile (and anything narrow) goes through the redirect flow instead, and the
-             result is picked up when the page comes back. */
+          /* phones block popups, and a blocked popup looked exactly like a dead button */
           if(/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.innerWidth < 820){
             try{ localStorage.setItem("aura_auth_pending", "1"); }catch(e){}
             await window.firebase.auth().signInWithRedirect(provider);
@@ -5400,8 +5387,8 @@ function makeQR(text) {
               why = "This site's domain is not in the Firebase project's Authorized domains list. Add " + location.hostname + " in Firebase console \u2192 Authentication \u2192 Settings \u2192 Authorized domains, then try again.";
             else if(/popup-blocked|popup/i.test(why))
               why = "The Google window was blocked. Allow popups for this site, or open AURA from the home-screen icon and try again.";
-            msg.textContent = "Sign-in failed: " + why.slice(0, 220);
-            msg.style.whiteSpace = "pre-line";
+            msg.textContent = "Google sign-in unavailable: " + why.slice(0, 220);
+            msg.style.color = "#f0b37e";
           }
         }
         busy = false;
