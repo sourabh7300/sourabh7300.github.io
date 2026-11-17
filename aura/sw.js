@@ -14,7 +14,7 @@
       fresh when online, last-known-good when the uplink is dark.
    4. KEEP-WARM (unchanged): pings /v1/ping every 4 min so the backend never sleeps. */
 
-const CACHE = 'aura-shell-v4';
+const CACHE = 'aura-shell-v5';
 const BRAIN = 'https://aura-backend-jomj.onrender.com';
 const SHELL_ASSETS = ['./', './aura.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
@@ -140,4 +140,7 @@ self.addEventListener('notificationclick', e => {
 /* keep-warm — the original job, kept verbatim */
 function nap() { fetch(BRAIN + '/v1/ping', { mode: 'no-cors' }).catch(() => {}); }
 setInterval(nap, 240000); nap();
-self.addEventListener('message', e => { if (e.data === 'ping' || e.data === 'precache-now') { nap(); caches.open(CACHE).then(c => c.addAll(['./', './aura.html']).catch(() => {})); } });
+self.addEventListener('message', e => {
+  if (e.data === 'skip-waiting') { self.skipWaiting(); return; }
+  if (e.data === 'ping' || e.data === 'precache-now') { nap(); caches.open(CACHE).then(c => c.addAll(['./', './aura.html']).catch(() => {})); }
+});

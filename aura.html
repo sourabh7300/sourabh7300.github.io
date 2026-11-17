@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="53c9c4d152fd"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="f680deb96d3e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2476,9 +2476,7 @@ function makeQR(text) {
       var hit = contactsFind(who);
       if(!hit){
         var near = contactsNear(who, 3);
-        meshBanner("AURA mesh", "Is device me <b>" + who + "</b> naam ka contact nahi mila." +
-          (near.length ? "<br><span style='color:#8ea1b2'>Kya aapka matlab: " + near.join(", ") + "</span>" : "") +
-          "<br><span style='color:#8ea1b2'>Mesh panel \u2192 \uD83D\uDCD3 Contacts me number add karo.</span>", "OK", null);
+        tell("Is device me '" + who + "' naam ka contact nahi mila" + (near.length ? " \u00b7 matlab: " + near.join(", ") : "") + " \u00b7 Contacts me add karo");
         done("no contact named " + who);
         return;
       }
@@ -2489,7 +2487,7 @@ function makeQR(text) {
     }
     if(cmd === "call"){
       var num = String(arg || "").replace(/[^\d+]/g, "");
-      if(num.length < 6){ meshBanner("AURA mesh", "Call karne ke liye number chahiye (example: call 9876543210).", "OK", null); done("no number"); return; }
+      if(num.length < 6){ tell("Number chahiye \u2014 jaise: call 9876543210"); done("no number"); return; }
       try{ location.href = "tel:" + num; }catch(e){}
       done("dialling " + num);
       return;
@@ -2498,7 +2496,7 @@ function makeQR(text) {
       var parts = String(arg || "").split("|");
       var phone = String(parts[0] || "").replace(/[^\d]/g, "");
       var msg = String(parts[1] || "").trim();
-      if(phone.length < 8){ meshBanner("AURA mesh", "WhatsApp ke liye number chahiye (whatsapp 919876543210|hello).", "OK", null); done("no number"); return; }
+      if(phone.length < 8){ tell("WhatsApp ke liye number chahiye \u2014 whatsapp 919876543210|hello"); done("no number"); return; }
       var wurl = "https://wa.me/" + phone + (msg ? "?text=" + encodeURIComponent(msg) : "");
       /* wa.me opens the app on a phone and the web client on a desktop, no prompt */
       try{ if(!window.open(wurl, "_blank")) location.href = wurl; }catch(e){ location.href = wurl; }
@@ -2511,7 +2509,7 @@ function makeQR(text) {
           new Notification("AURA mesh", { body: String(arg || "Message from the host").slice(0, 180) });
           done("notified");
         } else {
-          meshBanner("AURA mesh", arg || "Message from the host", "OK", null);
+          tell(String(arg || "Message from the host").slice(0, 90));
           done("shown in page (notifications not allowed)");
         }
       }catch(e){ done("notify failed"); }
@@ -2543,9 +2541,9 @@ function makeQR(text) {
       done(ok ? "spoken" : "speech not available");
       return;
     }
-    if(cmd === "toast"){ meshBanner("AURA mesh", arg || "", "OK", null); done("shown"); return; }
+    if(cmd === "toast"){ tell(String(arg || "").slice(0, 120)); meshBanner("AURA mesh", arg || "", null, null); done("shown"); return; }
     if(cmd === "vibrate"){ try{ navigator.vibrate && navigator.vibrate([120, 60, 120]); }catch(e){} done("vibrated"); return; }
-    meshBanner("AURA mesh", "Unknown order: " + cmd, "OK", null);
+    tell("Unknown order: " + cmd);
     done("unknown command");
   }
   function meshResult(id, note){
@@ -3567,6 +3565,15 @@ function makeQR(text) {
       if('serviceWorker' in navigator && (location.protocol === 'https:' || localHost)){
         navigator.serviceWorker.register('./sw.js').then(function(reg){
           reg.update().catch(function(){});
+          /* a new build must show up on THIS phone without the user clearing anything:
+             the waiting worker takes over and the page reloads once. */
+          function promote(w){ if(!w) return; try{ w.postMessage({ type: 'skip-waiting' }); }catch(e){} setTimeout(function(){ try{ location.reload(); }catch(e){} }, 1200); }
+          if(reg.waiting) promote(reg.waiting);
+          reg.addEventListener('updatefound', function(){
+            var nw = reg.installing;
+            if(!nw) return;
+            nw.addEventListener('statechange', function(){ if(nw.state === 'installed' && navigator.serviceWorker.controller) promote(nw); });
+          });
         }).catch(function(){});
       }
     })();
@@ -5540,15 +5547,9 @@ function makeQR(text) {
     if(!url) return false;
     var w = null;
     try{ w = window.open(url, "_blank"); }catch(e){}
-    if(!w){
-      /* A spoken order finishes AFTER the tap, so the browser has already used up the
-         gesture and blocks the popup. A card with a real button opens it with one tap
-         instead of silently doing nothing (or throwing AURA away by navigating). */
-      try{
-        meshBanner("AURA", note + "<br><span style=\"color:#8ea1b2;font-size:11.5px\">Browser ne popup roka \u2014 ek tap se khul jayega.</span>",
-          "Open now", function(){ try{ window.open(url, "_blank"); }catch(e2){ location.href = url; } });
-      }catch(e2){ try{ location.href = url; }catch(e3){} }
-    }
+    /* no "Open now?" card anywhere (owner order): if the browser ate the popup we just
+       go to the page instead of asking for another tap */
+    if(!w){ try{ location.href = url; }catch(e2){} }
     try{ tell(note); }catch(e){}
     try{ window.__auraLastIntent = { at: Date.now(), url: url, note: note }; }catch(e){}
     return true;
