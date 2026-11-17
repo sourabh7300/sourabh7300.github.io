@@ -2139,6 +2139,11 @@ app.post("/v1/mesh/command", async (req, res) => {
   if (Array.isArray(targets) && targets.length) list = targets.map(String);
   else if (nodeId && nodeId !== "all") list = [String(nodeId)];
   else list = [...devs.keys()];
+  /* NEVER queue an order onto the sender's own device: the host asks the joined device
+     to open something, and a broadcast used to come straight back to the host (it saw
+     YouTube open on ITSELF). An explicit self-target is the only way to act locally. */
+  if (from) list = list.filter(t => String(t) !== String(from));
+  if (Array.isArray(targets) && targets.length === 0) list = [];
   if (!list.length) return res.json({ ok: true, queued: 0, targets: 0, note: "no nodes joined yet" });
   const name = String(cmd || "").slice(0, 24);
   if (!name) return res.status(400).json({ error: "cmd required" });
