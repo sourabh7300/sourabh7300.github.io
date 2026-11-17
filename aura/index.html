@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e5d974fa3011"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="c2c7f55376f0"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7398,4 +7398,92 @@ function makeQR(text) {
 })();
 </script>
 
+/* ================= AURA APP SHELL =================
+   Makes the web build behave like an installed app:
+   1. iOS standalone metas (Apple ignores the manifest display mode)
+   2. ?action=vision|voice|code deep links, so a home-screen shortcut or a pin can
+      open the app straight into that workflow
+   3. a one-tap install pill on phones that do not fire beforeinstallprompt in time
+*/
+<script>
+(function(){
+  var A = window.AURA_APP_SHELL = { version: 1 };
+
+  /* ---- 1. iOS metas ---- */
+  function meta(name, content, prop){
+    var sel = prop ? 'meta[property="' + name + '"]' : 'meta[name="' + name + '"]';
+    if(document.querySelector(sel)) return;
+    var m = document.createElement('meta');
+    if(prop) m.setAttribute('property', name); else m.name = name;
+    m.content = content;
+    document.head.appendChild(m);
+  }
+  meta('apple-mobile-web-app-capable', 'yes');
+  meta('mobile-web-app-capable', 'yes');
+  meta('apple-mobile-web-app-status-bar-style', 'black-translucent');
+  meta('apple-mobile-web-app-title', 'AURA');
+  meta('application-name', 'AURA');
+  meta('og:title', 'AURA — an interface, not a chatbot', true);
+
+  /* ---- 2. deep links ---- */
+  var ACTIONS = { vision: 0, voice: 1, code: 2, flows: -1 };
+  function wanted(){
+    var q = '';
+    try{ q = new URL(location.href).searchParams.get('action') || ''; }catch(e){}
+    if(!q && location.hash) q = location.hash.replace(/^#\/?/, '');
+    return String(q || '').toLowerCase();
+  }
+  function runAction(name){
+    var idx = ACTIONS[name];
+    if(idx === undefined) return false;
+    if(idx === -1){ try{ window.__auraHud.flows(); }catch(e){} return true; }
+    var cards = document.querySelectorAll('#auraHudCards button');
+    if(!cards[idx]) return false;
+    try{ cards[idx].click(); return true; }catch(e){ return false; }
+  }
+  function boot(){
+    var want = wanted();
+    if(!want) return;
+    var tries = 0;
+    (function wait(){
+      if(runAction(want)) { try{ history.replaceState(null, '', location.pathname); }catch(e){} return; }
+      if(tries++ < 24) setTimeout(wait, 250);
+    })();
+  }
+
+  /* ---- 3. install pill (small, dismissible, mobile only) ---- */
+  function pill(){
+    if(document.getElementById('auraInstallPill')) return;
+    var standalone = false;
+    try{ standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }catch(e){}
+    if(standalone) return;
+    var ios = /iPad|iPhone|iPod/.test(navigator.userAgent || '');
+    var b = document.createElement('button');
+    b.id = 'auraInstallPill'; b.type = 'button';
+    b.textContent = ios ? '\u2b06 Add to Home Screen' : '\u2b07 Install AURA';
+    b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(78px + env(safe-area-inset-bottom));z-index:96;' +
+      'padding:9px 15px;border-radius:999px;border:1px solid rgba(120,215,255,.42);background:rgba(10,18,28,.94);' +
+      'color:#dff4ff;font:600 12.5px Inter,system-ui,sans-serif;cursor:pointer;backdrop-filter:blur(10px);' +
+      'box-shadow:0 10px 26px rgba(0,0,0,.5)';
+    b.onclick = function(){
+      b.remove();
+      if(ios){
+        try{ window.addMsg && window.addMsg('a', 'Install on iPhone: **Share \u2192 Add to Home Screen** — it then opens fullscreen like an app.'); }catch(e){}
+        return;
+      }
+      var btn = document.getElementById('auraInstallBtn');
+      if(btn) btn.click();
+      else {
+        try{ window.addMsg && window.addMsg('a', 'Install: browser menu (**\u22ee**) \u2192 **Install app / Add to home screen**. AURA then opens in its own window, no address bar.'); }catch(e){}
+      }
+    };
+    document.body.appendChild(b);
+    setTimeout(function(){ try{ b.style.opacity = '0'; b.style.transition = 'opacity .4s'; setTimeout(function(){ b.remove(); }, 500); }catch(e){} }, 26000);
+  }
+
+  boot();
+  if(innerWidth < 900) setTimeout(pill, 3200);
+  A.runAction = runAction;
+})();
+</script>
 </body></html>

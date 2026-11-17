@@ -1,13 +1,18 @@
 {
+  "id": "/aura/aura.html",
   "name": "AURA — AI Assistant",
   "short_name": "AURA",
-  "description": "Adaptive Universal Reasoning Assistant by Sourabh Singh",
+  "description": "Adaptive Universal Reasoning Assistant by Sourabh Singh — vision, voice and code in one interface.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "aura.html",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
   "orientation": "any",
   "background_color": "#05070E",
   "theme_color": "#05070E",
+  "categories": ["productivity", "utilities"],
   "icons": [
     {
       "src": "icon-192.png",
@@ -32,6 +37,29 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Camera vision",
+      "short_name": "Vision",
+      "description": "Point the camera — AURA reads the frame and diagnoses it",
+      "url": "aura.html?action=vision",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Hands-free voice",
+      "short_name": "Voice",
+      "description": "Say “Aura” and speak your order",
+      "url": "aura.html?action=voice",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Code workspace review",
+      "short_name": "Code",
+      "description": "Load a workspace and get a review with a fix",
+      "url": "aura.html?action=code",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
