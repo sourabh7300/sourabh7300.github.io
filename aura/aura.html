@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="f680deb96d3e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="d7ce87326f71"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -2131,11 +2131,13 @@ function makeQR(text) {
     try{ role = localStorage.getItem("aura_mesh_role") || mesh.role || ""; }catch(e){ role = mesh.role || ""; }
     if(!role) return;
     mesh.role = role;
-    var ok = function(){
-      pollStart(); refresh(); meshRoleUI(); pushSync();
-      setStatus((role === "host" ? "Hosting" : "Joined") + " \u00b7 code " + mesh.code + " \u00b7 reconnected");
-      window.__meshResume = { at: Date.now(), code: mesh.code, role: role };
-    };
+          var ok = function(){
+        pollStart(); refresh(); meshRoleUI(); pushSync();
+        setStatus((role === "host" ? "Hosting" : "Joined") + " \u00b7 code " + mesh.code + " \u00b7 reconnected");
+        window.__meshResume = { at: Date.now(), code: mesh.code, role: role };
+        /* coming back from another tab/app must FEEL like nothing happened */
+        if(!ok.said){ ok.said = true; tell("\u2713 Mesh connected \u00b7 code " + mesh.code); }
+      };
     var gone = function(){
       try{ localStorage.removeItem("aura_mesh_code"); localStorage.removeItem("aura_mesh_role"); }catch(e){}
       mesh.code = null; mesh.role = null;
@@ -2322,6 +2324,18 @@ function makeQR(text) {
   function meshCanFrame(url){
     return /youtube\.com\/embed|youtube-nocookie\.com\/embed|player\.vimeo\.com|open\.spotify\.com\/embed|wikipedia\.org|archive\.org/.test(String(url || ""));
   }
+  /* open a page WITHOUT losing AURA: its own tab if the browser allows one, else the
+     in-app viewer (AURA still runs, the mesh still polls) — never a same-tab navigation
+     that throws the whole app away and makes the owner reconnect from scratch. */
+  function meshOutside(url, label){
+    tell("\u25c6 " + String(label || url).slice(0, 40));
+    var w = null;
+    try{ w = window.open(url, "_blank"); }catch(e){}
+    if(w && !w.closed) return true;
+    /* popup blocked: show it inside AURA; the bar's \u2197 Tab button moves it out if wanted */
+    try{ meshView(url, String(label || url).slice(0, 46)); }catch(e){}
+    return true;
+  }
   function meshView(url, title){
     if(!url) return false;
     var v = document.getElementById("auraMeshView");
@@ -2334,17 +2348,31 @@ function makeQR(text) {
         '<button id="amvClose" style="padding:6px 10px;border-radius:8px;border:0;background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 12px Inter,system-ui,sans-serif;cursor:pointer">Close</button></div>' +
         '<iframe id="amvFrame" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" style="flex:1;width:100%;border:0;background:#000"></iframe>';
       document.body.appendChild(v);
-      v.querySelector("#amvClose").onclick = function(){ v.style.display = "none"; try{ v.querySelector("#amvFrame").src = "about:blank"; }catch(e){} };
+      v.querySelector("#amvClose").onclick = function(){
+        v.style.display = "none"; try{ v.querySelector("#amvFrame").src = "about:blank"; }catch(e){}
+        /* the overlay was a history entry, so unwind it instead of stacking them */
+        try{ if(history.state && history.state.auraView) history.back(); }catch(e){}
+      };
+      /* phone Back closes the viewer first — it does NOT drop you out of AURA */
+      window.addEventListener("popstate", function(){
+        var el = document.getElementById("auraMeshView");
+        if(el && el.style.display !== "none"){ el.style.display = "none"; try{ el.querySelector("#amvFrame").src = "about:blank"; }catch(e){} }
+      });
       v.querySelector("#amvTab").onclick = function(){
         var u = ""; try{ u = v.querySelector("#amvFrame").src; }catch(e){}
-        v.style.display = "none";
         if(!u || u === "about:blank") return;
-        try{ if(!window.open(u, "_blank")) location.href = u; }catch(e){ location.href = u; }
+        var w = null;
+        try{ w = window.open(u, "_blank"); }catch(e){}
+        /* blocked? keep the page here instead of throwing AURA away */
+        if(!w) return tell("Tab nahi khula \u2014 yahi dikha rahe hain");
+        v.style.display = "none";
+        try{ v.querySelector("#amvFrame").src = "about:blank"; }catch(e){}
       };
     }
     v.querySelector("#amvTitle").textContent = title || url;
     v.style.display = "flex";
     try{ v.querySelector("#amvFrame").src = url; }catch(e){}
+    try{ if(!(history.state && history.state.auraView)) history.pushState({ auraView: 1 }, ""); }catch(e){}
     try{ window.__meshViewLast = { at: Date.now(), url: url }; }catch(e){}
     return true;
   }
@@ -2498,8 +2526,9 @@ function makeQR(text) {
       var msg = String(parts[1] || "").trim();
       if(phone.length < 8){ tell("WhatsApp ke liye number chahiye \u2014 whatsapp 919876543210|hello"); done("no number"); return; }
       var wurl = "https://wa.me/" + phone + (msg ? "?text=" + encodeURIComponent(msg) : "");
-      /* wa.me opens the app on a phone and the web client on a desktop, no prompt */
-      try{ if(!window.open(wurl, "_blank")) location.href = wurl; }catch(e){ location.href = wurl; }
+      /* wa.me opens the app on a phone and the web client on a desktop, no prompt,
+         and AURA keeps running behind it */
+      meshOutside(wurl, "whatsapp " + phone);
       done("whatsapp " + phone);
       return;
     }
@@ -2522,16 +2551,17 @@ function makeQR(text) {
         try{ location.href = tgt.scheme; }catch(e){}
         tell("\uD83D\uDCF1 " + String(arg).slice(0, 40));
         done("opened app " + arg);
-        /* if no app answered the scheme we are still here — load the web version */
+        /* if no app answered the scheme we are still here — load the web version beside
+           AURA instead of on top of it */
         setTimeout(function(){
-          try{ if(!document.hidden && tgt.url) location.href = tgt.url; }catch(e){}
+          try{ if(!document.hidden && tgt.url) meshOutside(tgt.url, String(arg)); }catch(e){}
         }, 1600);
         return;
       }
       if(meshCanFrame(tgt.url)){ meshView(tgt.url, "\u25c6 " + String(arg).slice(0, 40)); done("opened " + tgt.url); return; }
-      /* any other site: straight into the tab, no permission card */
-      tell("\u25c6 " + String(arg).slice(0, 40));
-      try{ location.href = tgt.url; }catch(e){}
+      /* A site that refuses to be framed opens BESIDE AURA, never on top of it:
+         the app stays open, the mesh stays connected, and coming back needs no setup. */
+      meshOutside(tgt.url, String(arg));
       done("opened " + tgt.url);
       return;
     }
@@ -5545,11 +5575,8 @@ function makeQR(text) {
   }
   function auraDo(url, note){
     if(!url) return false;
-    var w = null;
-    try{ w = window.open(url, "_blank"); }catch(e){}
-    /* no "Open now?" card anywhere (owner order): if the browser ate the popup we just
-       go to the page instead of asking for another tap */
-    if(!w){ try{ location.href = url; }catch(e2){} }
+    /* same rule as the mesh: AURA must never be thrown away by its own order */
+    try{ meshOutside(url, note); }catch(e){ try{ window.open(url, "_blank"); }catch(e2){} }
     try{ tell(note); }catch(e){}
     try{ window.__auraLastIntent = { at: Date.now(), url: url, note: note }; }catch(e){}
     return true;
