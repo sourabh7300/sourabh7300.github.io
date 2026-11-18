@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="c1655427f46c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e5555e7dc0e0"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3728,7 +3728,11 @@ function makeQR(text) {
       setTimeout(row, 3000);
 
       var localHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-      if('serviceWorker' in navigator && (location.protocol === 'https:' || localHost)){
+      /* Anna (and any other embed) serves this build inside an iframe from a bundle that
+         has no sw.js: registering there is a guaranteed 404 in the console and no
+         offline shell, so the service worker belongs to top-level visits only. */
+      var topLevel = (function(){ try{ return window.self === window.top; }catch(e){ return false; } })();
+      if('serviceWorker' in navigator && topLevel && (location.protocol === 'https:' || localHost)){
         navigator.serviceWorker.register('./sw.js').then(function(reg){
           reg.update().catch(function(){});
           /* a new build must show up on THIS phone without the user clearing anything:
