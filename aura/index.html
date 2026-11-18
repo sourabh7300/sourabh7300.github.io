@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="32af36b2c9c1"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="2f0c6ba28dd7"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7754,7 +7754,37 @@ function makeQR(text) {
     };
     hideCodeChip();
     addEventListener("resize", hideCodeChip);
+    document.addEventListener("visibilitychange", hideCodeChip);
     setTimeout(hideCodeChip, 1200);
+    /* if the window is narrowed while Code is open (or a deep link lands before the
+       media query applies) the tab and its panel are both hidden: fall back to Chat
+       instead of leaving an empty stage */
+    var leaveCode = function(){
+      if(!matchMedia("(max-width: 820px)").matches) return;
+      var on = document.querySelector('#tabs button[data-p="code"].on');
+      if(!on) return;
+      var chat = document.querySelector('#tabs button[data-p="chat"]');
+      if(chat) chat.click();
+    };
+    leaveCode();
+    addEventListener("resize", leaveCode);
+    setTimeout(leaveCode, 1500);
+    /* a resize event is not guaranteed when the breakpoint is crossed, the media query
+       listener is */
+    try{
+      var mq = matchMedia("(max-width: 820px)");
+      var onBreak = function(){ hideCodeChip(); leaveCode(); };
+      if(mq.addEventListener) mq.addEventListener("change", onBreak);
+      else if(mq.addListener) mq.addListener(onBreak);
+    }catch(e){}
+    /* the suggestion row is painted and re-painted by the base UI, which used to bring
+       the Code chip back after the first pass — watch it instead of guessing a delay */
+    try{
+      var qp = document.getElementById("qp");
+      if(qp && window.MutationObserver){
+        new MutationObserver(hideCodeChip).observe(qp, { childList: true, subtree: true });
+      }
+    }catch(e){}
   }catch(e){}
 
   /* keep body[data-aura-tab] in sync with the reference's own tab state */
