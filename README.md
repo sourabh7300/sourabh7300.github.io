@@ -10,7 +10,7 @@ Every project below has a **live deployment**; the links are the demo.
 
 | | Product | Live | What it is |
 |---|---|---|---|
-| 🧬 | **AURA** | **[aura-live-81185.web.app](https://aura-live-81185.web.app)** | Holographic AI assistant — 3D particle core, voice in/out, Hindi · Hinglish · English, vision, document RAG, long-term memory, thread-aware chat that keeps its topic across follow-ups, 24/7 autopilot squad |
+| 🧬 | **AURA** | **[aura-live-81185.web.app](https://aura-live-81185.web.app)** | Holographic AI assistant — 3D particle core, voice in/out, Hindi · Hinglish · English, vision, document RAG, long-term memory, thread-aware chat that keeps its topic across follow-ups, 24/7 autopilot squad · always-on hands-free "Aura" wake word (on by default, silent on machines without a mic), a device mesh that keeps backgrounded phones listed and targetable, and a Code workspace kept to laptops |
 | 🎨 | **Lucid** | **[lucid-app-preview.web.app](https://lucid-app-preview.web.app)** | Desktop-class photo studio in one file — WebGL curves, HSL mixer, clarity, bloom, bokeh, halation, grain, layers, masks, batch export, **48-template library** with live previews on your own photo, and an **AI studio** (key server-side, zero setup for visitors) |
 | 💡 | **IdeaVeda** | **[ideaveda-live-app.web.app](https://ideaveda-live-app.web.app)** | Startup decision engine — 40 India business ideas, city-fit scores, unit-economics calculators, 14 funding schemes, stress-test, plan + pitch generator, Hinglish AI Guru |
 | 🌌 | **Quantum Circuit Simulator** | [run](https://sourabh7300.github.io/quantum.html) | Build a circuit, watch amplitudes collapse — state-vector simulator in one page |
