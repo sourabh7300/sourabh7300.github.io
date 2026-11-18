@@ -1068,7 +1068,7 @@ async function ghCheck() {
 app.get("/v1/dev/status", async (req, res) => {
   const u = await requireRole(req, res, ["maker", "ceo"]);
   if (!u) return;
-  const out = { connected: !!GH_TOKEN, repo: GH_REPO, file: GH_FILE, branch: GH_BRANCH };
+  const out = { connected: !!GH_TOKEN, repo: GH_REPO, file: GH_FILE, branch: GH_BRANCH, liveRepo: GH_LIVE_REPO, livePaths: GH_LIVE_PATHS, mirror: ghMirrorState };
   if (GH_TOKEN) {
     try {
       const r = await fetch(`${GH_API}/repos/${GH_REPO}/commits?sha=${GH_BRANCH}&per_page=1`, { headers: { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" }, signal: AbortSignal.timeout(20000) });
@@ -1439,7 +1439,40 @@ async function ghPutFile(content, message, file) {
    paths, so the page the verifier reads is the page we just shipped. */
 const GH_LIVE_REPO = process.env.GH_LIVE_REPO || "sourabh7300/sourabh7300.github.io";
 const GH_LIVE_PATHS = (process.env.GH_LIVE_PATHS || "aura.html,aura/aura.html,aura/index.html").split(",").map(s => s.trim()).filter(Boolean);
-const ghMirrorLast = { at: 0, ok: null, note: "never" };
+const ghMirrorLast = { at: 0, ok: null, note: "idle — no publish in this process yet" };
+/* The mirror has TWO lanes: this one (called on self-edit / autopilot ship) and the
+   mirror-portfolio.yml Action, which copies aura.html on every push. /health used to
+   report only ghMirrorLast.note, so a healthy setup looked stuck at "never" until the
+   backend itself mirrored something. This probe reports the truth instead: can the
+   token see the public repo, and do the served bytes equal the source repo's bytes? */
+const ghMirrorState = { at: 0, sync: "unknown", note: "unprobed", srcSha: "", dstSha: "" };
+async function ghMirrorProbe() {
+  const hdr = { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-self-integration", "Accept": "application/vnd.github+json" };
+  const read = async (repo, path) => {
+    try {
+      const r = await fetch(`${GH_API}/repos/${repo}/contents/${path}?ref=${GH_BRANCH}`, { headers: hdr, signal: AbortSignal.timeout(20000) });
+      if (r.status === 403 || r.status === 401) return { err: "no-access" };
+      if (r.status === 404) return { err: "missing" };
+      if (!r.ok) return { err: "http:" + r.status };
+      const j = await r.json();
+      return { sha: (j && j.sha) || "", bytes: (j && j.size) || 0 };
+    } catch (e) { return { err: "unreachable" }; }
+  };
+  if (!GH_TOKEN) return Object.assign(ghMirrorState, { at: Date.now(), sync: "no-token", note: "GH_TOKEN is not set, only the GitHub Action can mirror" });
+  const src = await read(GH_REPO, GH_FILE);
+  const dstPath = GH_LIVE_PATHS[0] || "aura.html";
+  const dst = await read(GH_LIVE_REPO, dstPath);
+  const at = Date.now();
+  if (src.err || !src.sha) return Object.assign(ghMirrorState, { at, sync: "source-" + (src.err || "empty"), note: "cannot read " + GH_REPO + "/" + GH_FILE, srcSha: "", dstSha: "" });
+  if (dst.err) return Object.assign(ghMirrorState, { at, sync: "live-" + dst.err, note: dst.err === "no-access" ? "token cannot write " + GH_LIVE_REPO + " — the mirror-portfolio Action is the only lane" : GH_LIVE_REPO + "/" + dstPath + ": " + dst.err, srcSha: src.sha.slice(0, 7), dstSha: "" });
+  /* git blob shas are content-addressed, so equal bytes give equal shas across repos */
+  const same = src.sha === dst.sha;
+  return Object.assign(ghMirrorState, {
+    at, sync: same ? "in-sync" : "drift",
+    note: same ? "source and live bytes match (" + (src.bytes / 1024 | 0) + " KB)" : "live copy is behind: " + GH_LIVE_REPO + "/" + dstPath + " is " + (dst.bytes / 1024 | 0) + " KB, source is " + (src.bytes / 1024 | 0) + " KB",
+    srcSha: src.sha.slice(0, 7), dstSha: dst.sha.slice(0, 7)
+  });
+}
 async function ghPutToRepo(repo, path, content, message) {
   const hdr = { "Authorization": "Bearer " + GH_TOKEN, "User-Agent": "aura-autopilot", "Accept": "application/vnd.github+json" };
   let sha = null;
@@ -2632,11 +2665,15 @@ app.get("/health", (req, res) => {
     pushModule: !!webpush ? (pushLoadError ? "load-error:" + pushLoadError : "loaded") : (!webpush ? "missing" : "loaded"),
     pushSubs: pushSubCount(),
     pushSent: meshPushStats.sent + "/" + meshPushStats.failed + "/" + meshPushStats.gone,
-    search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, voice: (String(ELEVEN_KEY || "").trim() ? "elevenlabs" : "backup"), accounts: fbState, github: GH_TOKEN ? "configured" : "missing", liveMirror: ghMirrorLast.note, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
+    search: searchProvider(), visionModels: visionModelCache.names.slice(0, 4), visionSeed: VISION_MODELS.slice(0, 3), stream: true, voice: (String(ELEVEN_KEY || "").trim() ? "elevenlabs" : "backup"), accounts: fbState, github: GH_TOKEN ? "configured" : "missing",
+    liveMirror: { repo: GH_LIVE_REPO, paths: GH_LIVE_PATHS.length, lastPublish: ghMirrorLast, probe: ghMirrorState }, bootStage: BOOT.stage, bootErr: BOOT.err, bootMs: Date.now() - BOOT.at, githubCheck: ghCheckCache.state, githubCheckedAt: ghCheckCache.at || null, research: researchProbeCache, rag: RAG.stats(), ws: !!audioWss, python: PYTOOL.binary() || "probed-on-first-use", brain: brainLast, chat: chatLast, squad: squadHealth(), warmers: "background" });
 });
 /* keep the last-known values fresh without ever blocking the endpoint */
 setTimeout(warmHealth, 1500);
 setInterval(warmHealth, 4 * 60_000);
+/* prove the mirror state instead of leaving it at "never": boot + every 10 minutes */
+setTimeout(() => { ghMirrorProbe().catch(() => {}); }, 4000);
+setInterval(() => { ghMirrorProbe().catch(() => {}); }, 10 * 60_000);
 
 /* ================= GROUNDING + ANTI-FABRICATION (27 Oct 2026) =================
    Owner report: “bmic ki teams puchi, isne BMSD ki Team A–H bana di.” Root cause: the
