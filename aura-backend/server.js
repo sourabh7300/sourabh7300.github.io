@@ -3071,6 +3071,18 @@ function withSystemBeforeAsk(messages, content) {
   if (lastUser > 0) out.splice(lastUser, 0, sys); else out.push(sys);
   return out;
 }
+/* EMOTION-SYNC (the browser sends user_state): someone visibly stressed or in a hurry
+   gets two direct sentences — the answer, then at most one next step. Anything else is
+   noise to a tense reader. An unknown value is ignored, so old clients behave as before. */
+const USER_STATE_RULE = {
+  stressed: "The user is visibly stressed right now. Answer in at most two short sentences: the direct answer first, then one concrete next step. No preamble, no lists, no follow-up offer, no apology.",
+  rushed: "The user is in a hurry right now. Answer in at most two short sentences, with the most useful fact or action first. No preamble, no lists, no follow-up offer."
+};
+function withUserState(messages, state) {
+  const s = String(state || "").toLowerCase();
+  if (!USER_STATE_RULE[s]) return messages;
+  return messages.concat([{ role: "system", content: USER_STATE_RULE[s] }]);
+}
 function withProductFacts(messages) {
   try {
     if (!Array.isArray(messages)) return messages;
@@ -3603,6 +3615,7 @@ app.post("/v1/chat/completions", async (req, res) => {
   /* a one-word continuation ("teams in it") is resolved against the previous turn
      BEFORE any model sees it — that is what stops the topic from drifting */
   messages = withProductFacts(injectFollowUp(messages));
+  messages = withUserState(messages, body.user_state);
   /* the script the visitor typed in, appended last so every lane below obeys it */
   { const _sn = scriptNote(lastUserMsg(messages)); if (_sn) messages = messages.concat([{ role: "system", content: _sn }]); }
   /* THE NON-STREAM LANE GROUNDS TOO (4 Nov 2026): the page uses this route for typed
@@ -4597,6 +4610,7 @@ app.post("/v1/chat/stream", async (req, res) => {
   /* resolve a continuation ("teams in it") against the previous turn — the stream lane
      is what the app actually uses, so the topic guard must live here too */
   messages = withProductFacts(injectFollowUp(messages));
+  messages = withUserState(messages, body.user_state);
   /* the visitor's own script, last thing the model reads (same rule as the proxy lane) */
   { const _sn = scriptNote(lastUserMsg(messages)); if (_sn) messages = messages.concat([{ role: "system", content: _sn }]); }
   /* stream lane gets the same server-side document memory as the proxy route */
