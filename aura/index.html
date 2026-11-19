@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e5555e7dc0e0"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="b798d89adda5"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -794,6 +794,14 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         return j;
       });
     });
+  }
+
+  /* EMOTION → SERVER: the state module (end of this file) keeps the live reading in
+     window.__auraUserState. Every chat body carries it, so the backend can answer in
+     two direct sentences when the user is stressed or rushed. "calm" otherwise. */
+  function auraUserState(){
+    var s = window.__auraUserState;
+    return (s === "stressed" || s === "rushed") ? s : "calm";
   }
 
   /* ---------------- attachments ---------------- */
@@ -1607,6 +1615,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
             body: JSON.stringify({
               model: "openai/gpt-oss-120b",
               messages: list,
+              user_state: auraUserState(),
               max_tokens: capTok, temperature: 0.45
             }),
             /* a whole worksheet needs real time — 42s cut it off mid-answer and the turn
@@ -4413,7 +4422,7 @@ function makeQR(text) {
         var r = await fetch(BASE + '/v1/chat/completions', {
           method: 'POST', headers: hdrs(),
           body: JSON.stringify({
-            model: 'aura', stream: false,
+            model: 'aura', stream: false, user_state: auraUserState(),
             messages: [
               { role: 'system', content: sys },
               { role: 'user', content: 'SCREEN TEXT:\n' + String(screenText).slice(0, 3500) + '\n\nQUESTION: ' + question }
@@ -4746,7 +4755,7 @@ function makeQR(text) {
           var r = await fetch(BASE + '/v1/chat/completions', {
             method: 'POST', headers: hdrs(),
             body: JSON.stringify({
-              model: 'aura', stream: false,
+              model: 'aura', stream: false, user_state: auraUserState(),
               messages: [
                 { role: 'system', content: 'The user is deaf and communicates by sign language or typing. Answer in very short, simple English — at most 40 words, no markdown, no lists. Be warm and concrete.' },
                 { role: 'user', content: q }
@@ -5096,7 +5105,7 @@ function makeQR(text) {
           var r = await fetch(BASE + "/v1/chat/completions", {
             method: "POST", headers: hdrs(),
             body: JSON.stringify({
-              model: "aura", stream: false,
+              model: "aura", stream: false, user_state: auraUserState(),
               messages: [
                 { role: "system", content: "You are talking with a deaf person through a live camera that reads their signs. Keep every reply under 25 words, simple English, warm, and answer what they actually meant. No markdown." },
                 { role: "user", content: "They signed: " + convo.join(" / ") }
@@ -5215,7 +5224,7 @@ function makeQR(text) {
       /* one clean list: drop any earlier copy of these three entries */
       var dedupe = function(){
         /* two wake rows (one reference, one ours) meant two always-on recognisers fighting
-           for the single mic; ours owns the word, intents and the Siri sheet, so the other
+           for the single mic; ours owns the word, intents and the Aura voice sheet, so the other
            row goes away instead of being left as a dead switch */
         var baseWake = document.querySelector('#tools button[data-x="wake"]');
         if(baseWake) baseWake.remove();
@@ -6453,6 +6462,11 @@ function makeQR(text) {
       }
       var rotY = 0, rotX = 0.26, ex = 0, amp = 0, phase = 0;
       var micStream = null, analyser = null, micBuf = null;
+      /* EMOTION-SYNC hooks, driven by the state module at the end of this file:
+         "frozen" holds the spin on an open palm, "calm" shifts every light in the
+         HUD to #00E5FF when the user reads as stressed or rushed. */
+      var frozen = false, calm = false;
+      function tint(calmTriple, normalTriple){ return calm ? calmTriple : normalTriple; }
 
       function resize(){
         var b = cv.getBoundingClientRect();
@@ -6485,7 +6499,11 @@ function makeQR(text) {
         state: function(){ return { ex: ex, amp: amp }; },
         excite: function(k){ ex = Math.min(2.6, ex + (k == null ? 1 : k)); },
         listen: startAudio,
-        stop: stopAudio
+        stop: stopAudio,
+        /* touchless + emotion hooks — the HUD is the feedback for both */
+        freeze: function(on){ frozen = on !== false; return frozen; },
+        frozen: function(){ return frozen; },
+        mood: function(kind){ calm = (kind === 'stressed' || kind === 'rushed'); return calm; }
       };
 
       /* mic button starts the real analyser; speech synthesis drives the pulse */
@@ -6521,7 +6539,8 @@ function makeQR(text) {
         }
         ex *= 0.93;
         phase += dt * 0.0012;
-        rotY += dt * 0.00016 + ex * 0.0012;
+        var spinNow = frozen ? 0 : (calm ? 0.35 : 1);
+        rotY += (dt * 0.00016 + ex * 0.0012) * spinNow;
 
         var w = cv.width, h = cv.height;
         var cx = w / 2, cy = h / 2, R = Math.min(w, h) * 0.31 * (1 + ex * 0.05 + amp * 0.28);
@@ -6558,7 +6577,7 @@ function makeQR(text) {
             var X = cx + px * persp2, Y = cy + py * persp2;
             if(a === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
           }
-          ctx.strokeStyle = 'rgba(120,215,255,' + (0.06 + ex * 0.05 + ring * 0.02) + ')';
+          ctx.strokeStyle = 'rgba(' + tint('0,229,255', '120,215,255') + ',' + (0.06 + ex * 0.05 + ring * 0.02) + ')';
           ctx.lineWidth = 1 * dpr;
           ctx.stroke();
         }
@@ -6569,17 +6588,16 @@ function makeQR(text) {
           var alpha = 0.16 + (1 - (q.z + 1) / 2) * 0.66 + ex * 0.12;
           ctx.beginPath();
           ctx.arc(q.x, q.y, Math.max(0.4, q.s), 0, Math.PI * 2);
-          ctx.fillStyle = q.hot
-            ? 'rgba(150,240,255,' + Math.min(1, alpha + 0.2) + ')'
-            : 'rgba(120,200,255,' + alpha + ')';
+          ctx.fillStyle = 'rgba(' + (q.hot ? tint('140,248,255', '150,240,255') : tint('0,229,255', '120,200,255')) + ',' +
+            (q.hot ? Math.min(1, alpha + 0.2) : alpha) + ')';
           ctx.fill();
         }
 
         /* nucleus glow */
         var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.9);
-        g.addColorStop(0, 'rgba(160,235,255,' + (0.1 + amp * 0.3 + ex * 0.12) + ')');
-        g.addColorStop(0.55, 'rgba(90,170,255,0.05)');
-        g.addColorStop(1, 'rgba(90,170,255,0)');
+        g.addColorStop(0, 'rgba(' + tint('140,245,255', '160,235,255') + ',' + (0.1 + amp * 0.3 + ex * 0.12) + ')');
+        g.addColorStop(0.55, 'rgba(' + tint('0,180,255', '90,170,255') + ',0.05)');
+        g.addColorStop(1, 'rgba(' + tint('0,180,255', '90,170,255') + ',0)');
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(cx, cy, R * 0.95, 0, Math.PI * 2); ctx.fill();
 
@@ -6587,7 +6605,7 @@ function makeQR(text) {
         if(ex > 0.35){
           ctx.beginPath();
           ctx.arc(cx, cy, R * (1.05 + (2.4 - ex) * 0.2), 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(150,240,255,' + Math.min(0.5, ex * 0.22) + ')';
+          ctx.strokeStyle = 'rgba(' + tint('0,229,255', '150,240,255') + ',' + Math.min(0.5, ex * 0.22) + ')';
           ctx.lineWidth = 1.6 * dpr;
           ctx.stroke();
         }
@@ -6869,11 +6887,11 @@ function makeQR(text) {
 <script>
 /* ================= AURA VOICE (wake word) =================
    Not a mode and not a switch you hunt for: once the mic has been allowed, AURA keeps
-   a light ear open and wakes on the word "Aura" / "hey Aura", exactly like Siri. The
+   a light ear open and wakes on the word "Aura" / "hey Aura", hands-free, like a voice assistant. The
    wake listen is free — only a recognised "Aura" starts a command, so it does not
    chatter. Every command it can do offline (time, maths, timer, alarm, note, call,
    message, music) runs with no network; questions go to the brain and are spoken back.
-   A browser cannot run while the phone is locked — that is the one Siri thing a web
+   A browser cannot run while the phone is locked — that is the one thing a web
    page is not allowed to do. */
 (function(){
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -6894,8 +6912,8 @@ function makeQR(text) {
         "overflow:hidden;text-overflow:ellipsis;transition:opacity .18s ease";
       document.body.appendChild(chip);
       chip.style.cursor = "pointer";
-      chip.title = "Tap to open Siri mode";
-      chip.addEventListener("click", function(){ try{ siriOpen(); }catch(e){} });
+      chip.title = "Tap to open Aura mode";
+      chip.addEventListener("click", function(){ try{ sheetOpen(); }catch(e){} });
       window.addEventListener("resize", function(){ if(chip.style.display !== "none") place(); });
     }
     place();
@@ -6918,7 +6936,7 @@ function makeQR(text) {
   function flash(text, ms){ ui("awake", text); clearTimeout(flash.h); flash.h = setTimeout(function(){ if(!V.awake) idle(); }, ms || 2600); }
   function idle(){ if(P && P.open) return; if(!V.armed) return; ui("armed", "Say “Aura” · listening"); }
 
-  /* ================= SIRI SHEET =================
+  /* ================= AURA VOICE SHEET =================
      The wake word alone was invisible: you spoke and nothing on screen moved, so a
      working ear read as a broken feature. This sheet is the face of the same ear — the
      orb, the live transcript, the answer, a Talk button that works without the wake
@@ -6927,149 +6945,149 @@ function makeQR(text) {
      restarted while AURA was still speaking (so she heard her own voice and looped),
      and every restart retried at a flat 1.5s with no backoff. */
   var P = { open:false, listening:false, last:"" };
-  window.__auraSiriState = P;
-  var siriOv = null, siriRec = null, siriSilence = null;
-  var SIRI_LBL = { idle:"AURA", listening:"LISTENING", thinking:"THINKING", speaking:"SPEAKING", ready:"READY", error:"TRY AGAIN" };
+  window.__auraWakeState = P;
+  var sheetOv = null, sheetRec = null, sheetSilence = null;
+  var AURA_SHEET_LBL = { idle:"AURA", listening:"LISTENING", thinking:"THINKING", speaking:"SPEAKING", ready:"READY", error:"TRY AGAIN" };
 
-  function siriBuilt(){
-    if(siriOv) return siriOv;
+  function sheetBuilt(){
+    if(sheetOv) return sheetOv;
     var st = document.createElement("style");
-    st.id = "auraSiriCss";
+    st.id = "auraSheetCss";
     st.textContent =
-      "#auraSiriOv{position:fixed;inset:0;z-index:130;display:none;align-items:center;justify-content:center;padding:18px;" +
+      "#auraSheetOv{position:fixed;inset:0;z-index:130;display:none;align-items:center;justify-content:center;padding:18px;" +
       "background:radial-gradient(circle at 50% 40%,rgba(24,60,96,.6),rgba(3,7,13,.92) 62%);backdrop-filter:blur(14px);" +
       "font:14px Inter,system-ui,-apple-system,'Segoe UI',sans-serif}" +
-      "#auraSiriOv.on{display:flex}" +
-      "#auraSiriOv .asCard{width:100%;max-width:400px;text-align:center;color:#eaf6ff}" +
-      "#auraSiriOv .asOrb{position:relative;width:132px;height:132px;margin:4px auto 18px;border-radius:50%;" +
+      "#auraSheetOv.on{display:flex}" +
+      "#auraSheetOv .asCard{width:100%;max-width:400px;text-align:center;color:#eaf6ff}" +
+      "#auraSheetOv .asOrb{position:relative;width:132px;height:132px;margin:4px auto 18px;border-radius:50%;" +
       "background:conic-gradient(from 0deg,#4ad7ff,#7b6bff,#ff7ad9,#4ad7ff);box-shadow:0 0 46px rgba(74,215,255,.45),inset 0 0 34px rgba(4,12,22,.65);" +
-      "animation:auraSiriSpin 7s linear infinite}" +
-      "#auraSiriOv .asOrb::after{content:'';position:absolute;inset:16px;border-radius:50%;background:radial-gradient(circle at 34% 30%,#0d2032,#050b13 70%)}" +
-      "#auraSiriOv .asRing{position:absolute;inset:-14px;border-radius:50%;border:1px solid rgba(120,215,255,.35);opacity:0}" +
-      "#auraSiriOv[data-state='listening'] .asRing{animation:auraSiriPulse 1.9s ease-out infinite}" +
-      "#auraSiriOv[data-state='speaking'] .asOrb{animation-duration:2.4s;box-shadow:0 0 62px rgba(92,240,168,.55)}" +
-      "#auraSiriOv[data-state='thinking'] .asOrb{animation-duration:1.1s}" +
-      "@keyframes auraSiriSpin{to{transform:rotate(360deg)}}" +
-      "@keyframes auraSiriPulse{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.3);opacity:0}}" +
-      "#auraSiriOv h4{margin:0 0 8px;font:600 12px/1 Inter,system-ui,sans-serif;letter-spacing:.26em;color:#7fd7ff}" +
-      "#auraSiriOv .asLive{margin:0 0 8px;min-height:48px;font:600 19px/1.35 Inter,system-ui,sans-serif;color:#fff;word-break:break-word}" +
-      "#auraSiriOv .asReply{min-height:22px;max-height:28vh;overflow:auto;font:14px/1.5 Inter,system-ui,sans-serif;color:#bfe3ff;white-space:pre-wrap}" +
-      "#auraSiriOv .asRow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}" +
-      "#auraSiriOv .asRow button{min-width:96px;padding:11px 14px;border-radius:12px;border:1px solid rgba(120,215,255,.3);" +
+      "animation:auraSheetSpin 7s linear infinite}" +
+      "#auraSheetOv .asOrb::after{content:'';position:absolute;inset:16px;border-radius:50%;background:radial-gradient(circle at 34% 30%,#0d2032,#050b13 70%)}" +
+      "#auraSheetOv .asRing{position:absolute;inset:-14px;border-radius:50%;border:1px solid rgba(120,215,255,.35);opacity:0}" +
+      "#auraSheetOv[data-state='listening'] .asRing{animation:auraSheetPulse 1.9s ease-out infinite}" +
+      "#auraSheetOv[data-state='speaking'] .asOrb{animation-duration:2.4s;box-shadow:0 0 62px rgba(92,240,168,.55)}" +
+      "#auraSheetOv[data-state='thinking'] .asOrb{animation-duration:1.1s}" +
+      "@keyframes auraSheetSpin{to{transform:rotate(360deg)}}" +
+      "@keyframes auraSheetPulse{0%{transform:scale(.9);opacity:.7}100%{transform:scale(1.3);opacity:0}}" +
+      "#auraSheetOv h4{margin:0 0 8px;font:600 12px/1 Inter,system-ui,sans-serif;letter-spacing:.26em;color:#7fd7ff}" +
+      "#auraSheetOv .asLive{margin:0 0 8px;min-height:48px;font:600 19px/1.35 Inter,system-ui,sans-serif;color:#fff;word-break:break-word}" +
+      "#auraSheetOv .asReply{min-height:22px;max-height:28vh;overflow:auto;font:14px/1.5 Inter,system-ui,sans-serif;color:#bfe3ff;white-space:pre-wrap}" +
+      "#auraSheetOv .asRow{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px}" +
+      "#auraSheetOv .asRow button{min-width:96px;padding:11px 14px;border-radius:12px;border:1px solid rgba(120,215,255,.3);" +
       "background:rgba(120,215,255,.1);color:#dff4ff;font:600 13px Inter,system-ui,sans-serif;cursor:pointer}" +
-      "#auraSiriOv .asRow button.pr{background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;border-color:transparent}" +
-      "#auraSiriOv input{display:none;width:100%;margin-top:12px;padding:12px 14px;border-radius:12px;border:1px solid rgba(120,215,255,.25);" +
+      "#auraSheetOv .asRow button.pr{background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;border-color:transparent}" +
+      "#auraSheetOv input{display:none;width:100%;margin-top:12px;padding:12px 14px;border-radius:12px;border:1px solid rgba(120,215,255,.25);" +
       "background:rgba(255,255,255,.06);color:#eaf6ff;font:14px Inter,system-ui,sans-serif}" +
-      "#auraSiriOv[data-type='1'] input{display:block}" +
-      "#auraSiriOv .asHint{margin-top:12px;font:11px/1.5 Inter,system-ui,sans-serif;color:#7791a6}" +
-      "@media(max-width:420px){#auraSiriOv .asOrb{width:110px;height:110px}#auraSiriOv .asLive{font-size:17px}}";
+      "#auraSheetOv[data-type='1'] input{display:block}" +
+      "#auraSheetOv .asHint{margin-top:12px;font:11px/1.5 Inter,system-ui,sans-serif;color:#7791a6}" +
+      "@media(max-width:420px){#auraSheetOv .asOrb{width:110px;height:110px}#auraSheetOv .asLive{font-size:17px}}";
     document.head.appendChild(st);
-    siriOv = document.createElement("div");
-    siriOv.id = "auraSiriOv";
-    siriOv.setAttribute("data-state", "idle");
-    siriOv.setAttribute("role", "dialog");
-    siriOv.setAttribute("aria-label", "AURA Siri mode");
-    siriOv.innerHTML =
+    sheetOv = document.createElement("div");
+    sheetOv.id = "auraSheetOv";
+    sheetOv.setAttribute("data-state", "idle");
+    sheetOv.setAttribute("role", "dialog");
+    sheetOv.setAttribute("aria-label", "AURA voice mode");
+    sheetOv.innerHTML =
       '<div class="asCard">' +
         '<div class="asOrb"><span class="asRing"></span></div>' +
-        '<h4 id="auraSiriStatus">AURA</h4>' +
-        '<div class="asLive" id="auraSiriLive">Say “Aura” or tap 🎙</div>' +
-        '<div class="asReply" id="auraSiriReply"></div>' +
+        '<h4 id="auraSheetStatus">AURA</h4>' +
+        '<div class="asLive" id="auraSheetLive">Say “Aura” or tap 🎙</div>' +
+        '<div class="asReply" id="auraSheetReply"></div>' +
         '<div class="asRow">' +
-          '<button class="pr" id="auraSiriTalk" type="button">🎙 Talk</button>' +
-          '<button id="auraSiriKey" type="button">⌨︎ Type</button>' +
-          '<button id="auraSiriClose" type="button">✕ Close</button>' +
+          '<button class="pr" id="auraSheetTalk" type="button">🎙 Talk</button>' +
+          '<button id="auraSheetKey" type="button">⌨︎ Type</button>' +
+          '<button id="auraSheetClose" type="button">✕ Close</button>' +
         '</div>' +
-        '<input id="auraSiriType" type="text" autocomplete="off" placeholder="Type your question for AURA…">' +
+        '<input id="auraSheetType" type="text" autocomplete="off" placeholder="Type your question for AURA…">' +
         '<div class="asHint">Hands-free: say “Aura” anytime · Esc to close</div>' +
       '</div>';
-    document.body.appendChild(siriOv);
-    var talk = siriOv.querySelector("#auraSiriTalk");
-    if(!SR){ talk.style.display = "none"; siriOv.setAttribute("data-type", "1"); }
-    talk.onclick = function(){ siriListen(); };
-    siriOv.querySelector("#auraSiriKey").onclick = function(){
-      var on = siriOv.getAttribute("data-type") === "1";
-      siriOv.setAttribute("data-type", on ? "0" : "1");
-      if(!on){ var i = siriOv.querySelector("#auraSiriType"); setTimeout(function(){ try{ i.focus(); }catch(e){} }, 30); }
+    document.body.appendChild(sheetOv);
+    var talk = sheetOv.querySelector("#auraSheetTalk");
+    if(!SR){ talk.style.display = "none"; sheetOv.setAttribute("data-type", "1"); }
+    talk.onclick = function(){ sheetListen(); };
+    sheetOv.querySelector("#auraSheetKey").onclick = function(){
+      var on = sheetOv.getAttribute("data-type") === "1";
+      sheetOv.setAttribute("data-type", on ? "0" : "1");
+      if(!on){ var i = sheetOv.querySelector("#auraSheetType"); setTimeout(function(){ try{ i.focus(); }catch(e){} }, 30); }
     };
-    siriOv.querySelector("#auraSiriClose").onclick = function(){ siriClose(); };
-    siriOv.querySelector("#auraSiriType").addEventListener("keydown", function(e){
+    sheetOv.querySelector("#auraSheetClose").onclick = function(){ sheetClose(); };
+    sheetOv.querySelector("#auraSheetType").addEventListener("keydown", function(e){
       if(e.key !== "Enter") return;
       e.preventDefault();
       var t = String(this.value || "").trim();
       this.value = "";
-      if(t) siriSend(t);
+      if(t) sheetSend(t);
     });
-    siriOv.addEventListener("click", function(e){ if(e.target === siriOv) siriClose(); });
-    return siriOv;
+    sheetOv.addEventListener("click", function(e){ if(e.target === sheetOv) sheetClose(); });
+    return sheetOv;
   }
 
-  function siriSet(state, live, reply){
-    siriBuilt();
+  function sheetSet(state, live, reply){
+    sheetBuilt();
     if(state){
-      siriOv.setAttribute("data-state", state);
-      var st = siriOv.querySelector("#auraSiriStatus");
-      if(st) st.textContent = SIRI_LBL[state] || "AURA";
+      sheetOv.setAttribute("data-state", state);
+      var st = sheetOv.querySelector("#auraSheetStatus");
+      if(st) st.textContent = AURA_SHEET_LBL[state] || "AURA";
     }
     if(typeof live === "string" && live){
       P.last = live;
-      var l = siriOv.querySelector("#auraSiriLive");
+      var l = sheetOv.querySelector("#auraSheetLive");
       if(l) l.textContent = live;
     }
     if(typeof reply === "string"){
-      var r = siriOv.querySelector("#auraSiriReply");
+      var r = sheetOv.querySelector("#auraSheetReply");
       if(r) r.textContent = reply;
     }
   }
 
-  function siriOpen(){
-    siriBuilt();
+  function sheetOpen(){
+    sheetBuilt();
     ui(false);
     /* the sheet is the place hands-free belongs: the first open also arms the ear, and
        that click is the microphone gesture. An explicit "off" is still respected. */
     try{ armedOnce = false; micChecked = false; autoArm(); }catch(e){}
     P.open = true;
-    siriOv.classList.add("on");
-    if(SR) siriSet("listening", "Listening… tap 🎙 or just speak");
+    sheetOv.classList.add("on");
+    if(SR) sheetSet("listening", "Listening… tap 🎙 or just speak");
     else {
-      siriOv.setAttribute("data-type", "1");
-      siriSet("idle", "This browser has no voice input — type instead");
-      setTimeout(function(){ try{ siriOv.querySelector("#auraSiriType").focus(); }catch(e){} }, 80);
+      sheetOv.setAttribute("data-type", "1");
+      sheetSet("idle", "This browser has no voice input — type instead");
+      setTimeout(function(){ try{ sheetOv.querySelector("#auraSheetType").focus(); }catch(e){} }, 80);
     }
   }
-  function siriClose(){
+  function sheetClose(){
     P.open = false;
-    if(siriOv) siriOv.classList.remove("on");
-    siriStop();
+    if(sheetOv) sheetOv.classList.remove("on");
+    sheetStop();
     V.awake = false;
     idle();
   }
-  function siriStop(){
-    clearTimeout(siriSilence); siriSilence = null;
+  function sheetStop(){
+    clearTimeout(sheetSilence); sheetSilence = null;
     P.listening = false;
-    try{ if(siriRec){ siriRec.onend = null; siriRec.onerror = null; siriRec.onresult = null; siriRec.abort(); } }catch(e){}
-    siriRec = null;
+    try{ if(sheetRec){ sheetRec.onend = null; sheetRec.onerror = null; sheetRec.onresult = null; sheetRec.abort(); } }catch(e){}
+    sheetRec = null;
   }
-  function siriListen(){
-    siriBuilt();
+  function sheetListen(){
+    sheetBuilt();
     if(!SR){
-      siriOv.setAttribute("data-type", "1");
-      siriSet("idle", "This browser has no voice input — type instead");
+      sheetOv.setAttribute("data-type", "1");
+      sheetSet("idle", "This browser has no voice input — type instead");
       return;
     }
-    siriStop();
+    sheetStop();
     try{ if(V.rec){ V.rec.onend = null; V.rec.onerror = null; V.rec.abort(); } }catch(e){}
     try{ speechSynthesis.cancel(); }catch(e){}
     P.listening = true;
     var finals = "";
-    siriSet("listening", "Listening…", "");
-    var r = new SR(); siriRec = r;
+    sheetSet("listening", "Listening…", "");
+    var r = new SR(); sheetRec = r;
     r.lang = "en-IN"; r.continuous = false; r.interimResults = true; r.maxAlternatives = 1;
     function finish(){
       var t = String(finals || "").trim();
-      siriStop();
-      if(t.length > 1) siriSend(t);
-      else siriSet("idle", "I did not catch that — tap 🎙 again");
+      sheetStop();
+      if(t.length > 1) sheetSend(t);
+      else sheetSet("idle", "I did not catch that — tap 🎙 again");
     }
     r.onresult = function(ev){
       var interim = "";
@@ -7078,33 +7096,33 @@ function makeQR(text) {
         else interim += ev.results[i][0].transcript;
       }
       var show = (finals + " " + interim).trim();
-      if(show) siriSet("listening", show);
-      clearTimeout(siriSilence);
-      siriSilence = setTimeout(finish, 1600);
+      if(show) sheetSet("listening", show);
+      clearTimeout(sheetSilence);
+      sheetSilence = setTimeout(finish, 1600);
     };
     r.onerror = function(e){
       var why = (e && e.error) || "";
-      siriStop();
+      sheetStop();
       if(/not-allowed|service-not-allowed/.test(why)){
-        siriOv.setAttribute("data-type", "1");
-        siriSet("error", "Microphone is blocked", "Allow the mic for AURA in browser settings, or type here.");
+        sheetOv.setAttribute("data-type", "1");
+        sheetSet("error", "Microphone is blocked", "Allow the mic for AURA in browser settings, or type here.");
       } else if(/no-speech/.test(why)){
-        siriSet("idle", "I did not catch that — tap 🎙 again");
+        sheetSet("idle", "I did not catch that — tap 🎙 again");
       } else if(!/aborted/.test(why)){
-        siriSet("error", "Voice did not start", "Type your question instead — AURA still answers.");
+        sheetSet("error", "Voice did not start", "Type your question instead — AURA still answers.");
       }
     };
     r.onend = function(){ if(P.listening) finish(); };
-    try{ r.start(); }catch(e){ siriStop(); siriSet("error", "Microphone did not start", "Type your question instead."); }
+    try{ r.start(); }catch(e){ sheetStop(); sheetSet("error", "Microphone did not start", "Type your question instead."); }
   }
-  function siriSend(text){
+  function sheetSend(text){
     text = String(text || "").trim();
     if(!text) return;
-    siriBuilt();
-    siriSet("thinking", text, "");
+    sheetBuilt();
+    sheetSet("thinking", text, "");
     V.awake = true;
     var done = false;
-    try{ done = window.__siriIntent(text); }catch(e){ done = false; }
+    try{ done = window.__auraIntent(text); }catch(e){ done = false; }
     if(!done){
       var inp = document.getElementById("inp"), send = document.getElementById("send");
       if(inp && send){
@@ -7114,18 +7132,18 @@ function makeQR(text) {
         send.click();
       } else {
         V.awake = false;
-        siriSet("error", text, "The chat box is not ready — reload AURA.");
+        sheetSet("error", text, "The chat box is not ready — reload AURA.");
       }
     } else if(!(window.speechSynthesis && speechSynthesis.speaking)){
-      setTimeout(function(){ if(P.open && (!window.speechSynthesis || !speechSynthesis.speaking)) siriSet("ready"); }, 800);
+      setTimeout(function(){ if(P.open && (!window.speechSynthesis || !speechSynthesis.speaking)) sheetSet("ready"); }, 800);
     }
   }
-  window.__auraSiri = { show: siriOpen, hide: siriClose, listen: siriListen, send: siriSend };
+  window.__auraWake = { show: sheetOpen, hide: sheetClose, listen: sheetListen, send: sheetSend };
 
   function say(text){
     try{
       if(!window.speechSynthesis || !text){
-        if(P.open) setTimeout(function(){ if(P.open) siriSet("ready"); }, 500);
+        if(P.open) setTimeout(function(){ if(P.open) sheetSet("ready"); }, 500);
         return;
       }
       var said = String(text).replace(/[*_`#>]/g, " ").replace(/\s+/g, " ").slice(0, 600);
@@ -7133,8 +7151,8 @@ function makeQR(text) {
       u.rate = 1; u.pitch = 1;
       u.lang = /[\u0900-\u097F]/.test(String(text)) ? "hi-IN" : "en-IN";
       if(V.rec){ try{ V.rec.onend = null; V.rec.abort(); }catch(e){} }
-      if(P.open) siriSet("speaking", null, said);
-      u.onend = function(){ if(P.open) siriSet("ready"); if(V.armed) V.timer = setTimeout(wakeListen, 420); };
+      if(P.open) sheetSet("speaking", null, said);
+      u.onend = function(){ if(P.open) sheetSet("ready"); if(V.armed) V.timer = setTimeout(wakeListen, 420); };
       speechSynthesis.cancel(); speechSynthesis.speak(u);
     }catch(e){ if(V.armed) V.timer = setTimeout(wakeListen, 420); }
   }
@@ -7229,7 +7247,7 @@ function makeQR(text) {
   }
   restoreTimers();
 
-  window.__siriIntent = function(raw){
+  window.__auraIntent = function(raw){
     var t = norm(raw); if(t.length < 2) return false;
     var m;
     if(/^(what('|’)?s the time|what is the time|what time is it|tell me the time|time kya|kya time|time batao|batao time|kitne baje|samay kya|kya samay)/i.test(t)){
@@ -7337,7 +7355,7 @@ function makeQR(text) {
     if(!window.__auraIntentWrapped){
       var origIntent = window.__auraIntent;
       window.__auraIntent = function(t){
-        try{ if(window.__siriIntent(t)) return true; }catch(e){}
+        try{ if(window.__auraIntent(t)) return true; }catch(e){}
         return origIntent ? origIntent(t) : false;
       };
       window.__auraIntentWrapped = true;
@@ -7391,7 +7409,7 @@ function makeQR(text) {
     V.awake = true;
     beep(1180, 0.12);
     ui("awake", "Listening…");
-    try{ siriOpen(); siriSet("listening", String(heard || "").trim() || "Listening…"); }catch(e){}
+    try{ sheetOpen(); sheetSet("listening", String(heard || "").trim() || "Listening…"); }catch(e){}
     /* the words that woke her are often the whole order: "Aura, play kesariya" */
     var rest = norm(String(heard || ""));
     if(rest.length > 2) return run(rest);
@@ -7405,7 +7423,7 @@ function makeQR(text) {
         else interim += ev.results[i][0].transcript;
       }
       var live = (said + " " + interim).trim();
-      if(live){ ui("awake", live.slice(0, 58)); if(P.open) siriSet("listening", live); }
+      if(live){ ui("awake", live.slice(0, 58)); if(P.open) sheetSet("listening", live); }
     };
     r.onend = function(){
       var t = (said || "").trim();
@@ -7418,8 +7436,8 @@ function makeQR(text) {
   }
   function run(text){
     var done = false;
-    if(P.open) siriSet("thinking", text);
-    try{ done = window.__siriIntent(text); }catch(e){ done = false; }
+    if(P.open) sheetSet("thinking", text);
+    try{ done = window.__auraIntent(text); }catch(e){ done = false; }
     if(!done){
       var inp = document.getElementById("inp"), send = document.getElementById("send");
       if(inp && send){
@@ -7472,29 +7490,29 @@ function makeQR(text) {
   }
   window.__auraArm = function(){ arm(true); };
   window.__auraDisarm = disarm;
-  window.__auraVoiceToggle = function(){ if(V.armed){ disarm(); } else { arm(true); siriOpen(); } };
+  window.__auraVoiceToggle = function(){ if(V.armed){ disarm(); } else { arm(true); sheetOpen(); } };
 
   /* a visible way in for anyone who does not know the wake word: tools row + keys */
-  function siriLauncher(){
+  function sheetLauncher(){
     try{
       var tools = document.getElementById("tools");
-      if(tools && !document.getElementById("auraSiriBtn")){
+      if(tools && !document.getElementById("auraSheetBtn")){
         var b = document.createElement("button");
-        b.id = "auraSiriBtn"; b.type = "button"; b.textContent = "✨ Siri";
+        b.id = "auraSheetBtn"; b.type = "button"; b.textContent = "✨ Aura";
         b.title = "Talk to AURA hands-free";
         b.style.cssText = "display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;" +
           "border:1px solid rgba(120,215,255,.22);background:rgba(120,215,255,.08);color:#dff4ff;" +
           "font:12.5px/1.4 Inter,system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;user-select:none";
-        b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} siriOpen(); };
+        b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} sheetOpen(); };
         tools.appendChild(b);
       }
     }catch(e){}
   }
-  setTimeout(siriLauncher, 1400);
-  setTimeout(siriLauncher, 3200);
+  setTimeout(sheetLauncher, 1400);
+  setTimeout(sheetLauncher, 3200);
   document.addEventListener("keydown", function(e){
-    if(e.key === "Escape" && P.open){ siriClose(); return; }
-    if((e.ctrlKey || e.metaKey) && e.code === "Space"){ e.preventDefault(); if(P.open) siriListen(); else siriOpen(); }
+    if(e.key === "Escape" && P.open){ sheetClose(); return; }
+    if((e.ctrlKey || e.metaKey) && e.code === "Space"){ e.preventDefault(); if(P.open) sheetListen(); else sheetOpen(); }
   }, true);
 
   /* the menu row is now just the switch for the wake word — nothing to "enter" */
@@ -7505,7 +7523,7 @@ function makeQR(text) {
     label();
   })();
 
-  /* Hands-free is on by default, Siri-style, without ever nagging: nothing on first
+  /* Hands-free is on by default, without ever nagging: nothing on first
      paint (no prompt, no chip, no mic error), then the first real touch arms the ear
      silently. Only a machine with no microphone is skipped, and an explicit "off" is
      remembered forever. */
@@ -7612,7 +7630,7 @@ function makeQR(text) {
     /* the workflow cards are gone, so a shortcut has to land somewhere real */
     if(name === 'voice' || name === 'flows'){
       try{
-        window.__auraSiri.show();
+        window.__auraWake.show();
         window.__auraArm();
         return true;
       }catch(e){ return false; }
@@ -7816,6 +7834,791 @@ function makeQR(text) {
   paint();
   setTimeout(paint, 400);
   setTimeout(paint, 1500);
+})();
+</script>
+<script type="module" id="aura-emotion-sync">
+/* ================= AURA EMOTION-SYNC + TOUCHLESS GESTURES =================
+   Face and hand understanding in the browser — zero backend latency.
+
+   · MediaPipe Tasks Vision (gesture_recognizer + face_landmarker) is loaded lazily,
+     only when the user turns Sync on. Detection is gated to 15 FPS on its own
+     animation frame, so the 3D particle HUD keeps its 60 FPS loop untouched.
+   · Gestures, on the live webcam feed the app already has:
+       open palm held 1s  → speechSynthesis.cancel() and hold the HUD spin
+                            (hold again to let it spin)
+       thumb up           → bookmark the last answer (kept on this device) with a
+                            particle burst
+       closed fist        → toggle microphone listening
+   · Emotion: face blendshapes (brow / mouth / eye tension) plus microphone energy
+     and a speech-burst rate become one state — "calm", "rushed" or "stressed".
+     That state rides along with every chat body (user_state) and recolours the HUD
+     to #00E5FF when the user is tense.
+   · Opt-in by design: no camera, no mic and no model download until Sync is pressed.
+     window.AuraSync.state() / .toggle() / .enable() / .disable() from the console.
+   ======================================================================== */
+(() => {
+  'use strict';
+
+  const MP = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+  const WAT = MP + '/wasm';
+  const GESTURE_MODEL = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
+  const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+
+  const DETECT_FPS = 15;      /* detection ceiling — the HUD keeps 60 */
+  const FACE_FPS = 7.5;       /* face every other detection tick, same budget */
+  const HOLD_MS = 1000;       /* how long an open palm must be held */
+  const ACTION_COOL = 1500;   /* the same gesture cannot refire inside this */
+  const STATE_HOLD = 1200;    /* a new emotion must persist before it changes anything */
+  const BOOKMARKS = 'aura_bookmarks_v1';
+
+  const S = {
+    on: false, ready: false, loading: false,
+    video: null, ownStream: null, camAsked: 0,
+    gesture: null, face: null,
+    raf: 0, lastDetect: 0, lastFace: 0,
+    held: { name: '', since: 0 },
+    fired: { Open_Palm: 0, Thumb_Up: 0, Closed_Fist: 0 },
+    audioCtx: null, micStream: null, analyser: null, micBuf: null,
+    energy: 0, onsets: [], pace: 0, tension: 0,
+    raw: 'calm', state: 'calm', since: 0, lastNote: 0
+  };
+
+  const core = () => window.AURA_CORE || null;
+  const $ = (id) => document.getElementById(id);
+
+  /* ---------------- small voice for feedback ---------------- */
+  function note(msg) {
+    S.lastNote = Date.now();
+    try { if (typeof window.toast === 'function') window.toast(msg); } catch (e) {}
+    paintBadge(msg);
+  }
+  function burst(k) {
+    const c = core();
+    if (c && c.excite) c.excite(k == null ? 1.6 : k);
+  }
+
+  /* ---------------- UI: badge + the camera-modal button ---------------- */
+  function badge() {
+    let el = $('auraSyncBadge');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'auraSyncBadge';
+    el.style.cssText =
+      'position:fixed;left:10px;bottom:76px;z-index:60;display:none;padding:5px 10px;border-radius:20px;' +
+      'font:600 10.5px/1.2 Inter,system-ui,sans-serif;letter-spacing:.06em;color:#bfe9ff;' +
+      'background:rgba(6,14,24,.84);border:1px solid rgba(120,215,255,.28);' +
+      'backdrop-filter:blur(8px);pointer-events:none';
+    document.body.appendChild(el);
+    return el;
+  }
+  function paintBadge(msg) {
+    const el = badge();
+    if (!S.on) { el.style.display = 'none'; return; }
+    const tense = S.state !== 'calm';
+    el.style.display = 'block';
+    el.style.color = tense ? '#9df7ff' : '#bfe9ff';
+    el.style.borderColor = tense ? 'rgba(0,229,255,.6)' : 'rgba(120,215,255,.28)';
+    el.textContent = msg || ('SYNC · ' + S.state);
+  }
+  function paintButton() {
+    const cam = $('camSync');
+    if (cam) cam.textContent = S.on ? '🖐 Sync: on' : '🖐 Sync: off';
+    paintBadge();
+  }
+  function mount() {
+    /* the base UI rewrites this row's style attribute (flexWrap is set from JS), so a
+       [style*="display:flex"] selector stops matching — look for the flex row that
+       already carries the camera buttons instead, the same row Sign/Hear sit in. */
+    const mod = document.querySelector('#camov .mod');
+    if (!mod || $('camSync')) return;
+    const row = Array.from(mod.children).find((n) =>
+      n.tagName === 'DIV' && n.querySelector('button') &&
+      (getComputedStyle(n).display === 'flex' || /flex/.test(n.getAttribute('style') || '')));
+    if (!row) return;
+    const b = document.createElement('button');
+    b.type = 'button'; b.id = 'camSync'; b.className = 'b'; b.textContent = '🖐 Sync: off';
+    b.style.flex = '1 1 auto'; b.style.minWidth = '0';
+    const close = $('cclose');
+    if (close && close.parentNode === row) row.insertBefore(b, close); else row.appendChild(b);
+    b.onclick = () => { toggle(); };
+    paintButton();
+  }
+
+  /* ---------------- capture the last answer for the thumb-up bookmark ---- */
+  function trackAnswers() {
+    const wrap = (name) => {
+      const fn = window[name];
+      if (typeof fn !== 'function' || fn.__auraSyncWrapped) return;
+      const w = function () {
+        try {
+          if (String(arguments[0]).toLowerCase() === 'a' &&
+              typeof arguments[1] === 'string' && arguments[1].trim()) {
+            window.__auraLastAnswer = arguments[1];
+          }
+        } catch (e) {}
+        return fn.apply(this, arguments);
+      };
+      w.__auraSyncWrapped = true;
+      window[name] = w;
+    };
+    wrap('addMsg');
+  }
+
+  /* ---------------- models (only when asked) ---------------- */
+  async function load() {
+    if (S.ready) return true;
+    if (S.loading) return false;
+    S.loading = true;
+    try {
+      const mp = await import(MP + '/vision_bundle.mjs');
+      const files = await mp.FilesetResolver.forVisionTasks(WAT);
+      const build = (delegate) => ({
+        gesture: mp.GestureRecognizer.createFromOptions(files, {
+          numHands: 1, runningMode: 'VIDEO',
+          baseOptions: { modelAssetPath: GESTURE_MODEL, delegate }
+        }),
+        face: mp.FaceLandmarker.createFromOptions(files, {
+          numFaces: 1, outputFaceBlendshapes: true, runningMode: 'VIDEO',
+          baseOptions: { modelAssetPath: FACE_MODEL, delegate }
+        })
+      });
+      try {
+        const gpu = build('GPU');
+        S.gesture = await gpu.gesture;
+        S.face = await gpu.face;
+      } catch (e) {
+        /* a machine without a usable GPU delegate still gets the CPU one */
+        const cpu = build('CPU');
+        S.gesture = await cpu.gesture;
+        S.face = await cpu.face;
+      }
+      S.ready = true;
+      return true;
+    } catch (e) {
+      note('Sync needs the MediaPipe models — check the connection');
+      return false;
+    } finally {
+      S.loading = false;
+    }
+  }
+
+  /* ---------------- camera: reuse the live feed, never duplicate it ------ */
+  function liveFeed() {
+    if (S.video && S.video.readyState >= 2 && S.video.videoWidth) return S.video;
+    for (const id of ['cvid', 'asgVideo']) {
+      const v = $(id);
+      if (v && v.srcObject && v.readyState >= 2 && v.videoWidth) return v;
+    }
+    return null;
+  }
+  function openOwnCamera() {
+    if (!S.on || liveFeed() || S.ownStream) return;
+    if (Date.now() - S.camAsked < 15000) return;          /* no prompt storms */
+    S.camAsked = Date.now();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      note('This browser has no camera access');
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false })
+      .then((st) => {
+        if (!S.on) { st.getTracks().forEach((t) => t.stop()); return; }
+        const v = document.createElement('video');
+        v.playsInline = true; v.muted = true; v.setAttribute('aria-hidden', 'true');
+        v.style.cssText = 'position:fixed;left:-4px;bottom:-4px;width:2px;height:2px;opacity:0;pointer-events:none';
+        v.srcObject = st;
+        document.body.appendChild(v);
+        v.play().catch(() => {});
+        S.ownStream = st; S.video = v;
+        note('Sync · camera on');
+      })
+      .catch((e) => {
+        note('Sync needs the camera — allow it, or open the camera window');
+      });
+  }
+
+  /* ---------------- microphone: loudness + speech-burst pace ------------- */
+  async function startVoice() {
+    if (S.analyser || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    try {
+      S.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      S.audioCtx = S.audioCtx || new AC();
+      if (S.audioCtx.state === 'suspended') S.audioCtx.resume().catch(() => {});
+      const src = S.audioCtx.createMediaStreamSource(S.micStream);
+      S.analyser = S.audioCtx.createAnalyser();
+      S.analyser.fftSize = 512;
+      src.connect(S.analyser);
+      S.micBuf = new Uint8Array(S.analyser.frequencyBinCount);
+    } catch (e) {
+      /* a refused mic only means emotion runs on the face alone */
+      S.analyser = null;
+    }
+  }
+  function sampleVoice() {
+    if (!S.analyser || !S.micBuf) return;
+    S.analyser.getByteFrequencyData(S.micBuf);
+    let sum = 0;
+    for (let i = 0; i < S.micBuf.length; i++) sum += S.micBuf[i];
+    const now = sum / S.micBuf.length / 255;
+    if (now > 0.09 && S.energy <= 0.09) S.onsets.push(performance.now());
+    S.energy += (now - S.energy) * 0.3;
+    const cut = performance.now() - 4000;
+    while (S.onsets.length && S.onsets[0] < cut) S.onsets.shift();
+    S.pace = S.onsets.length / 4;      /* speech bursts per second */
+  }
+
+  /* ---------------- emotion: face tension, then one state ---------------- */
+  const TENSE = {
+    browDownLeft: 0.42, browDownRight: 0.42, browInnerUp: 0.12,
+    mouthPressLeft: 0.16, mouthPressRight: 0.16,
+    mouthFrownLeft: 0.10, mouthFrownRight: 0.10,
+    noseSneerLeft: 0.06, noseSneerRight: 0.06,
+    eyeSquintLeft: 0.06, eyeSquintRight: 0.06
+  };
+  function readFace(res) {
+    const shape = res && res.faceBlendshapes && res.faceBlendshapes[0];
+    if (!shape || !shape.categories || !shape.categories.length) { S.tension *= 0.9; return; }
+    let sum = 0, weight = 0;
+    for (const c of shape.categories) {
+      const w = TENSE[c.categoryName];
+      if (!w) continue;
+      sum += c.score * w;
+      weight += w;
+    }
+    const target = weight ? Math.min(1, (sum / weight) * 1.35) : 0;
+    S.tension += (target - S.tension) * 0.25;    /* EMA — one odd frame never flips it */
+  }
+  function classify(now) {
+    let raw = 'calm';
+    if (S.tension > 0.55 || (S.tension > 0.42 && S.energy > 0.16)) raw = 'stressed';
+    else if (S.pace > 3.4) raw = 'rushed';
+    if (raw !== S.raw) { S.raw = raw; S.since = now; }
+    if (S.raw !== S.state && now - S.since > STATE_HOLD) {
+      S.state = S.raw;
+      applyState();
+    }
+  }
+  function applyState() {
+    window.__auraUserState = S.state;
+    const c = core();
+    if (c && c.mood) c.mood(S.state);
+    paintBadge();
+  }
+
+  /* ---------------- gestures ---------------- */
+  function topGesture(res) {
+    const list = (res && res.gestures && res.gestures[0]) || [];
+    const best = list[0];
+    return best && best.score > 0.55 ? best.categoryName : '';
+  }
+  function handleGestures(res, now) {
+    const name = topGesture(res);
+    if (!name || name === 'None') { S.held.name = ''; S.held.since = 0; return; }
+    if (S.held.name !== name) { S.held.name = name; S.held.since = now; }
+    if (name === 'Open_Palm') {
+      if (now - S.held.since >= HOLD_MS) fire(name, now, 1400);
+      return;
+    }
+    fire(name, now, ACTION_COOL);
+  }
+  function fire(name, now, cool) {
+    if (now - (S.fired[name] || 0) < cool) return;
+    S.fired[name] = now;
+    if (name === 'Open_Palm') openPalm();
+    else if (name === 'Thumb_Up') bookmark();
+    else if (name === 'Closed_Fist') toggleMic();
+  }
+  function openPalm() {
+    const c = core();
+    const held = !!(c && c.frozen && c.frozen());
+    try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+    if (c && c.freeze) c.freeze(!held);
+    burst(held ? 1.2 : 0.7);
+    note(held ? 'Palm — voice stopped, HUD released' : 'Palm — voice stopped, HUD held');
+  }
+  function bookmark() {
+    const text = String(window.__auraLastAnswer || '').trim();
+    if (!text) { note('Nothing to bookmark yet'); return; }
+    const rec = { text: text.slice(0, 4000), at: new Date().toISOString(), state: S.state };
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(BOOKMARKS) || '[]') || []; } catch (e) { list = []; }
+    list.unshift(rec);
+    try { localStorage.setItem(BOOKMARKS, JSON.stringify(list.slice(0, 200))); } catch (e) {}
+    burst(2.4);
+    note('Bookmarked');
+  }
+  function toggleMic() {
+    const mic = $('mic');
+    if (!mic) { note('Microphone control is not on this screen'); return; }
+    mic.click();
+    burst(1.4);
+    note('Microphone toggled');
+  }
+
+  /* ---------------- the 15 FPS loop (the HUD keeps its own 60) ---------- */
+  function loop(now) {
+    S.raf = requestAnimationFrame(loop);
+    if (!S.on || document.hidden) return;
+    if (now - S.lastDetect < 1000 / DETECT_FPS - 1) return;
+    S.lastDetect = now;
+    const v = liveFeed();
+    if (!v) { openOwnCamera(); return; }
+    try { handleGestures(S.gesture.recognizeForVideo(v, now), now); } catch (e) {}
+    if (now - S.lastFace > 1000 / FACE_FPS) {
+      S.lastFace = now;
+      try { readFace(S.face.detectForVideo(v, now)); } catch (e) {}
+    }
+    sampleVoice();
+    classify(now);
+  }
+
+  /* ---------------- on / off ---------------- */
+  async function enable() {
+    if (S.on) return true;
+    S.on = true; S.lastDetect = 0; S.lastFace = 0;
+    S.fired = { Open_Palm: 0, Thumb_Up: 0, Closed_Fist: 0 };
+    paintButton();
+    paintBadge('SYNC · starting…');
+    const ok = await load();
+    if (!ok) { S.on = false; paintButton(); return false; }
+    await startVoice();
+    if (!liveFeed()) openOwnCamera();
+    if (S.raf) cancelAnimationFrame(S.raf);
+    S.raf = requestAnimationFrame(loop);
+    S.state = 'calm'; S.raw = 'calm'; window.__auraUserState = 'calm';
+    paintButton();
+    note('Touchless sync on — palm to pause, thumb up to bookmark, fist for the mic');
+    return true;
+  }
+  function disable() {
+    S.on = false;
+    if (S.raf) { cancelAnimationFrame(S.raf); S.raf = 0; }
+    try { if (S.ownStream) S.ownStream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    S.ownStream = null;
+    if (S.video) { try { S.video.srcObject = null; S.video.remove(); } catch (e) {} S.video = null; }
+    try { if (S.micStream) S.micStream.getTracks().forEach((t) => t.stop()); } catch (e) {}
+    S.micStream = null; S.analyser = null; S.micBuf = null;
+    S.energy = 0; S.onsets = []; S.pace = 0; S.tension = 0;
+    S.state = 'calm'; S.raw = 'calm'; window.__auraUserState = 'calm';
+    const c = core();
+    if (c && c.mood) c.mood('calm');
+    paintButton();
+    badge().style.display = 'none';
+    note('Touchless sync off');
+  }
+  function toggle() { if (S.on) { disable(); return false; } return enable(); }
+
+  window.AuraSync = {
+    enable, disable, toggle,
+    /* run one gesture by name without a hand in front of the camera — useful on a
+       machine with no webcam, and the only way to check the wiring on a desktop */
+    simulate: (name) => { fire(String(name || ''), performance.now(), 0); return S.state; },
+    state: () => ({
+      on: S.on, ready: S.ready, state: S.state,
+      tension: +S.tension.toFixed(2), energy: +S.energy.toFixed(2), pace: +S.pace.toFixed(2),
+      freeze: !!(core() && core().frozen && core().frozen())
+    })
+  };
+
+  /* ---------------- boot: mount late UI, wrap the answer tracker -------- */
+  const boot = () => {
+    trackAnswers();
+    mount();
+    try {
+      new MutationObserver(() => { trackAnswers(); mount(); })
+        .observe(document.body, { childList: true, subtree: true });
+    } catch (e) {}
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+<script id="aura-ghost-mode">
+/* ================= AURA GHOST MODE =================
+   Voice/typed commands that turn into real actions.
+
+   Two sets of hands, one contract:
+     · app    — notes and bookmarks stay on this device, web search opens a tab;
+     · local  — aura_bridge.py on 127.0.0.1:8765, token-gated, dry-run by default.
+   No third-party SDK is loaded: the page talks to the bridge and to nothing else.
+
+   Nothing destructive runs on the first ask. A plan is shown as a card and waits
+   for the button or for the spoken phrase "Zeus, confirm" / "Aura, confirm"; the
+   plan expires in 90 seconds. The page never stores the bridge token anywhere but
+   this device's localStorage and never prints it.
+
+   Commands (say or type):
+     "organize downloads by pdf"          → sort that folder (confirm)
+     "note: standup — ship the HUD fix"   → save a workspace note
+     "search the web for mediapipe tasks" → open a search tab
+     "system health check"                → disk / memory / processes
+     "ghost mode"                         → bridge settings card
+     "zeus, confirm"                      → approve the pending plan
+   =================================================== */
+(function () {
+  "use strict";
+
+  var BRIDGE = "http://localhost:8765";
+  var TOKEN_KEY = "aura_bridge_token";
+  var NOTES_KEY = "aura_notes_v1";
+  var CONFIRM_TTL = 90000;
+  var LOG = "[ghost]";
+
+  var pending = null;          /* { action, at, run } */
+  var card = null;
+
+  /* ---------------- tiny helpers ---------------- */
+  function el(id) { return document.getElementById(id); }
+  function store(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
+  function read(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }
+  function say(msg) {
+    try { if (typeof window.toast === "function") window.toast(msg); } catch (e) {}
+    try { if (typeof window.addMsg === "function") window.addMsg("a", msg); } catch (e) {}
+  }
+  function loud(msg) {
+    try { if (window.speechSynthesis) { speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(String(msg).slice(0, 220));
+      u.lang = /[\u0900-\u097F]/.test(msg) ? "hi-IN" : "en-IN";
+      speechSynthesis.speak(u); } } catch (e) {}
+  }
+  function note(msg) { say(msg); loud(msg); }
+
+  /* ---------------- confirmation words ---------------- */
+  var CONFIRM = /^(hey\s+)?(zeus|aura)[\s,:!.\-]+(please\s+)?confirm(ed)?\b/i;
+
+  function isConfirm(text) {
+    var s = String(text || "").trim();
+    if (!s || s.length > 80) return false;
+    return CONFIRM.test(s) || /\b(zeus|aura)\b[^.]{0,20}\bconfirm(ed)?\b/i.test(s);
+  }
+
+  /* ---------------- the confirmation card ---------------- */
+  function closeCard() {
+    if (card && card.parentNode) card.parentNode.removeChild(card);
+    card = null;
+  }
+
+  function showCard(action, run) {
+    closeCard();
+    action = action || {};
+    card = document.createElement("div");
+    card.id = "auraGhostCard";
+    card.style.cssText =
+      "position:fixed;left:50%;transform:translateX(-50%);bottom:84px;z-index:125;width:min(420px,92vw);" +
+      "padding:14px 16px;border-radius:16px;background:rgba(6,14,24,.96);border:1px solid rgba(120,215,255,.32);" +
+      "box-shadow:0 18px 48px rgba(0,0,0,.5);color:#e9f5ff;font:13px/1.5 Inter,system-ui,sans-serif";
+    var head = action.requires_confirmation === false ? "Ghost Mode — ready" : "Ghost Mode — confirm";
+    card.innerHTML =
+      '<div style="font:700 10px/1 Inter,system-ui,sans-serif;letter-spacing:.14em;color:#7fd7ff;margin-bottom:6px">' + head.toUpperCase() + "</div>" +
+      '<div style="font-size:13.5px;margin-bottom:4px" id="auraGhostSum"></div>' +
+      '<div style="font-size:11.5px;color:#8ea1b2;margin-bottom:10px" id="auraGhostWhere"></div>' +
+      '<div style="display:flex;gap:8px">' +
+        '<button type="button" id="auraGhostGo" style="flex:1;padding:9px 12px;border-radius:10px;border:0;cursor:pointer;' +
+          'font:700 12.5px Inter,system-ui,sans-serif;color:#04121f;background:linear-gradient(135deg,#48c8ff,#2f7bff)">Confirm</button>' +
+        '<button type="button" id="auraGhostNo" style="flex:1;padding:9px 12px;border-radius:10px;cursor:pointer;' +
+          'font:600 12.5px Inter,system-ui,sans-serif;color:#cfe9ff;background:transparent;border:1px solid rgba(255,255,255,.18)">Cancel</button>' +
+      "</div>" +
+      '<div style="margin-top:8px;font-size:11px;color:#6f8497">or say “Zeus, confirm”</div>';
+    document.body.appendChild(card);
+    el("auraGhostSum").textContent = action.summary || action.tool || "Run this action";
+    var where = action.executor === "bridge" ? "on this computer, through the local bridge"
+      : action.executor === "browser" ? "in a new browser tab"
+      : "on this device";
+    el("auraGhostWhere").textContent = "Runs " + where + ".";
+    el("auraGhostGo").onclick = function () { approve(); };
+    el("auraGhostNo").onclick = function () { pending = null; closeCard(); say("Cancelled"); };
+    pending = { action: action, at: Date.now(), run: run };
+  }
+
+  function approve() {
+    if (!pending) return false;
+    if (Date.now() - pending.at > CONFIRM_TTL) { pending = null; closeCard(); say("That plan expired — ask again"); return false; }
+    var job = pending;
+    pending = null;
+    closeCard();
+    Promise.resolve()
+      .then(function () { return job.run(true); })
+      .catch(function (e) { note("Ghost Mode failed: " + (e && e.message ? e.message : "unknown error")); });
+    return true;
+  }
+
+  function slug(text) {
+    return String(text || "note").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "note";
+  }
+
+  /* ---------------- local bridge client ---------------- */
+  function bridgeToken() { return read(TOKEN_KEY).trim(); }
+  function setBridgeToken(t) { return store(TOKEN_KEY, String(t || "").trim()); }
+
+  function bridge(op, args) {
+    var token = bridgeToken();
+    if (!token) return Promise.reject(new Error("No bridge token saved — say “ghost mode” and paste it"));
+    return fetch(BRIDGE + "/ghost", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Aura-Token": token },
+      body: JSON.stringify({ op: op, args: args || {} }),
+      cache: "no-store"
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok || j.ok === false) throw new Error(j.error || ("bridge HTTP " + r.status));
+        return j;
+      });
+    });
+  }
+
+  function bridgeHealth() {
+    return fetch(BRIDGE + "/health", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .catch(function () { return null; });
+  }
+
+  /* ---------------- the four actions ---------------- */
+  function doOrganize(args, confirmed) {
+    var rule = args.rule || "pdf";
+    var dir = args.directory || "";
+    /* a browser cannot move files on disk; the bridge is the only correct hand here */
+    if (!bridgeToken()) {
+      return Promise.reject(new Error("Local folders need the bridge — say “ghost mode” and start aura_bridge.py"));
+    }
+    return bridge("organize_files", { directory: dir, rule: rule, confirm: !!confirmed }).then(function (j) {
+      var head = j.dry_run ? "Dry run" : "Moved " + j.moved + " file(s)";
+      note(head + " · " + j.planned + " match " + rule + " in " + dir + (j.errors && j.errors.length ? " · " + j.errors[0] : ""));
+      return j;
+    });
+  }
+
+  function doNote(args) {
+    var title = String(args.title || "AURA note").slice(0, 80);
+    var content = String(args.content || "");
+    var rec = { title: title, content: content, at: new Date().toISOString() };
+    var list = [];
+    try { list = JSON.parse(read(NOTES_KEY) || "[]") || []; } catch (e) { list = []; }
+    list.unshift(rec);
+    store(NOTES_KEY, JSON.stringify(list.slice(0, 200)));
+    /* the note is also offered as a real .md file, so it can leave the browser */
+    try {
+      var blob = new Blob(["# " + title + "\n\n" + content + "\n"], { type: "text/markdown" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = slug(title) + ".md";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      if (rec.download !== false) a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    } catch (e) {}
+    note("Note saved: “" + title + "” (on this device, .md download started)");
+    return Promise.resolve(rec);
+  }
+
+  function doSearch(query) {
+    var url = "https://www.google.com/search?q=" + encodeURIComponent(String(query || "").trim());
+    var win = null;
+    try { win = window.open(url, "_blank", "noopener"); } catch (e) { win = null; }
+    if (!win) { try { location.href = url; } catch (e) {} }
+    note("Searching the web for “" + String(query || "").slice(0, 60) + "”");
+    return Promise.resolve({ opened: !!win, url: url });
+  }
+
+  function doHealth() {
+    if (bridgeToken()) {
+      return bridge("system_health_check", {}).then(function (j) {
+        var ps = j.powershell || {};
+        var mem = ps.memory ? Math.round(ps.memory.FreeGB) + " GB free of " + Math.round(ps.memory.TotalGB) + " GB" : "memory unknown";
+        var disk = (ps.drives && ps.drives[0]) ? ps.drives[0].Name + ": " + ps.drives[0].FreeGB + " GB free" : "disk unknown";
+        var up = ps.uptimeMinutes ? Math.round(ps.uptimeMinutes / 60) + "h uptime" : "";
+        note("System check · " + mem + " · " + disk + (up ? " · " + up : ""));
+        return j;
+      });
+    }
+    /* no bridge: report what the page itself can see, honestly */
+    var bits = [];
+    if (navigator.hardwareConcurrency) bits.push(navigator.hardwareConcurrency + " cores");
+    if (navigator.deviceMemory) bits.push(navigator.deviceMemory + " GB RAM");
+    if (navigator.connection && navigator.connection.effectiveType) bits.push(navigator.connection.effectiveType);
+    if (performance && performance.memory) bits.push(Math.round(performance.memory.usedJSHeapSize / 1048576) + " MB heap");
+    var msg = bits.length ? bits.join(" · ") : "no local bridge and no device details available";
+    note("Page health · " + msg + " — run aura_bridge.py for disk, memory and processes");
+    return Promise.resolve({ browser: bits });
+  }
+
+  /* ---------------- intent parsing ---------------- */
+  function pickRule(text) {
+    var t = " " + String(text).toLowerCase() + " ";
+    if (/\bpdfs?\b/.test(t)) return "pdf";
+    if (/\b(images?|photos?|pictures?)\b/.test(t)) return "images";
+    if (/\b(docs?|documents?|papers?)\b/.test(t)) return "documents";
+    if (/\bby[- ]date\b|\bmonth\b/.test(t)) return "by-date";
+    if (/\bby[- ]type\b|\bextension\b/.test(t)) return "by-type";
+    return "pdf";
+  }
+
+  function pickDirectory(text) {
+    var quoted = String(text).match(/["“']([^"”']{3,240})["”']/);
+    if (quoted) return quoted[1];
+    var winPath = String(text).match(/\b([A-Za-z]:[\\/][^,;]*)/);
+    if (winPath) return winPath[1].trim();
+    var t = String(text).toLowerCase();
+    if (/\bdownloads?\b/.test(t)) return "%USERPROFILE%\\Downloads";
+    if (/\bdesktop\b/.test(t)) return "%USERPROFILE%\\Desktop";
+    if (/\bdocuments\b/.test(t)) return "%USERPROFILE%\\Documents";
+    return "%USERPROFILE%\\Downloads";
+  }
+
+  function interpret(raw) {
+    var text = String(raw || "").trim();
+    if (!text) return null;
+    var t = text.toLowerCase();
+
+    if (isConfirm(t) && pending) return { kind: "confirm" };
+    if (/^ghost mode\b/.test(t) || t === "ghost") return { kind: "panel" };
+    var tk = text.match(/^bridge token\s+(.+)$/i);
+    if (tk) return { kind: "token", value: tk[1].trim() };
+
+    if (/\b(organi[sz]e|sort|clean up|saaf karo|saaf)\b/.test(t) && /\b(files?|folder|downloads?|directory)\b/.test(t)) {
+      return { kind: "tool", tool: "organize_files", args: { directory: pickDirectory(text), rule: pickRule(t) } };
+    }
+    if (/\b(note|likh|note down|save this)\b/.test(t)) {
+      var body = text.match(/^(?:note|save note|save this note)\s*[:\-—]\s*([\s\S]+)$/i);
+      var title = "";
+      var content = "";
+      if (body) {
+        var parts = body[1].split(/[\n—–-]\s*/);
+        title = (parts.shift() || "AURA note").trim().slice(0, 80);
+        content = parts.join("\n").trim() || title;
+      } else {
+        title = text.replace(/^.*?\bnote\b[:\s-]*/i, "").trim().slice(0, 80) || "AURA note";
+        content = text;
+      }
+      return { kind: "tool", tool: "create_workspace_note", args: { title: title, content: content } };
+    }
+    if (/\b(search|google|dhundo|khoj|look up)\b/.test(t) && !/\b(note|folder)\b/.test(t)) {
+      var q = text.replace(/^.*?\b(search|google|dhundo|khoj|look up)\b(\s+(the\s+)?(web|internet))?(\s+for)?\s*/i, "").trim();
+      if (q) return { kind: "tool", tool: "open_and_search_web", args: { query: q } };
+    }
+    if (/\b(health check|system health|diagnostic|disk space|how much (ram|memory)|kitni jagah|kitna ram)\b/.test(t)) {
+      return { kind: "tool", tool: "system_health_check", args: {} };
+    }
+    return null;
+  }
+
+  /* ---------------- panel: bridge settings ---------------- */
+  function panel() {
+    closePanel();
+    var d = document.createElement("div");
+    d.id = "auraGhostPanel";
+    d.style.cssText =
+      "position:fixed;inset:0;z-index:126;display:flex;align-items:flex-end;justify-content:center;padding:16px;" +
+      "background:rgba(2,6,12,.7);font:13px/1.55 Inter,system-ui,sans-serif";
+    d.innerHTML =
+      '<div style="width:min(430px,100%);background:#0a1520;border:1px solid rgba(120,215,255,.28);border-radius:18px;padding:16px;color:#e9f5ff">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+          '<b style="font-size:14.5px">Ghost Mode — local bridge</b>' +
+          '<button type="button" id="auraGhostX" style="background:none;border:0;color:#7f8b9a;font-size:16px;cursor:pointer">✕</button></div>' +
+        '<p style="color:#9fb2c2;margin:0 0 10px">Run <code>py aura_bridge.py</code> on this computer, then paste the token it prints. ' +
+          'Without it, notes and searches still work in the cloud — only local folders need the bridge.</p>' +
+        '<input id="auraGhostTok" placeholder="bridge token" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(120,215,255,.28);' +
+          'background:rgba(6,14,24,.9);color:#e9f5ff;font:12.5px ui-monospace,monospace;margin-bottom:8px" />' +
+        '<div style="display:flex;gap:8px">' +
+          '<button type="button" id="auraGhostSave" style="flex:1;padding:10px;border-radius:10px;border:0;cursor:pointer;font:700 12.5px Inter,system-ui,sans-serif;color:#04121f;background:linear-gradient(135deg,#48c8ff,#2f7bff)">Save token</button>' +
+          '<button type="button" id="auraGhostTest" style="flex:1;padding:10px;border-radius:10px;cursor:pointer;font:600 12.5px Inter,system-ui,sans-serif;color:#cfe9ff;background:transparent;border:1px solid rgba(255,255,255,.18)">Test</button>' +
+        "</div>" +
+        '<div id="auraGhostStat" style="margin-top:10px;color:#8ea1b2;font-size:11.5px"></div>' +
+      "</div>";
+    document.body.appendChild(d);
+    el("auraGhostTok").value = bridgeToken();
+    el("auraGhostX").onclick = closePanel;
+    d.onclick = function (e) { if (e.target === d) closePanel(); };
+    el("auraGhostSave").onclick = function () {
+      setBridgeToken(el("auraGhostTok").value);
+      el("auraGhostStat").textContent = "Token saved on this device.";
+    };
+    el("auraGhostTest").onclick = function () {
+      el("auraGhostStat").textContent = "Checking 127.0.0.1:8765…";
+      bridgeHealth().then(function (h) {
+        el("auraGhostStat").textContent = h
+          ? "Bridge online · v" + h.version + " · " + (h.live ? "live" : "dry-run") + " · " + (h.roots || []).join(", ")
+          : "No bridge answering on 127.0.0.1:8765 — start aura_bridge.py.";
+      });
+    };
+  }
+  function closePanel() { var p = el("auraGhostPanel"); if (p && p.parentNode) p.parentNode.removeChild(p); }
+
+  /* ---------------- one entry point ---------------- */
+  function handle(raw) {
+    var intent = interpret(raw);
+    if (!intent) return false;
+
+    if (intent.kind === "confirm") { return approve(); }
+    if (intent.kind === "panel") { panel(); return true; }
+    if (intent.kind === "token") { setBridgeToken(intent.value); note("Bridge token saved"); return true; }
+
+    if (intent.tool === "open_and_search_web") {
+      doSearch(intent.args.query).catch(function () {});
+      return true;
+    }
+    if (intent.tool === "system_health_check") {
+      doHealth().catch(function (e) { note("Health check failed: " + e.message); });
+      return true;
+    }
+    if (intent.tool === "create_workspace_note") {
+      doNote(intent.args).catch(function (e) { note("Note failed: " + e.message); });
+      return true;
+    }
+    if (intent.tool === "organize_files") {
+      var action = {
+        tool: "organize_files",
+        args: intent.args,
+        executor: "bridge",
+        requires_confirmation: true,
+        summary: "Sort " + intent.args.directory + " by " + intent.args.rule
+      };
+      showCard(action, function () { return doOrganize(intent.args, true); });
+      return true;
+    }
+    return false;
+  }
+
+  window.AuraGhost = {
+    handle: handle,
+    interpret: interpret,
+    confirm: approve,
+    cancel: function () { pending = null; closeCard(); return true; },
+    pending: function () { return pending && pending.action; },
+    bridge: {
+      token: bridgeToken,
+      save: setBridgeToken,
+      health: bridgeHealth,
+      call: bridge,
+      url: BRIDGE
+    },
+    panel: panel,
+    tools: ["organize_files", "create_workspace_note", "open_and_search_web", "system_health_check"]
+  };
+
+  /* ---------------- wiring: voice sheet, typed box, buttons ---------------- */
+  var prevIntent = window.__auraIntent;
+  window.__auraIntent = function (text) {
+    var done = false;
+    try { done = handle(text); } catch (e) { done = false; }
+    if (done) return true;
+    return typeof prevIntent === "function" ? prevIntent(text) : false;
+  };
+
+  function boxValue() { var i = el("inp"); return i ? i.value : ""; }
+  function clearBox() { var i = el("inp"); if (i) { i.value = ""; i.dispatchEvent(new Event("input", { bubbles: true })); } }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" || e.shiftKey) return;
+    if (!e.target || e.target.id !== "inp") return;
+    if (handle(boxValue())) { e.preventDefault(); e.stopPropagation(); clearBox(); }
+  }, true);
+
+  document.addEventListener("click", function (e) {
+    var b = e.target && e.target.closest ? e.target.closest("#send") : null;
+    if (!b) return;
+    if (handle(boxValue())) { e.preventDefault(); e.stopPropagation(); clearBox(); }
+  }, true);
 })();
 </script>
 </body></html>
