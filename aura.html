@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e24a54b276a7"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="a5cb1581b79a"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -6062,7 +6062,9 @@ function makeQR(text) {
             if(!b64) return reject(new Error('empty recording'));
             fetch(BASE + '/v1/stt', {
               method: 'POST', headers: hdrs(),
-              body: JSON.stringify({ audio: b64, lang: /hi/i.test(voiceLang()) ? 'hi' : 'en' }),
+              /* let Whisper detect the language: forcing Hindi mangles English speech,
+                 while Hinglish is handled correctly when it is allowed to choose */
+              body: JSON.stringify({ audio: b64 }),
               signal: AbortSignal.timeout(30000)
             }).then(function(r){
               return r.json().catch(function(){ return {}; }).then(function(j){
@@ -6106,9 +6108,16 @@ function makeQR(text) {
         }
         mark(true);
         show('\uD83C\uDFA4 Starting the microphone\u2026', true);
+        /* if the permission prompt is still waiting, say so instead of hanging forever */
+        var waited = setTimeout(function(){
+          if(listening) return;
+          show('\uD83C\uDFA4 Waiting for microphone permission\u2026', true);
+          tell('Press Allow in the browser so AURA can hear you');
+        }, 7000);
         navigator.mediaDevices.getUserMedia({
           audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         }).then(function(stream){
+          clearTimeout(waited);
           var ctx, src, proc, rate = 16000, ratio = 1, chunks = [], total = 0, done = false;
           try{
             ctx = new AC();
@@ -6184,9 +6193,14 @@ function makeQR(text) {
           show('\uD83C\uDFA4 Listening\u2026 speak now', true);
           maxTimer = setTimeout(finish, 20000);
         }).catch(function(e){
+          clearTimeout(waited);
           listening = false; mark(false); hide();
           var why = String((e && (e.name || e.message)) || e);
-          if(/NotAllowed|Permission|Security/i.test(why)) tell('Allow microphone access in the browser settings');
+          if(/NotAllowed|Permission|Security/i.test(why)){
+            /* "mic not working" is usually this: the site is blocked, and no amount of
+               tapping will change it until the permission is allowed */
+            tell('Microphone is blocked — click the lock icon in the address bar, set Microphone to Allow, then tap the mic again');
+          }
           else if(/NotFound|Devices|Overconstrained/i.test(why)) tell('No microphone found — check the device');
           else tell('Microphone could not start — ' + why);
         });
@@ -6202,7 +6216,10 @@ function makeQR(text) {
          the only way to guarantee ours is the handler that really runs */
       try{ mic.onclick = onMic; }catch(e){}
       window.__auraVoiceReady = true;
-      window.__auraVoice = { on: function(){ return listening; }, start: start, stop: stop, transcribe: transcribe, engine: 'recorder' };
+      window.__auraVoice = { on: function(){ return listening; }, start: start, stop: stop };
+      /* the wake-word module also claims window.__auraVoice, so the recorder keeps its
+         own handle for debugging and tests */
+      window.__auraVoiceEngine = { on: function(){ return listening; }, start: start, stop: stop, transcribe: transcribe, wav: wavBlob };
 
       /* the same orders work when typed — otherwise "open youtube" became a chat message */
       sendBtn.addEventListener('click', function(e){
