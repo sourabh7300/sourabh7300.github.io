@@ -3315,6 +3315,40 @@ app.post("/v1/rag/remove", async (req, res) => {
 });
 /* DIAGNOSTIC: the exact speech path /ws/audio uses, callable with a WAV so a model
    id that 404s (or a thinking preamble) can be seen without opening a socket. */
+/* speech → text on the SAME rotating Groq key bank as chat.
+   The Gemini-only lane took 37s for one sentence and still returned nothing when its
+   models answered 429/aborted, which is exactly why the mic "did not listen": the page
+   had the words, the server could not turn them into text. Whisper answers in ~1s. */
+async function groqStt(wav, lang) {
+  if (typeof FormData !== "function" || typeof Blob !== "function") return "";
+  for (let i = 0; i < 4; i++) {
+    const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
+    if (!key) break;
+    try {
+      const fd = new FormData();
+      fd.append("file", new Blob([wav], { type: "audio/wav" }), "speech.wav");
+      fd.append("model", process.env.STT_MODEL || "whisper-large-v3-turbo");
+      fd.append("response_format", "json");
+      fd.append("temperature", "0");
+      /* Hinglish: let Whisper detect unless the page explicitly asks for Hindi */
+      if (lang) fd.append("language", lang);
+      const r = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + key },
+        body: fd,
+        signal: AbortSignal.timeout(20_000)
+      });
+      if (r.status === 429) { coolKey(key, Date.now() + 60_000); continue; }
+      if (r.status === 401 || r.status === 403) { coolKey(key, Date.now() + 24 * 3600_000); continue; }
+      if (!r.ok) continue;
+      const j = await r.json().catch(() => ({}));
+      const t = String(j.text || "").trim();
+      if (t) return t;
+    } catch (e) { continue; }
+  }
+  return "";
+}
+
 app.post("/v1/stt", async (req, res) => {
   const body = req.body || {};
   const raw = String(body.audio || "");
@@ -3322,13 +3356,19 @@ app.post("/v1/stt", async (req, res) => {
   const buf = Buffer.from(raw, "base64");
   if (!buf.length) return res.status(400).json({ error: "audio decoded to zero bytes" });
   if (buf.length > 6_000_000) return res.status(413).json({ error: "audio too large (6MB max)" });
+  const started = Date.now();
+  /* TIER 1 — Whisper on the chat key bank (fast, Hinglish-friendly) */
+  try {
+    const text = await groqStt(buf, body.lang === "hi" ? "hi" : "");
+    if (text) return res.json({ ok: true, text, engine: "whisper", ms: Date.now() - started });
+  } catch (e) {}
+  /* TIER 2 — the original Gemini audio lane, kept as the fallback */
   try {
     const { transcribe } = require("./audio-ws");
-    const started = Date.now();
     const text = await transcribe(buf, GEMINI_API_KEY, body.lang === "hi" ? "hi" : "en", async () => {
       const m = await geminiModels(); return m.length ? m : VISION_MODELS;
     });
-    res.json({ ok: true, text, ms: Date.now() - started });
+    res.json({ ok: true, text, engine: "gemini", ms: Date.now() - started });
   } catch (e) { res.status(502).json({ ok: false, error: String((e && e.message) || e).slice(0, 400) }); }
 });
 app.post("/v1/rag/query", async (req, res) => {
