@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="0a07e42b4271"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e24a54b276a7"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -6014,7 +6014,16 @@ function makeQR(text) {
          engine ended early. On a phone that read as "mic sun nahi raha". Now the mic
          stays open, waits for a real pause, keeps the best alternative, reopens itself
          after an early end, and sends exactly once. */
-      var rec = null, listening = false, said = '', sendTimer = null, sent = false, restarts = 0, startedAt = 0;
+      /* ---------- voice input, recorder edition (21 Nov) ----------
+         The browser's SpeechRecognition was the whole problem: on this machine it either
+         never starts, cuts at the first pause, or silently returns nothing because another
+         recogniser holds the mic. AURA now records the words itself — 16 kHz mono PCM
+         through the Web Audio API, wrapped as WAV, transcribed by the backend's Whisper
+         lane — so the words that reach the chat are the words that were spoken.
+         Works in Chrome, Edge, Firefox and Safari (it only needs a microphone). */
+      var listening = false, said = '', sent = false, capture = null, maxTimer = null;
+      var speechHeard = false, silenceAt = 0;
+
       function voiceLang(){
         var pref = String(localStorage.getItem('az.lang') || '');
         if(/hinglish|hindi|hi/i.test(pref)) return 'hi-IN';
@@ -6028,16 +6037,53 @@ function makeQR(text) {
           .replace(/^\s*(uh+|um+|hmm+|erm)\b[,\s]*/i, '')
           .trim();
       }
+      function wavBlob(chunks, rate){
+        var total = 0, i;
+        for(i = 0; i < chunks.length; i++) total += chunks[i].length;
+        var buf = new ArrayBuffer(44 + total * 2), view = new DataView(buf);
+        function tag(off, s){ for(var k = 0; k < s.length; k++) view.setUint8(off + k, s.charCodeAt(k)); }
+        tag(0, 'RIFF'); view.setUint32(4, 36 + total * 2, true); tag(8, 'WAVE'); tag(12, 'fmt ');
+        view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+        view.setUint32(24, rate, true); view.setUint32(28, rate * 2, true);
+        view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+        tag(36, 'data'); view.setUint32(40, total * 2, true);
+        var off = 44;
+        for(i = 0; i < chunks.length; i++){
+          var c = chunks[i];
+          for(var k = 0; k < c.length; k++){ view.setInt16(off, c[k], true); off += 2; }
+        }
+        return new Blob([buf], { type: 'audio/wav' });
+      }
+      function transcribe(blob){
+        return new Promise(function(resolve, reject){
+          var fr = new FileReader();
+          fr.onload = function(){
+            var b64 = String(fr.result || '').split(',')[1] || '';
+            if(!b64) return reject(new Error('empty recording'));
+            fetch(BASE + '/v1/stt', {
+              method: 'POST', headers: hdrs(),
+              body: JSON.stringify({ audio: b64, lang: /hi/i.test(voiceLang()) ? 'hi' : 'en' }),
+              signal: AbortSignal.timeout(30000)
+            }).then(function(r){
+              return r.json().catch(function(){ return {}; }).then(function(j){
+                if(!r.ok || j.ok === false) reject(new Error((j && (j.error || j.message)) || ('HTTP ' + r.status)));
+                else resolve(String(j.text || ''));
+              });
+            }).catch(reject);
+          };
+          fr.onerror = function(){ reject(new Error('could not read the recording')); };
+          fr.readAsDataURL(blob);
+        });
+      }
       function sendNow(){
-        clearTimeout(sendTimer);
+        clearTimeout(maxTimer);
         hide();
         if(sent) return;
         var t = tidySpeech(said || '');
         if(t.length < 2){ sent = true; tell('I did not catch that — tap the mic and speak clearly'); return; }
         sent = true;
         inpEl.value = t;
-        /* an intent handler that throws must not swallow the sentence — a spoken
-           question always reaches the chat */
+        /* an intent handler that throws must not swallow the sentence */
         var claimed = false;
         try{ claimed = !!(window.__auraIntent && window.__auraIntent(t)); }catch(e){ claimed = false; }
         if(claimed){ try{ inpEl.value = ''; }catch(e){} return; }
@@ -6045,71 +6091,105 @@ function makeQR(text) {
       }
       function stop(){
         listening = false; mark(false);
-        try{ if(rec) rec.stop(); }catch(e){}
+        clearTimeout(maxTimer);
+        if(capture && capture.close){ try{ capture.close(); }catch(e){} }
+        capture = null;
+        hide();
       }
       function start(){
-        try{ if(rec){ rec.onend = null; rec.onerror = null; rec.abort(); } }catch(e){}
-        rec = new SR();
-        rec.lang = voiceLang();
-        rec.continuous = true;      /* do not cut at the first short pause */
-        rec.interimResults = true;
-        rec.maxAlternatives = 3;    /* keep the best of three readings of the same words */
-        said = ''; sent = false; restarts = 0; startedAt = Date.now();
-        var heard = '';
-        function armSend(ms){
-          clearTimeout(sendTimer);
-          sendTimer = setTimeout(function(){ if(!sent) stop(); }, ms);
+        if(listening) return;
+        said = ''; sent = false; speechHeard = false; silenceAt = 0;
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !AC){
+          tell('This browser cannot record audio — type instead');
+          return;
         }
-        rec.onstart = function(){ listening = true; mark(true); show('\uD83C\uDFA4 Listening\u2026 speak in Hindi or English', true); armSend(12000); };
-        rec.onresult = function(ev){
-          var finalTxt = '', interim = '';
-          for(var i = ev.resultIndex; i < ev.results.length; i++){
-            var r = ev.results[i];
-            var best = r[0] ? r[0].transcript : '';
-            /* the browser often returns a cleaner second reading of the same sentence */
-            for(var a = 1; a < r.length; a++){
-              if(r[a] && r[a].transcript && r[a].transcript.length > best.length) best = r[a].transcript;
+        mark(true);
+        show('\uD83C\uDFA4 Starting the microphone\u2026', true);
+        navigator.mediaDevices.getUserMedia({
+          audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+        }).then(function(stream){
+          var ctx, src, proc, rate = 16000, ratio = 1, chunks = [], total = 0, done = false;
+          try{
+            ctx = new AC();
+            ratio = ctx.sampleRate / rate;
+            src = ctx.createMediaStreamSource(stream);
+            proc = ctx.createScriptProcessor(4096, 1, 1);
+          }catch(e){
+            try{ stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e2){}
+            mark(false); hide();
+            tell('Microphone could not start — ' + String((e && e.message) || e));
+            return;
+          }
+          function closeCapture(){
+            listening = false;
+            try{ proc && proc.disconnect(); }catch(e){}
+            try{ src && src.disconnect(); }catch(e){}
+            try{ stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){}
+            try{ ctx.close(); }catch(e){}
+          }
+          function finish(){
+            if(done) return;
+            done = true;
+            clearTimeout(maxTimer);
+            var wav = speechHeard && chunks.length ? wavBlob(chunks, rate) : null;
+            closeCapture();
+            capture = null;
+            mark(false);
+            sent = true;                       /* no second send while the upload runs */
+            if(!wav){
+              sent = false;
+              hide();
+              tell('I did not hear anything — tap the mic and speak');
+              return;
             }
-            if(r.isFinal) finalTxt += ' ' + best; else interim += ' ' + best;
+            show('\uD83C\uDFA4 Transcribing\u2026', true);
+            transcribe(wav).then(function(text){
+              var t = tidySpeech(text);
+              sent = false;
+              if(!t){ hide(); tell('I could not catch the words — tap the mic and try again'); return; }
+              said = t;
+              sendNow();
+            }).catch(function(){
+              sent = false;
+              hide();
+              tell('Voice transcription is offline — type instead');
+            });
           }
-          said += finalTxt;
-          heard = tidySpeech(said + ' ' + interim);
-          if(heard) show('\uD83C\uDFA4 ' + heard, true);
-          /* a real pause ends the turn; every new word pushes it back out */
-          armSend(2200);
-        };
-        rec.onerror = function(e){
-          var why = (e && e.error) || '';
-          mark(false);
-          if(/aborted/.test(why)) return;             /* we stopped it on purpose */
-          if(/no-speech/.test(why)){
-            if(restarts < 2 && !said && Date.now() - startedAt < 25000){ restarts++; try{ rec.start(); return; }catch(err){} }
-            listening = false; hide(); tell('I did not hear anything — tap the mic and speak'); return;
-          }
-          listening = false; hide();
-          if(/not-allowed|service-not-allowed/.test(why)) tell('Allow microphone access in the browser settings');
-          else if(/network/.test(why)) tell('Voice input needs a connection');
-          else if(/audio-capture/.test(why)) tell('No microphone found — check the device');
-          else tell('Voice input stopped — tap the mic again');
-        };
-        rec.onend = function(){
-          mark(false);
-          if(sent) return;
-          var heardNow = tidySpeech(said || heard || '');
-          listening = false;
-          if(heardNow.length > 1){ said = heardNow; sendNow(); return; }
-          /* the engine closed itself while we were still waiting for a word — reopen once */
-          if(restarts < 1 && Date.now() - startedAt < 15000){ restarts++; try{ rec.start(); return; }catch(err){} }
-          hide();
-        };
-        try{ rec.start(); }catch(e){ hide(); tell('The mic did not start — tap it again'); }
-        /* if the engine never answers, the tap must not look dead — the usual reason is
-           the permission prompt still waiting on screen */
-        clearTimeout(start.watch);
-        start.watch = setTimeout(function(){
-          if(listening) return;
-          tell('No response from the mic — press Allow in the browser, then tap the mic again');
-        }, 6000);
+          proc.onaudioprocess = function(ev){
+            if(!listening) return;
+            var input = ev.inputBuffer.getChannelData(0);
+            var n = Math.floor(input.length / ratio) || 1;
+            var pcm = new Int16Array(n), sum = 0, i;
+            for(i = 0; i < n; i++){
+              var s = input[Math.floor(i * ratio)] || 0;
+              sum += s * s;
+              pcm[i] = Math.max(-32768, Math.min(32767, Math.round(s * 32767)));
+            }
+            chunks.push(pcm); total += n;
+            var rms = Math.sqrt(sum / n);
+            if(rms > 0.012){ speechHeard = true; silenceAt = Date.now(); }
+            if(speechHeard){
+              /* a real pause ends the sentence; every new word pushes it back out */
+              if(Date.now() - silenceAt > 1200) finish();
+            }else if(total > rate * 8){
+              finish();                        /* 8s of pure silence — nothing to send */
+            }
+          };
+          src.connect(proc);
+          proc.connect(ctx.destination);
+          capture = { close: closeCapture };
+          listening = true;
+          mark(true);
+          show('\uD83C\uDFA4 Listening\u2026 speak now', true);
+          maxTimer = setTimeout(finish, 20000);
+        }).catch(function(e){
+          listening = false; mark(false); hide();
+          var why = String((e && (e.name || e.message)) || e);
+          if(/NotAllowed|Permission|Security/i.test(why)) tell('Allow microphone access in the browser settings');
+          else if(/NotFound|Devices|Overconstrained/i.test(why)) tell('No microphone found — check the device');
+          else tell('Microphone could not start — ' + why);
+        });
       }
       var onMic = function(e){
         if(e){ try{ e.preventDefault(); e.stopImmediatePropagation(); }catch(err){} }
@@ -6122,7 +6202,7 @@ function makeQR(text) {
          the only way to guarantee ours is the handler that really runs */
       try{ mic.onclick = onMic; }catch(e){}
       window.__auraVoiceReady = true;
-      window.__auraVoice = { on: function(){ return listening; }, start: start, stop: stop };
+      window.__auraVoice = { on: function(){ return listening; }, start: start, stop: stop, transcribe: transcribe, engine: 'recorder' };
 
       /* the same orders work when typed — otherwise "open youtube" became a chat message */
       sendBtn.addEventListener('click', function(e){
