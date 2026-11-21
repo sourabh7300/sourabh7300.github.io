@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="b798d89adda5"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="0a07e42b4271"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -855,7 +855,8 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
           'color:#a9e3ff;background:linear-gradient(160deg,rgba(0,162,255,.22),rgba(120,80,255,.16));' +
           'border:1px solid rgba(120,215,255,.2)">' + ext(f.name) + '</span>';
       }
-      var meta = f.image ? ("Image \u00b7 " + (kb(f.bytes) || "ready")) : (ext(f.name) + " \u00b7 " + (kb(f.bytes) || "text"));
+      var meta = f.image ? ("Image \u00b7 " + (kb(f.bytes) || "ready"))
+        : (ext(f.name) + " \u00b7 " + (kb(f.bytes) || "text") + (f.text != null ? " \u00b7 " + f.text.length + " chars" : ""));
       var label = '<span style="min-width:0;display:block">' +
         '<span style="display:block;font-size:12.5px;color:#e6f4ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:132px">' +
         String(f.name).replace(/[<>&]/g, "") + '</span>' +
@@ -910,12 +911,16 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
          pull the text-showing operators (Tj / TJ / ') out of them — good enough for the
          invoices, notes and reports people actually attach, with no library. */
       if(/\.pdf$/i.test(file.name || "") || /application\/pdf/.test(file.type || "")){
-        pdfText(file).then(function(t){
+        /* a damaged or enormous PDF must not leave the card spinning forever */
+        Promise.race([
+          pdfText(file).catch(function(){ return ""; }),
+          new Promise(function(res){ setTimeout(function(){ res(null); }, 20000); })
+        ]).then(function(t){
           var body = (t || "").trim();
           if(body.length > 1){
             done({ name: file.name, bytes: file.size, text: body.length > 20000 ? body.slice(0, 20000) + "\n…(truncated)" : body });
           } else {
-            done({ name: file.name, bytes: file.size, text: "[This PDF has no selectable text — it is probably a scan or photos. Send a screenshot of the page instead and I can read that.]" });
+            done({ name: file.name, bytes: file.size, text: "[This PDF has no selectable text — it is a scan of images. Send a screenshot of the page instead and I will read it.]" });
           }
         }).catch(function(){
           done({ name: file.name, bytes: file.size, text: "[Could not read the text inside this PDF here. Send a screenshot of the page instead.]" });
@@ -973,17 +978,48 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       }).replace(/\\([0-7]{1,3})/g, function(m, o){ return String.fromCharCode(parseInt(o, 8)); });
     }
     /* text out of a decoded content stream */
+    /* Real PDFs (Word, Chrome, invoices) write most text as HEX strings, and CID fonts
+       pack two bytes per glyph. Reading only (literal) strings found almost nothing in
+       those files, so the attachment arrived empty. Both shapes decode here now. */
+    function hexText(h){
+      h = String(h || "").replace(/[^0-9A-Fa-f]/g, "");
+      if(!h) return "";
+      if(h.length % 2) h += "0";
+      var pairs = h.match(/../g) || [], zeros = 0, i;
+      for(i = 0; i < pairs.length; i++) if(pairs[i] === "00") zeros++;
+      var utf16 = pairs.length > 8 && zeros > pairs.length * 0.25;
+      var out = "";
+      if(utf16){
+        for(i = 0; i + 1 < pairs.length; i += 2){
+          var code = parseInt(pairs[i] + pairs[i + 1], 16);
+          if(!code || code === 0xFFFD) continue;
+          out += String.fromCharCode(code);
+        }
+      }else{
+        for(i = 0; i < pairs.length; i++){
+          var b = parseInt(pairs[i], 16);
+          if(b === 0) continue;
+          out += String.fromCharCode(b);
+        }
+      }
+      return out;
+    }
     function harvest(txt){
       var out = [], m;
-      var re = /\(((?:\\.|[^\\()])*)\)\s*(Tj|TJ|')|\[((?:[^\[\]]|\\.)*)\]\s*TJ|(T\*|TD|Td|ET)/g;
+      var re = /\(((?:\\.|[^\\()])*)\)\s*(Tj|TJ|')|<([0-9A-Fa-f\s]{4,})>\s*(Tj|TJ|')|\[((?:[^\[\]]|\\.)*)\]\s*TJ|(T\*|TD|Td|ET)/g;
       while((m = re.exec(txt))){
         if(m[1] != null){ out.push(unescapePdf(m[1]) + (m[2] === "'" ? "\n" : "")); }
-        else if(m[3] != null){
-          var arr = [], r2 = /\(((?:\\.|[^\\()])*)\)|(-?[\d.]+)/g, a;
-          while((a = r2.exec(m[3]))){ arr.push(a[1] != null ? unescapePdf(a[1]) : (parseFloat(a[2]) < -120 ? " " : "")); }
+        else if(m[3] != null){ out.push(hexText(m[3]) + (m[4] === "'" ? "\n" : "")); }
+        else if(m[5] != null){
+          var arr = [], r2 = /\(((?:\\.|[^\\()])*)\)|<([0-9A-Fa-f\s]+)>|(-?[\d.]+)/g, a;
+          while((a = r2.exec(m[5]))){
+            if(a[1] != null) arr.push(unescapePdf(a[1]));
+            else if(a[2] != null) arr.push(hexText(a[2]));
+            else if(parseFloat(a[3]) < -120) arr.push(" ");
+          }
           out.push(arr.join(""));
         }
-        else if(m[4]){ out.push("\n"); }
+        else if(m[6]){ out.push("\n"); }
       }
       return out.join("");
     }
@@ -1016,7 +1052,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       if(/\/FlateDecode/.test(head)) continue;
       pieces.pop();
       var body = latin.slice(start, e);
-      if(/\((?:\\.|[^\\()])*\)\s*(Tj|TJ)/.test(body)) pieces.push(body);
+      if(/\((?:\\.|[^\\()])*\)\s*(Tj|TJ)|<[0-9A-Fa-f\s]{4,}>\s*(Tj|TJ)/.test(body)) pieces.push(body);
     }
     function parentHead(all, idx){ /* the dict right before `stream` */
       var from = Math.max(0, idx - 700);
@@ -1103,7 +1139,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       var added = 0;
       out.filter(Boolean).forEach(function(f){ if(files.length < 6){ files.push(f); added++; } });
       if(!added) tell("Only 6 files can be attached — remove one first");
-      else tell(added + " file attached \u2014 ab sawaal poocho");
+      else tell(added + " file attached — press Send, or ask a question about it");
       renderFiles();
     });
   }
@@ -1148,6 +1184,29 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
     return { text: text, images: images, count: files.length };
   };
   window.__auraAttachClear = function(){ files.length = 0; renderFiles(); };
+
+  /* ---------- an attachment with an empty composer (21 Nov) ----------
+     The reference's send() starts with `if(!q) return`, so a PDF or a photo attached on
+     its own never left the composer — that is exactly the "PDF AURA tak jaa hi nahi
+     raha" report. When a file is staged and the box is empty this fills one clear
+     request first, then lets the normal send run with the file attached. */
+  window.__auraSendPackOnly = function(typed){
+    if(!files.length) return false;
+    var box = document.getElementById("inp"), btn = document.getElementById("send");
+    if(!box || !btn) return false;
+    if(String(box.value || "").trim().length > 1) return false;
+    var hasText = files.some(function(f){ return f.text != null; });
+    box.value = typed && typed.length > 1 ? typed : (hasText
+      ? "Read the attached file \u2014 answer every question in it, or summarise it if it has none."
+      : "Look at the attached photo and tell me what matters in it.");
+    return true;
+  };
+  try{
+    var sendEl = document.getElementById("send"), boxEl = document.getElementById("inp");
+    var fill = function(){ try{ window.__auraSendPackOnly(); }catch(e){} };
+    if(sendEl) sendEl.addEventListener("click", fill, true);
+    if(boxEl) boxEl.addEventListener("keydown", function(e){ if(e.key === "Enter") fill(); }, true);
+  }catch(e){}
 
   /* ---------------- engine hook ---------------- */
   var history = [];
@@ -1623,10 +1682,14 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
             signal: sig || AbortSignal.timeout(hasFile ? 75000 : 45000)
           });
           if(!r.ok){
-            var why = "";
-            try{ var ej = await r.json(); why = (ej && (ej.message || ej.error)) || ""; }catch(e){}
+            var why = "", ej = null;
+            try{ ej = await r.json(); why = (ej && (ej.message || ej.error)) || ""; }catch(e){}
             var err = new Error(why || ("HTTP " + r.status));
             err.status = r.status;
+            /* the backend tells us when every key is cooling and when to come back —
+               surfacing that beats a bare "engine unreachable" */
+            err.hint = (ej && ej.hint) || "";
+            err.keysLive = ej && ej.keysLive;
             throw err;
           }
           var j = await r.json();
@@ -1660,9 +1723,15 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
         return out1;
       }catch(e){
         firstErr = e;
+        /* key bank drained: the backend says how long the cooldown is, so one short
+           wait and a single retry is cheaper than claiming the engine is down */
+        if(e && e.status === 503 && e.keysLive === 0){
+          await new Promise(function(r){ setTimeout(r, 4000); });
+          try{ return await post(msgs, onDelta, hasImage); }catch(e4){ firstErr = e4; }
+        }
         /* an image turn already waited out a slow vision lane — retrying it just makes
            the spinner longer, so it fails once and says so */
-        if(hasFile) throw e;
+        if(hasFile) throw firstErr;
       }
       try{
         var lean = msgs.slice(0, 2).concat(history.slice(-2));
@@ -1739,6 +1808,7 @@ if(location.hash === "#zeus") setTimeout(function(){ activate("zeus"); }, 500);
       /* a 502 with a readable reason (image brain out of quota, model busy) is an
          answer to show, not a dead backend to blame */
       if(e && e.status === 502 && msg && !/^HTTP/.test(msg)) return "\u26a0\ufe0f " + msg;
+      if(e && e.status === 503) return "\u26a0\ufe0f " + (msg || "All brains busy") + (e.hint ? "\n" + e.hint : "") + "\nBackend: " + BASE;
       if(pack && pack.images && pack.images.length) return "\u26a0\ufe0f Image brain is busy right now (" + msg + ").\nRemove the image and ask again, or try in a moment — text answers still work.";
       if(pack && pack.text) return "\u26a0\ufe0f The answer for this file timed out (" + msg + ").\nThe file was large — send it again, or ask one question at a time.";
       return "\u26a0\ufe0f Engine unreachable (" + msg + ")\nBackend: " + BASE;
@@ -4593,300 +4663,6 @@ function makeQR(text) {
     setTimeout(function(){ try{ copLauncher(); }catch(e){} }, 900);
   }catch(e){}
 
-  /* ---------------- SIGN LANGUAGE MODE (16 Nov) ----------------
-     A deaf user signs to the camera; AURA reads the frame, writes it big and speaks it
-     out loud so a hearing person understands. The same window takes typed text and the
-     other person's speech back as big readable text, and the whole conversation is
-     saved into Chats. */
-  try{
-    (function signMode(){
-      var S = { on: false, stream: null, timer: null, prev: null, log: [], speak: true, last: '', lastTs: 0, busy: false, mic: null };
-      function el(id){ return document.getElementById(id); }
-      function big(t, sub){
-        var b = el('asgBig');
-        if(b) b.textContent = t;
-        var s = el('asgSub');
-        if(s) s.textContent = sub || '';
-      }
-      function push(who, text){
-        text = String(text || '').trim();
-        if(!text) return;
-        S.log.push({ who: who, text: text, ts: Date.now() });
-        if(S.log.length > 300) S.log.shift();
-        var box = el('asgLog');
-        if(box){
-          var line = document.createElement('div');
-          line.style.cssText = 'padding:6px 0;border-top:1px solid rgba(255,255,255,.06)';
-          line.innerHTML = '<b style="color:' + (who === 'me' ? '#9fd8ff' : '#7ff0b4') + '">' +
-            (who === 'me' ? 'Sign' : 'AURA') + ':</b> ' +
-            String(text).replace(/[<>&]/g, '');
-          box.appendChild(line);
-          box.scrollTop = box.scrollHeight;
-        }
-      }
-      function say(text){
-        try{
-          if(auraMuted() || !S.speak || !window.speechSynthesis) return;
-          var s = String(text || '').replace(/[*_`#]/g, '').trim();
-          if(!s) return;
-          var u = new SpeechSynthesisUtterance(s.slice(0, 300));
-          u.rate = 1.0; u.pitch = 1;
-          u.lang = /[\u0900-\u097F]/.test(s) ? 'hi-IN' : 'en-US';
-          speechSynthesis.cancel(); speechSynthesis.speak(u);
-        }catch(e){}
-      }
-      function frame(video){
-        var vw = video.videoWidth || 0, vh = video.videoHeight || 0;
-        if(!vw || !vh) return null;
-        var k = Math.min(1, 900 / Math.max(vw, vh));
-        var cv = document.createElement('canvas');
-        cv.width = Math.round(vw * k); cv.height = Math.round(vh * k);
-        try{ cv.getContext('2d').drawImage(video, 0, 0, cv.width, cv.height); }catch(e){ return null; }
-        return cv;
-      }
-      function sig(cv){
-        var s = document.createElement('canvas'); s.width = 48; s.height = 27;
-        var c = s.getContext('2d');
-        c.drawImage(cv, 0, 0, 48, 27);
-        var d = c.getImageData(0, 0, 48, 27).data, out = new Uint8Array(48 * 27);
-        for(var i = 0, p = 0; i < d.length; i += 4, p++) out[p] = (d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) | 0;
-        return out;
-      }
-      function changed(a, b){
-        if(!a || !b) return true;
-        var n = 0;
-        for(var i = 0; i < a.length; i++) if(Math.abs(a[i] - b[i]) > 12) n++;
-        return n / a.length > 0.06;
-      }
-      function taught(){
-        try{ return JSON.parse(localStorage.getItem("aura_sign_teach_v1") || "[]"); }catch(e){ return []; }
-      }
-      async function readSign(cv){
-        try{
-          var r = await fetch(BASE + '/v1/sign', {
-            method: 'POST', headers: hdrs(),
-            body: JSON.stringify({
-              image: cv.toDataURL('image/jpeg', 0.72),
-              history: S.log.slice(-3).map(function(e){ return e.text; }).join(" | ").slice(0, 240),
-              vocab: taught().map(function(x){ return x.label; })
-            }),
-            signal: AbortSignal.timeout(35000)
-          });
-          if(!r.ok) return null;
-          return await r.json();
-        }catch(e){ return null; }
-      }
-      async function tick(){
-        if(!S.on || S.busy) return;
-        var v = el('asgVideo');
-        if(!v || v.readyState < 2) return;
-        var cv = frame(v);
-        if(!cv) return;
-        var sg = sig(cv);
-        if(S.prev && !changed(S.prev, sg)) return;
-        S.prev = sg;
-        S.busy = true;
-        try{
-          var j = await readSign(cv);
-          if(j && j.ok && (j.sign || j.speech)){
-            var key = (j.sign || '') + '|' + (j.speech || '');
-            if(key === S.last && Date.now() - S.lastTs < 6000) return;
-            S.last = key; S.lastTs = Date.now();
-            var line = j.speech || j.sign;
-            big(line, j.sign ? ('sign: ' + j.sign + (j.confidence ? ' · ' + Math.round(j.confidence * 100) + '%' : '')) : (j.seen || ''));
-            push('me', line);
-            say(line);
-          } else if(j && j.ok && j.seen){
-            var st = el('asgSub'); if(st) st.textContent = 'looking… ' + j.seen.slice(0, 90);
-          }
-        } finally { S.busy = false; }
-      }
-      async function startCam(){
-        try{
-          if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-            big('Camera is not available in this browser', 'open AURA in Chrome or Safari');
-            return;
-          }
-          S.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 1280, height: 720 }, audio: false });
-          var v = el('asgVideo');
-          v.srcObject = S.stream;
-          await v.play().catch(function(){});
-          S.on = true;
-          var badge = el('asgBadge'); if(badge){ badge.textContent = '● live'; badge.style.color = '#7ff0b4'; }
-          el('asgStart').textContent = 'Stop camera';
-          S.timer = setInterval(tick, 2200);
-          big('Camera on — sign now', 'hold one clear sign for a second');
-          tick();
-        }catch(e){
-          big('Camera could not start', String(e && e.message || e).slice(0, 90));
-        }
-      }
-      function stopCam(){
-        S.on = false;
-        if(S.timer){ clearInterval(S.timer); S.timer = null; }
-        if(S.stream){ try{ S.stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){} S.stream = null; }
-        var v = el('asgVideo'); if(v) { try{ v.srcObject = null; }catch(e){} }
-        var badge = el('asgBadge'); if(badge){ badge.textContent = 'camera off'; badge.style.color = '#8ea1b2'; }
-        var b = el('asgStart'); if(b) b.textContent = 'Start camera';
-        S.prev = null;
-      }
-      function saveSession(){
-        try{
-          if(!S.log.length) return;
-          if(typeof chats !== 'undefined' && typeof store === 'object' && store && store.set){
-            var rec = {
-              id: 'sign' + Date.now(),
-              title: '🤟 Sign chat · ' + new Date().toLocaleString(),
-              ts: Date.now(),
-              msgs: S.log.map(function(e){ return { r: e.who === 'me' ? 'u' : 'a', t: e.text }; })
-            };
-            chats.unshift(rec);
-            store.set('chats', chats.slice(0, 40));
-          }
-          try{ localStorage.setItem('aura_sign_log_v1', JSON.stringify(S.log.slice(-60))); }catch(e){}
-        }catch(e){}
-      }
-      async function askAura(q){
-        q = String(q || '').trim();
-        if(!q) return;
-        big('AURA is thinking…', '');
-        push('me', q);
-        try{
-          var r = await fetch(BASE + '/v1/chat/completions', {
-            method: 'POST', headers: hdrs(),
-            body: JSON.stringify({
-              model: 'aura', stream: false, user_state: auraUserState(),
-              messages: [
-                { role: 'system', content: 'The user is deaf and communicates by sign language or typing. Answer in very short, simple English — at most 40 words, no markdown, no lists. Be warm and concrete.' },
-                { role: 'user', content: q }
-              ]
-            }),
-            signal: AbortSignal.timeout(45000)
-          });
-          var j = await r.json().catch(function(){ return {}; });
-          var ans = String((((j.choices || [])[0] || {}).message || {}).content || '').trim();
-          if(!ans) ans = 'AURA could not answer just now. Try again.';
-          big(ans, '');
-          push('a', ans);
-          say(ans);
-        }catch(e){
-          big('Network slow — try again', '');
-        }
-      }
-      function hearThem(){
-        var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if(!SR){ big('Voice input is not supported in this browser', 'type instead'); return; }
-        try{
-          if(S.mic){ S.mic.stop(); S.mic = null; }
-          var r = new SR(); S.mic = r;
-          r.lang = 'en-IN'; r.interimResults = true; r.continuous = false;
-          big('Listening to the other person…', '');
-          r.onresult = function(ev){
-            var said = String(ev.results[0][0].transcript || '').trim();
-            if(said) { big(said, 'they said'); }
-            if(ev.results[0].isFinal && said){ push('a', said); S.mic = null; }
-          };
-          r.onerror = function(e){ big('Mic error: ' + (e && e.error || 'not allowed'), 'type instead'); S.mic = null; };
-          r.onend = function(){ S.mic = null; };
-          r.start();
-        }catch(e){ big('Mic unavailable', String(e.message || e)); }
-      }
-      function open(){
-        var ov = el('auraSignOv');
-        if(!ov) return;
-        ov.classList.add('on');
-      }
-      function close(){
-        var ov = el('auraSignOv');
-        if(ov) ov.classList.remove('on');
-        stopCam();
-        saveSession();
-      }
-
-      var ov = document.createElement('div');
-      ov.className = 'ov'; ov.id = 'auraSignOv';
-      ov.innerHTML =
-        '<div class="mod pn" style="max-width:560px">' +
-          '<div style="display:flex;align-items:center;gap:10px">' +
-            '<h3 style="margin:0">🤟 Sign language</h3>' +
-            '<button id="asgClose" type="button" style="margin-left:auto;background:none;border:0;color:#8ea1b2;font-size:16px;cursor:pointer">✕</button>' +
-          '</div>' +
-          '<p style="color:var(--dim);font:12.5px var(--f2);margin:6px 0 10px">Sign in front of the camera — AURA reads it, shows it large and speaks it. When the other person speaks, their words appear here as text.</p>' +
-          '<div style="position:relative;border-radius:14px;overflow:hidden;background:#05080d;border:1px solid rgba(120,215,255,.22)">' +
-            '<video id="asgVideo" playsinline muted style="width:100%;max-height:42vh;display:block;object-fit:cover;transform:scaleX(-1);background:#05080d"></video>' +
-            '<span id="asgBadge" style="position:absolute;left:10px;top:8px;font:700 10px Inter,system-ui,sans-serif;letter-spacing:.12em;color:#8ea1b2">camera off</span>' +
-          '</div>' +
-          '<div id="asgBig" style="margin:12px 0 4px;min-height:52px;padding:12px 14px;border-radius:12px;background:rgba(120,215,255,.09);border:1px solid rgba(120,215,255,.22);font:600 17px/1.4 Inter,system-ui,sans-serif;color:#eef8ff">Start the camera, then sign</div>' +
-          '<div id="asgSub" style="min-height:16px;color:#8ea1b2;font:11.5px var(--f2);margin-bottom:10px"></div>' +
-          '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
-            '<button class="b pr" id="asgStart">Start camera</button>' +
-            '<button class="b" id="asgSpeak">🔊 Speak: on</button>' +
-            '<button class="b" id="asgHear">🎧 Hear them</button>' +
-          '</div>' +
-          '<div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="asgTeach" placeholder="Teach a sign: type its name (e.g. HELLO) then press Teach" style="flex:1"><button class="b" id="asgTeachBtn">Teach</button></div>' +
-          '<div id="asgTaught" style="margin:6px 0 4px;font:11.5px var(--f2);color:#8ea1b2"></div>' +
-          '<div style="display:flex;gap:8px;margin-top:10px"><input type="text" id="asgQ" placeholder="Type here (AURA speaks it) — e.g. where is the washroom?" style="flex:1"><button class="b pr" id="asgSend">Send</button></div>' +
-          '<div id="asgLog" style="margin-top:12px;max-height:26vh;overflow:auto;font:12.5px/1.5 var(--f2);color:#cfe9ff"></div>' +
-        '</div>';
-      document.body.appendChild(ov);
-
-      el('asgStart').onclick = function(){ S.on ? stopCam() : startCam(); };
-      el('asgSpeak').onclick = function(){
-        S.speak = !S.speak;
-        this.textContent = S.speak ? '🔊 Speak: on' : '🔇 Speak: off';
-        if(!S.speak){ try{ speechSynthesis.cancel(); }catch(e){} }
-      };
-      el('asgHear').onclick = hearThem;
-      el('asgSend').onclick = function(){ var i = el('asgQ'); var q = i.value; i.value = ''; askAura(q); };
-      el('asgQ').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); var q = this.value; this.value = ''; askAura(q); } });
-      function paintTaught(){
-        var box = el('asgTaught');
-        if(!box) return;
-        var list = taught();
-        box.textContent = list.length ? ('Taught: ' + list.map(function(x){ return x.label; }).join(', ')) : 'No taught signs yet — AURA reads common signs on its own.';
-      }
-      var teachBtn = el('asgTeachBtn');
-      if(teachBtn) teachBtn.onclick = function(){
-        var inp = el('asgTeach');
-        var label = String(inp.value || '').trim().toUpperCase().replace(/[^A-Z0-9 _-]/g, '').slice(0, 20);
-        if(!label){ big('Enter a name for the sign first', 'example: HELLO'); return; }
-        var v = el('asgVideo');
-        var cv = v ? frame(v) : null;
-        var list = taught();
-        var rec = { label: label, at: Date.now() };
-        if(cv){ try{ rec.thumb = cv.toDataURL('image/jpeg', 0.4).slice(0, 20000); }catch(e){} }
-        list = list.filter(function(x){ return x.label !== label; });
-        list.unshift(rec);
-        try{ localStorage.setItem('aura_sign_teach_v1', JSON.stringify(list.slice(0, 14))); }catch(e){}
-        inp.value = '';
-        paintTaught();
-        big('Taught: ' + label, 'AURA will prefer this name when your hands match');
-        say(label + ' taught');
-      };
-      paintTaught();
-      el('asgClose').onclick = close;
-      ov.addEventListener('click', function(e){ if(e.target === ov) close(); });
-
-      /* entry points: the tools row and the co-pilot panel */
-      window.__auraSign = { open: open, close: close, ask: askAura };
-      setTimeout(function(){
-        try{
-          var tools = document.getElementById('tools');
-          if(tools && !document.getElementById('auraSignBtn')){
-            var b = document.createElement('button');
-            b.id = 'auraSignBtn'; b.type = 'button';
-            b.textContent = '🤟 Sign';
-            b.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:9px;' +
-              'border:1px solid rgba(120,215,255,.22);background:rgba(120,215,255,.08);color:#dff4ff;' +
-              "font:12.5px/1.4 Inter,system-ui,-apple-system,'Segoe UI',sans-serif;cursor:pointer;user-select:none";
-            b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} open(); };
-            tools.appendChild(b);
-          }
-        }catch(e){}
-      }, 1300);
-    })();
-  }catch(e){}
-
   /* ---------------- THE + MENU CAMERA, WIRED (16 Nov) ----------------
      The reference camera modal opened a stream and then said "connect a vision model",
      which is why it looked broken. Here the same live camera actually reaches AURA:
@@ -4922,6 +4698,12 @@ function makeQR(text) {
             '<div id="camSignLine" style="font:700 19px/1.35 Inter,system-ui,sans-serif;color:#fff">🤟 Sign now</div>' +
             '<div id="camSignSub" style="margin-top:3px;font:11.5px Inter,system-ui,sans-serif;color:#8ea1b2"></div>' +
             '<div id="camReply" style="margin-top:6px;font:13px/1.45 Inter,system-ui,sans-serif;color:#bfe3ff"></div>' +
+            '<div style="display:flex;gap:6px;margin-top:8px">' +
+              '<input id="camType" type="text" placeholder="Type to the other person\u2026" ' +
+                'style="flex:1;min-width:0;padding:8px 10px;border-radius:9px;border:1px solid rgba(120,215,255,.22);' +
+                'background:rgba(0,0,0,.38);color:#eaf6ff;font:12px Inter,system-ui,sans-serif">' +
+              '<button class="b" id="camTypeSend" type="button" style="padding:8px 12px">Send</button>' +
+            '</div>' +
             '<div id="camSignLog" style="margin-top:6px;max-height:20vh;overflow:auto;font:12px/1.45 Inter,system-ui,sans-serif;color:#cfe9ff"></div>';
           mod.appendChild(cap);
           var row = document.querySelector('#camov .mod div[style*="display:flex"]');
@@ -5175,6 +4957,22 @@ function makeQR(text) {
       }
       /* the reference wired these two buttons to placeholders; replace them */
       function wire(){
+        /* the deaf user can also type here — their words are spoken for the person in
+           front of them and AURA answers straight away, all inside the camera */
+        var ti = el('camType'), ts = el('camTypeSend');
+        var sendTyped = function(){
+          var v = ti ? String(ti.value || '').trim() : '';
+          if(!v) return;
+          ti.value = '';
+          caption(v, 'you typed');
+          logLine('me', v);
+          speak(v);
+          try{ if(ti) ti.blur(); }catch(e){}
+          auraReply(v);
+          setTimeout(function(){ try{ if(ti) ti.focus(); }catch(e){} }, 400);
+        };
+        if(ts) ts.onclick = sendTyped;
+        if(ti) ti.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); sendTyped(); } });
         var askBtn = el('cask'), liveBtn = el('clive');
         if(askBtn) askBtn.onclick = function(){ ask(); };
         if(liveBtn) liveBtn.onclick = function(){ toggleLive(); };
@@ -5192,57 +4990,182 @@ function makeQR(text) {
     })();
   }catch(e){}
 
-  /* ---------------- one menu for everything (16 Nov) ----------------
-     Co-Pilot, Sign and Mesh were spread around; the owner wants them all under "+" so
-     they pop up from the same place. They are also kept connected: opening any of them
-     from here shares the same live camera / mesh session. */
+  /* ---------------- the + menu, rebuilt (21 Nov) ----------------
+     Everything AURA can do sits in one panel: cards grouped by what they do, a live
+     state chip on every toggle, and no duplicate rows. The buttons are the reference's
+     own elements (their handlers stay), so nothing can silently lose its click.
+     Sign language is no longer a separate feature — it lives inside the camera. */
   try{
-    (function plusMenu(){
-      function menuBtn(id, label, fn){
-        var row = document.getElementById(id);
-        if(row){ row.onclick = fn; return row; }
+    (function toolsMenu(){
+      var GROUPS = [
+        { title: "Ask", rows: [
+          { x: 'deep',  icon: '\uD83E\uDDE0', name: 'Deep think', sub: 'slower, careful answers for hard questions', toggle: true },
+          { x: 'agent', icon: '\uD83D\uDEE0', name: 'Agent', sub: 'plans and finishes a multi-step task', toggle: true },
+          { x: 'live',  icon: '\uD83C\uDF99', name: 'Live voice', sub: 'keep the mic open between answers', toggle: true },
+          { x: 'robot', icon: '\uD83E\uDD16', name: 'Robot voice', sub: 'deeper, slower spoken replies', toggle: true }
+        ] },
+        { title: "See & sign", rows: [
+          { x: 'cam', icon: '\uD83D\uDCF7', name: 'Camera', sub: 'sign language, live captions and vision in one place' },
+          { id: 'auraCopBtn', icon: '\uD83D\uDC41', name: 'Co-Pilot', sub: 'watches the frame and helps on screen' },
+          { x: 'docs', icon: '\uD83D\uDCD8', name: 'Guide', sub: 'what each mode does' }
+        ] },
+        { title: "Files & devices", rows: [
+          { attach: true, icon: '\uD83D\uDCCE', name: 'Attach', sub: 'PDF, Word, text, code or a photo' },
+          { mesh: true, icon: '\uD83D\uDCE1', name: 'Mesh', sub: 'pair another device to this chat' }
+        ] },
+        { title: "App", rows: [
+          { x: 'set',    icon: '\u2699', name: 'Settings', sub: 'voice, theme, account' },
+          { x: 'remind', icon: '\u23F1', name: 'Reminder', sub: 'a timer alert' },
+          { x: 'wake',   icon: '\u2728', name: 'Wake word', sub: 'say \u201cAura\u201d to start listening', toggle: true },
+          { forge: true, icon: '\uD83E\uDDF0', name: 'Code Forge', sub: 'write and run code in the app' }
+        ] }
+      ];
+      function closeMenus(){ [].forEach.call(document.querySelectorAll('.menu'), function(m){ m.classList.remove('on'); }); }
+      function find(row){
+        if(row.attach) return document.getElementById('auraAttBtn');
+        if(row.mesh) return document.getElementById('auraMeshBtn');
+        if(row.id) return document.getElementById(row.id);
+        if(row.forge) return document.querySelector('#tools button[data-x="tools"]');
+        return document.querySelector('#tools button[data-x="' + row.x + '"]') || (row.x === 'docs' ? document.getElementById('auraDocsBtn') : null);
+      }
+      /* a row the reference dropped must still be reachable: build it here */
+      function addDocs(row){
         var tools = document.getElementById('tools');
         if(!tools) return null;
         var b = document.createElement('button');
-        b.id = id; b.type = 'button'; b.textContent = label;
-        /* the same look as the reference menu rows, not a second design */
-        b.style.cssText = 'display:block;width:100%;text-align:left;padding:11px 14px;border:0;border-radius:10px;' +
-          'background:transparent;color:var(--dim);font:inherit;cursor:pointer';
-        b.onmouseenter = function(){ b.style.background = 'var(--hl, rgba(255,255,255,.06))'; b.style.color = '#fff'; };
-        b.onmouseleave = function(){ b.style.background = 'transparent'; b.style.color = 'var(--dim)'; };
-        b.onclick = fn;
+        b.type = 'button'; b.id = 'auraDocsBtn'; b.textContent = '\uD83D\uDCD8 Guide';
+        b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} try{ document.getElementById('docov').classList.add('on'); }catch(err){} };
         tools.appendChild(b);
         return b;
       }
-      function closeAll(){ try{ document.getElementById('plusmenu').classList.remove('on'); }catch(e){} try{ closeMenus(); }catch(e){} }
-      menuBtn('auraCopMenuBtn', '👁 Co-Pilot', function(e){ e.stopPropagation(); closeAll(); try{ window.__auraCopilot.panel(true); }catch(err){} });
-      menuBtn('auraSignMenuBtn', '🤟 Sign language', function(e){ e.stopPropagation(); closeAll(); try{ window.__auraSign.open(); }catch(err){} });
-      menuBtn('auraMeshMenuBtn', '📡 Mesh (pair devices)', function(e){
-        e.stopPropagation(); closeAll();
-        try{ document.getElementById('auraMeshOv').classList.add('on'); }catch(err){}
-      });
-      /* one clean list: drop any earlier copy of these three entries */
-      var dedupe = function(){
-        /* two wake rows (one reference, one ours) meant two always-on recognisers fighting
-           for the single mic; ours owns the word, intents and the Aura voice sheet, so the other
-           row goes away instead of being left as a dead switch */
-        var baseWake = document.querySelector('#tools button[data-x="wake"]');
-        if(baseWake) baseWake.remove();
-        var keep = { auraCopMenuBtn: 1, auraSignMenuBtn: 1, auraMeshMenuBtn: 1 };
-        [].forEach.call(document.querySelectorAll("#tools button"), function(b){
-          if(keep[b.id]) return;
-          var t = (b.textContent || "").toLowerCase();
-          if(t.indexOf("co-pilot") >= 0 || t.indexOf("sign") >= 0 || t.indexOf("mesh") >= 0) b.remove();
+      function style(){
+        if(document.getElementById('auraToolsCss')) return;
+        var st = document.createElement('style');
+        st.id = 'auraToolsCss';
+        st.textContent =
+          '#plusmenu{width:min(362px,92vw)!important;padding:10px!important;border-radius:18px!important;max-height:min(78vh,620px);overflow:auto}' +
+          '#tools{display:block!important;padding:2px}' +
+          '#tools .at-top{display:flex;align-items:center;gap:8px;padding:4px 8px 8px}' +
+          '#tools .at-top span{font:700 10px/1 Inter,system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#7fd7ff}' +
+          '#tools .at-top button{margin-left:auto;width:26px;height:26px;border-radius:50%;border:0;background:rgba(255,255,255,.06);color:#9fb2c2;cursor:pointer;font-size:12px;line-height:1}' +
+          '#tools .at-sec{margin:0 0 6px}' +
+          '#tools .at-h{font:700 9.5px/1 Inter,system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#63788a;padding:8px 8px 6px}' +
+          '#tools .at-card{display:flex!important;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 10px!important;' +
+            'border:1px solid transparent!important;border-radius:12px!important;background:transparent!important;color:#e6f1fa!important;' +
+            'cursor:pointer;transition:background .15s,border-color .15s;margin:0 0 2px}' +
+          '#tools .at-card:hover{background:rgba(120,215,255,.08)!important;border-color:rgba(120,215,255,.22)!important}' +
+          '#tools .at-card.on{border-color:rgba(120,215,255,.38)!important;background:rgba(120,215,255,.07)!important}' +
+          '#tools .at-ic{width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:9px;' +
+            'background:rgba(120,215,255,.1);border:1px solid rgba(120,215,255,.16);font-size:14px}' +
+          '#tools .at-tx{min-width:0;flex:1}' +
+          '#tools .at-tx b{display:block;font:600 12.5px/1.3 Inter,system-ui,sans-serif;color:#eaf6ff}' +
+          '#tools .at-tx small{display:block;margin-top:2px;font:11px/1.35 Inter,system-ui,sans-serif;color:#7e93a6;white-space:normal}' +
+          '#tools .at-chip{flex:none;font:700 9.5px/1 Inter,system-ui,sans-serif;letter-spacing:.06em;color:#6f8497;' +
+            'padding:4px 7px;border-radius:99px;border:1px solid rgba(255,255,255,.12)}' +
+          '#tools .at-chip.on{color:#04121f;background:#4ec8ff;border-color:#4ec8ff}' +
+          '#tools .at-chip.chev{border:0;color:#63788a;font-size:15px;padding:0 2px}';
+        document.head.appendChild(st);
+      }
+      function dress(node, row){
+        if(!node) return;
+        node.classList.add('at-card');
+        node.classList.toggle('at-toggle', !!row.toggle);
+        if(!node.querySelector('.at-tx')){
+          node.innerHTML = '<span class="at-ic">' + row.icon + '</span>' +
+            '<span class="at-tx"><b>' + row.name + '</b><small>' + row.sub + '</small></span>' +
+            '<span class="at-chip">' + (row.toggle ? 'Off' : '\u203A') + '</span>';
+        }
+        var chip = node.querySelector('.at-chip');
+        if(chip){
+          if(row.toggle){
+            var on = node.classList.contains('on');
+            chip.textContent = on ? 'On' : 'Off';
+            chip.className = 'at-chip' + (on ? ' on' : '');
+          } else chip.className = 'at-chip chev';
+        }
+      }
+      function ensureCopilot(){
+        if(document.getElementById('auraCopBtn')) return document.getElementById('auraCopBtn');
+        var tools = document.getElementById('tools');
+        if(!tools) return null;
+        var b = document.createElement('button');
+        b.type = 'button'; b.id = 'auraCopBtn'; b.innerHTML = '\uD83D\uDC41 Co-Pilot';
+        b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} try{ window.__auraCopilot.panel(true); }catch(err){} };
+        tools.appendChild(b);
+        return b;
+      }
+      var built = false;
+      function build(){
+        var tools = document.getElementById('tools');
+        if(!tools) return;
+        style();
+        /* older builds injected their own duplicate rows — drop them, this panel is the list */
+        ['auraSignBtn', 'auraSignMenuBtn', 'auraMeshMenuBtn'].forEach(function(id){
+          var n = document.getElementById(id); if(n && n.parentNode) n.parentNode.removeChild(n);
         });
-      };
-      dedupe();
-      /* older copies get appended by their own timers, so sweep again after them */
-      setTimeout(dedupe, 1600);
-      setTimeout(dedupe, 2800);
-      setTimeout(dedupe, 4200);
+        var baseWake = tools.querySelector('button[data-x="wake"]');
+        if(baseWake) baseWake.classList.remove('tg2');
+        ensureCopilot();
+        var missing = false, nodes = [];
+        GROUPS.forEach(function(g){
+          nodes.push(g.rows.map(function(r){
+            var n = find(r) || (r.x === 'docs' ? addDocs(r) : null);
+            if(!n) return null;
+            return { node: n, row: r };
+          }));
+        });
+        var wrap = document.createElement('div');
+        var head = document.createElement('div');
+        head.className = 'at-top';
+        head.innerHTML = '<span>AURA \u00b7 Tools</span><button type="button" aria-label="Close">\u2715</button>';
+        head.querySelector('button').onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){ try{ document.getElementById('plusmenu').classList.remove('on'); }catch(e2){} } };
+        wrap.appendChild(head);
+        GROUPS.forEach(function(g, gi){
+          var sec = document.createElement('div');
+          sec.className = 'at-sec';
+          var h = document.createElement('div');
+          h.className = 'at-h'; h.textContent = g.title;
+          sec.appendChild(h);
+          nodes[gi].forEach(function(pair){
+            if(!pair) return;
+            dress(pair.node, pair.row);
+            sec.appendChild(pair.node);
+          });
+          wrap.appendChild(sec);
+        });
+        tools.innerHTML = '';
+        tools.appendChild(wrap);
+        built = true;
+        return true;
+      }
+      /* the "Code Forge" row is the reference's generic Tools button — point it at the forge */
+      function relabelForge(){
+        var f = document.querySelector('#tools button[data-x="tools"]');
+        if(f && !f.dataset.auraForge){
+          f.dataset.auraForge = '1';
+          f.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} try{ goTab('code'); }catch(err){} };
+        }
+      }
+      function refresh(){
+        if(!built) { if(!build()) return; }
+        relabelForge();
+        [].forEach.call(document.querySelectorAll('#tools .at-card'), function(n){ n.classList.add('at-card'); });
+        GROUPS.forEach(function(g){ g.rows.forEach(function(r){ dress(find(r), r); }); });
+      }
+      refresh();
+      [400, 1200, 2600, 5000, 9000].forEach(function(ms){ setTimeout(refresh, ms); });
+      setInterval(refresh, 2500);
+      /* opening a tool closes the panel — toggles stay open so you can flip two in a row */
+      document.addEventListener('click', function(e){
+        var card = e.target && e.target.closest ? e.target.closest('#tools .at-card') : null;
+        if(!card) return;
+        /* a toggle flips its class right after this click — repaint the chip at once so
+           the card never shows the previous state for two more seconds */
+        if(card.classList.contains('at-toggle')){ setTimeout(refresh, 80); return; }
+        setTimeout(function(){ try{ document.getElementById('plusmenu').classList.remove('on'); }catch(err){} }, 60);
+      }, true);
     })();
   }catch(e){}
-
   /* ---------------- survive a phone backgrounding ----------------
      Mobile browsers kill a background tab and come back with a fresh page, which read
      as "the whole app restarts". The state that matters is restored on the very first
@@ -6085,13 +6008,39 @@ function makeQR(text) {
         }, true);
         return;
       }
-      var rec = null, listening = false, said = '', sendTimer = null;
+      /* ---------- voice input, rebuilt (21 Nov) ----------
+         The old recogniser was single-shot: it closed at the first pause (1.4s), kept
+         only one transcript alternative, and dropped everything it had heard if the
+         engine ended early. On a phone that read as "mic sun nahi raha". Now the mic
+         stays open, waits for a real pause, keeps the best alternative, reopens itself
+         after an early end, and sends exactly once. */
+      var rec = null, listening = false, said = '', sendTimer = null, sent = false, restarts = 0, startedAt = 0;
+      function voiceLang(){
+        var pref = String(localStorage.getItem('az.lang') || '');
+        if(/hinglish|hindi|hi/i.test(pref)) return 'hi-IN';
+        if(/^hi/i.test(String(navigator.language || ''))) return 'hi-IN';
+        return 'en-IN';
+      }
+      function tidySpeech(t){
+        return String(t || '')
+          .replace(/[\u200B-\u200D\uFEFF]/g, '')
+          .replace(/\s+/g, ' ')
+          .replace(/^\s*(uh+|um+|hmm+|erm)\b[,\s]*/i, '')
+          .trim();
+      }
       function sendNow(){
         clearTimeout(sendTimer);
-        var t = String(inpEl.value || '').trim();
         hide();
-        if(t.length < 2){ tell('I did not catch that — say it again'); return; }
-        if(window.__auraIntent && window.__auraIntent(t)){ try{ inpEl.value = ''; }catch(e){} return; }
+        if(sent) return;
+        var t = tidySpeech(said || '');
+        if(t.length < 2){ sent = true; tell('I did not catch that — tap the mic and speak clearly'); return; }
+        sent = true;
+        inpEl.value = t;
+        /* an intent handler that throws must not swallow the sentence — a spoken
+           question always reaches the chat */
+        var claimed = false;
+        try{ claimed = !!(window.__auraIntent && window.__auraIntent(t)); }catch(e){ claimed = false; }
+        if(claimed){ try{ inpEl.value = ''; }catch(e){} return; }
         sendBtn.click();
       }
       function stop(){
@@ -6099,39 +6048,59 @@ function makeQR(text) {
         try{ if(rec) rec.stop(); }catch(e){}
       }
       function start(){
+        try{ if(rec){ rec.onend = null; rec.onerror = null; rec.abort(); } }catch(e){}
         rec = new SR();
-        rec.lang = /hinglish|hi/i.test(String(localStorage.getItem('az.lang') || '')) ? 'hi-IN' : 'en-IN';
-        rec.continuous = false;
+        rec.lang = voiceLang();
+        rec.continuous = true;      /* do not cut at the first short pause */
         rec.interimResults = true;
-        rec.maxAlternatives = 1;
-        said = '';
-        rec.onstart = function(){ listening = true; mark(true); show('\uD83C\uDFA4 Listening\u2026', true); };
+        rec.maxAlternatives = 3;    /* keep the best of three readings of the same words */
+        said = ''; sent = false; restarts = 0; startedAt = Date.now();
+        var heard = '';
+        function armSend(ms){
+          clearTimeout(sendTimer);
+          sendTimer = setTimeout(function(){ if(!sent) stop(); }, ms);
+        }
+        rec.onstart = function(){ listening = true; mark(true); show('\uD83C\uDFA4 Listening\u2026 speak in Hindi or English', true); armSend(12000); };
         rec.onresult = function(ev){
-          var interim = '';
+          var finalTxt = '', interim = '';
           for(var i = ev.resultIndex; i < ev.results.length; i++){
             var r = ev.results[i];
-            if(r.isFinal) said += r[0].transcript;
-            else interim += r[0].transcript;
+            var best = r[0] ? r[0].transcript : '';
+            /* the browser often returns a cleaner second reading of the same sentence */
+            for(var a = 1; a < r.length; a++){
+              if(r[a] && r[a].transcript && r[a].transcript.length > best.length) best = r[a].transcript;
+            }
+            if(r.isFinal) finalTxt += ' ' + best; else interim += ' ' + best;
           }
-          var live = (said + ' ' + interim).trim();
-          if(live){ show('\uD83C\uDFA4 ' + live, true); }
-          clearTimeout(sendTimer);
-          /* a natural pause ends the turn — no extra tap needed */
-          sendTimer = setTimeout(function(){ stop(); inpEl.value = (said || live).trim(); sendNow(); }, 1400);
+          said += finalTxt;
+          heard = tidySpeech(said + ' ' + interim);
+          if(heard) show('\uD83C\uDFA4 ' + heard, true);
+          /* a real pause ends the turn; every new word pushes it back out */
+          armSend(2200);
         };
         rec.onerror = function(e){
-          listening = false; mark(false); hide();
           var why = (e && e.error) || '';
-          if(/not-allowed|service-not-allowed/.test(why)) tell('Allow microphone access in browser settings');
-          else if(/no-speech/.test(why)) tell('I did not catch that — say it again');
+          mark(false);
+          if(/aborted/.test(why)) return;             /* we stopped it on purpose */
+          if(/no-speech/.test(why)){
+            if(restarts < 2 && !said && Date.now() - startedAt < 25000){ restarts++; try{ rec.start(); return; }catch(err){} }
+            listening = false; hide(); tell('I did not hear anything — tap the mic and speak'); return;
+          }
+          listening = false; hide();
+          if(/not-allowed|service-not-allowed/.test(why)) tell('Allow microphone access in the browser settings');
           else if(/network/.test(why)) tell('Voice input needs a connection');
-          else tell('Voice input did not start — type instead');
+          else if(/audio-capture/.test(why)) tell('No microphone found — check the device');
+          else tell('Voice input stopped — tap the mic again');
         };
         rec.onend = function(){
-          mark(false); listening = false;
-          if(String(inpEl.value || '').trim().length > 1){ hide(); return; }
-          if(said.trim().length > 1){ inpEl.value = said.trim(); sendNow(); }
-          else hide();
+          mark(false);
+          if(sent) return;
+          var heardNow = tidySpeech(said || heard || '');
+          listening = false;
+          if(heardNow.length > 1){ said = heardNow; sendNow(); return; }
+          /* the engine closed itself while we were still waiting for a word — reopen once */
+          if(restarts < 1 && Date.now() - startedAt < 15000){ restarts++; try{ rec.start(); return; }catch(err){} }
+          hide();
         };
         try{ rec.start(); }catch(e){ hide(); tell('The mic did not start — tap it again'); }
         /* if the engine never answers, the tap must not look dead — the usual reason is
