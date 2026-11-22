@@ -2907,9 +2907,27 @@ async function finalizeAnswer(messages, text, req) {
    someone the evidence also names; otherwise it earns the same grounded rewrite. */
 const WHO_ASK = /\b(who|whose|kaun|ceo|cfo|cto|founder|president|prime minister|\bpm\b|minister|coach|captain|winner|champion|owner)\b/i;
 function personNames(t) {
-  const raw = String(t || "").match(/\b(?:[A-Z][a-z]{2,}|[A-Z]{2,})(?:[ \-](?:[A-Z][a-z]{2,}|[A-Z]{2,})){1,2}\b/g) || [];
+  /* {1,} not {2,}: short syllables are real names ("Lip-Bu Tan", "Xi Jinping") and
+     the stricter form silently dropped the very person the guard exists to catch */
+  const raw = String(t || "").match(/\b(?:[A-Z][a-z]{1,}|[A-Z]{2,})(?:[ \-](?:[A-Z][a-z]{1,}|[A-Z]{2,})){1,2}\b/g) || [];
   const stop = /^(?:The|This|That|These|Those|Latest|Current|New|Answer|Note|Source|Live|Web|Intel|Google|Apple|Microsoft|Amazon|Meta|Nvidia|OpenAI|India|China|America|United|Prime|Chief|Executive|Officer|Chairman|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December)\b/;
   return [...new Set(raw.filter(n => !stop.test(n) && n.indexOf(" ") > 0))];
+}
+const ROLE_RE = "(?:CEO|chief executive officer|chief executive|prime minister|president|coach|captain|winner|champion)";
+/* who does the evidence say HOLDS the title? "CEO Lip-Bu Tan", "Lip-Bu Tan, chief
+   executive", "Intel’s CEO says…" — only these count. Merely mentioning the old
+   name somewhere in an article (shareholder lawsuits still cite Gelsinger) must
+   not excuse an answer that hands him the job again. */
+function roleNames(evidence) {
+  const ev = String(evidence || "");
+  const out = [];
+  const NAME = "[A-Z][a-z]{1,}(?:[ \\-][A-Z][a-z]{1,}){1,2}";
+  const after = new RegExp("\\b" + ROLE_RE + "\\b[^.\\n]{0,26}?\\b(" + NAME + ")\\b", "g");
+  const before = new RegExp("\\b(" + NAME + ")\\b[^.\\n]{0,26}?\\b" + ROLE_RE + "\\b", "g");
+  let m;
+  while ((m = after.exec(ev))) out.push(m[1]);
+  while ((m = before.exec(ev))) out.push(m[1]);
+  return [...new Set(out.filter(n => !/^(?:The|This|That|Intel|Apple|Google|Microsoft|New|Current|Chief|Prime|Executive|Officer|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/.test(n)))];
 }
 function nameConflict(messages, answer) {
   try {
@@ -2920,8 +2938,16 @@ function nameConflict(messages, answer) {
     if (String(answer || "").length > 900) return false;
     const names = personNames(answer);
     if (!names.length) return false;
+    const holders = roleNames(ev);
     const low = ev.toLowerCase();
-    return !names.some(n => low.indexOf(n.toLowerCase()) >= 0);
+    const named = names.filter(n => low.indexOf(n.toLowerCase()) >= 0);
+    if (!named.length) return true;               /* answer invents a name outright */
+    if (!holders.length) return false;            /* evidence names nobody → leave it alone */
+    /* the answer's people must include the one the evidence puts in the job */
+    return !named.some(n => holders.some(h => {
+      const a = h.toLowerCase(), b = n.toLowerCase();
+      return a === b || a.indexOf(b) >= 0 || b.indexOf(a) >= 0;
+    }));
   } catch (e) { return false; }
 }
 /* does an answer contradict the live evidence on a version/price/model ask? */
