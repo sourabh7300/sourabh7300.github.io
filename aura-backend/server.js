@@ -2702,6 +2702,10 @@ setInterval(() => { ghMirrorProbe().catch(() => {}); }, 10 * 60_000);
    chat route the same live grounding and hard fact rules. */
 const AURA_FACT_RULES =
   "FACT RULES (owner order): never invent team names, player names, rosters, lineups, schedules, scores, prices, winners or 'confirmed' lists. " +
+  /* 22 Nov 2026: live results for "latest Intel CEO" named nobody, and the model
+     filled the gap with a CEO who left in 2024. A title holder is a name, and a name
+     must come from the results — not from memory. */
+  "Never state a person's name as the holder of a job or title (CEO, president, prime minister, coach, captain, winner, owner) unless that exact name appears in the LIVE WEB RESULTS or in the user's own message: when the results name nobody, say in one short line that today's sources do not name them and give the newest headline instead of repeating an older name from memory. " +
   "If the LIVE WEB RESULTS below do not contain the exact list asked for, say so in one short line and answer with what they DO establish — never fill the gap with placeholders like 'Team A', and never refuse an answer the results already support (a version, a date, a price or a winner they name is the answer, even when the wording differs from the question). Only when there are no live results at all may you say you don't have it yet. " +
   "Answer the exact acronym/event the user named: BMIC is not BMSD, BGIS is not BGMS, BMS is not BMPS. If it is ambiguous, ask one short question instead of guessing. " +
   /* OWNER REPORT 4 Nov 2026: "aaj kaun jeeta" got "I don't have the verified winner" while
@@ -2887,6 +2891,9 @@ async function finalizeAnswer(messages, text, req) {
     const fresh2 = await freshnessRepair(messages, t, req);
     if (fresh2 && !evidenceConflict(messages, fresh2)) t = fresh2;
   }
+  /* a holder named by the live evidence replaces a stale one instantly */
+  const __nr = nameRepair(messages, t);
+  if (__nr) t = __nr;
   t = stripHedge(t);
   /* A "nothing today" claim needs a source that says today (5 Nov 2026): asked for
      today's India match, the model answered "Aaj India ka koi match nahi hai" while the
@@ -2928,6 +2935,28 @@ function roleNames(evidence) {
   while ((m = after.exec(ev))) out.push(m[1]);
   while ((m = before.exec(ev))) out.push(m[1]);
   return [...new Set(out.filter(n => !/^(?:The|This|That|Intel|Apple|Google|Microsoft|New|Current|Chief|Prime|Executive|Officer|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/.test(n)))];
+}
+function roleWord(q) {
+  const s = String(q || "");
+  if (/\bceo\b/i.test(s)) return "CEO";
+  if (/prime minister|\bpm\b/i.test(s)) return "Prime Minister";
+  if (/\bpresident\b/i.test(s)) return "President";
+  if (/\bcoach\b/i.test(s)) return "coach";
+  if (/\bcaptain\b/i.test(s)) return "captain";
+  if (/\bwinner|champion\b/i.test(s)) return "winner";
+  if (/founder/i.test(s)) return "founder";
+  return "leader";
+}
+/* the deterministic repair: no extra model call, so a stale name can never cost
+   50 seconds before it is fixed (measured: the rewrite lane took 54 s and still
+   returned the old CEO). When the evidence names a title holder, that name is the
+   answer; when it names nobody, the caller falls back to the live headline list. */
+function nameRepair(messages, answer) {
+  if (!nameConflict(messages, answer)) return null;
+  const holders = roleNames(systemText(messages) || "");
+  if (!holders.length) return null;
+  const role = roleWord(lastUserMsg(messages));
+  return holders[0] + " is the current " + role + " — confirmed by today's live sources.";
 }
 function nameConflict(messages, answer) {
   try {
@@ -3942,6 +3971,9 @@ app.post("/v1/chat/completions", async (req, res) => {
            newer value. On a version/price/model ask a conflicting answer gets one
            grounded rewrite; if that still conflicts, the grounded headline list ships
            instead of the stale sentence. */
+        /* a stale title holder is fixed from the evidence, not by another model call */
+        const __nr = nameRepair(messages, t);
+        if (__nr) { pushErr(model + " stale name"); t = __nr; }
         if (evidenceConflict(messages, t)) {
           const __fix = await freshnessRepair(messages, t, req);
           if (__fix && !evidenceConflict(messages, __fix)) t = __fix;
