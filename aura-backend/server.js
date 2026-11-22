@@ -383,7 +383,14 @@ async function lmmAnswer(messages, maxTok, temperature, req) {
      reasoning (explain / solve / why / translate / summarise) the text brain answers
      from that reading with the full fact rules and date — an image question can now
      be repaired and grounded like any other, while "what is this" stays a fast one-shot. */
-  const q = lastUserMsg(messages) || "";
+  /* the user turn here is an ARRAY of parts, so lastUserMsg() (string-only) sees
+     nothing — read the text parts directly, or the reasoning path never fires */
+  const lastTurn = [...(messages || [])].reverse().find(m => m && m.role === "user");
+  const q = lastTurn
+    ? (typeof lastTurn.content === "string"
+        ? lastTurn.content
+        : (Array.isArray(lastTurn.content) ? lastTurn.content.filter(p => p && p.type === "text").map(p => p.text || "").join(" ") : ""))
+    : "";
   const asksReading = VISUAL_DIRECT.test(q);
   const wantsReasoning = VISUAL_REASON.test(q) && !asksReading;
   if (!wantsReasoning) return { text: stripHedge(reading), engine: (fast ? "llama-4 lmm" : "gemini lmm") };
