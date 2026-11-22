@@ -2900,10 +2900,35 @@ async function finalizeAnswer(messages, text, req) {
   }
   return t;
 }
+/* NAMES ARE EVIDENCE TOO (22 Nov 2026, owner report: "reply dene wale ko update
+   karo"). Live results naming “CEO Lip‑Bu Tan” sat in the prompt and the answer still
+   said “Pat Gelsinger” — the conflict test below only compared numbers, so a person
+   who was replaced years ago passed it. A who/ceo/winner answer must now name
+   someone the evidence also names; otherwise it earns the same grounded rewrite. */
+const WHO_ASK = /\b(who|whose|kaun|ceo|cfo|cto|founder|president|prime minister|\bpm\b|minister|coach|captain|winner|champion|owner)\b/i;
+function personNames(t) {
+  const raw = String(t || "").match(/\b(?:[A-Z][a-z]{2,}|[A-Z]{2,})(?:[ \-](?:[A-Z][a-z]{2,}|[A-Z]{2,})){1,2}\b/g) || [];
+  const stop = /^(?:The|This|That|These|Those|Latest|Current|New|Answer|Note|Source|Live|Web|Intel|Google|Apple|Microsoft|Amazon|Meta|Nvidia|OpenAI|India|China|America|United|Prime|Chief|Executive|Officer|Chairman|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December)\b/;
+  return [...new Set(raw.filter(n => !stop.test(n) && n.indexOf(" ") > 0))];
+}
+function nameConflict(messages, answer) {
+  try {
+    const q = lastUserMsg(messages);
+    if (!q || !WHO_ASK.test(q)) return false;
+    const ev = systemText(messages) || "";
+    if (!/LIVE WEB RESULTS|CURRENT FACT \(/.test(ev)) return false;
+    if (String(answer || "").length > 900) return false;
+    const names = personNames(answer);
+    if (!names.length) return false;
+    const low = ev.toLowerCase();
+    return !names.some(n => low.indexOf(n.toLowerCase()) >= 0);
+  } catch (e) { return false; }
+}
 /* does an answer contradict the live evidence on a version/price/model ask? */
 const VERSION_ASK = /\b(latest|newest|current|version|release|price|rate|kitna|konsa|kaunsa|flagship)\b/i;
 function evidenceConflict(messages, answer) {
   try {
+    if (nameConflict(messages, answer)) return true;
     const q = lastUserMsg(messages);
     if (!q || !VERSION_ASK.test(q)) return false;
     const ev = systemText(messages) || "";
