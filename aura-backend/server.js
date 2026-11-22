@@ -360,6 +360,26 @@ async function groqVision(messages, maxTok, req) {
   }
   return null;
 }
+/* LMM LADDER (21 Nov 2026, owner ask: "LMM jaisa koi model lag sakta hai?").
+   Image questions used to mean "wait for Gemini": its model ids are tried one by
+   one and a busy lane can hold the answer for a long time. Llama 4 (Groq/NVIDIA) is
+   a genuine multimodal model sitting on the key bank we already pay nothing extra
+   for and reads a photo in ~1-2 s, so it now races Gemini for the first 4 seconds:
+   if Gemini has not produced an answer by then, the Llama answer ships. Both lanes
+   finally receive today's date and the fact rules, which image answers never had. */
+async function lmmAnswer(messages, maxTok, temperature, req) {
+  let facts = messages;
+  try {
+    const today = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    facts = withSystemBeforeAsk(messages, "CURRENT DATE: " + today + " — answer about the image itself as it is right now, and use this date for anything that depends on 'now' (prices, versions, releases).\n" + AURA_FACT_RULES);
+  } catch (e) { /* grounding is additive; the raw messages still work */ }
+  const fast = await deadline(groqVision(facts, maxTok, req), 4_000, null);
+  if (fast && String(fast).trim().length > 30) { recordUse(req, "vision", 0); return { text: fast, engine: "llama-4 lmm" }; }
+  const slow = await visionCall(facts, maxTok, temperature, req);
+  if (slow) return { text: slow, engine: "gemini lmm" };
+  if (fast && String(fast).trim()) return { text: fast, engine: "llama-4 lmm" };
+  return null;
+}
 async function groqVisionUnused(messages, maxTok, req) {
   const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
   if (!key) return null;
@@ -3697,10 +3717,10 @@ app.post("/v1/chat/completions", async (req, res) => {
     return res.status(429).json({ outOfTokens: true, message: "You've hit today's free-answer limit for this site. Come back tomorrow — or bring your own key with SET AI KEY for unlimited chats." });
   }
 
-  /* VISION: messages that carry an image route to the vision brain */
+  /* IMAGES: the multimodal ladder (Llama 4 racing Gemini) answers */
   if (msgHasImage(messages)) {
-    const vt = await visionCall(messages, Math.min(body.max_tokens || 900, 4000), body.temperature, req);
-    if (vt) return res.json({ choices: [{ message: { content: vt } }], model: "vision brain" });
+    const lmm = await lmmAnswer(messages, Math.min(body.max_tokens || 900, 4000), body.temperature, req);
+    if (lmm) return res.json({ choices: [{ message: { content: lmm.text } }], model: lmm.engine });
     if (!GEMINI_API_KEY) return res.status(501).json({ error: "no_vision_model", message: "My image brain needs its key — the owner can enable it privately in the hosting dashboard. Text answers are unaffected." });
     return res.status(502).json({ error: "vision_failed", message: "The vision model could not read that image — try a clearer photo." });
   }
@@ -4704,10 +4724,10 @@ app.post("/v1/chat/stream", async (req, res) => {
     order = order.slice().sort((a, b) => rank(a) - rank(b));
   }
 
-  /* VISION over stream: image messages resolve via Gemini, delivered as one delta */
+  /* IMAGES over stream: the same multimodal ladder, delivered as one delta */
   if (msgHasImage(messages)) {
-    const vt = await visionCall(messages, Math.min(body.max_tokens || 900, 4000), body.temperature, req);
-    if (vt) { send({ model: "vision brain" }); send({ delta: vt }); finish(); return; }
+    const lmm = await lmmAnswer(messages, Math.min(body.max_tokens || 900, 4000), body.temperature, req);
+    if (lmm) { send({ model: lmm.engine }); send({ delta: lmm.text }); finish(); return; }
     if (!GEMINI_API_KEY) { send({ error: "My image brain needs its key — the owner can enable it privately in the hosting dashboard. Text answers are unaffected." }); finish(); return; }
     send({ error: "The vision model could not read that image — try a clearer photo." }); finish(); return;
   }
