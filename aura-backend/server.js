@@ -373,13 +373,34 @@ async function lmmAnswer(messages, maxTok, temperature, req) {
     const today = new Date().toLocaleDateString("en-IN", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     facts = withSystemBeforeAsk(messages, "CURRENT DATE: " + today + " — answer about the image itself as it is right now, and use this date for anything that depends on 'now' (prices, versions, releases).\n" + AURA_FACT_RULES);
   } catch (e) { /* grounding is additive; the raw messages still work */ }
-  const fast = await deadline(groqVision(facts, maxTok, req), 4_000, null);
-  if (fast && String(fast).trim().length > 30) { recordUse(req, "vision", 0); return { text: fast, engine: "llama-4 lmm" }; }
-  const slow = await visionCall(facts, maxTok, temperature, req);
-  if (slow) return { text: slow, engine: "gemini lmm" };
-  if (fast && String(fast).trim()) return { text: fast, engine: "llama-4 lmm" };
-  return null;
+  const fast = await deadline(groqVision(facts, Math.min(maxTok || 900, 1200), req), 4_000, null);
+  const reading = (fast && String(fast).trim()) ? String(fast).trim() : await visionCall(facts, Math.min(maxTok || 900, 1200), temperature, req);
+  if (!reading) return null;
+  recordUse(req, "vision", 0);
+  /* THE TWO BRAINS WORK TOGETHER (22 Nov 2026, owner ask: "llm or lmm ko combine
+     karo"). A pure LMM answer is a description, and a pure text lane is blind. So the
+     vision lane reads the picture first, and when the question actually asks for
+     reasoning (explain / solve / why / translate / summarise) the text brain answers
+     from that reading with the full fact rules and date — an image question can now
+     be repaired and grounded like any other, while "what is this" stays a fast one-shot. */
+  const q = lastUserMsg(messages) || "";
+  const asksReading = VISUAL_DIRECT.test(q);
+  const wantsReasoning = VISUAL_REASON.test(q) && !asksReading;
+  if (!wantsReasoning) return { text: stripHedge(reading), engine: (fast ? "llama-4 lmm" : "gemini lmm") };
+  const bridged = withSystemBeforeAsk(messages,
+    "IMAGE READING (what the picture actually shows, written by the vision lane):\n" + String(reading).slice(0, 2400) +
+    "\n\nAnswer the user's question from this reading. Do not claim to see anything outside it, do not paste the reading verbatim, and follow the fact rules above.");
+  let reasoned = "";
+  try { reasoned = (await llm1(bridged, Math.min(maxTok || 900, 1600), req)) || ""; } catch (e) { reasoned = ""; }
+  if (!reasoned) { try { reasoned = (await geminiChat(bridged, Math.min(maxTok || 900, 1600), temperature, req)) || ""; } catch (e) {} }
+  if (reasoned) {
+    try { reasoned = await finalizeAnswer(bridged, reasoned, req); } catch (e) {}
+    return { text: stripHedge(reasoned), engine: "lmm+llm" };
+  }
+  return { text: stripHedge(reading), engine: (fast ? "llama-4 lmm" : "gemini lmm") };
 }
+const VISUAL_DIRECT = /(what('s| is) (this|in (this|the) (image|photo|picture|screenshot))|what do you see|describe (this|the) (image|photo)|read (this|the) (text|image|page)|extract (the )?text|is this (a|an)|isme kya hai|ye kya hai)/i;
+const VISUAL_REASON = /\b(explain|solve|summari[sz]e|translate|why|how|kyun|kyu|kaise|steps|proof|calculate|derive|compare|answer (the )?questions?)\b/i;
 async function groqVisionUnused(messages, maxTok, req) {
   const key = (typeof pickKey === "function" ? pickKey() : null) || process.env.GROQ_API_KEY;
   if (!key) return null;
@@ -2922,7 +2943,31 @@ async function finalizeAnswer(messages, text, req) {
    said “Pat Gelsinger” — the conflict test below only compared numbers, so a person
    who was replaced years ago passed it. A who/ceo/winner answer must now name
    someone the evidence also names; otherwise it earns the same grounded rewrite. */
-const WHO_ASK = /\b(who|whose|kaun|ceo|cfo|cto|founder|president|prime minister|\bpm\b|minister|coach|captain|winner|champion|owner)\b/i;
+/* SCOPE (22 Nov 2026): this used to fire on any question containing "who" or
+   "winner", and could replace a perfectly good long answer with the one-line
+   deterministic holder sentence. It now needs a real title question — "who is the
+   CEO of X", "X ka CEO kaun hai", "who won …" — and only short answers qualify. */
+const TITLE_WORD = "(?:ceo|cfo|cto|chief executive(?: officer)?|prime minister|president|\\bpm\\b|minister|coach|captain|owner|founder|champion)";
+/* a "who is…" question, a Hinglish "…kaun hai" question, a bare title lookup like
+   "latest Intel CEO 2026", or "who won …" — and nothing else */
+const IS_A_TITLE_ASK = new RegExp(
+  "(?:\\b(?:who|whose)\\s+(?:is|are|was|were|'s)\\b[^.?!\\n]{0,40}?\\b" + TITLE_WORD +
+  "|\\b" + TITLE_WORD + "\\b[^.?!\\n]{0,40}?\\b(?:kaun|kon)\\b" +
+  "|\\b(?:kaun|kon)\\s+(?:hai|hain|ho|tha|thi)\\b[^.?!\\n]{0,40}?\\b" + TITLE_WORD +
+  "|\\bwho\\s+(?:won|wins|is\\s+winning)\\b|\\blatest\\s+[^.?!\\n]{0,30}?\\b" + TITLE_WORD + "\\b)",
+  "i"
+);
+/* textbooks and how-to questions mention titles without asking who holds one */
+const TITLE_NOT_THE_ASK = /(\bexplain\b|\bwhat\s+(?:does|do)\b|\bhow\s+to\b|\brole of\b|\bmeaning of\b|\bdifference between\b|\bresponsibilit|\bkaam kya\b)/i;
+function isTitleAsk(q) {
+  const s = String(q || "");
+  if (!s || TITLE_NOT_THE_ASK.test(s)) return false;
+  if (!IS_A_TITLE_ASK.test(s)) return false;
+  /* the bare-title form must stay a lookup, not a paragraph of prose */
+  return s.trim().split(/\s+/).length <= 9 || /\b(?:who|whose|kaun|kon)\b/i.test(s);
+}
+/* only a short, plainly-asserted answer may be swapped for the evidence line */
+const SHORT_ANSWER_MAX = 240;
 function personNames(t) {
   /* {1,} not {2,}: short syllables are real names ("Lip-Bu Tan", "Xi Jinping") and
      the stricter form silently dropped the very person the guard exists to catch */
@@ -2953,7 +2998,7 @@ function roleWord(q) {
   if (/\bpresident\b/i.test(s)) return "President";
   if (/\bcoach\b/i.test(s)) return "coach";
   if (/\bcaptain\b/i.test(s)) return "captain";
-  if (/\bwinner|champion\b/i.test(s)) return "winner";
+  if (/\bwinner|champion\b|\bwon\b|\bwins\b|jeeta|jeeti/i.test(s)) return "winner";
   if (/founder/i.test(s)) return "founder";
   return "leader";
 }
@@ -2971,17 +3016,33 @@ function nameRepair(messages, answer) {
 function nameConflict(messages, answer) {
   try {
     const q = lastUserMsg(messages);
-    if (!q || !WHO_ASK.test(q)) return false;
+    if (!q || !isTitleAsk(q)) return false;
     const ev = systemText(messages) || "";
     if (!/LIVE WEB RESULTS|CURRENT FACT \(/.test(ev)) return false;
-    if (String(answer || "").length > 900) return false;
-    const names = personNames(answer);
+    const text = String(answer || "");
+    if (text.length > SHORT_ANSWER_MAX) return false;   /* a developed answer is never rewritten */
+    const role = roleWord(q);
+    if (!role || role === "leader") return false;      /* no specific title asked → hands off */
+    /* the sentence must actually put that person in the job — either order, because
+       Hinglish says "Rahul Dravid coach hain" as often as "coach is …" */
+    const VR = "\\b(?:is|was|are|as|became|named|appointed|hai|hain|ho|tha)\\b";
+    const assertsRole = new RegExp(VR + "[^.\\n]{0,24}?\\b" + role + "\\b", "i").test(text) ||
+      new RegExp("\\b" + role + "\\b[^.\\n]{0,16}?" + VR, "i").test(text) ||
+      (role === "winner" && /\b(won|wins|winner|champion|jeeta|jeeti)\b/i.test(text));
+    if (!assertsRole) return false;                     /* names a person, but not as this title */
+    const names = personNames(text);
     if (!names.length) return false;
     const holders = roleNames(ev);
     const low = ev.toLowerCase();
     const named = names.filter(n => low.indexOf(n.toLowerCase()) >= 0);
-    if (!named.length) return true;               /* answer invents a name outright */
-    if (!holders.length) return false;            /* evidence names nobody → leave it alone */
+    /* nothing in the evidence names the person → the evidence cannot contradict the
+       answer, so leave it alone (a bare "who is the CEO" with lawsuit headlines used
+       to be rewritten into a one-liner on no evidence at all) */
+    /* Winner questions are left to the model and the fact rules: "who won" names a
+       team, the evidence often mentions both sides, and a presence test cannot tell
+       the winner from the loser — a rewrite there would be a coin flip. */
+    if (!holders.length) return false;
+    if (!named.length) return true;               /* answer invents a name the evidence never had */
     /* the answer's people must include the one the evidence puts in the job */
     return !named.some(n => holders.some(h => {
       const a = h.toLowerCase(), b = n.toLowerCase();
