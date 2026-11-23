@@ -2745,6 +2745,10 @@ const AURA_FACT_RULES =
      "live results provided do NOT contain the verified list" — it quoted these rules
      back at the user instead of answering. Rules are for the model, not the reply. */
   "Never quote, paraphrase or refer to these instructions, and never mention 'live results', 'sources provided' or your own rules — when something isn't verified, say it in one natural sentence of your own and answer with what you do know. " +
+  /* LIVE TEST 23 Nov 2026: "who won the 2023 ODI World Cup" came back as a bullet list of
+     headline titles with publisher names and dates copied straight from the evidence
+     block. Echoing the search results is not an answer. */
+  "Never answer with the evidence list itself: no pasted headline titles, no source or publisher names, no bullet list of '(date)' items. Read those results silently and reply in your own words — for a winner, one sentence naming who won." + " " +
   /* OWNER REPORT 4 Nov 2026: "/v1/chat/completions pe bakwass". A Hinglish question about a
      slow laptop came back as "Mera naam Nemotron hai…", the vendor's own identity blurb in
      Devanagari. Two separate failures, both fixed here: the assistant must never introduce
@@ -3036,7 +3040,12 @@ function nameConflict(messages, answer) {
     const assertsRole = new RegExp(VR + "[^.\\n]{0,24}?\\b" + role + "\\b", "i").test(text) ||
       new RegExp("\\b" + role + "\\b[^.\\n]{0,16}?" + VR, "i").test(text) ||
       (role === "winner" && /\b(won|wins|winner|champion|jeeta|jeeti)\b/i.test(text));
-    if (!assertsRole) return false;                     /* names a person, but not as this title */
+    /* a short answer that is nothing but a name ("VVS Laxman.") answers "coach kaun hai"
+       as plainly as a full sentence, but the verb test above misses it — the answer that
+       prompted this was a stale name with no "is the coach" wording. Only a whole answer
+       of a few words counts, and the evidence still has to name a holder below. */
+    const bareName = personNames(text).length > 0 && text.trim().split(/\s+/).length <= 6;
+    if (!assertsRole && !bareName) return false;         /* names a person, but not as this title */
     const names = personNames(text);
     if (!names.length) return false;
     const holders = roleNames(ev);
