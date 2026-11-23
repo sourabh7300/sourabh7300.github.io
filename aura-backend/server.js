@@ -2942,6 +2942,14 @@ const IS_A_TITLE_ASK = new RegExp(
 );
 /* a capitalized phrase that is not a person: sources, companies, countries, months */
 const NOT_A_NAME = /^(?:The|This|That|These|Those|Latest|Current|New|Answer|Note|Source|Live|Web|Intel|Google|Apple|Microsoft|Amazon|Meta|Nvidia|OpenAI|India|China|America|United|Prime|Chief|Executive|Officer|Chairman|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|January|February|March|April|May|June|July|August|September|October|November|December)\b/;
+/* two capitalized words are not automatically a person: "Asian Games" was read as the
+   coach's name and a correct answer was replaced by it. Any word of the candidate in
+   this list means the phrase is an event, body or place. */
+const NOT_PERSON_WORD = /^(?:Games?|Cup|League|Series|Team|Squad|Board|Committee|Council|Association|Federation|Ministry|Government|Court|University|Institute|Bank|Group|Company|Limited|Inc|Corp|World|Asian|Asia|European|Europe|African|Africa|American|America|Australian|Australia|National|International|Final|Finals|Match|Tournament|Trophy|Award|Academy|Commission|Department|Agency|Organi[sz]ation|Championships?|Stadium|City|State|Union|Party|Times|News|Post|Journal|Report|Olympics?)$/i;
+function isPersonName(n) {
+  const t = String(n || "").trim();
+  return !!t && !NOT_A_NAME.test(t) && !t.split(/[ \-]/).some(w => NOT_PERSON_WORD.test(w));
+}
 /* textbooks and how-to questions mention titles without asking who holds one */
 const TITLE_NOT_THE_ASK = /(\bexplain\b|\bwhat\s+(?:does|do)\b|\bhow\s+to\b|\brole of\b|\bmeaning of\b|\bdifference between\b|\bresponsibilit|\bkaam kya\b)/i;
 function isTitleAsk(q) {
@@ -2957,7 +2965,7 @@ function personNames(t) {
   /* {1,} not {2,}: short syllables are real names ("Lip-Bu Tan", "Xi Jinping") and
      the stricter form silently dropped the very person the guard exists to catch */
   const raw = String(t || "").match(/\b(?:[A-Z][a-z]{1,}|[A-Z]{2,})(?:[ \-](?:[A-Z][a-z]{1,}|[A-Z]{2,})){1,2}\b/g) || [];
-  return [...new Set(raw.filter(n => !NOT_A_NAME.test(n) && n.indexOf(" ") > 0))];
+  return [...new Set(raw.filter(n => isPersonName(n) && n.indexOf(" ") > 0))];
 }
 /* the titles whose holder the evidence can confirm; "winner" is absent on purpose —
    both sides of a final appear in the evidence, so a presence test cannot pick one */
@@ -2975,7 +2983,7 @@ function roleNames(evidence) {
   let m;
   while ((m = after.exec(ev))) out.push(m[1]);
   while ((m = before.exec(ev))) out.push(m[1]);
-  return [...new Set(out.filter(n => !NOT_A_NAME.test(n)))];
+  return [...new Set(out.filter(isPersonName))];
 }
 function roleWord(q) {
   const s = String(q || "");
