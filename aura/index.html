@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ef03ccfb63b4"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e37e02b61780"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -6729,116 +6729,126 @@ function makeQR(text) {
     document.head.appendChild(mq);
   }catch(e){}
 
-  /* ---------------- ADMIN IS INVISIBLE UNTIL GOOGLE SIGN-IN ----------------
-     Nobody sees the Admin tab, its panel, or any hint that it exists. The only
-     way in is a staff Google account whose role the backend confirms (maker/ceo).
-     Hidden entry: Ctrl+Shift+A, "?admin=1", or five quick taps on the brand. */
+  /* ---------------- Admin console removed (24 Nov) ----------------
+     The panel was a shell. #squad was filled with four static lane names and every control
+     next to it (#ksend with #kcmd/#klog, #ap1/#ap2/#ap3, #mcs with #mc1..#mc3) had NO
+     handler anywhere in the bundle, so nothing on that screen could actually act. Getting
+     in at all needed a staff Google sign-in sheet built from a `firebaseWebConfig` the
+     backend no longer serves, so even the owner could not open it.
+     Owner's call: delete it instead of shipping a dead tab behind hidden shortcuts.
+
+     This block is the whole removal: the tab, the panel, the saved session, and a guard for
+     the old command palette entry that still says "Go to Admin". */
   try{
-    var adminTab = document.querySelector('#tabs button[data-p="admin"]');
-    var adminPanel = document.getElementById('p-admin');
-    var ADMIN_KEY = 'aura_admin_session';
-
-    var adminNav = adminTab ? adminTab.parentNode : null;
-    var adminStage = adminPanel ? adminPanel.parentNode : null;
-    function adminHide(){
-      /* taken out of the DOM, not just hidden — nothing in devtools hints at it */
-      if(adminPanel && adminPanel.classList.contains('on')){ var c = document.querySelector('#tabs button[data-p="chat"]'); if(c) c.click(); }
-      if(adminTab && adminTab.parentNode) adminTab.parentNode.removeChild(adminTab);
-      if(adminPanel && adminPanel.parentNode) adminPanel.parentNode.removeChild(adminPanel);
-    }
-    function adminShow(){
-      if(adminTab && adminNav && !adminTab.parentNode) adminNav.appendChild(adminTab);
-      if(adminPanel && adminStage && !adminPanel.parentNode) adminStage.appendChild(adminPanel);
-    }
-    function adminSession(){
-      try{ var s = JSON.parse(localStorage.getItem(ADMIN_KEY) || 'null'); if(s && s.exp > Date.now()) return s; }catch(e){}
-      return null;
-    }
-    function adminSignOut(){
-      try{ localStorage.removeItem(ADMIN_KEY); }catch(e){}
-      adminHide();
-      if(window.__auraAdminApp){ try{ window.__auraAdminApp.auth().signOut(); }catch(e){} }
-    }
-    function loadScript(src){
-      return new Promise(function(ok, no){
-        var s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s);
-      });
-    }
-    function adminSheet(msg){
-      var old = document.getElementById('auraAdminSheet');
-      if(old) old.parentNode.removeChild(old);
-      var d = document.createElement('div');
-      d.id = 'auraAdminSheet';
-      d.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(3,6,12,.72);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px';
-      d.innerHTML =
-        '<div style="width:min(380px,100%);background:rgba(10,14,22,.97);border:1px solid rgba(120,215,255,.22);border-radius:18px;padding:22px;color:#e8f4ff;font:14px/1.6 Inter,system-ui,sans-serif">' +
-          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
-            '<b style="font-size:15px">Staff access</b>' +
-            '<button type="button" id="auraAdminX" style="background:none;border:0;color:#7f8b9a;font-size:16px;cursor:pointer">\u2715</button></div>' +
-          '<p style="color:#b9c6d4;margin:0 0 14px" id="auraAdminMsg">' + (msg || 'Sign in with the owner Google account to open the admin console.') + '</p>' +
-          '<button type="button" id="auraAdminGoogle" style="width:100%;padding:11px 14px;border-radius:11px;border:1px solid rgba(120,215,255,.35);background:rgba(120,215,255,.14);color:#dff4ff;font:600 13.5px Inter,system-ui,sans-serif;cursor:pointer">Continue with Google</button>' +
-        '</div>';
-      document.body.appendChild(d);
-      document.getElementById('auraAdminX').onclick = function(){ d.remove(); };
-      d.onclick = function(e){ if(e.target === d) d.remove(); };
-
-      document.getElementById('auraAdminGoogle').onclick = async function(){
-        var btn = this, m = document.getElementById('auraAdminMsg');
-        btn.disabled = true; btn.textContent = 'Checking\u2026';
-        try{
-          var cfg = null;
-          try{
-            var h = await fetch(BASE + '/health', { cache: 'no-store' });
-            var hj = await h.json();
-            cfg = hj.firebaseWebConfig || null;
-          }catch(e){}
-          if(!cfg || !cfg.apiKey){
-            m.textContent = 'Google sign-in is not configured yet \u2014 the owner must add Firebase web config on the server.';
-            btn.textContent = 'Continue with Google'; btn.disabled = false; return;
-          }
-          try{ await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js'); }catch(e){}
-          try{ await loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js'); }catch(e){}
-          if(!window.firebase || !firebase.auth) throw new Error('auth library blocked');
-          var app = window.__auraAdminApp || firebase.initializeApp(cfg, 'aura-admin');
-          window.__auraAdminApp = app;
-          var provider = new firebase.auth.GoogleAuthProvider();
-          var cred = await app.auth().signInWithPopup(provider);
-          var tok = await cred.user.getIdToken();
-          var me = await fetch(BASE + '/v1/me', { headers: Object.assign({ Authorization: 'Bearer ' + tok }, hdrs()) });
-          if(!me.ok) throw new Error('session not accepted');
-          var u = await me.json();
-          if(!/^(maker|ceo|admin|owner)$/i.test(u.role || '')){
-            try{ await app.auth().signOut(); }catch(e){}
-            m.textContent = 'This account (' + (u.email || 'signed in') + ') is not an admin.';
-            btn.textContent = 'Continue with Google'; btn.disabled = false; return;
-          }
-          try{ localStorage.setItem(ADMIN_KEY, JSON.stringify({ token: tok, email: u.email, role: u.role, exp: Date.now() + 45 * 60_000 })); }catch(e){}
-          adminShow();
-          d.remove();
-          if(adminTab) adminTab.click();
-        }catch(err){
-          /* never stringify a raw Event — that is what produced "Sign-in failed:
-             [object Event]" in the Anna review */
-          m.textContent = 'Sign-in failed: ' + errText(err) + '. Try again.';
-          btn.textContent = 'Continue with Google'; btn.disabled = false;
-        }
+    var aTab = document.querySelector('#tabs button[data-p="admin"]');
+    if(aTab && aTab.parentNode) aTab.parentNode.removeChild(aTab);
+    var aPan = document.getElementById('p-admin');
+    if(aPan && aPan.parentNode) aPan.parentNode.removeChild(aPan);
+    try{ localStorage.removeItem('aura_admin_session'); }catch(e){}
+    /* goTab('admin') with no panel switched every panel off and left a blank stage, so the
+       palette item now lands on Chat instead of breaking the screen */
+    if(typeof window.goTab === 'function' && !window.__auraGoTabGuard){
+      window.__auraGoTabGuard = 1;
+      var _auraGoTab = window.goTab;
+      window.goTab = function(p){
+        if(p === 'admin' && !document.getElementById('p-admin')) p = 'chat';
+        return _auraGoTab.call(this, p);
       };
     }
-    window.__auraAdmin = function(){ adminSession() ? adminShow() : adminSheet(); };
+    /* and the palette list itself: cmR() rebuilds CM from cmds() on every open, so the row
+       is dropped after each render (indices are rewritten, so ↑/↓/Enter stay correct) */
+    if(typeof window.cmR === 'function' && !window.__auraCmGuard){
+      window.__auraCmGuard = 1;
+      var _auraCmR = window.cmR;
+      window.cmR = function(){
+        _auraCmR.apply(this, arguments);
+        var list = document.getElementById('cml');
+        if(!list || !CM || !CM.length) return;
+        var keep = CM.filter(function(c){ return !/^go to admin$/i.test(String(c[0]).trim()); });
+        if(keep.length === CM.length) return;
+        CM = keep;
+        cmSel = Math.min(cmSel, Math.max(0, CM.length - 1));
+        list.innerHTML = CM.map(function(c, i){
+          return '<div class="cr ' + (i === cmSel ? 'on' : '') + '" data-i="' + i + '">' + c[0] + '<small>\u21b5</small></div>';
+        }).join('');
+        [].forEach.call(list.querySelectorAll('.cr'), function(e){
+          e.onclick = function(){ cmGo(+e.dataset.i); };
+        });
+      };
+    }
+  }catch(e){}
 
-    adminHide();
-    if(adminSession()) adminShow();
-
-    document.addEventListener('keydown', function(e){
-      if(e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')){ e.preventDefault(); window.__auraAdmin(); }
-    });
-    try{ if(/[?&]admin=1/.test(location.search)) setTimeout(window.__auraAdmin, 600); }catch(e){}
-    var brand = document.getElementById('bn'), taps = 0, tapT = 0;
-    if(brand) brand.addEventListener('click', function(){
-      var now = Date.now();
-      taps = (now - tapT < 900) ? taps + 1 : 1; tapT = now;
-      if(taps >= 5){ taps = 0; window.__auraAdmin(); }
-    });
+  /* ---------------- Services: the keys, placed where they belong ----------------
+     The retired console was the only place that pretended to report infrastructure, and it
+     reported nothing. The real state comes from the backend's /health — the key bank
+     (keysLive/keysTotal), the search provider, vision and the crash counter — so it is
+     surfaced here as one read-only row in Settings. Nothing secret is shown or stored:
+     /health only publishes counts, and the keys themselves stay in the server env. */
+  try{
+    (function services(){
+      var busy = false;
+      function row(){
+        var pan = document.getElementById('p-set');
+        var existing = document.getElementById('auraServicesRow');
+        if(existing || !pan) return existing;
+        var holder = pan.querySelector('.sc') || pan;
+        var r = document.createElement('div');
+        r.id = 'auraServicesRow';
+        r.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);' +
+          'display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap';
+        r.innerHTML = '<div style="min-width:0"><b>Services</b>' +
+          '<p id="auraSvcLine" style="margin:2px 0 0;color:var(--dim);font-size:12.5px">Checking the engine\u2026</p></div>' +
+          '<button type="button" class="b" id="auraSvcBtn">Check now</button>';
+        holder.appendChild(r);
+        r.querySelector('#auraSvcBtn').onclick = check;
+        return r;
+      }
+      function setLine(txt, bad){
+        var l = document.getElementById('auraSvcLine');
+        if(!l) return;
+        l.textContent = txt;
+        l.style.color = bad ? '#ff9aa0' : '';
+      }
+      function check(){
+        if(busy) return;
+        busy = true;
+        var btn = document.getElementById('auraSvcBtn');
+        if(btn){ btn.disabled = true; btn.textContent = 'Checking\u2026'; }
+        setLine('Checking the engine\u2026');
+        var t0 = Date.now();
+        var opts = { cache: 'no-store' };
+        try{ if(typeof hdrs === 'function') opts.headers = hdrs(); }catch(e){}
+        fetch(BASE + '/health', opts)
+          .then(function(r){ if(!r.ok) throw new Error('status ' + r.status); return r.json(); })
+          .then(function(j){
+            var n = function(v, d){ return (v === null || v === undefined) ? d : v; };
+            var text = [
+              'engine online',
+              'search ' + n(j.search, 'free'),
+              'keys ' + n(j.keysLive, '?') + '/' + n(j.keysTotal, '?'),
+              'vision ' + (j.vision ? 'on' : 'off'),
+              'crashes ' + n(j.crashes, '?')
+            ].join(' \u00b7 ');
+            var secs = Math.round((Date.now() - t0) / 100) / 10;
+            setLine(text + ' \u00b7 ' + secs + 's', false);
+          })
+          .catch(function(){
+            setLine('engine unreachable \u2014 replies fall back to the offline brain', true);
+          })
+          .then(function(){
+            busy = false;
+            if(btn){ btn.disabled = false; btn.textContent = 'Check now'; }
+          });
+      }
+      row();
+      check();
+      [900, 2400, 5000].forEach(function(ms){ setTimeout(function(){ if(row()) check(); }, ms); });
+      /* Settings may be rebuilt by other modules, so re-place the row when the tab opens */
+      document.addEventListener('click', function(e){
+        var b = e.target && e.target.closest ? e.target.closest('#tabs button[data-p="set"]') : null;
+        if(b) setTimeout(function(){ if(row()) check(); }, 140);
+      }, true);
+    })();
   }catch(e){}
 
   /* ---------------- THE CORE -------------
