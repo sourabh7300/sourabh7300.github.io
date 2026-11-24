@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e37e02b61780"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="639ad1f6bbb7"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -6884,11 +6884,53 @@ function makeQR(text) {
       }
       var rotY = 0, rotX = 0.26, ex = 0, amp = 0, phase = 0;
       var micStream = null, analyser = null, micBuf = null;
-      /* EMOTION-SYNC hooks, driven by the state module at the end of this file:
-         "frozen" holds the spin on an open palm, "calm" shifts every light in the
-         HUD to #00E5FF when the user reads as stressed or rushed. */
-      var frozen = false, calm = false;
-      function tint(calmTriple, normalTriple){ return calm ? calmTriple : normalTriple; }
+      /* EMOTION-SYNC hooks, driven by the module at the end of this file.
+         "frozen" holds the spin on an open palm. Everything else is a MOOD: each emotion
+         carries its own light palette plus spin / pulse / turbulence multipliers, and the
+         running values ease toward the active one, so a smile warms the nucleus instead of
+         snapping colour. Index order: 0 deep · 1 hot · 2 glow core · 3 glow edge · 4 ring. */
+      var frozen = false;
+      var MOODS = {
+        neutral:  { spin: 1,    pulse: 1,    turb: 1,    c: [[120,200,255],[150,240,255],[160,235,255],[90,170,255],[120,215,255]] },
+        focused:  { spin: 0.85, pulse: 0.9,  turb: 0.72, c: [[120,222,255],[175,248,255],[150,245,255],[70,165,255],[120,222,255]] },
+        happy:    { spin: 1.25, pulse: 1.5,  turb: 1.3,  c: [[255,196,92], [255,238,176],[255,214,132],[255,148,58],[255,198,110]] },
+        stressed: { spin: 0.42, pulse: 0.5,  turb: 0.5,  c: [[70,178,236], [138,233,255],[110,222,255],[38,128,196],[70,178,236]] }
+      };
+      var moodName = 'neutral';
+      var moodTarget = MOODS.neutral;
+      var moodFrom = { spin: 1, pulse: 1, turb: 1, c: MOODS.neutral.c.map(function(a){ return a.slice(); }) };
+      var moodNow = { spin: 1, pulse: 1, turb: 1, c: MOODS.neutral.c.map(function(a){ return a.slice(); }) };
+      var moodAt = 0;
+      var MOOD_MS = 650;                       /* ~0.65s colour transition */
+      function setMood(kind){
+        var map = { calm:'neutral', neutral:'neutral', focused:'focused', happy:'happy', smiling:'happy', joy:'happy', rushed:'stressed', tense:'stressed', stressed:'stressed' };
+        var next = map[String(kind || '').toLowerCase()] || 'neutral';
+        easeMood();                            /* settle the current mix before moving */
+        moodFrom = {
+          spin: moodNow.spin, pulse: moodNow.pulse, turb: moodNow.turb,
+          c: moodNow.c.map(function(a){ return a.slice(); })
+        };
+        moodAt = performance.now();
+        moodName = next;
+        moodTarget = MOODS[next];
+        return next;
+      }
+      /* PULL, not push: the mix is derived from elapsed time every time it is read or
+         drawn. A push-based easing (timer or rAF) silently stops in a background tab,
+         where both are throttled — this version always lands on the right colour, and
+         the welcome iris (a different canvas) gets the same values. */
+      function easeMood(){
+        if(!moodAt) return;
+        var k = Math.min(1, (performance.now() - moodAt) / MOOD_MS);
+        var e = k * k * (3 - 2 * k);           /* smoothstep */
+        moodNow.spin = moodFrom.spin + (moodTarget.spin - moodFrom.spin) * e;
+        moodNow.pulse = moodFrom.pulse + (moodTarget.pulse - moodFrom.pulse) * e;
+        moodNow.turb = moodFrom.turb + (moodTarget.turb - moodFrom.turb) * e;
+        for(var i = 0; i < 5; i++){
+          for(var j = 0; j < 3; j++) moodNow.c[i][j] = moodFrom.c[i][j] + (moodTarget.c[i][j] - moodFrom.c[i][j]) * e;
+        }
+      }
+      function C(i){ easeMood(); var a = moodNow.c[i]; return Math.round(a[0]) + ',' + Math.round(a[1]) + ',' + Math.round(a[2]); }
 
       function resize(){
         var b = cv.getBoundingClientRect();
@@ -6925,7 +6967,16 @@ function makeQR(text) {
         /* touchless + emotion hooks — the HUD is the feedback for both */
         freeze: function(on){ frozen = on !== false; return frozen; },
         frozen: function(){ return frozen; },
-        mood: function(kind){ calm = (kind === 'stressed' || kind === 'rushed'); return calm; }
+        mood: function(kind){ return setMood(kind); },
+        /* read-only view for the gesture module and for headless checks */
+        moodName: function(){ return moodName; },
+        palette: function(){
+          easeMood();
+          var r3 = function(a){ return [Math.round(a[0]), Math.round(a[1]), Math.round(a[2])]; };
+          return { name: moodName, spin: +moodNow.spin.toFixed(2), pulse: +moodNow.pulse.toFixed(2),
+                   turb: +moodNow.turb.toFixed(2), deep: r3(moodNow.c[0]), hot: r3(moodNow.c[1]),
+                   ring: r3(moodNow.c[4]) };
+        }
       };
 
       /* mic button starts the real analyser; speech synthesis drives the pulse */
@@ -6960,8 +7011,9 @@ function makeQR(text) {
           amp *= 0.94;
         }
         ex *= 0.93;
-        phase += dt * 0.0012;
-        var spinNow = frozen ? 0 : (calm ? 0.35 : 1);
+        easeMood();
+        phase += dt * 0.0012 * moodNow.pulse;
+        var spinNow = frozen ? 0 : moodNow.spin;
         rotY += (dt * 0.00016 + ex * 0.0012) * spinNow;
 
         var w = cv.width, h = cv.height;
@@ -6974,7 +7026,7 @@ function makeQR(text) {
         for(var j = 0; j < pts.length; j++){
           var p = pts[j];
           var bx = p.x, by = p.y, bz = p.z;
-          var wob = 1 + Math.sin(phase * 2 + j * 0.35) * 0.035 * (1 + ex * 2 + amp * 3);
+          var wob = 1 + Math.sin(phase * 2 + j * 0.35) * 0.035 * moodNow.turb * (1 + ex * 2 + amp * 3);
           bx *= wob; by *= wob; bz *= wob;
           var x1 = bx * cosY - bz * sinY;
           var z1 = bx * sinY + bz * cosY;
@@ -6999,7 +7051,7 @@ function makeQR(text) {
             var X = cx + px * persp2, Y = cy + py * persp2;
             if(a === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
           }
-          ctx.strokeStyle = 'rgba(' + tint('0,229,255', '120,215,255') + ',' + (0.06 + ex * 0.05 + ring * 0.02) + ')';
+          ctx.strokeStyle = 'rgba(' + C(4) + ',' + (0.06 + ex * 0.05 + ring * 0.02) + ')';
           ctx.lineWidth = 1 * dpr;
           ctx.stroke();
         }
@@ -7010,16 +7062,16 @@ function makeQR(text) {
           var alpha = 0.16 + (1 - (q.z + 1) / 2) * 0.66 + ex * 0.12;
           ctx.beginPath();
           ctx.arc(q.x, q.y, Math.max(0.4, q.s), 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(' + (q.hot ? tint('140,248,255', '150,240,255') : tint('0,229,255', '120,200,255')) + ',' +
+          ctx.fillStyle = 'rgba(' + (q.hot ? C(1) : C(0)) + ',' +
             (q.hot ? Math.min(1, alpha + 0.2) : alpha) + ')';
           ctx.fill();
         }
 
         /* nucleus glow */
         var g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.9);
-        g.addColorStop(0, 'rgba(' + tint('140,245,255', '160,235,255') + ',' + (0.1 + amp * 0.3 + ex * 0.12) + ')');
-        g.addColorStop(0.55, 'rgba(' + tint('0,180,255', '90,170,255') + ',0.05)');
-        g.addColorStop(1, 'rgba(' + tint('0,180,255', '90,170,255') + ',0)');
+        g.addColorStop(0, 'rgba(' + C(2) + ',' + (0.1 + amp * 0.3 + ex * 0.12) + ')');
+        g.addColorStop(0.55, 'rgba(' + C(3) + ',0.05)');
+        g.addColorStop(1, 'rgba(' + C(3) + ',0)');
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(cx, cy, R * 0.95, 0, Math.PI * 2); ctx.fill();
 
@@ -7027,7 +7079,7 @@ function makeQR(text) {
         if(ex > 0.35){
           ctx.beginPath();
           ctx.arc(cx, cy, R * (1.05 + (2.4 - ex) * 0.2), 0, Math.PI * 2);
-          ctx.strokeStyle = 'rgba(' + tint('0,229,255', '150,240,255') + ',' + Math.min(0.5, ex * 0.22) + ')';
+          ctx.strokeStyle = 'rgba(' + C(1) + ',' + Math.min(0.5, ex * 0.22) + ')';
           ctx.lineWidth = 1.6 * dpr;
           ctx.stroke();
         }
@@ -7118,12 +7170,44 @@ function makeQR(text) {
         }catch(e){}
       }
 
+      /* MOOD → the iris carries the emotion too. The chat core's palette is mixed into
+         every light here, and spin / pulse / turbulence scale the motion, so a smile
+         warms the welcome orb and a tense face makes it breathe slowly. */
+      var NEUTRAL_DEEP = [120, 200, 255];
+      var mood = { deep: NEUTRAL_DEEP, hot: [150, 240, 255], spin: 1, pulse: 1, turb: 1, frozen: false };
+      var moodWeight = 0;
+      function readMood(){
+        try{
+          var c = window.AURA_CORE;
+          if(!c) return;
+          if(c.frozen) mood.frozen = !!c.frozen();
+          var m = c.palette ? c.palette() : null;
+          if(!m) return;
+          mood.deep = m.deep || NEUTRAL_DEEP;
+          mood.hot = m.hot || mood.hot;
+          mood.spin = m.spin == null ? 1 : m.spin;
+          mood.pulse = m.pulse == null ? 1 : m.pulse;
+          mood.turb = m.turb == null ? 1 : m.turb;
+          var d = mood.deep;
+          moodWeight = Math.min(1, (Math.abs(d[0] - NEUTRAL_DEEP[0]) + Math.abs(d[1] - NEUTRAL_DEEP[1]) + Math.abs(d[2] - NEUTRAL_DEEP[2])) / 240);
+        }catch(e){}
+      }
+      /* returns the `rgba(` prefix, so call sites keep their own alpha expression */
+      function mix(r, g, b, hot){
+        if(moodWeight < 0.02) return 'rgba(' + r + ',' + g + ',' + b + ',';
+        var t = hot ? mood.hot : mood.deep;
+        var k = 0.78 * moodWeight;
+        return 'rgba(' + Math.round(r + (t[0] - r) * k) + ',' + Math.round(g + (t[1] - g) * k) + ',' + Math.round(b + (t[2] - b) * k) + ',';
+      }
+      function spinFactor(){ return mood.frozen ? 0 : mood.spin; }
+
       function draw(dt, once){
         level();
+        readMood();
         /* the welcome block is laid out after this script runs, so the canvas was
            being sized at 0×0 and stayed a 1 px invisible dot — re-measure here */
         if(cv.width < 12 || cv.height < 12) size();
-        t += dt * 0.001;
+        t += dt * 0.001 * mood.pulse;
         var w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
         var R = Math.min(w, h) * 0.37 * (1 + ex * 0.04 + amp * 0.22);
         ctx.clearRect(0, 0, w, h);
@@ -7133,18 +7217,18 @@ function makeQR(text) {
            visible square around the light */
         var maxR = Math.min(w, h) / 2;
         var bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
-        bloom.addColorStop(0, 'rgba(130,225,255,' + (0.20 + amp * 0.22 + ex * 0.10).toFixed(3) + ')');
-        bloom.addColorStop(0.42, 'rgba(95,150,255,0.075)');
-        bloom.addColorStop(0.76, 'rgba(140,110,255,0.025)');
-        bloom.addColorStop(1, 'rgba(90,120,255,0)');
+        bloom.addColorStop(0, mix(130,225,255) + (0.20 + amp * 0.22 + ex * 0.10).toFixed(3) + ')');
+        bloom.addColorStop(0.42, mix(95,150,255) + '0.075)');
+        bloom.addColorStop(0.76, mix(140,110,255) + '0.025)');
+        bloom.addColorStop(1, mix(90,120,255) + '0)');
         ctx.fillStyle = bloom;
         ctx.beginPath(); ctx.arc(cx, cy, maxR, 0, Math.PI * 2); ctx.fill();
 
         /* ---- dust: a tilted veil, two temperatures, each mote twinkling ---- */
         for(var i = 0; i < dust.length; i++){
           var p = dust[i];
-          var a = p.a + t * p.sp;
-          var wob = Math.sin(t * 1.6 + p.w) * 0.03;
+          var a = p.a + t * p.sp * spinFactor();
+          var wob = Math.sin(t * 1.6 + p.w) * 0.03 * mood.turb;
           var rr = R * (p.r + wob + ex * 0.05);
           var z = Math.sin(a) * rr;
           var x = Math.cos(a) * rr;
@@ -7154,14 +7238,14 @@ function makeQR(text) {
           var alpha = (0.09 + (z < 0 ? 0.32 : 0.05) + amp * 0.10) * tw;
           ctx.beginPath();
           ctx.arc(cx + x * per, cy + y * per, Math.max(0.35, p.s * per * dpr * 0.7), 0, Math.PI * 2);
-          ctx.fillStyle = (i % 6 === 0 ? 'rgba(186,170,255,' : 'rgba(150,225,255,') + Math.min(0.85, alpha).toFixed(3) + ')';
+          ctx.fillStyle = (i % 6 === 0 ? mix(186,170,255, true) : mix(150,225,255)) + Math.min(0.85, alpha).toFixed(3) + ')';
           ctx.fill();
         }
 
         /* ---- hair-thin filaments reaching from the outer ring to the core ---- */
         var spokes = 7;
         for(var f = 0; f < spokes; f++){
-          var fa = t * 0.22 + f * (Math.PI * 2 / spokes);
+          var fa = t * 0.22 * spinFactor() + f * (Math.PI * 2 / spokes);
           var fr = R * 0.98;
           ctx.beginPath();
           ctx.moveTo(cx, cy);
@@ -7169,7 +7253,7 @@ function makeQR(text) {
             cx + Math.cos(fa) * fr * 0.45, cy + Math.sin(fa) * fr * 0.16,
             cx + Math.cos(fa) * fr, cy + Math.sin(fa) * fr * 0.42
           );
-          ctx.strokeStyle = 'rgba(120,210,255,' + (0.035 + ex * 0.05 + amp * 0.03).toFixed(3) + ')';
+          ctx.strokeStyle = mix(120,210,255) + (0.035 + ex * 0.05 + amp * 0.03).toFixed(3) + ')';
           ctx.lineWidth = 0.7 * dpr;
           ctx.stroke();
         }
@@ -7178,15 +7262,15 @@ function makeQR(text) {
         for(var k = 0; k < 3; k++){
           var rx = R * (0.60 + k * 0.17);
           var ry = rx * (0.20 + k * 0.055);
-          var rot = t * (0.28 + k * 0.16) * (k % 2 ? -1 : 1);
-          var tint = k === 1 ? 'rgba(182,164,255,' : 'rgba(130,220,255,';
+          var rot = t * (0.28 + k * 0.16) * (k % 2 ? -1 : 1) * spinFactor();
+          var tone = k === 1 ? mix(182,164,255, true) : mix(130,220,255);
           ctx.save();
           ctx.translate(cx, cy);
           ctx.rotate(-0.42 + k * 0.42 + rot * 0.25);
           for(var seg = 0; seg < 2; seg++){
             ctx.beginPath();
             ctx.ellipse(0, 0, rx, ry, 0, seg * Math.PI + rot, seg * Math.PI + rot + Math.PI * 0.86);
-            ctx.strokeStyle = tint + (0.10 + k * 0.05 + ex * 0.05).toFixed(3) + ')';
+            ctx.strokeStyle = tone + (0.10 + k * 0.05 + ex * 0.05).toFixed(3) + ')';
             ctx.lineWidth = (0.8 + (2 - k) * 0.35) * dpr;
             ctx.stroke();
           }
@@ -7194,7 +7278,7 @@ function makeQR(text) {
           var ha = rot * 1.7;
           ctx.beginPath();
           ctx.ellipse(0, 0, rx, ry, 0, ha, ha + 0.55);
-          ctx.strokeStyle = 'rgba(235,250,255,' + (0.38 + ex * 0.25).toFixed(3) + ')';
+          ctx.strokeStyle = mix(235,250,255, true) + (0.38 + ex * 0.25).toFixed(3) + ')';
           ctx.lineWidth = 1.5 * dpr;
           ctx.stroke();
           ctx.restore();
@@ -7212,24 +7296,24 @@ function makeQR(text) {
         }
         lensPath(iw * 2.3, ih);
         var auraG = ctx.createLinearGradient(cx, cy - ih / 2, cx, cy + ih / 2);
-        auraG.addColorStop(0, 'rgba(140,220,255,0)');
-        auraG.addColorStop(0.45, 'rgba(150,225,255,' + (0.15 + amp * 0.16 + ex * 0.05).toFixed(3) + ')');
-        auraG.addColorStop(0.55, 'rgba(140,200,255,' + (0.15 + amp * 0.16 + ex * 0.05).toFixed(3) + ')');
-        auraG.addColorStop(1, 'rgba(140,220,255,0)');
+        auraG.addColorStop(0, mix(140,220,255) + '0)');
+        auraG.addColorStop(0.45, mix(150,225,255) + (0.15 + amp * 0.16 + ex * 0.05).toFixed(3) + ')');
+        auraG.addColorStop(0.55, mix(140,200,255) + (0.15 + amp * 0.16 + ex * 0.05).toFixed(3) + ')');
+        auraG.addColorStop(1, mix(140,220,255) + '0)');
         ctx.fillStyle = auraG;
         ctx.fill();
 
         lensPath(iw, ih);
         var g = ctx.createLinearGradient(cx, cy - ih / 2, cx, cy + ih / 2);
-        g.addColorStop(0, 'rgba(190,245,255,0)');
-        g.addColorStop(0.26, 'rgba(150,235,255,' + (0.50 + amp * 0.20).toFixed(3) + ')');
-        g.addColorStop(0.48, 'rgba(245,253,255,0.96)');
-        g.addColorStop(0.54, 'rgba(226,250,255,0.98)');
-        g.addColorStop(0.68, 'rgba(150,220,255,0.75)');
-        g.addColorStop(0.88, 'rgba(150,160,255,0.22)');
-        g.addColorStop(1, 'rgba(150,160,255,0)');
+        g.addColorStop(0, mix(190,245,255, true) + '0)');
+        g.addColorStop(0.26, mix(150,235,255, true) + (0.50 + amp * 0.20).toFixed(3) + ')');
+        g.addColorStop(0.48, mix(245,253,255, true) + '0.96)');
+        g.addColorStop(0.54, mix(226,250,255, true) + '0.98)');
+        g.addColorStop(0.68, mix(150,220,255, true) + '0.75)');
+        g.addColorStop(0.88, mix(150,160,255) + '0.22)');
+        g.addColorStop(1, mix(150,160,255) + '0)');
         ctx.fillStyle = g;
-        ctx.shadowColor = 'rgba(140,225,255,' + (0.75 + amp * 0.2).toFixed(2) + ')';
+        ctx.shadowColor = mix(140,225,255) + (0.75 + amp * 0.2).toFixed(2) + ')';
         ctx.shadowBlur = 28 * dpr;
         ctx.fill();
         ctx.shadowBlur = 0;
@@ -7238,8 +7322,8 @@ function makeQR(text) {
         var sparkR = R * 0.20 * (1 + amp * 0.45 + ex * 0.10);
         var spark = ctx.createRadialGradient(cx, cy, 0, cx, cy, sparkR);
         spark.addColorStop(0, 'rgba(255,255,255,0.95)');
-        spark.addColorStop(0.32, 'rgba(198,245,255,0.55)');
-        spark.addColorStop(1, 'rgba(120,200,255,0)');
+        spark.addColorStop(0.32, mix(198,245,255, true) + '0.55)');
+        spark.addColorStop(1, mix(120,200,255) + '0)');
         ctx.fillStyle = spark;
         ctx.beginPath(); ctx.arc(cx, cy, sparkR, 0, Math.PI * 2); ctx.fill();
 
@@ -7257,7 +7341,7 @@ function makeQR(text) {
             var rp = R * (0.72 + (2.4 - ex) * 0.40 + pr * 0.16);
             ctx.beginPath();
             ctx.ellipse(cx, cy, rp, rp * 0.42, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = 'rgba(190,240,255,' + Math.min(0.40, ex * 0.20 / (pr + 1)).toFixed(3) + ')';
+            ctx.strokeStyle = mix(190,240,255, true) + Math.min(0.40, ex * 0.20 / (pr + 1)).toFixed(3) + ')';
             ctx.lineWidth = (1.4 - pr * 0.4) * dpr;
             ctx.stroke();
           }
@@ -7266,6 +7350,10 @@ function makeQR(text) {
 
         painted = 1;
       }
+
+      /* paint exactly one frame on demand — used when the tab comes back from being
+         hidden (rAF is dead there) and by the gesture/emotion checks */
+      window.__auraIrisDraw = function(ms){ try{ draw(ms || 16); }catch(e){} };
 
       var last = performance.now();
       function loop(now){
@@ -8259,25 +8347,27 @@ function makeQR(text) {
 })();
 </script>
 <script type="module" id="aura-emotion-sync">
-/* ================= AURA EMOTION-SYNC + TOUCHLESS GESTURES =================
-   Face and hand understanding in the browser — zero backend latency.
+/* ================= AURA GESTURE + EMOTION SYNC =================
+   Face and hand understanding entirely in the browser — nothing is uploaded, and the
+   Render backend is never touched by the detection loop.
 
-   · MediaPipe Tasks Vision (gesture_recognizer + face_landmarker) is loaded lazily,
-     only when the user turns Sync on. Detection is gated to 15 FPS on its own
-     animation frame, so the 3D particle HUD keeps its 60 FPS loop untouched.
-   · Gestures, on the live webcam feed the app already has:
-       open palm held 1s  → speechSynthesis.cancel() and hold the HUD spin
-                            (hold again to let it spin)
-       thumb up           → bookmark the last answer (kept on this device) with a
-                            particle burst
-       closed fist        → toggle microphone listening
-   · Emotion: face blendshapes (brow / mouth / eye tension) plus microphone energy
-     and a speech-burst rate become one state — "calm", "rushed" or "stressed".
-     That state rides along with every chat body (user_state) and recolours the HUD
-     to #00E5FF when the user is tense.
-   · Opt-in by design: no camera, no mic and no model download until Sync is pressed.
-     window.AuraSync.state() / .toggle() / .enable() / .disable() from the console.
-   ======================================================================== */
+   · Detection: MediaPipe Tasks Vision, loaded lazily ONLY when Sync is switched on.
+     GestureRecognizer gives the hand landmarks AND the gesture label in one model, and
+     FaceLandmarker gives the blendshapes used for emotion, so there is one model pair
+     and one download instead of a separate HandLandmarker doing the same work twice.
+     Models prefer the GPU delegate and fall back to CPU.
+   · Throttle: the detection loop runs at 8 FPS (face blendshapes at 4 FPS) on its own
+     requestAnimationFrame, so the 60 FPS particle HUD is untouched.
+   · Gestures (on the webcam feed the app already has, or one it opens itself):
+       open palm (held ~0.9s) → freeze the 3D core spin AND stop speech instantly
+       closed fist            → ZEUS mode (or, already in Zeus, wake voice listening)
+       pinch (thumb + index)  → confirm the open dialog/plan, else a Co-Pilot snapshot
+       thumbs up              → Co-Pilot snapshot (bookmark the last answer if not on)
+   · Emotion → particle physics: happy / focused / neutral / stressed pick a palette,
+     spin speed, pulse rate and turbulence in window.AURA_CORE, eased over ~0.65s.
+   · Opt-in: no camera, no mic and no model download until the HUD toggle is pressed.
+     Console helpers: AuraSync.enable() .disable() .toggle() .state() .simulate('Closed_Fist')
+   ==================================================================== */
 (() => {
   'use strict';
 
@@ -8286,27 +8376,32 @@ function makeQR(text) {
   const GESTURE_MODEL = 'https://storage.googleapis.com/mediapipe-models/gesture_recognizer/gesture_recognizer/float16/1/gesture_recognizer.task';
   const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
 
-  const DETECT_FPS = 15;      /* detection ceiling — the HUD keeps 60 */
-  const FACE_FPS = 7.5;       /* face every other detection tick, same budget */
-  const HOLD_MS = 1000;       /* how long an open palm must be held */
-  const ACTION_COOL = 1500;   /* the same gesture cannot refire inside this */
-  const STATE_HOLD = 1200;    /* a new emotion must persist before it changes anything */
+  const DETECT_FPS = 8;         /* the whole budget is 8 frames a second */
+  const FACE_FPS = 4;           /* blendshapes ride on every second tick */
+  const HOLD_MS = 900;          /* an open palm has to be held this long */
+  const ACTION_COOL = 2000;     /* the same gesture cannot refire inside this */
+  const STATE_HOLD = 800;       /* a new emotion must persist before it applies */
+  const PINCH_ON = 0.34;        /* thumb-tip → index-tip, normalised by hand length */
+  const PINCH_OFF = 0.46;
+  const PINCH_FRAMES = 2;       /* two ticks in a row = a real pinch, not a blur */
   const BOOKMARKS = 'aura_bookmarks_v1';
 
   const S = {
     on: false, ready: false, loading: false,
     video: null, ownStream: null, camAsked: 0,
-    gesture: null, face: null,
-    raf: 0, lastDetect: 0, lastFace: 0,
+    gesture: null, face: null, loopErr: 0,
+    raf: 0, lastDetect: 0, lastFace: 0, ticks: 0,
     held: { name: '', since: 0 },
-    fired: { Open_Palm: 0, Thumb_Up: 0, Closed_Fist: 0 },
+    fired: {},
+    pinchClose: 0,
     audioCtx: null, micStream: null, analyser: null, micBuf: null,
-    energy: 0, onsets: [], pace: 0, tension: 0,
-    raw: 'calm', state: 'calm', since: 0, lastNote: 0
+    energy: 0, onsets: [], pace: 0, tension: 0, joy: 0, focus: 0,
+    raw: 'neutral', mood: 'neutral', since: 0, lastNote: 0
   };
 
   const core = () => window.AURA_CORE || null;
   const $ = (id) => document.getElementById(id);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   /* ---------------- small voice for feedback ---------------- */
   function note(msg) {
@@ -8316,10 +8411,41 @@ function makeQR(text) {
   }
   function burst(k) {
     const c = core();
-    if (c && c.excite) c.excite(k == null ? 1.6 : k);
+    try { if (c && c.excite) c.excite(k == null ? 1.6 : k); } catch (e) {}
   }
 
-  /* ---------------- UI: badge + the camera-modal button ---------------- */
+  /* ---------------- UI: HUD toggle + badge + camera-modal button ---------------- */
+  function hudCss() {
+    if ($('auraSyncCss')) return;
+    const st = document.createElement('style');
+    st.id = 'auraSyncCss';
+    st.textContent =
+      '#auraSyncHud{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}' +
+      '#auraSyncHud .auraSyncLbl{font:inherit}' +
+      '#auraSyncHud[aria-pressed="true"]{color:#bfe9ff;border-color:rgba(120,215,255,.45);' +
+        'background:rgba(120,215,255,.12);box-shadow:0 0 18px rgba(63,210,255,.18)}' +
+      '@media(max-width:560px){#auraSyncHud .auraSyncLbl{display:none}#auraSyncHud{padding:0 9px}}';
+    document.head.appendChild(st);
+  }
+  function hud() {
+    hudCss();
+    let b = $('auraSyncHud');
+    if (b) return b;
+    const top = document.querySelector('.topr');
+    if (!top) return null;
+    b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ib';
+    b.id = 'auraSyncHud';
+    b.setAttribute('aria-pressed', 'false');
+    b.title = 'Gesture & Emotion Sync — open palm, fist, pinch, thumbs up';
+    b.innerHTML = '<span aria-hidden="true">🖐</span><span class="auraSyncLbl">Sync: off</span>';
+    b.onclick = () => { toggle(); };
+    const acct = $('acct');
+    if (acct && acct.parentNode === top) top.insertBefore(b, acct);
+    else top.appendChild(b);
+    return b;
+  }
   function badge() {
     let el = $('auraSyncBadge');
     if (el) return el;
@@ -8333,24 +8459,39 @@ function makeQR(text) {
     document.body.appendChild(el);
     return el;
   }
+  const MOOD_TINT = {
+    happy: ['#1b1205', '#ffe6a8', 'rgba(255,196,92,.5)'],
+    focused: ['#04131c', '#cdf4ff', 'rgba(120,222,255,.42)'],
+    neutral: ['#06101c', '#bfe9ff', 'rgba(120,215,255,.28)'],
+    stressed: ['#041420', '#9df7ff', 'rgba(0,229,255,.6)']
+  };
   function paintBadge(msg) {
     const el = badge();
     if (!S.on) { el.style.display = 'none'; return; }
-    const tense = S.state !== 'calm';
+    const tint = MOOD_TINT[S.mood] || MOOD_TINT.neutral;
     el.style.display = 'block';
-    el.style.color = tense ? '#9df7ff' : '#bfe9ff';
-    el.style.borderColor = tense ? 'rgba(0,229,255,.6)' : 'rgba(120,215,255,.28)';
-    el.textContent = msg || ('SYNC · ' + S.state);
+    el.style.color = tint[1];
+    el.style.background = tint[0];
+    el.style.borderColor = tint[2];
+    el.textContent = msg || ('SYNC · ' + S.mood);
   }
-  function paintButton() {
+  function paintButtons() {
+    const h = hud();
+    if (h) {
+      h.setAttribute('aria-pressed', S.on ? 'true' : 'false');
+      const lbl = h.querySelector('.auraSyncLbl');
+      if (lbl) lbl.textContent = S.on ? 'Sync: on' : 'Sync: off';
+      h.title = S.on
+        ? 'Gesture & Emotion Sync is ON — palm to pause, fist for Zeus, pinch/thumbs up for Co-Pilot'
+        : 'Gesture & Emotion Sync — open palm, fist, pinch, thumbs up';
+    }
     const cam = $('camSync');
     if (cam) cam.textContent = S.on ? '🖐 Sync: on' : '🖐 Sync: off';
     paintBadge();
   }
-  function mount() {
-    /* the base UI rewrites this row's style attribute (flexWrap is set from JS), so a
-       [style*="display:flex"] selector stops matching — look for the flex row that
-       already carries the camera buttons instead, the same row Sign/Hear sit in. */
+  function mountCameraButton() {
+    /* the base UI rewrites this row's style attribute, so match the flex row that already
+       carries the camera buttons instead of a [style*=] selector */
     const mod = document.querySelector('#camov .mod');
     if (!mod || $('camSync')) return;
     const row = Array.from(mod.children).find((n) =>
@@ -8361,12 +8502,13 @@ function makeQR(text) {
     b.type = 'button'; b.id = 'camSync'; b.className = 'b'; b.textContent = '🖐 Sync: off';
     b.style.flex = '1 1 auto'; b.style.minWidth = '0';
     const close = $('cclose');
-    if (close && close.parentNode === row) row.insertBefore(b, close); else row.appendChild(b);
+    if (close && close.parentNode === row) row.insertBefore(b, close);
+    else row.appendChild(b);
     b.onclick = () => { toggle(); };
-    paintButton();
+    paintButtons();
   }
 
-  /* ---------------- capture the last answer for the thumb-up bookmark ---- */
+  /* ---------------- capture the last answer (bookmark fallback) ---------- */
   function trackAnswers() {
     const wrap = (name) => {
       const fn = window[name];
@@ -8409,7 +8551,6 @@ function makeQR(text) {
         S.gesture = await gpu.gesture;
         S.face = await gpu.face;
       } catch (e) {
-        /* a machine without a usable GPU delegate still gets the CPU one */
         const cpu = build('CPU');
         S.gesture = await cpu.gesture;
         S.face = await cpu.face;
@@ -8453,7 +8594,7 @@ function makeQR(text) {
         S.ownStream = st; S.video = v;
         note('Sync · camera on');
       })
-      .catch((e) => {
+      .catch(() => {
         note('Sync needs the camera — allow it, or open the camera window');
       });
   }
@@ -8490,7 +8631,7 @@ function makeQR(text) {
     S.pace = S.onsets.length / 4;      /* speech bursts per second */
   }
 
-  /* ---------------- emotion: face tension, then one state ---------------- */
+  /* ---------------- emotion: blendshapes → one of four moods ------------ */
   const TENSE = {
     browDownLeft: 0.42, browDownRight: 0.42, browInnerUp: 0.12,
     mouthPressLeft: 0.16, mouthPressRight: 0.16,
@@ -8500,31 +8641,54 @@ function makeQR(text) {
   };
   function readFace(res) {
     const shape = res && res.faceBlendshapes && res.faceBlendshapes[0];
-    if (!shape || !shape.categories || !shape.categories.length) { S.tension *= 0.9; return; }
+    if (!shape || !shape.categories || !shape.categories.length) {
+      S.tension *= 0.9; S.joy *= 0.9; S.focus *= 0.9;
+      return;
+    }
+    const bs = {};
+    for (const c of shape.categories) bs[c.categoryName] = c.score;
+
     let sum = 0, weight = 0;
-    for (const c of shape.categories) {
-      const w = TENSE[c.categoryName];
-      if (!w) continue;
-      sum += c.score * w;
+    for (const name in TENSE) {
+      const w = TENSE[name];
+      sum += (bs[name] || 0) * w;
       weight += w;
     }
-    const target = weight ? Math.min(1, (sum / weight) * 1.35) : 0;
-    S.tension += (target - S.tension) * 0.25;    /* EMA — one odd frame never flips it */
+    const tension = weight ? Math.min(1, (sum / weight) * 1.35) : 0;
+
+    /* a smile is the mouth corners lifting; the cheek squint is what separates a real
+       smile from a polite one, so it contributes a smaller share */
+    const smile = ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2;
+    const cheek = ((bs.cheekSquintLeft || 0) + (bs.cheekSquintRight || 0)) / 2;
+    const joy = Math.min(1, smile * 1.35 + cheek * 0.35);
+
+    /* concentration: brows pulled down while the eyes narrow, without a frown */
+    const brow = ((bs.browDownLeft || 0) + (bs.browDownRight || 0)) / 2;
+    const squint = ((bs.eyeSquintLeft || 0) + (bs.eyeSquintRight || 0)) / 2;
+    const focus = Math.max(0, Math.min(1, brow * 1.15 + squint * 0.7 - smile * 0.8));
+
+    /* EMA — one odd frame never flips the mood */
+    S.tension += (tension - S.tension) * 0.25;
+    S.joy += (joy - S.joy) * 0.25;
+    S.focus += (focus - S.focus) * 0.25;
   }
   function classify(now) {
-    let raw = 'calm';
-    if (S.tension > 0.55 || (S.tension > 0.42 && S.energy > 0.16)) raw = 'stressed';
-    else if (S.pace > 3.4) raw = 'rushed';
+    let raw = 'neutral';
+    if (S.tension > 0.52 || (S.tension > 0.42 && S.energy > 0.16 && S.pace > 3.2)) raw = 'stressed';
+    else if (S.joy > 0.34) raw = 'happy';
+    else if (S.focus > 0.46) raw = 'focused';
     if (raw !== S.raw) { S.raw = raw; S.since = now; }
-    if (S.raw !== S.state && now - S.since > STATE_HOLD) {
-      S.state = S.raw;
-      applyState();
+    if (S.raw !== S.mood && now - S.since > STATE_HOLD) {
+      S.mood = S.raw;
+      applyMood();
     }
   }
-  function applyState() {
-    window.__auraUserState = S.state;
+  function applyMood() {
+    /* the backend contract for user_state stays calm/rushed/stressed — 'happy' and
+       'focused' are UI moods, not a different state for the model */
+    window.__auraUserState = S.mood === 'stressed' ? 'stressed' : 'calm';
     const c = core();
-    if (c && c.mood) c.mood(S.state);
+    try { if (c && c.mood) c.mood(S.mood); } catch (e) {}
     paintBadge();
   }
 
@@ -8534,62 +8698,166 @@ function makeQR(text) {
     const best = list[0];
     return best && best.score > 0.55 ? best.categoryName : '';
   }
+  /* pinch is not a recognizer category — it comes from the landmarks the same model
+     returns: thumb tip (4) to index tip (8), divided by the hand's own length so the
+     distance does not depend on how close the user sits to the camera */
+  function pinchRatio(landmarks) {
+    const h = landmarks && landmarks[0];
+    if (!h || h.length < 21) return 9;
+    const d = (a, b) => Math.hypot(
+      h[a].x - h[b].x,
+      h[a].y - h[b].y,
+      (h[a].z || 0) - (h[b].z || 0)
+    );
+    const span = Math.max(0.0001, d(0, 9));       /* wrist → middle knuckle */
+    return d(4, 8) / span;
+  }
+  function trackPinch(res, now) {
+    const r = pinchRatio(res && res.landmarks);
+    if (r < PINCH_ON) S.pinchClose++;
+    else if (r > PINCH_OFF) S.pinchClose = 0;
+    if (S.pinchClose >= PINCH_FRAMES) {
+      S.pinchClose = 0;
+      fire('Pinch', now, ACTION_COOL + 800);
+    }
+  }
   function handleGestures(res, now) {
     const name = topGesture(res);
-    if (!name || name === 'None') { S.held.name = ''; S.held.since = 0; return; }
-    if (S.held.name !== name) { S.held.name = name; S.held.since = now; }
+    if (!name || name === 'None') { S.held.name = ''; S.held.since = 0; }
+    else if (S.held.name !== name) { S.held.name = name; S.held.since = now; }
     if (name === 'Open_Palm') {
-      if (now - S.held.since >= HOLD_MS) fire(name, now, 1400);
-      return;
+      if (now - S.held.since >= HOLD_MS) fire(name, now, 1600);
+    } else if (name) {
+      fire(name, now, ACTION_COOL);
     }
-    fire(name, now, ACTION_COOL);
+    trackPinch(res, now);
   }
   function fire(name, now, cool) {
-    if (now - (S.fired[name] || 0) < cool) return;
+    if (now - (S.fired[name] || 0) < cool) return false;
     S.fired[name] = now;
     if (name === 'Open_Palm') openPalm();
-    else if (name === 'Thumb_Up') bookmark();
-    else if (name === 'Closed_Fist') toggleMic();
+    else if (name === 'Closed_Fist') fist();
+    else if (name === 'Thumb_Up') thumbUp();
+    else if (name === 'Pinch') pinch();
+    return true;
+  }
+  /* 1 — palm: silence speech at once and hold the core */
+  function stopSpeechNow() {
+    try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+    /* any media element that is actually making sound (our camera feeds are muted) */
+    try {
+      document.querySelectorAll('audio, video').forEach((m) => {
+        if (!m.muted && !m.paused && m.readyState > 2) { try { m.pause(); } catch (e) {} }
+      });
+    } catch (e) {}
   }
   function openPalm() {
     const c = core();
-    const held = !!(c && c.frozen && c.frozen());
-    try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
-    if (c && c.freeze) c.freeze(!held);
-    burst(held ? 1.2 : 0.7);
-    note(held ? 'Palm — voice stopped, HUD released' : 'Palm — voice stopped, HUD held');
+    const isHeld = !!(c && c.frozen && c.frozen());
+    stopSpeechNow();
+    if (c && c.freeze) c.freeze(!isHeld);
+    burst(isHeld ? 1.2 : 0.7);
+    note(isHeld ? 'Palm — core released' : 'Palm — speech stopped, core held');
   }
-  function bookmark() {
-    const text = String(window.__auraLastAnswer || '').trim();
-    if (!text) { note('Nothing to bookmark yet'); return; }
-    const rec = { text: text.slice(0, 4000), at: new Date().toISOString(), state: S.state };
-    let list = [];
-    try { list = JSON.parse(localStorage.getItem(BOOKMARKS) || '[]') || []; } catch (e) { list = []; }
-    list.unshift(rec);
-    try { localStorage.setItem(BOOKMARKS, JSON.stringify(list.slice(0, 200))); } catch (e) {}
-    burst(2.4);
-    note('Bookmarked');
+  /* 2 — fist: Zeus, or wake listening when Zeus is already on */
+  function currentMode() {
+    const app = document.querySelector('.app') || document.body;
+    return app.getAttribute('data-mode') || 'aura';
+  }
+  function fist() {
+    if (currentMode() === 'zeus') { toggleMic(); return; }
+    /* setModeNow is the instant switch the Settings toggle uses. activate() is the
+       cinematic wrapper: it takes over the screen and holds a busy flag while it plays,
+       which is wrong for a hand gesture (and can leave the UI busy if audio is blocked). */
+    if (typeof window.setModeNow === 'function') {
+      try { window.setModeNow('zeus'); burst(2.2); note('Fist — ZEUS mode'); return; } catch (e) {}
+    }
+    if (typeof window.activate === 'function') {
+      try { window.activate('zeus'); burst(2.2); note('Fist — ZEUS mode'); return; } catch (e) {}
+    }
+    toggleMic();
   }
   function toggleMic() {
     const mic = $('mic');
     if (!mic) { note('Microphone control is not on this screen'); return; }
     mic.click();
     burst(1.4);
-    note('Microphone toggled');
+    note('Fist — listening toggled');
+  }
+  /* 3 — pinch: approve what is open, else take a Co-Pilot snapshot */
+  function confirmVisible() {
+    /* only inside an actually open overlay/dialog — never a stray page button */
+    const roots = Array.from(document.querySelectorAll('.ov.on, [role="dialog"], .sheet.on'));
+    if (!roots.length) return false;
+    for (const root of roots) {
+      const buttons = root.querySelectorAll('button, [role="button"]');
+      for (const b of buttons) {
+        if (!b.offsetParent) continue;
+        const t = (b.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (/^(confirm|yes|approve|allow|continue|ok|okay|got it|do it|send it)$/.test(t)) {
+          try { b.click(); return true; } catch (e) {}
+        }
+      }
+    }
+    return false;
+  }
+  async function snapshot() {
+    const cop = window.__auraCopilot;
+    if (!cop || typeof cop.ask !== 'function') { note('Co-Pilot is not available here'); return; }
+    if (typeof cop.on === 'function' && !cop.on()) {
+      note('Co-Pilot is off — switch it on once from the + menu');
+      return;
+    }
+    note('Co-Pilot · looking…');
+    burst(1.8);
+    try {
+      const out = await Promise.race([
+        cop.ask('In one short sentence, what is on this screen or in this frame?'),
+        sleep(25000).then(() => null)
+      ]);
+      if (out && out.answer) note('Co-Pilot · ' + String(out.answer).slice(0, 120));
+      else note('Co-Pilot could not read this frame');
+    } catch (e) {
+      note('Co-Pilot failed — try again');
+    }
+  }
+  function pinch() {
+    if (confirmVisible()) { burst(2.2); note('Pinch — confirmed'); return; }
+    snapshot();
+  }
+  function thumbUp() {
+    const cop = window.__auraCopilot;
+    if (cop && typeof cop.on === 'function' && cop.on()) { snapshot(); return; }
+    bookmark();
+  }
+  function bookmark() {
+    const text = String(window.__auraLastAnswer || '').trim();
+    if (!text) { note('Nothing to bookmark yet'); return; }
+    const rec = { text: text.slice(0, 4000), at: new Date().toISOString(), mood: S.mood };
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(BOOKMARKS) || '[]') || []; } catch (e) { list = []; }
+    list.unshift(rec);
+    try { localStorage.setItem(BOOKMARKS, JSON.stringify(list.slice(0, 200))); } catch (e) {}
+    burst(2.4);
+    note('Thumbs up — bookmarked');
   }
 
-  /* ---------------- the 15 FPS loop (the HUD keeps its own 60) ---------- */
+  /* ---------------- the 8 FPS loop (the HUD keeps its own 60) ----------- */
   function loop(now) {
     S.raf = requestAnimationFrame(loop);
     if (!S.on || document.hidden) return;
     if (now - S.lastDetect < 1000 / DETECT_FPS - 1) return;
     S.lastDetect = now;
+    S.ticks++;
     const v = liveFeed();
     if (!v) { openOwnCamera(); return; }
-    try { handleGestures(S.gesture.recognizeForVideo(v, now), now); } catch (e) {}
+    try {
+      const res = S.gesture.recognizeForVideo(v, now);
+      handleGestures(res, now);
+    } catch (e) { S.loopErr++; }
     if (now - S.lastFace > 1000 / FACE_FPS) {
       S.lastFace = now;
-      try { readFace(S.face.detectForVideo(v, now)); } catch (e) {}
+      try { readFace(S.face.detectForVideo(v, now)); } catch (e) { S.loopErr++; }
     }
     sampleVoice();
     classify(now);
@@ -8598,19 +8866,23 @@ function makeQR(text) {
   /* ---------------- on / off ---------------- */
   async function enable() {
     if (S.on) return true;
-    S.on = true; S.lastDetect = 0; S.lastFace = 0;
-    S.fired = { Open_Palm: 0, Thumb_Up: 0, Closed_Fist: 0 };
-    paintButton();
+    S.on = true;
+    S.lastDetect = 0; S.lastFace = 0; S.ticks = 0; S.loopErr = 0;
+    S.fired = {};
+    S.pinchClose = 0;
+    paintButtons();
     paintBadge('SYNC · starting…');
     const ok = await load();
-    if (!ok) { S.on = false; paintButton(); return false; }
+    if (!ok) { S.on = false; paintButtons(); return false; }
     await startVoice();
     if (!liveFeed()) openOwnCamera();
     if (S.raf) cancelAnimationFrame(S.raf);
     S.raf = requestAnimationFrame(loop);
-    S.state = 'calm'; S.raw = 'calm'; window.__auraUserState = 'calm';
-    paintButton();
-    note('Touchless sync on — palm to pause, thumb up to bookmark, fist for the mic');
+    S.mood = 'neutral'; S.raw = 'neutral';
+    window.__auraUserState = 'calm';
+    applyMood();
+    paintButtons();
+    note('Gesture sync on — palm pause · fist Zeus · pinch confirm · thumbs up snapshot');
     return true;
   }
   function disable() {
@@ -8621,34 +8893,41 @@ function makeQR(text) {
     if (S.video) { try { S.video.srcObject = null; S.video.remove(); } catch (e) {} S.video = null; }
     try { if (S.micStream) S.micStream.getTracks().forEach((t) => t.stop()); } catch (e) {}
     S.micStream = null; S.analyser = null; S.micBuf = null;
-    S.energy = 0; S.onsets = []; S.pace = 0; S.tension = 0;
-    S.state = 'calm'; S.raw = 'calm'; window.__auraUserState = 'calm';
+    S.energy = 0; S.onsets = []; S.pace = 0; S.tension = 0; S.joy = 0; S.focus = 0;
+    S.mood = 'neutral'; S.raw = 'neutral';
+    window.__auraUserState = 'calm';
     const c = core();
-    if (c && c.mood) c.mood('calm');
-    paintButton();
+    try { if (c && c.mood) c.mood('neutral'); } catch (e) {}
+    try { if (c && c.frozen && c.frozen()) c.freeze(false); } catch (e) {}
+    paintButtons();
     badge().style.display = 'none';
-    note('Touchless sync off');
+    note('Gesture sync off');
   }
   function toggle() { if (S.on) { disable(); return false; } return enable(); }
 
   window.AuraSync = {
     enable, disable, toggle,
-    /* run one gesture by name without a hand in front of the camera — useful on a
-       machine with no webcam, and the only way to check the wiring on a desktop */
-    simulate: (name) => { fire(String(name || ''), performance.now(), 0); return S.state; },
+    /* run one gesture by name without a hand in front of the camera — the only way to
+       check the wiring on a machine with no webcam */
+    simulate: (name) => { fire(String(name || ''), performance.now(), 0); return S.mood; },
     state: () => ({
-      on: S.on, ready: S.ready, state: S.state,
-      tension: +S.tension.toFixed(2), energy: +S.energy.toFixed(2), pace: +S.pace.toFixed(2),
-      freeze: !!(core() && core().frozen && core().frozen())
+      on: S.on, ready: S.ready, mood: S.mood,
+      tension: +S.tension.toFixed(2), joy: +S.joy.toFixed(2), focus: +S.focus.toFixed(2),
+      energy: +S.energy.toFixed(2), pace: +S.pace.toFixed(2),
+      fps: DETECT_FPS, ticks: S.ticks, errors: S.loopErr,
+      freeze: !!(core() && core().frozen && core().frozen()),
+      palette: core() && core().palette ? core().palette() : null
     })
   };
 
   /* ---------------- boot: mount late UI, wrap the answer tracker -------- */
   const boot = () => {
     trackAnswers();
-    mount();
+    hud();
+    mountCameraButton();
+    paintButtons();
     try {
-      new MutationObserver(() => { trackAnswers(); mount(); })
+      new MutationObserver(() => { trackAnswers(); hud(); mountCameraButton(); })
         .observe(document.body, { childList: true, subtree: true });
     } catch (e) {}
   };
@@ -8656,6 +8935,7 @@ function makeQR(text) {
   else boot();
 })();
 </script>
+
 <script id="aura-ghost-mode">
 /* ================= AURA GHOST MODE =================
    Voice/typed commands that turn into real actions.
