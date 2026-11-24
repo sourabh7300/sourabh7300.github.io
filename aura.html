@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="58626cd6b372"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="bad1a2148aba"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -4990,11 +4990,25 @@ function makeQR(text) {
     })();
   }catch(e){}
 
-  /* ---------------- the + menu, rebuilt (21 Nov) ----------------
-     Everything AURA can do sits in one panel: cards grouped by what they do, a live
-     state chip on every toggle, and no duplicate rows. The buttons are the reference's
-     own elements (their handlers stay), so nothing can silently lose its click.
-     Sign language is no longer a separate feature — it lives inside the camera. */
+  /* ---------------- the + menu, rebuilt (24 Nov) ----------------
+     One panel, four groups, and every row is still the reference's own button, so its
+     handler keeps working. What this version fixes over the 21 Nov one:
+
+       · REAL SWITCHES. Every toggle row shows a switch (role=switch, aria-checked)
+         instead of an "On/Off" text chip, so the panel reads like a settings sheet.
+       · A FIXED SHELL. Sticky header, scrolling body, footer of key hints. The panel
+         used to be one tall scroller whose header scrolled away.
+       · NO MORE TORN ROWS. State sync is event-driven (MutationObserver) instead of a
+         2.5s interval: the reference rewrites the Wake button's textContent to
+         "WAKE: ON", which wiped the card and left it looking broken until the next
+         poll rebuilt it.
+       · KEYBOARD. Up/Down move between rows, Home/End jump, Escape closes and returns
+         focus to the + button, and every row has a visible focus ring.
+       · REMINDER WORKS IN THE ANNA IFRAME. The reference's handler used prompt(),
+         which a sandboxed iframe blocks (it returns null), so "Remind" silently did
+         nothing there. This one opens an in-app sheet with quick chips + a label.
+
+     Sign language is still inside the camera — there is no separate row for it. */
   try{
     (function toolsMenu(){
       var GROUPS = [
@@ -5015,12 +5029,39 @@ function makeQR(text) {
         ] },
         { title: "App", rows: [
           { x: 'set',    icon: '\u2699', name: 'Settings', sub: 'voice, theme, account' },
-          { x: 'remind', icon: '\u23F1', name: 'Reminder', sub: 'a timer alert' },
+          { x: 'remind', icon: '\u23F1', name: 'Reminder', sub: 'a timer alert, in this tab' },
           { x: 'wake',   icon: '\u2728', name: 'Wake word', sub: 'say \u201cAura\u201d to start listening', toggle: true },
-          { forge: true, icon: '\uD83E\uDDF0', name: 'Code Forge', sub: 'write and run code in the app' }
+          { forge: true, icon: '\uD83C\uDF00', name: 'Code Forge', sub: 'write and run code in the app' }
         ] }
       ];
       function closeMenus(){ [].forEach.call(document.querySelectorAll('.menu'), function(m){ m.classList.remove('on'); }); }
+      function plusBtn(){ return document.getElementById('plusbtn'); }
+      /* closing always hands focus back to the button that opened the panel, otherwise a
+         keyboard user is dropped at the top of the document */
+      function close(){ try{ closeMenus(); }catch(e){ try{ document.getElementById('plusmenu').classList.remove('on'); }catch(e2){} }
+        var b = plusBtn(); if(b && b.focus){ try{ b.focus(); }catch(e){} } }
+      /* The panel is bottom-anchored in the composer, so a tall list used to hang off the
+         top of a phone screen and a wide one off the right edge. Every open clamps it:
+         height to the space above the button, left edge inside the viewport. */
+      function place(){
+        var p = panel(), b = plusBtn();
+        if(!p || !b) return;
+        var vw = window.innerWidth || 360;
+        var vh = window.innerHeight || 640;
+        /* measure the panel's NATURAL box first: .menu is bottom-anchored to the composer
+           row, not to the button, so the button's own top is the wrong reference and the
+           old clamp still let the top hang off a desktop window. */
+        p.style.maxHeight = 'none';
+        var pr = p.getBoundingClientRect();
+        var available = Math.min(vh, pr.bottom) - 14;
+        p.style.maxHeight = Math.round(Math.max(280, Math.min(640, available))) + 'px';
+        p.style.left = '0px'; p.style.right = 'auto';
+        pr = p.getBoundingClientRect();
+        if(pr.right > vw - 8) p.style.left = Math.round((vw - 8) - pr.right) + 'px';
+        pr = p.getBoundingClientRect();
+        if(pr.left < 8) p.style.left = Math.round(8 - pr.left) + 'px';
+      }
+      function panel(){ return document.getElementById('plusmenu'); }
       function find(row){
         if(row.attach) return document.getElementById('auraAttBtn');
         if(row.mesh) return document.getElementById('auraMeshBtn');
@@ -5038,54 +5079,9 @@ function makeQR(text) {
         tools.appendChild(b);
         return b;
       }
-      function style(){
-        if(document.getElementById('auraToolsCss')) return;
-        var st = document.createElement('style');
-        st.id = 'auraToolsCss';
-        st.textContent =
-          '#plusmenu{width:min(362px,92vw)!important;padding:10px!important;border-radius:18px!important;max-height:min(78vh,620px);overflow:auto}' +
-          '#tools{display:block!important;padding:2px}' +
-          '#tools .at-top{display:flex;align-items:center;gap:8px;padding:4px 8px 8px}' +
-          '#tools .at-top span{font:700 10px/1 Inter,system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#7fd7ff}' +
-          '#tools .at-top button{margin-left:auto;width:26px;height:26px;border-radius:50%;border:0;background:rgba(255,255,255,.06);color:#9fb2c2;cursor:pointer;font-size:12px;line-height:1}' +
-          '#tools .at-sec{margin:0 0 6px}' +
-          '#tools .at-h{font:700 9.5px/1 Inter,system-ui,sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#63788a;padding:8px 8px 6px}' +
-          '#tools .at-card{display:flex!important;align-items:center;gap:10px;width:100%;text-align:left;padding:9px 10px!important;' +
-            'border:1px solid transparent!important;border-radius:12px!important;background:transparent!important;color:#e6f1fa!important;' +
-            'cursor:pointer;transition:background .15s,border-color .15s;margin:0 0 2px}' +
-          '#tools .at-card:hover{background:rgba(120,215,255,.08)!important;border-color:rgba(120,215,255,.22)!important}' +
-          '#tools .at-card.on{border-color:rgba(120,215,255,.38)!important;background:rgba(120,215,255,.07)!important}' +
-          '#tools .at-ic{width:30px;height:30px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:9px;' +
-            'background:rgba(120,215,255,.1);border:1px solid rgba(120,215,255,.16);font-size:14px}' +
-          '#tools .at-tx{min-width:0;flex:1}' +
-          '#tools .at-tx b{display:block;font:600 12.5px/1.3 Inter,system-ui,sans-serif;color:#eaf6ff}' +
-          '#tools .at-tx small{display:block;margin-top:2px;font:11px/1.35 Inter,system-ui,sans-serif;color:#7e93a6;white-space:normal}' +
-          '#tools .at-chip{flex:none;font:700 9.5px/1 Inter,system-ui,sans-serif;letter-spacing:.06em;color:#6f8497;' +
-            'padding:4px 7px;border-radius:99px;border:1px solid rgba(255,255,255,.12)}' +
-          '#tools .at-chip.on{color:#04121f;background:#4ec8ff;border-color:#4ec8ff}' +
-          '#tools .at-chip.chev{border:0;color:#63788a;font-size:15px;padding:0 2px}';
-        document.head.appendChild(st);
-      }
-      function dress(node, row){
-        if(!node) return;
-        node.classList.add('at-card');
-        node.classList.toggle('at-toggle', !!row.toggle);
-        if(!node.querySelector('.at-tx')){
-          node.innerHTML = '<span class="at-ic">' + row.icon + '</span>' +
-            '<span class="at-tx"><b>' + row.name + '</b><small>' + row.sub + '</small></span>' +
-            '<span class="at-chip">' + (row.toggle ? 'Off' : '\u203A') + '</span>';
-        }
-        var chip = node.querySelector('.at-chip');
-        if(chip){
-          if(row.toggle){
-            var on = node.classList.contains('on');
-            chip.textContent = on ? 'On' : 'Off';
-            chip.className = 'at-chip' + (on ? ' on' : '');
-          } else chip.className = 'at-chip chev';
-        }
-      }
       function ensureCopilot(){
-        if(document.getElementById('auraCopBtn')) return document.getElementById('auraCopBtn');
+        var had = document.getElementById('auraCopBtn');
+        if(had) return had;
         var tools = document.getElementById('tools');
         if(!tools) return null;
         var b = document.createElement('button');
@@ -5094,10 +5090,189 @@ function makeQR(text) {
         tools.appendChild(b);
         return b;
       }
+
+      /* ---------- styles: one sheet, no half-styled states ---------- */
+      function style(){
+        if(document.getElementById('auraToolsCss')) return;
+        var st = document.createElement('style');
+        st.id = 'auraToolsCss';
+        st.textContent =
+          '#plusmenu{width:min(360px,calc(100vw - 20px))!important;padding:0!important;border-radius:20px!important;' +
+            'border:1px solid rgba(120,215,255,.16)!important;background:#141a20!important;overflow:hidden!important;' +
+            /* NOT !important: place() writes an inline max-height that fits the space above
+               the composer, and an important rule here would win and hand it back */
+            'max-height:min(76vh,640px);box-shadow:0 26px 70px rgba(0,0,0,.7)!important}' +
+          '#plusmenu #tools{display:flex!important;flex-direction:column;max-height:inherit;padding:0}' +
+          '#tools .at-top{display:flex;align-items:center;gap:8px;padding:12px 12px 10px 14px;' +
+            'border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.015);flex:none}' +
+          '#tools .at-dot{width:6px;height:6px;border-radius:50%;background:#4ec8ff;box-shadow:0 0 10px #4ec8ff;flex:none}' +
+          '#tools .at-title{font:700 10.5px/1 Inter,system-ui,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#9fd9f5}' +
+          '#tools .at-count{margin-left:6px;font:700 9.5px/1 Inter,system-ui,sans-serif;letter-spacing:.06em;color:#7fd7ff;' +
+            'padding:3px 7px;border-radius:99px;background:rgba(78,200,255,.13);border:1px solid rgba(78,200,255,.24)}' +
+          '#tools .at-count.zero{color:#63788a;background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.1)}' +
+          '#tools .at-x{margin-left:auto;flex:none;width:28px;height:28px;border-radius:50%;border:1px solid rgba(255,255,255,.1);' +
+            'background:rgba(255,255,255,.04);color:#9fb2c2;cursor:pointer;font-size:12px;line-height:1;display:flex;' +
+            'align-items:center;justify-content:center;transition:background .16s,color .16s,border-color .16s}' +
+          '#tools .at-x:hover{background:rgba(255,90,100,.14);color:#ffb3b8;border-color:rgba(255,90,100,.3)}' +
+          '#tools .at-x:focus-visible{outline:2px solid #4ec8ff;outline-offset:2px}' +
+          '#tools .at-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:4px 8px 6px;' +
+            'scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.16) transparent}' +
+          '#tools .at-scroll::-webkit-scrollbar{width:8px}' +
+          '#tools .at-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:99px}' +
+          '#tools .at-h{font:700 9.5px/1 Inter,system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#5f7486;' +
+            'padding:12px 8px 6px;margin:0}' +
+          '#tools .at-sec+.at-sec{border-top:1px solid rgba(255,255,255,.05)}' +
+          '#tools .at-card{display:flex!important;align-items:center;gap:11px!important;width:100%;text-align:left;' +
+            'padding:9px 10px!important;border:1px solid transparent!important;border-radius:13px!important;' +
+            'background:transparent!important;color:#e6f1fa!important;cursor:pointer;margin:0 0 2px;' +
+            'font:inherit;transition:background .16s,border-color .16s}' +
+          '#tools .at-card:hover{background:rgba(120,215,255,.08)!important;border-color:rgba(120,215,255,.2)!important}' +
+          '#tools .at-card:focus-visible{outline:2px solid #4ec8ff;outline-offset:2px}' +
+          '#tools .at-card.on{background:rgba(120,215,255,.07)!important;border-color:rgba(120,215,255,.3)!important}' +
+          '#tools .at-ic{width:32px;height:32px;flex:none;display:flex;align-items:center;justify-content:center;' +
+            'border-radius:10px;background:rgba(120,215,255,.1);border:1px solid rgba(120,215,255,.16);font-size:14px;' +
+            'transition:background .16s,border-color .16s}' +
+          '#tools .at-card.on .at-ic{background:rgba(78,200,255,.18);border-color:rgba(78,200,255,.4)}' +
+          '#tools .at-tx{min-width:0;flex:1}' +
+          '#tools .at-tx b{display:block;font:600 12.5px/1.3 Inter,system-ui,sans-serif;color:#eaf6ff}' +
+          '#tools .at-tx small{display:block;margin-top:2px;font:11px/1.4 Inter,system-ui,sans-serif;color:#7e93a6;white-space:normal}' +
+          '#tools .at-chev{margin-left:auto;flex:none;color:#54697b;font-size:15px;line-height:1}' +
+          '#tools .at-sw{margin-left:auto;flex:none;position:relative;width:34px;height:19px;border-radius:99px;' +
+            'background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);transition:background .18s,border-color .18s}' +
+          '#tools .at-sw i{position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#8ea3b4;' +
+            'transition:transform .18s,background .18s}' +
+          '#tools .at-card.on .at-sw{background:rgba(78,200,255,.85);border-color:#4ec8ff}' +
+          '#tools .at-card.on .at-sw i{transform:translateX(15px);background:#04121f}' +
+          '#tools .at-foot{flex:none;display:flex;justify-content:space-between;gap:8px;padding:9px 14px;' +
+            'border-top:1px solid rgba(255,255,255,.07);font:10.5px/1 Inter,system-ui,sans-serif;color:#54697b;' +
+            'background:rgba(0,0,0,.12)}' +
+          '#tools .at-foot kbd{font:600 10px/1 Inter,system-ui,sans-serif;color:#8ea3b4;background:rgba(255,255,255,.06);' +
+            'border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 4px;margin-right:3px}' +
+          '@media(max-width:900px){#plusmenu{width:min(340px,calc(100vw - 20px))!important}}' +
+          '@media(prefers-reduced-motion:reduce){#tools *{transition:none!important;animation:none!important}}';
+        document.head.appendChild(st);
+      }
+
+      /* ---------- one card ---------- */
+      function dress(node, row){
+        if(!node) return;
+        node.classList.add('at-card');
+        node.classList.toggle('at-toggle', !!row.toggle);
+        var sig = row.icon + '|' + row.name + '|' + row.sub + '|' + (row.toggle ? 't' : 'o');
+        /* the reference rewrites the Wake button's textContent, which drops our markup but
+           leaves the signature behind — so the missing .at-ic is what triggers a repaint */
+        if(node.dataset.atSig !== sig || !node.querySelector('.at-ic')){
+          node.dataset.atSig = sig;
+          node.innerHTML = '<span class="at-ic">' + row.icon + '</span>' +
+            '<span class="at-tx"><b>' + row.name + '</b><small>' + row.sub + '</small></span>' +
+            (row.toggle ? '<span class="at-sw" aria-hidden="true"><i></i></span>' : '<span class="at-chev">\u203A</span>');
+        }
+        if(row.toggle){
+          var on = node.classList.contains('on');
+          node.setAttribute('role', 'switch');
+          node.setAttribute('aria-checked', on ? 'true' : 'false');
+          node.setAttribute('title', row.name + ': ' + (on ? 'on' : 'off'));
+        }
+      }
+
+      /* ---------- reminder sheet (works inside a sandboxed iframe) ---------- */
+      function remindCss(){
+        if(document.getElementById('auraRemindCss')) return;
+        var st = document.createElement('style');
+        st.id = 'auraRemindCss';
+        st.textContent =
+          '#auraRemindOv{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;' +
+            'padding:18px;background:rgba(4,8,12,.62);opacity:0;transition:opacity .18s}' +
+          '#auraRemindOv.on{opacity:1}' +
+          '#auraRemindOv .ar-card{width:min(360px,100%);border-radius:18px;padding:18px;background:#141a20;' +
+            'border:1px solid rgba(120,215,255,.18);box-shadow:0 30px 70px rgba(0,0,0,.7);color:#eaf6ff;' +
+            'font:13px/1.4 Inter,system-ui,sans-serif}' +
+          '#auraRemindOv .ar-h{font:700 11px/1 Inter,system-ui,sans-serif;letter-spacing:.18em;text-transform:uppercase;color:#9fd9f5}' +
+          '#auraRemindOv .ar-q{margin:10px 0 10px;font:500 13.5px/1.4 Inter,system-ui,sans-serif;color:#c9dceb}' +
+          '#auraRemindOv .ar-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}' +
+          '#auraRemindOv .ar-chip{cursor:pointer;padding:6px 10px;border-radius:99px;background:rgba(120,215,255,.08);' +
+            'border:1px solid rgba(120,215,255,.2);color:#cfeaff;font:600 11.5px/1 Inter,system-ui,sans-serif}' +
+          '#auraRemindOv .ar-chip.on{background:#4ec8ff;border-color:#4ec8ff;color:#04121f}' +
+          '#auraRemindOv .ar-l{display:block;margin:0 0 10px;font:600 10px/1.6 Inter,system-ui,sans-serif;' +
+            'letter-spacing:.12em;text-transform:uppercase;color:#63788a}' +
+          '#auraRemindOv .ar-l input{display:block;width:100%;margin-top:5px;padding:9px 11px;border-radius:10px;' +
+            'border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#eaf6ff;font:13px/1 Inter,system-ui,sans-serif}' +
+          '#auraRemindOv .ar-l input:focus{outline:2px solid #4ec8ff;outline-offset:1px}' +
+          '#auraRemindOv .ar-row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}' +
+          '#auraRemindOv button.ar-go,#auraRemindOv button.ar-x{cursor:pointer;padding:9px 14px;border-radius:10px;' +
+            'font:600 12px/1 Inter,system-ui,sans-serif;border:1px solid transparent}' +
+          '#auraRemindOv button.ar-go{background:#4ec8ff;color:#04121f}' +
+          '#auraRemindOv button.ar-x{background:transparent;border-color:rgba(255,255,255,.14);color:#9fb2c2}' +
+          '@media(prefers-reduced-motion:reduce){#auraRemindOv{transition:none}}';
+        document.head.appendChild(st);
+      }
+      function fire(min, what){
+        var label = what ? ': ' + what : '';
+        setTimeout(function(){
+          try{ toast('\u23F1 Reminder' + label); }catch(e){}
+          try{ speak('Reminder' + (what ? ': ' + what : ' time')); }catch(e){}
+          try{ SFX.zap(); }catch(e){}
+          try{ if(window.__auraNotify) window.__auraNotify('AURA reminder', what || 'Reminder time'); }catch(e){}
+        }, Math.max(1, min) * 60000);
+      }
+      function openRemind(){
+        try{ closeMenus(); }catch(e){}
+        remindCss();
+        var old = document.getElementById('auraRemindOv');
+        if(old && old.parentNode) old.parentNode.removeChild(old);
+        var ov = document.createElement('div');
+        ov.id = 'auraRemindOv';
+        ov.innerHTML =
+          '<div class="ar-card" role="dialog" aria-modal="true" aria-labelledby="arTitle">' +
+            '<div class="ar-h" id="arTitle">Set a reminder</div>' +
+            '<div class="ar-q">In how many minutes?</div>' +
+            '<div class="ar-chips">' + [1, 5, 15, 30, 60].map(function(m){
+              return '<button type="button" class="ar-chip" data-m="' + m + '">' + m + ' min</button>';
+            }).join('') + '</div>' +
+            '<label class="ar-l">Minutes<input id="arMin" type="number" min="1" max="1440" value="5" inputmode="numeric"></label>' +
+            '<label class="ar-l">What for (optional)<input id="arWhat" maxlength="60" placeholder="tea, stand up, call back"></label>' +
+            '<div class="ar-row"><button type="button" class="ar-x" id="arCancel">Cancel</button>' +
+            '<button type="button" class="ar-go" id="arSet">Set reminder</button></div>' +
+          '</div>';
+        document.body.appendChild(ov);
+        var minIn = ov.querySelector('#arMin'), whatIn = ov.querySelector('#arWhat');
+        ov.querySelectorAll('.ar-chip').forEach(function(chip){
+          chip.onclick = function(){
+            minIn.value = chip.dataset.m;
+            ov.querySelectorAll('.ar-chip').forEach(function(c){ c.classList.toggle('on', c === chip); });
+          };
+        });
+        function shut(){ if(ov.parentNode) ov.parentNode.removeChild(ov); }
+        function set(){
+          var min = parseFloat(minIn.value);
+          if(!(min > 0)){ minIn.focus(); return; }
+          fire(Math.min(1440, min), (whatIn.value || '').trim().slice(0, 60));
+          shut();
+          try{ toast('\u23F1 Reminder set for ' + min + ' min'); }catch(e){}
+        }
+        ov.querySelector('#arCancel').onclick = shut;
+        ov.querySelector('#arSet').onclick = set;
+        ov.addEventListener('click', function(e){ if(e.target === ov) shut(); });
+        ov.addEventListener('keydown', function(e){
+          if(e.key === 'Escape'){ e.stopPropagation(); shut(); }
+          else if(e.key === 'Enter' && e.target && e.target.tagName === 'INPUT'){ e.preventDefault(); set(); }
+        });
+        requestAnimationFrame(function(){ ov.classList.add('on'); });
+        setTimeout(function(){ try{ minIn.focus(); minIn.select(); }catch(e){} }, 60);
+      }
+      /* the reference's reminder still calls prompt(), which a sandboxed iframe blocks */
+      function wireRemind(){
+        var b = document.querySelector('#tools button[data-x="remind"]');
+        if(!b || b.dataset.auraRemind) return;
+        b.dataset.auraRemind = '1';
+        b.onclick = function(e){ e.stopPropagation(); openRemind(); };
+      }
+
+      /* ---------- shell ---------- */
       var built = false;
       function build(){
         var tools = document.getElementById('tools');
-        if(!tools) return;
+        if(!tools) return false;
         style();
         /* older builds injected their own duplicate rows — drop them, this panel is the list */
         ['auraSignBtn', 'auraSignMenuBtn', 'auraMeshMenuBtn'].forEach(function(id){
@@ -5106,35 +5281,45 @@ function makeQR(text) {
         var baseWake = tools.querySelector('button[data-x="wake"]');
         if(baseWake) baseWake.classList.remove('tg2');
         ensureCopilot();
-        var missing = false, nodes = [];
-        GROUPS.forEach(function(g){
-          nodes.push(g.rows.map(function(r){
-            var n = find(r) || (r.x === 'docs' ? addDocs(r) : null);
-            if(!n) return null;
-            return { node: n, row: r };
-          }));
+        var groups = GROUPS.map(function(g){
+          return { title: g.title, pairs: g.rows.map(function(r){
+            return { row: r, node: find(r) || (r.x === 'docs' ? addDocs(r) : null) };
+          }) };
         });
-        var wrap = document.createElement('div');
+
         var head = document.createElement('div');
         head.className = 'at-top';
-        head.innerHTML = '<span>AURA \u00b7 Tools</span><button type="button" aria-label="Close">\u2715</button>';
-        head.querySelector('button').onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){ try{ document.getElementById('plusmenu').classList.remove('on'); }catch(e2){} } };
-        wrap.appendChild(head);
-        GROUPS.forEach(function(g, gi){
-          var sec = document.createElement('div');
+        head.innerHTML = '<span class="at-dot"></span><span class="at-title">AURA \u00b7 Tools</span>' +
+          '<span class="at-count zero" id="atCount">0 on</span>' +
+          '<button type="button" class="at-x" aria-label="Close tools">\u2715</button>';
+        head.querySelector('.at-x').onclick = function(e){ e.stopPropagation(); close(); };
+
+        var scroll = document.createElement('div');
+        scroll.className = 'at-scroll';
+        groups.forEach(function(g){
+          var sec = document.createElement('section');
           sec.className = 'at-sec';
-          var h = document.createElement('div');
+          var h = document.createElement('h4');
           h.className = 'at-h'; h.textContent = g.title;
           sec.appendChild(h);
-          nodes[gi].forEach(function(pair){
-            if(!pair) return;
+          g.pairs.forEach(function(pair){
+            if(!pair.node) return;
             dress(pair.node, pair.row);
             sec.appendChild(pair.node);
           });
-          wrap.appendChild(sec);
+          scroll.appendChild(sec);
         });
+
+        var foot = document.createElement('div');
+        foot.className = 'at-foot';
+        foot.innerHTML = '<span><kbd>\u2191</kbd><kbd>\u2193</kbd> move</span>' +
+          '<span><kbd>Esc</kbd> close</span>' +
+          '<span><kbd>+</kbd> reopen</span>';
+
         tools.innerHTML = '';
-        tools.appendChild(wrap);
+        tools.appendChild(head);
+        tools.appendChild(scroll);
+        tools.appendChild(foot);
         built = true;
         return true;
       }
@@ -5146,26 +5331,96 @@ function makeQR(text) {
           f.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} try{ goTab('code'); }catch(err){} };
         }
       }
-      function refresh(){
-        if(!built) { if(!build()) return; }
-        relabelForge();
-        [].forEach.call(document.querySelectorAll('#tools .at-card'), function(n){ n.classList.add('at-card'); });
-        GROUPS.forEach(function(g){ g.rows.forEach(function(r){ dress(find(r), r); }); });
+      function countOn(){
+        var n = document.querySelectorAll('#tools .at-card.on').length;
+        var c = document.getElementById('atCount');
+        if(!c) return;
+        c.textContent = n ? (n + ' on') : 'all off';
+        c.className = 'at-count' + (n ? '' : ' zero');
       }
+      function refresh(){
+        if(!built && !build()) return;
+        relabelForge();
+        wireRemind();
+        GROUPS.forEach(function(g){ g.rows.forEach(function(r){ dress(find(r), r); }); });
+        countOn();
+      }
+
       refresh();
-      [400, 1200, 2600, 5000, 9000].forEach(function(ms){ setTimeout(refresh, ms); });
-      setInterval(refresh, 2500);
-      /* opening a tool closes the panel — toggles stay open so you can flip two in a row */
+      [200, 600, 1200, 2600, 5000, 9000].forEach(function(ms){ setTimeout(refresh, ms); });
+
+      /* ---------- event-driven state sync (replaces the 2.5s poll) ---------- */
+      var pending = false;
+      function soon(){
+        if(pending) return;
+        pending = true;
+        (window.requestAnimationFrame || setTimeout)(function(){ pending = false; refresh(); }, 16);
+      }
+      try{
+        var mo = new MutationObserver(soon);
+        mo.observe(document.getElementById('plusmenu'), {
+          childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class']
+        });
+      }catch(e){}
+      /* belt and braces: a tool opened from elsewhere (tour, keyboard, voice) also repaints */
       document.addEventListener('click', function(e){
         var card = e.target && e.target.closest ? e.target.closest('#tools .at-card') : null;
         if(!card) return;
-        /* a toggle flips its class right after this click — repaint the chip at once so
-           the card never shows the previous state for two more seconds */
-        if(card.classList.contains('at-toggle')){ setTimeout(refresh, 80); return; }
+        if(card.classList.contains('at-toggle')){ setTimeout(refresh, 60); return; }
         setTimeout(function(){ try{ document.getElementById('plusmenu').classList.remove('on'); }catch(err){} }, 60);
       }, true);
+
+      /* ---------- keyboard: arrows move between rows, Escape closes ---------- */
+      document.addEventListener('keydown', function(e){
+        var p = document.getElementById('plusmenu');
+        if(!p || !p.classList.contains('on')) return;
+        var cards = [].slice.call(p.querySelectorAll('#tools .at-card')).filter(function(n){ return n.offsetParent !== null; });
+        if(!cards.length) return;
+        var i = cards.indexOf(document.activeElement);
+        if(e.key === 'Escape'){ e.preventDefault(); close(); return; }
+        if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+          e.preventDefault();
+          var next = e.key === 'ArrowDown'
+            ? (i < 0 ? 0 : (i + 1) % cards.length)
+            : (i < 0 ? cards.length - 1 : (i - 1 + cards.length) % cards.length);
+          try{ cards[next].focus(); }catch(err){}
+        } else if(e.key === 'Home' || e.key === 'End'){
+          e.preventDefault();
+          try{ cards[e.key === 'Home' ? 0 : cards.length - 1].focus(); }catch(err){}
+        }
+      });
+
+      /* the panel opens focused on its first row, so the keyboard path is one key away */
+      var pb = plusBtn();
+      if(pb && !pb.dataset.auraFocus){
+        pb.dataset.auraFocus = '1';
+        var baseOnclick = pb.onclick;
+        pb.onclick = function(e){
+          if(baseOnclick) baseOnclick.call(pb, e);
+          var p = panel();
+          if(p && p.classList.contains('on')){
+            place();
+            setTimeout(function(){
+              refresh();
+              place();
+              var first = p.querySelector('#tools .at-card');
+              if(first) try{ first.focus(); }catch(err){}
+            }, 90);
+          }
+        };
+      }
+      /* a rotated phone or a resized window must not leave the panel half off-screen */
+      ['resize', 'orientationchange'].forEach(function(ev){
+        window.addEventListener(ev, function(){
+          var p = panel();
+          /* deferred: on the resize event the composer has not been re-laid out yet, so an
+             immediate measure clamps against the old box and the panel hangs off the top */
+          if(p && p.classList.contains('on')) setTimeout(place, 80);
+        });
+      });
     })();
   }catch(e){}
+
   /* ---------------- survive a phone backgrounding ----------------
      Mobile browsers kill a background tab and come back with a fresh page, which read
      as "the whole app restarts". The state that matters is restored on the very first
