@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="bad1a2148aba"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ef03ccfb63b4"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -5418,6 +5418,92 @@ function makeQR(text) {
           if(p && p.classList.contains('on')) setTimeout(place, 80);
         });
       });
+    })();
+  }catch(e){}
+
+  /* ---------------- laptop home layout (24 Nov) ----------------
+     The welcome screen sized the orb from WIDTH only (clamp(220px,28vw,320px)), so on a
+     1366×768 / 1280×720 laptop the hero was 429px tall inside a ~355px message area: flex
+     squeezed .msgs, its overflow:auto hid the greeting under the composer and the orb ran
+     past the dock (measured: hero bottom 517 vs composer top 437). The hero now sizes from
+     the SHORTER axis, is centered in the space it actually has, and the dock keeps its own
+     height so nothing overlaps.
+
+     Rules are !important only where the size lives in an inline style on the markup
+     (#coreStageWrap), which a stylesheet cannot otherwise beat. */
+  try{
+    (function homeLayout(){
+      if(document.getElementById('auraHomeCss')) return;
+      var st = document.createElement('style');
+      st.id = 'auraHomeCss';
+      st.textContent =
+        /* the greeting gets the leftover space and centres itself in it */
+        /* `safe` keeps the top of the hero visible when it does not fit, instead of
+           centering it half above the scroll box */
+        '.chatw:not(.has) .msgs{flex:1 1 auto;min-height:0;justify-content:center;' +
+          'justify-content:safe center;align-items:stretch}' +
+        '.chatw:not(.has) .wel{margin:0 auto;width:100%;max-width:675px}' +
+        '.chatw:not(.has){padding-bottom:1.4vh}' +
+        /* orb: width OR height, whichever is smaller — 320px stays the ceiling */
+        /* min(28vw, 30vh) alone would make a phone orb tiny (26vw of 430 = 112px), so the
+           width side never drops below 220 and the height side caps the laptop value */
+        '#coreStageWrap{width:clamp(148px,min(max(220px,28vw),30vh),320px)!important;' +
+          'height:clamp(148px,min(max(220px,28vw),30vh),320px)!important;margin-bottom:10px!important}' +
+        '#wel h2{font-size:clamp(26px,min(max(32px,4.6vw),5.6vh),58px)!important;line-height:1.08!important}' +
+        '#wel p{margin-top:9px!important;font-size:clamp(12.5px,1.6vh,14px)!important}' +
+        /* phones: the quick-prompt chips take ~90px of the dock, so the orb gives way
+           (430×811 measured: hero 491px in a 393px area before this rule) */
+        '@media(max-width:900px){' +
+          '#coreStageWrap{width:clamp(132px,min(34vw,26vh),216px)!important;' +
+            'height:clamp(132px,min(34vw,26vh),216px)!important;margin-bottom:8px!important}' +
+          '#wel h2{font-size:clamp(24px,min(7.4vw,4.6vh),40px)!important}' +
+          '#wel p{margin-top:6px!important}' +
+        '}' +
+        '@media(max-height:780px){.chatw:not(.has){padding-bottom:0}}' +
+        '@media(max-height:660px){#coreStageWrap{width:128px!important;height:128px!important;margin-bottom:6px!important}}' +
+        '@media(max-height:560px){#wel p{display:none}}';
+      document.head.appendChild(st);
+
+      /* CSS alone cannot settle this: an older module (aura-mobile-clean) locks the orb to
+         236px!important inside its own media query and is injected after this sheet, so the
+         cascade hands back the size that did not fit. This pass measures the real boxes and
+         only shrinks when the hero is actually taller than its area — inline + important,
+         so nothing later can undo it. */
+      function fitHero(){
+        var cw = document.getElementById('chatw');
+        var msgs = document.getElementById('msgs');
+        var wel = document.getElementById('wel');
+        var orb = document.getElementById('coreStageWrap');
+        if(!cw || !msgs || !wel || !orb) return;
+        var tagline = wel.querySelector('p');
+        orb.style.removeProperty('width'); orb.style.removeProperty('height');
+        if(tagline) tagline.style.removeProperty('display');
+        if(cw.classList.contains('has')) return;               /* a conversation is open */
+        if(!wel.offsetParent) return;                          /* welcome hidden */
+        var avail = msgs.clientHeight;
+        var need = wel.getBoundingClientRect().height + 10;
+        if(!avail || need <= avail) return;
+        var current = orb.getBoundingClientRect().height;
+        var next = Math.max(110, Math.round(current - (need - avail) - 8));
+        if(next >= current) next = Math.max(110, Math.round(current * 0.82));
+        orb.style.setProperty('width', next + 'px', 'important');
+        orb.style.setProperty('height', next + 'px', 'important');
+        if(tagline && wel.getBoundingClientRect().height + 8 > msgs.clientHeight){
+          tagline.style.setProperty('display', 'none', 'important');
+        }
+      }
+      fitHero();
+      [300, 900, 1800, 3200, 6000].forEach(function(ms){ setTimeout(fitHero, ms); });
+      var t = null;
+      ['resize', 'orientationchange'].forEach(function(ev){
+        window.addEventListener(ev, function(){ clearTimeout(t); t = setTimeout(fitHero, 120); });
+      });
+      /* opening or closing a chat flips .has and resizes the welcome area */
+      try{
+        var cwEl = document.getElementById('chatw');
+        if(cwEl) new MutationObserver(function(){ setTimeout(fitHero, 30); })
+          .observe(cwEl, {attributes: true, attributeFilter: ['class']});
+      }catch(e){}
     })();
   }catch(e){}
 
