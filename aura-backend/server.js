@@ -16,6 +16,11 @@ let LIQUI = null;
 try { LIQUI = require("./liquipedia"); } catch (e) { LIQUI = null; }
 let FOCUS = null;
 try { FOCUS = require("./search-focus"); } catch (e) { FOCUS = null; }
+/* evidence relevance gate (evidence-gate.js) — a fresh page about the wrong subject
+   used to become the evidence for an answer ("Alabama high-school esports" for
+   "aaj kaun jeeta"). Only pages that mention the ask's subject reach the model. */
+let GATE = null;
+try { GATE = require("./evidence-gate"); } catch (e) { GATE = null; }
 const app = express();
 /* Behind Render's load balancer every socket looks like the same internal IP.
    Trusting the ONE proxy hop gives us the REAL visitor IP (rightmost entry —
@@ -3409,8 +3414,17 @@ async function groundChat(messages) {
     const qRaw = searchQuery(messages);
     const q = withYearAnchor(resultAsk ? FOCUS.sharpenQuery(ask) : (cleanAsk(qRaw) || qRaw));
     let web = "";
+    let offTopic = false;
     try {
-      const hits = await searchWeb(q.replace(/\s+/g, " "), esp ? 8000 : 7000);
+      const raw = await searchWeb(q.replace(/\s+/g, " "), esp ? 8000 : 7000);
+      /* RELEVANCE, not just freshness (23 Nov 2026): the engine happily returns a
+         dated page about another company or tournament, and the model then answers
+         from it or hedges because of it. Drop every page that never mentions the
+         subject the user asked about; fail-open when the ask has no subject. */
+      const gated = GATE ? GATE.gateHits(ask, raw) : { hits: raw || [], offTopic: false };
+      const hits = gated.hits;
+      offTopic = !!gated.offTopic;
+      if (gated.dropped && gated.dropped.length && process.env.AURA_DEBUG) console.log("[gate] dropped " + gated.dropped.length + " off-topic hit(s) for q=\"" + ask + "\"");
       if (hits && hits.length) {
         const top = hits.slice(0, 2);
         /* NO PAGE RE-READS ON THE ANSWER PATH (30 Oct 2026). The search API already
@@ -3438,7 +3452,9 @@ async function groundChat(messages) {
       : messages;
     const out = base.concat([{ role: "system", content:
       "CURRENT DATE & TIME: " + now + " (anchor 'today/now/latest' to THIS moment).\n" +
-      (web ? head + web + "\n" : "No live results were found for this question.\n") +
+      (web ? head + web + "\n" : offTopic
+        ? "No live result was about this question — the search returned only unrelated pages.\n"
+        : "No live results were found for this question.\n") +
       AURA_FACT_RULES }]);
     /* the page ships its own "say you don't have the verified version" rule, and it wins
        over the fresh evidence unless it is explicitly overridden — this is the last thing
@@ -3903,7 +3919,8 @@ app.post("/v1/chat/completions", async (req, res) => {
         let _sq = cleanAsk(_q) || _q.replace(/\s+/g, " ");
         if (FOCUS && FOCUS.isResultAsk(_q)) _sq = FOCUS.sharpenQuery(_q);
         _sq = withYearAnchor(_sq);
-        const _hits = await toolSearch(_sq);
+        const _raw = await toolSearch(_sq);
+        const _hits = GATE ? GATE.gateHits(_q, _raw).hits : _raw;
         if (process.env.AURA_DEBUG) console.log("[chat] live=" + (_hits ? _hits.length : 0) + " q=\"" + _sq + "\"")
         if (_hits && _hits.length) {
           __live = { now: _now, hits: _hits.slice(0, 3) };
@@ -4230,11 +4247,19 @@ function tavMonthUsed(k) {
   return r.used;
 }
 /* Spend what is left over the days that are left: the budget repairs itself
-   after a quiet day and can never overshoot the monthly cap. */
+   after a quiet day and can never overshoot the monthly cap.
+
+   The numerator must be the month LEFT AT THE START OF TODAY, not the month left
+   right now. Dividing the live remainder by the days left shrinks the budget after
+   every single credit (60 credits, 8 days left → 8/day; after 7 used the remainder is
+   53 → 7/day, so the 8th call of the same day looked over-budget and the key was
+   reported spent while it still had credits). Adding today's spend back makes the
+   daily allowance stable for the whole day and still repairs after a quiet one. */
 function tavDailyBudget(k) {
-  const left = TAV_MONTHLY - tavMonthUsed(k);
-  if (left <= 0) return 0;
-  return Math.max(1, Math.ceil(left / tavDaysLeft()));
+  const usedToday = tavDayUsed(k);
+  const leftAtDayStart = TAV_MONTHLY - Math.max(0, tavMonthUsed(k) - usedToday);
+  if (leftAtDayStart <= 0) return 0;
+  return Math.max(1, Math.ceil(leftAtDayStart / tavDaysLeft()));
 }
 function tavCharge(k, cost) {
   tavDay.set(k, { day: TODAY(), used: tavDayUsed(k) + cost });
@@ -4602,12 +4627,15 @@ app.post("/v1/websearch", async (req, res) => {
   const started = Date.now();
   try {
     const hits = await searchWeb(q, 8000);
-    if (!hits.length) return res.json({ results: [], took: Date.now() - started });
+    /* the page feeds this answer from these results, so keep only on-subject pages
+       here too — otherwise the browser's own evidence block carries the junk */
+    const gated = GATE ? GATE.gateHits(q, hits) : { hits, offTopic: false };
+    if (!gated.hits.length) return res.json({ results: [], offTopic: !!gated.offTopic, took: Date.now() - started });
     /* SPEED: the search API already returns the page text, so this lane does NOT
        re-read pages through the text proxy (the old two uncapped reads were the
        10-20s that made the whole app feel stuck). Headlines + snippets answer
        "latest …" questions and cost one request. */
-    const results = hits.slice(0, 5).map(h => ({
+    const results = gated.hits.slice(0, 5).map(h => ({
       k: "web",
       title: h.title,
       url: h.url,
@@ -5255,5 +5283,5 @@ module.exports = {
   groundChat, toolSearch, toolFetch, searchQuery, currentAsk, topicHint, followUpQuery, threadTurns,
   evidenceFacts, esportsFastAnswer, rosterGuard, cleanRead, isRosterAsk, fakeRoster,
   prettyDate, lastUserMsg, resolveFragment, injectFollowUp,
-  staleFact, evidenceIsCurrent, newestYear, finalizeAnswer, stripHedge,
+  staleFact, evidenceIsCurrent, newestYear, finalizeAnswer, stripHedge, evidenceGate: GATE,
 };
