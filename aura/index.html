@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="def7b3af047a"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="fb6cb6e0653f"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7169,7 +7169,9 @@ function makeQR(text) {
          stays violet while a smile still makes it move faster. */
       var ORB_THEMES = {
         /* the portfolio's own core: c1 (1,.48,.24) to c2 (1,.88,.55) with teal specks */
-        portfolio: { deep: [255, 122,  61], hot: [255, 224, 160], speck: [130, 255, 240] },
+        /* c1 (1,.48,.24) and c2 (1,.88,.55) exactly, and the shader's speck colour
+           vec3(.44,.91,.84) = 112,232,214 */
+        portfolio: { deep: [255, 122,  61], hot: [255, 224, 160], speck: [112, 232, 214] },
         cyan:    { deep: [120, 200, 255], hot: [190, 245, 255] },
         gold:    { deep: [255, 186,  84], hot: [255, 236, 170] },
         violet:  { deep: [172, 138, 255], hot: [228, 208, 255] },
@@ -7272,6 +7274,7 @@ function makeQR(text) {
                    turb: +moodNow.turb.toFixed(2),
                    deep: th ? th.deep.slice() : r3(moodNow.c[0]),
                    hot:  th ? th.hot.slice()  : r3(moodNow.c[1]),
+                   speck: th ? (th.speck || [112, 232, 214]).slice() : r3(moodNow.c[4]),
                    ring: th ? th.deep.slice() : r3(moodNow.c[4]) };
         }
       };
@@ -7423,12 +7426,17 @@ function makeQR(text) {
       if(!cv){
         cv = document.createElement('canvas');
         cv.id = 'auraIris';
-        cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;filter:drop-shadow(0 0 26px rgba(120,215,255,.35));' +
-          '-webkit-mask-image:radial-gradient(circle at 50% 50%,#000 42%,rgba(0,0,0,0) 72%);' +
-          'mask-image:radial-gradient(circle at 50% 50%,#000 42%,rgba(0,0,0,0) 72%)';
+        /* no mask, no drop-shadow: the portfolio's core is a plain additive canvas and
+           the radial mask was cutting the sphere's own edge off */
+        cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none';
         wrap.appendChild(cv);
       }
-      var ctx = cv.getContext('2d');
+      /* WebGL first — it runs the portfolio's own shader. Canvas2D is only the fallback
+         for a machine without it, and a canvas can never hand out two context kinds, so
+         this order is load-bearing. */
+      var glTry = null;
+      try{ glTry = cv.getContext('webgl', { alpha: true, antialias: false, depth: false }); }catch(e){}
+      var ctx = glTry ? null : cv.getContext('2d');
       /* the reference draws a dark card behind the core; with the new bloom that card
          shows up as a grey square around the light. On a phone the orb sits on the
          page itself. */
@@ -7456,6 +7464,171 @@ function makeQR(text) {
       size();
       window.addEventListener('resize', size);
       if(old){ old.width = 8; old.height = 8; }   /* the hidden orb stops costing a full-size canvas */
+
+      /* ---------------- the orb: the portfolio's core, copied ----------------
+         MyPortfolio/index.html (r128) draws this with one ShaderMaterial: 34,000 points
+         (12,000 on a phone) from four shape generators, additive blending, point size
+         20*dpr/mv.z, colour mix(c1,c2, y*.22+.5) with teal specks. r128 has no colour
+         management, so those colours reach the GPU exactly as written — which means the
+         shader below can be a line-for-line copy and land on the same pixels.
+         New here is only the plumbing: two matrices, six buffers, the blend mode.
+         Framing: the camera dollies with a narrower field of view (27.5° instead of 45°)
+         rather than moving closer, so the sphere fills the stage while its perspective
+         and every point-size ratio stay exactly the reference's. */
+      var orbGL = (function(){
+        var g = glTry;
+        if(!g) return null;
+        function mk(type, src){
+          var s = g.createShader(type);
+          g.shaderSource(s, src); g.compileShader(s);
+          return g.getShaderParameter(s, g.COMPILE_STATUS) ? s : null;
+        }
+        var VS = [
+          'attribute vec3 position,t1,t2,t3,sc;',
+          'attribute float sd;',
+          'uniform vec4 w;',
+          'uniform float time,intro,px;',
+          'uniform mat4 modelViewMatrix,projectionMatrix;',
+          'varying float vY,vS;',
+          'void main(){',
+          '  vec3 p = position*w.x + t1*w.y + t2*w.z + t3*w.w;',
+          '  float a = time*.25 + sd*6.28;',
+          '  p += vec3(sin(a*1.3+p.y), cos(a+p.x), sin(a*.9+p.z))*.07;',
+          '  vec3 q = mix(sc, p, intro);',
+          '  float s = (1.-intro)*3., cs = cos(s), sn = sin(s);',
+          '  q.xz = mat2(cs,-sn,sn,cs)*q.xz;',
+          '  vec4 mv = modelViewMatrix*vec4(q,1.);',
+          '  gl_PointSize = px*(1.+step(.96,sd)*1.5)/-mv.z;',
+          '  gl_Position = projectionMatrix*mv;',
+          '  vY = q.y*.22+.5+sd*.25;',
+          '  vS = step(.975,sd);',
+          '}'
+        ].join('\n');
+        var FS = [
+          'precision highp float;',
+          'varying float vY,vS;',
+          'uniform float intro,al;',
+          'uniform vec3 c1,c2,c3;',
+          'void main(){',
+          '  float d = length(gl_PointCoord-.5);',
+          '  if(d>.5) discard;',
+          '  vec3 c = mix(c1,c2,clamp(vY,0.,1.));',
+          '  c = mix(c,c3,vS);',
+          '  gl_FragColor = vec4(c, smoothstep(.5,0.,d)*.8*al*clamp(intro*2.+.1,0.,1.));',
+          '}'
+        ].join('\n');
+        var vs = mk(g.VERTEX_SHADER, VS), fs = mk(g.FRAGMENT_SHADER, FS);
+        if(!vs || !fs) return null;
+        var prog = g.createProgram();
+        g.attachShader(prog, vs); g.attachShader(prog, fs); g.linkProgram(prog);
+        if(!g.getProgramParameter(prog, g.LINK_STATUS)) return null;
+        g.useProgram(prog);
+        function L(n){ return g.getUniformLocation(prog, n); }
+        var U = { w: L('w'), time: L('time'), intro: L('intro'), px: L('px'), al: L('al'),
+                  c1: L('c1'), c2: L('c2'), c3: L('c3'), mv: L('modelViewMatrix'), pm: L('projectionMatrix') };
+
+        /* the reference's four shape generators, unchanged */
+        function rnd(a, b){ return a + Math.random() * (b - a); }
+        function sph(r){ var u = Math.random()*2-1, t = Math.random()*6.2832, s = Math.sqrt(1-u*u), k = r*(.93+Math.random()*.14); return [k*s*Math.cos(t), k*u, k*s*Math.sin(t)]; }
+        var cells = [];
+        for(var ci = 0; ci < 4; ci++) for(var cj = 0; cj < 4; cj++) for(var ck = 0; ck < 4; ck++) if((ci*7 + cj*13 + ck*17) % 7 < 3) cells.push([ci, cj, ck]);
+        var SH = [
+          function(){ return sph(2.1); },
+          function(){ var t = Math.random()*6.2832, r = 2.3 + rnd(-.3, .3); return [r*Math.cos(t), Math.sin(t*7)*.45 + rnd(-.1, .1), r*Math.sin(t)]; },
+          function(){ var c = cells[Math.floor(Math.random()*cells.length)], p = [rnd(-1,1), rnd(-1,1), rnd(-1,1)], a2 = Math.floor(Math.random()*3);
+            p[(a2+1)%3] = Math.random() < .5 ? -1 : 1;
+            if(Math.random() < .75) p[(a2+2)%3] = Math.random() < .5 ? -1 : 1;
+            return [(c[0]-1.5)*.9 + p[0]*.3, (c[1]-1.5)*.9 + p[1]*.3, (c[2]-1.5)*.9 + p[2]*.3]; },
+          function(){ var u, t;
+            if(Math.random() < .7){ u = (Math.floor(Math.random()*9)-4)/4.6; t = Math.random()*6.2832; }
+            else { u = Math.random()*2-1; t = Math.floor(Math.random()*12)*.5236; }
+            var s = Math.sqrt(1-u*u), k = 2.3; return [k*s*Math.cos(t), k*u, k*s*Math.sin(t)]; }
+        ];
+
+        var NPTS = 0, PXSIZE = 1, builtH = 0, buffs = [];
+        function attr(name, arr, size){
+          var buf = g.createBuffer();
+          g.bindBuffer(g.ARRAY_BUFFER, buf);
+          g.bufferData(g.ARRAY_BUFFER, new Float32Array(arr), g.STATIC_DRAW);
+          var loc = g.getAttribLocation(prog, name);
+          if(loc < 0) return;
+          g.enableVertexAttribArray(loc);
+          g.vertexAttribPointer(loc, size, g.FLOAT, false, 0, 0);
+          buffs.push(buf);
+        }
+        function build(){
+          var box = cv.getBoundingClientRect();
+          var hPx = Math.max(24, Math.round(box.height * dpr));
+          /* the reference packs 34,000 points into a 912-device-px sphere (0.0408 per
+             px²) with each point 0.49% of the sphere across. Both scale with the stage,
+             so a 236px orb gets the reference's texture at a smaller size instead of the
+             solid ball you get by keeping 34k points on a fifth of the area. */
+          var d = hPx * 0.86;
+          NPTS = Math.max(1400, Math.min(34000, Math.round(0.0408 * d * d)));
+          PXSIZE = 9 * 0.00487 * d;
+          var A = [[], [], [], []], sc = [], sd = [];
+          for(var i = 0; i < NPTS; i++){
+            for(var k = 0; k < 4; k++){ var p = SH[k](); A[k].push(p[0], p[1], p[2]); }
+            var q = sph(rnd(6, 12)); sc.push(q[0], q[1], q[2]);
+            sd.push(Math.random());
+          }
+          buffs = [];
+          attr('position', A[0], 3); attr('t1', A[1], 3); attr('t2', A[2], 3); attr('t3', A[3], 3);
+          attr('sc', sc, 3); attr('sd', sd, 1);
+          g.enable(g.BLEND);
+          g.blendFunc(g.SRC_ALPHA, g.ONE);          /* THREE.AdditiveBlending */
+          g.disable(g.DEPTH_TEST);
+          g.clearColor(0, 0, 0, 0);
+          builtH = cv.height;
+        }
+
+        var MV = new Float32Array(16), PM = new Float32Array(16);
+        function perspective(fovy, aspect, near, far){
+          var f = 1 / Math.tan(fovy / 2), nf = 1 / (near - far);
+          PM[0] = f/aspect; PM[1] = 0; PM[2] = 0; PM[3] = 0;
+          PM[4] = 0; PM[5] = f; PM[6] = 0; PM[7] = 0;
+          PM[8] = 0; PM[9] = 0; PM[10] = (far+near)*nf; PM[11] = -1;
+          PM[12] = 0; PM[13] = 0; PM[14] = 2*far*near*nf; PM[15] = 0;
+        }
+        /* RX * RY * scale, then the camera at z = -9 — three's Euler XYZ with z = 0 */
+        function modelView(rx, ry, s){
+          var cx = Math.cos(rx), sx = Math.sin(rx), cy = Math.cos(ry), sy = Math.sin(ry);
+          MV[0] = cy*s;      MV[1] = sx*sy*s; MV[2] = -cx*sy*s; MV[3] = 0;
+          MV[4] = 0;         MV[5] = cx*s;    MV[6] = sx*s;     MV[7] = 0;
+          MV[8] = sy*s;      MV[9] = sx*cy*s; MV[10] = cx*cy*s; MV[11] = 0;
+          MV[12] = 0;        MV[13] = 0;      MV[14] = -9;      MV[15] = 1;
+        }
+
+        var introT0 = 0, holdT = 0;
+        function frame(now){
+          if(!NPTS || builtH !== cv.height) build();
+          g.viewport(0, 0, cv.width, cv.height);
+          g.clear(g.COLOR_BUFFER_BIT);
+          if(!introT0) introT0 = now;
+          if(!mood.frozen) holdT = now / 1000;
+          var intro = Math.min(1, Math.max(0, (now - introT0 - 400) / 2600));
+          intro = 1 - Math.pow(1 - intro, 3);
+          PAR.x += (PAR.tx - PAR.x) * 0.06;
+          PAR.y += (PAR.ty - PAR.y) * 0.06;
+          var spin = mood.frozen ? 0 : (mood.spin || 1);
+          modelView(PAR.y * 0.15, holdT * 0.12 * spin + PAR.x * 0.25, 0.9);
+          perspective(2 * Math.atan(1.89 / (0.86 * 9)), cv.width / Math.max(1, cv.height), 0.1, 100);
+          var p = (window.AURA_CORE && window.AURA_CORE.palette) ? window.AURA_CORE.palette() : null;
+          var c1 = (p && p.deep) || [255, 122, 61], c2 = (p && p.hot) || [255, 224, 160], c3 = (p && p.speck) || [112, 232, 214];
+          g.uniform4f(U.w, 1, 0, 0, 0);
+          g.uniform1f(U.time, holdT);
+          g.uniform1f(U.intro, intro);
+          g.uniform1f(U.px, PXSIZE);
+          g.uniform1f(U.al, 0.85 + Math.min(0.15, amp * 0.25));
+          g.uniform3f(U.c1, c1[0]/255, c1[1]/255, c1[2]/255);
+          g.uniform3f(U.c2, c2[0]/255, c2[1]/255, c2[2]/255);
+          g.uniform3f(U.c3, c3[0]/255, c3[1]/255, c3[2]/255);
+          g.uniformMatrix4fv(U.mv, false, MV);
+          g.uniformMatrix4fv(U.pm, false, PM);
+          g.drawArrays(g.POINTS, 0, NPTS);
+        }
+        return { frame: frame, count: function(){ return NPTS; }, type: 'webgl' };
+      })();
 
       function level(){
         try{
@@ -7599,6 +7772,7 @@ function makeQR(text) {
         readMood();
         if(cv.width < 12 || cv.height < 12) size();
         t += dt * 0.001 * mood.pulse;
+        if(orbGL){ orbGL.frame(performance.now()); if(!once) painted = 1; return; }
         var w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
         var base = Math.min(w, h);
         var R = base * 0.335 * (1 + ex * 0.05 + amp * 0.18);
