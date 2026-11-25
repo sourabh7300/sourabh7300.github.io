@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="8cd6c012d333"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="6765c48c2f9c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3684,7 +3684,9 @@ function makeQR(text) {
         tourEl.id = 'auraTour';
         tourEl.setAttribute('role', 'dialog');
         tourEl.setAttribute('aria-label', 'AURA tour');
-        tourEl.style.cssText = 'position:fixed;z-index:99999;left:50%;transform:translateX(-50%);' +
+        /* centred with margin, not translateX: the mobile stylesheet pins left/right
+           with !important, and a leftover transform would slide the card off-screen */
+        tourEl.style.cssText = 'position:fixed;z-index:99999;left:0;right:0;margin:0 auto;' +
           'width:min(430px,calc(100vw - 24px));max-height:64vh;overflow:auto;' +
           'background:rgba(10,14,22,.94);border:1px solid rgba(120,215,255,.25);border-radius:16px;padding:15px 16px 12px;' +
           'color:#e8f4ff;font:14px/1.55 Inter,system-ui,sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.55);backdrop-filter:blur(14px)';
