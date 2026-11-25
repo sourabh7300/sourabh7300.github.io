@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="36758dd35c58"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="a96fb5de4d69"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3617,10 +3617,10 @@ function makeQR(text) {
       { sel: '#tabs button[data-p="chats"]', tab: 'chats', title: 'Chats are kept',
         body: 'Open Chats to switch, rename or delete a conversation. “New chat” starts a clean one.',
         how: 'Conversations are stored in this browser, so they survive a reload without an account.' },
-      { sel: '#tabs button[data-p="code"]', tab: 'code', desk: true, title: 'Code Forge',
+      { sel: '#tabs button[data-p="code"]', tab: 'code', min: 820, title: 'Code Forge',
         body: 'Write JavaScript, HTML or Python and press Run — the output appears right below.',
         how: 'Code runs in a sandboxed frame on your device, so a result can be explained without touching your real files.' },
-      { sel: '#tabs button[data-p="sys"]', tab: 'sys', desk: true, title: 'System — the honest numbers',
+      { sel: '#tabs button[data-p="sys"]', tab: 'sys', min: 640, title: 'System — the honest numbers',
         body: 'Live diagnostics: engine, memory, latency, build tag, and whether the backend keys are healthy.',
         how: 'These readings come from the running page and the backend health check, so a slow answer is visible instead of guessed.' },
       { sel: '#tabs button[data-p="set"]', tab: 'set', title: 'Settings',
@@ -3629,10 +3629,10 @@ function makeQR(text) {
       { sel: '#auraOrbRow', tab: 'set', title: 'Make the orb yours',
         body: 'Settings \u2192 Orb colour: Auto follows your mood, or pin it to Cyan, Gold, Violet, Rose, Emerald or Mono. The chat particles take the same colour.',
         how: 'The choice is stored in this browser and applied to the welcome orb and the particle core; mood then changes only speed and turbulence, not the hue.' },
-      { sel: null, mob: true, tab: 'chat', title: 'This is the phone layout',
+      { sel: null, max: 639, tab: 'chat', title: 'This is the phone layout',
         body: 'Chat, Chats and Settings sit in the tab bar, + opens the tools sheet just above the composer, and every control is thumb-sized.',
         how: 'The page measures the screen and leaves out what cannot work there — Code Forge, the System rail and the keyboard shortcuts stay on the laptop, so nothing here is a dead button.' },
-      { sel: '#srch', tab: 'chat', desk: true, title: 'Keyboard: Ctrl K and /',
+      { sel: '#srch', tab: 'chat', min: 820, title: 'Keyboard: Ctrl K and /',
         body: 'Ctrl K (⌘K on a Mac) opens the command palette, / jumps straight to the input, Esc closes whatever is open.',
         how: 'The palette lists the same actions as the buttons, so everything can be reached without a mouse.' },
       { sel: null, tab: 'chat', title: 'Co-Pilot and Guide',
@@ -3642,8 +3642,8 @@ function makeQR(text) {
     /* a phone has no Code/System tab and no Ctrl K, so those steps would point at
        nothing — they stay for the laptop, where the controls actually exist */
     var TOUR = TOUR_ALL.filter(function(s){
-      if(s.desk && window.innerWidth < 640) return false;   /* desktop/tablet control */
-      if(s.mob && window.innerWidth >= 640) return false;   /* phone-only note */
+      if(s.min && window.innerWidth < s.min) return false;   /* control not on this screen */
+      if(s.max && window.innerWidth >= s.max) return false;  /* phone-only note */
       return true;
     });
     var TOUR_KEY = 'aura_tour_v3';
@@ -3853,7 +3853,7 @@ function makeQR(text) {
     try{
       (function mobileTrim(){
         function trim(){
-          if(window.innerWidth >= 640) return;
+          if(window.innerWidth >= 820) return;   /* same cut as the Code tab itself */
           [].forEach.call(document.querySelectorAll('#tools .at-card'), function(b){
             if(/code forge/i.test(b.textContent || '')) b.remove();
           });
