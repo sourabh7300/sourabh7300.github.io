@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="8aad929f2a68"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ba2319659496"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -5234,7 +5234,14 @@ function makeQR(text) {
            inline box THIS function writes — one owner is enough, so they live here and
            the stylesheet keeps just the visual skin. */
         if(vw <= 900){
-          p.style.position = 'fixed'; p.style.left = '10px'; p.style.right = '10px';
+          /* `position:fixed` does NOT mean the viewport here: the composer card carries
+             backdrop-filter, which makes it the containing block for fixed children. A
+             flat left:10px therefore landed at x=24 on a 360 phone (card starts at 14).
+             Measure that block and subtract it, so 10px is 10px on every phone. */
+          var cb = fixedBlock(p);
+          var dx = cb ? cb.left : 0;
+          var dr = cb ? (vw - cb.right) : 0;
+          p.style.position = 'fixed'; p.style.left = (10 - dx) + 'px'; p.style.right = (10 - dr) + 'px';
           p.style.top = 'auto'; p.style.bottom = '88px'; p.style.width = 'auto';
           /* max-width:520 + auto margins made the sheet resolve 30px narrower than the
              10px insets asked for, so a phone gets the plain stretch */
@@ -5265,6 +5272,22 @@ function makeQR(text) {
         if(pr.left < 8) p.style.left = Math.round(8 - pr.left) + 'px';
       }
       function panel(){ return document.getElementById('plusmenu'); }
+      /* The nearest ancestor that makes a fixed child position against IT instead of the
+         viewport: a transform, a filter, a backdrop-filter, a perspective, will-change or
+         paint containment all do it. Returns its viewport rect, or null. */
+      function fixedBlock(el){
+        var n = el && el.parentElement;
+        while(n && n !== document.documentElement){
+          var cs = window.getComputedStyle(n);
+          if(cs.transform !== 'none' || (cs.filter && cs.filter !== 'none') ||
+             (cs.backdropFilter && cs.backdropFilter !== 'none') ||
+             (cs.perspective && cs.perspective !== 'none') ||
+             (cs.willChange && cs.willChange !== 'auto') ||
+             (cs.contain && cs.contain !== 'none')) return n.getBoundingClientRect();
+          n = n.parentElement;
+        }
+        return null;
+      }
       function find(row){
         if(row.attach) return document.getElementById('auraAttBtn');
         if(row.mesh) return document.getElementById('auraMeshBtn');
@@ -6332,6 +6355,11 @@ function makeQR(text) {
         box(crow.querySelector('.send'), T.send, T.h, 12);
         var tw = crow.querySelector('[data-crow="tools"]');
         if(tw){ box(tw, 40, 40, null); box(tw.querySelector('button'), 40, 40, null); }
+        /* the + glyph: the reference's own 22px, 19px on a phone where the button is
+           40px — this used to be `@media(max-width:900px){#plusbtn{font-size:19px}}`.
+           Dropping that rule left 22px everywhere, so the glyph grew, not shrank. */
+        var pb = crow.querySelector('#plusbtn');
+        if(pb) pb.style.fontSize = window.innerWidth < 900 ? '19px' : '';
         var model = crow.querySelector('[data-crow="model"]');
         if(model && !model.getAttribute('title')) model.setAttribute('title', 'Personality — switch in Settings');
         return true;
