@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="c67fd3a06edc"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="3823bc512bee"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -5709,18 +5709,19 @@ function makeQR(text) {
         '#coreStageWrap{width:clamp(200px,min(max(220px,30vw),44vh),400px)!important;' +
           'height:clamp(200px,min(max(220px,30vw),44vh),400px)!important;margin-bottom:10px!important}' +
         '#wel h2{font-size:clamp(26px,min(max(32px,4.6vw),6.4vh),58px)!important;line-height:1.08!important}' +
-        /* the top-bar search button: the reference's own markup is `Search` + `<kbd>Ctrl K</kbd>`
-           in a 34px-high icon-button slot, which squeezed the shortcut into 19px of unreadable
-           text. Give it room and style the kbd like a key. Desktop only — ≤900 it is hidden. */
+        /* the top-bar search control: the reference's own markup is `Search` + `<kbd>Ctrl K</kbd>`
+           in a 34px icon-button slot, where the shortcut was crushed into 19px. It stays the
+           reference's thin chip — outlined, no fill — so it reads as a desktop affordance and
+           not as a mobile search field; only the squeeze is fixed (nowrap + legible kbd).
+           Desktop only: ≤900px it is hidden by the media sheet. */
         '@media(min-width:901px){' +
-          '#srch{min-width:158px;height:34px;padding:0 13px;gap:9px;border-radius:10px;' +
-            'justify-content:space-between;color:var(--tx);font-size:12.5px;' +
-            'background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.13);transition:.18s}' +
-          '#srch:hover{background:rgba(255,255,255,.09);border-color:rgba(120,215,255,.45)}' +
-          '#srch span{white-space:nowrap}' +
-          '#srch kbd{font:600 9.5px/1 Inter,system-ui,sans-serif;letter-spacing:.04em;white-space:nowrap;' +
-            'padding:4px 6px;border-radius:6px;color:#a7bccd;background:rgba(255,255,255,.07);' +
-            'border:1px solid rgba(255,255,255,.14)}' +
+          '#srch{height:34px;padding:0 12px;gap:10px;border-radius:10px;white-space:nowrap;' +
+            'color:var(--dim);font-size:12.5px;background:transparent;' +
+            'border:1px solid rgba(255,255,255,.14);transition:.18s}' +
+          '#srch:hover{color:#fff;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.04)}' +
+          '#srch span{white-space:nowrap;letter-spacing:.01em}' +
+          '#srch kbd{font:500 10.5px/1 Inter,system-ui,sans-serif;letter-spacing:.02em;white-space:nowrap;' +
+            'color:#8d8a87;background:none;border:0;padding:0}' +
         '}' +
         '#wel p{margin-top:9px!important;font-size:clamp(12.5px,1.6vh,14px)!important}' +
         /* phones: the quick-prompt chips take ~90px of the dock, so the orb gives way
