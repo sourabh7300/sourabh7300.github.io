@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="520e83bfdc85"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="566c9b864047"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7456,7 +7456,9 @@ function makeQR(text) {
          to what the same look needs at this size (3400 / 1600), and each particle is
          a cached radial sprite drawn with 'lighter' — the blend the shader uses. */
       var ORB_N = 0, ORB_PTS = [], SPRITES = {}, TINTS = null;
-      function orbCount(){ return window.innerWidth < 640 ? 1600 : 3400; }
+      /* 5.3ms/frame at 3400 on a 236px canvas, so 6000 still fits inside a 16ms frame;
+         the portfolio pushes 34k in WebGL, this is the densest Canvas2D can afford */
+      function orbCount(){ return window.innerWidth < 640 ? 2800 : 6000; }
       function buildOrb(){
         var n = orbCount();
         ORB_PTS = [];
@@ -7476,7 +7478,7 @@ function makeQR(text) {
       }
       buildOrb();
       window.addEventListener('resize', function(){
-        if(Math.abs(orbCount() - ORB_N) > 400) buildOrb();
+        if(Math.abs(orbCount() - ORB_N) > 600) buildOrb();
       });
 
       function spriteFor(rgb){
@@ -7546,7 +7548,7 @@ function makeQR(text) {
         var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
         var FOV = 3.0;
         var tints = tintLadder();
-        var px = Math.max(1.1, base * 0.0125);
+        var px = Math.max(0.9, base * 0.0086);          /* finer grain: 34k points are dust, not blobs */
 
         ctx.globalCompositeOperation = 'lighter';
         for(var i = 0; i < ORB_PTS.length; i++){
@@ -7568,7 +7570,7 @@ function makeQR(text) {
           var speck = p.s > 0.975;
           var sz = px * (0.55 + depth * 1.45) * (0.75 + p.s * 0.5) * persp;
           if(speck) { sz *= 2.1; tint = 5; }
-          ctx.globalAlpha = (0.30 + depth * 0.55) * (speck ? 1 : 0.9);
+          ctx.globalAlpha = (0.26 + depth * 0.52) * (speck ? 1 : 0.86);
           var spr = tints[tint];
           ctx.drawImage(spr, sx - sz, sy - sz, sz * 2, sz * 2);
         }
