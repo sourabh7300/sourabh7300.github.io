@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="6765c48c2f9c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="90b2db4452a0"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3776,6 +3776,68 @@ function makeQR(text) {
       holder.appendChild(row);
       document.getElementById('auraTourAgain').onclick = function(){ window.__auraTour(); };
     }, 900);
+    /* Orb colour: the welcome orb and the chat particles. Mood keeps the motion. */
+    setTimeout(function(){
+      try{
+        var pan = document.getElementById('p-set');
+        if(!pan || document.getElementById('auraOrbRow')) return;
+        var holder = pan.querySelector('.sc') || pan;
+        var row = document.createElement('div');
+        row.id = 'auraOrbRow';
+        row.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)';
+        var head = document.createElement('div');
+        head.textContent = 'Orb colour \u00b7 welcome core and particles';
+        row.appendChild(head);
+        var wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;gap:9px;flex-wrap:wrap;margin-top:10px';
+        var LIST = [
+          ['auto', 'Auto (mood)', 'conic-gradient(from 0deg,#78c8ff,#ffba54,#ac8aff,#ff7eb0,#60e8ba,#78c8ff)'],
+          ['cyan', 'Cyan', '#78c8ff'], ['gold', 'Gold', '#ffba54'], ['violet', 'Violet', '#ac8aff'],
+          ['rose', 'Rose', '#ff7eb0'], ['emerald', 'Emerald', '#60e8ba'], ['mono', 'Mono', '#dee9f5']
+        ];
+        function paint(){
+          var now = (window.AURA_CORE && window.AURA_CORE.orb) ? window.AURA_CORE.orb() : 'auto';
+          [].forEach.call(wrap.children, function(b){
+            var on = b.getAttribute('data-orb') === now;
+            b.style.borderColor = on ? '#ffffff' : 'rgba(255,255,255,.18)';
+            b.style.boxShadow = on ? '0 0 0 3px rgba(120,215,255,.28)' : 'none';
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          });
+        }
+        LIST.forEach(function(it){
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.setAttribute('data-orb', it[0]);
+          b.setAttribute('aria-label', it[1] + ' orb');
+          b.style.cssText = 'width:32px;height:32px;border-radius:50%;cursor:pointer;background:' + it[2] + ';' +
+            'border:2px solid rgba(255,255,255,.18);padding:0';
+          b.onclick = function(){
+            if(window.AURA_CORE && window.AURA_CORE.orb) window.AURA_CORE.orb(it[0]);
+            paint();
+            try{ tell('Orb colour \u00b7 ' + it[1]); }catch(e){}
+          };
+          wrap.appendChild(b);
+        });
+        row.appendChild(wrap);
+        holder.appendChild(row);
+        paint();
+      }catch(e){}
+    }, 1100);
+
+    /* phones: Code Forge needs a keyboard and a big sandbox — keep it for the laptop */
+    try{
+      (function mobileTrim(){
+        function trim(){
+          if(window.innerWidth >= 900) return;
+          [].forEach.call(document.querySelectorAll('#tools .at-card'), function(b){
+            if(/code forge/i.test(b.textContent || '')) b.remove();
+          });
+        }
+        var host = document.getElementById('plusmenu');
+        new MutationObserver(trim).observe(host || document.body, { childList: true, subtree: true });
+      })();
+    }catch(e){}
+
     /* Sound: one switch that silences everything AURA can make — spoken answers,
        mesh speech and any media it started (owner ask, 16 Nov). */
     setTimeout(function(){
@@ -5241,7 +5303,13 @@ function makeQR(text) {
             'background:rgba(0,0,0,.12)}' +
           '#tools .at-foot kbd{font:600 10px/1 Inter,system-ui,sans-serif;color:#8ea3b4;background:rgba(255,255,255,.06);' +
             'border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 4px;margin-right:3px}' +
-          '@media(max-width:900px){#plusmenu{width:min(340px,calc(100vw - 20px))!important}}' +
+          /* phones: the panel was anchored to the + button, so half of it sat outside
+             the screen — every row was cut off at the right edge. It is a bottom
+             sheet now: full width minus 10px a side, above the composer. */
+          '@media(max-width:900px){#plusmenu{position:fixed!important;left:10px!important;right:10px!important;top:auto!important;' +
+            'bottom:88px!important;width:auto!important;max-width:520px!important;margin:0 auto!important;' +
+            'transform:none!important;max-height:min(66vh,540px)!important}}' +
+          '@media(max-width:900px){#plusbtn{width:40px!important;height:40px!important;font-size:19px!important}}' +
           '@media(prefers-reduced-motion:reduce){#tools *{transition:none!important;animation:none!important}}';
         document.head.appendChild(st);
       }
@@ -6989,6 +7057,27 @@ function makeQR(text) {
         happy:    { spin: 1.25, pulse: 1.5,  turb: 1.3,  c: [[255,196,92], [255,238,176],[255,214,132],[255,148,58],[255,198,110]] },
         stressed: { spin: 0.42, pulse: 0.5,  turb: 0.5,  c: [[70,178,236], [138,233,255],[110,222,255],[38,128,196],[70,178,236]] }
       };
+      /* A fixed colour the user picks in Settings. It replaces the palette's colours
+         and leaves mood to drive only motion (spin, pulse, turbulence), so "violet"
+         stays violet while a smile still makes it move faster. */
+      var ORB_THEMES = {
+        cyan:    { deep: [120, 200, 255], hot: [190, 245, 255] },
+        gold:    { deep: [255, 186,  84], hot: [255, 236, 170] },
+        violet:  { deep: [172, 138, 255], hot: [228, 208, 255] },
+        rose:    { deep: [255, 126, 176], hot: [255, 208, 228] },
+        emerald: { deep: [ 96, 232, 186], hot: [186, 255, 232] },
+        mono:    { deep: [206, 220, 236], hot: [255, 255, 255] }
+      };
+      var orbName = 'auto';
+      try{ orbName = localStorage.getItem('aura_orb') || 'auto'; }catch(e){}
+      if(orbName !== 'auto' && !ORB_THEMES[orbName]) orbName = 'auto';
+      function setOrb(n){
+        orbName = (n === 'auto' || ORB_THEMES[n]) ? n : 'auto';
+        try{ localStorage.setItem('aura_orb', orbName); }catch(e){}
+        try{ if(window.__auraIrisDraw) window.__auraIrisDraw(16); }catch(e){}
+        return orbName;
+      }
+
       var moodName = 'neutral';
       var moodTarget = MOODS.neutral;
       var moodFrom = { spin: 1, pulse: 1, turb: 1, c: MOODS.neutral.c.map(function(a){ return a.slice(); }) };
@@ -7063,12 +7152,17 @@ function makeQR(text) {
         mood: function(kind){ return setMood(kind); },
         /* read-only view for the gesture module and for headless checks */
         moodName: function(){ return moodName; },
+        /* orb colour: read it, or pass a name to set one */
+        orb: function(n){ return arguments.length ? setOrb(n) : orbName; },
         palette: function(){
           easeMood();
           var r3 = function(a){ return [Math.round(a[0]), Math.round(a[1]), Math.round(a[2])]; };
-          return { name: moodName, spin: +moodNow.spin.toFixed(2), pulse: +moodNow.pulse.toFixed(2),
-                   turb: +moodNow.turb.toFixed(2), deep: r3(moodNow.c[0]), hot: r3(moodNow.c[1]),
-                   ring: r3(moodNow.c[4]) };
+          var th = ORB_THEMES[orbName];
+          return { name: moodName, orb: orbName, spin: +moodNow.spin.toFixed(2), pulse: +moodNow.pulse.toFixed(2),
+                   turb: +moodNow.turb.toFixed(2),
+                   deep: th ? th.deep.slice() : r3(moodNow.c[0]),
+                   hot:  th ? th.hot.slice()  : r3(moodNow.c[1]),
+                   ring: th ? th.deep.slice() : r3(moodNow.c[4]) };
         }
       };
 
@@ -7298,150 +7392,142 @@ function makeQR(text) {
         level();
         readMood();
         /* the welcome block is laid out after this script runs, so the canvas was
-           being sized at 0×0 and stayed a 1 px invisible dot — re-measure here */
+           being sized at 0x0 and stayed a 1 px invisible dot — re-measure here */
         if(cv.width < 12 || cv.height < 12) size();
         t += dt * 0.001 * mood.pulse;
         var w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
-        var R = Math.min(w, h) * 0.37 * (1 + ex * 0.04 + amp * 0.22);
+        var base = Math.min(w, h);
+        var R = base * 0.30 * (1 + ex * 0.035 + amp * 0.16);
+        var sp = spinFactor();
         ctx.clearRect(0, 0, w, h);
 
-        /* ---- the light the core throws on the dark ---- */
-        /* the glow must reach zero by the canvas edge, otherwise the clip draws a
-           visible square around the light */
-        var maxR = Math.min(w, h) / 2;
-        var bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, maxR);
-        bloom.addColorStop(0, mix(130,225,255) + (0.20 + amp * 0.22 + ex * 0.10).toFixed(3) + ')');
-        bloom.addColorStop(0.42, mix(95,150,255) + '0.075)');
-        bloom.addColorStop(0.76, mix(140,110,255) + '0.025)');
-        bloom.addColorStop(1, mix(90,120,255) + '0)');
+        /* ---- halo: the light the core throws into the dark room ---- */
+        var maxR = base / 2;
+        var bloom = ctx.createRadialGradient(cx, cy, R * 0.45, cx, cy, maxR);
+        bloom.addColorStop(0, mix(140, 220, 255) + (0.24 + amp * 0.20 + ex * 0.10).toFixed(3) + ')');
+        bloom.addColorStop(0.34, mix(100, 160, 255) + '0.10)');
+        bloom.addColorStop(0.70, mix(120, 120, 255) + '0.035)');
+        bloom.addColorStop(1, mix(90, 120, 255) + '0)');
         ctx.fillStyle = bloom;
         ctx.beginPath(); ctx.arc(cx, cy, maxR, 0, Math.PI * 2); ctx.fill();
 
-        /* ---- dust: a tilted veil, two temperatures, each mote twinkling ---- */
+        /* ---- orbits: two tilted rings, drawn in depth order so the sphere sits
+                inside them instead of on top of them ---- */
+        var ORB = [
+          { rad: R * 1.62, tilt: 0.30, speed: 0.34, phase: 0.0, alpha: 0.55, motes: 5 },
+          { rad: R * 1.26, tilt: -0.66, speed: -0.26, phase: 1.15, alpha: 0.42, motes: 4 }
+        ];
+        /* an orbit point in 3D: angle -> (screen x, screen y, depth) */
+        function orbitPoint(o, a){
+          var x = Math.cos(a) * o.rad, z = Math.sin(a) * o.rad;
+          var rot = t * o.speed * sp + o.phase;
+          var rx = x * Math.cos(rot) - z * Math.sin(rot);
+          var rz = x * Math.sin(rot) + z * Math.cos(rot);
+          return { x: cx + rx, y: cy + rz * Math.abs(o.tilt) * 1.9, z: rz, sign: o.tilt < 0 ? -1 : 1 };
+        }
+        function drawOrbit(o, front){
+          var SEG = 64;
+          for(var i = 0; i < SEG; i++){
+            var a0 = (i / SEG) * Math.PI * 2, a1 = ((i + 1) / SEG) * Math.PI * 2;
+            var p0 = orbitPoint(o, a0), p1 = orbitPoint(o, a1);
+            var depth = (p0.z + p1.z) / (2 * o.rad);         /* -1 back .. 1 front */
+            var isFront = depth > 0;
+            if(isFront !== front) continue;
+            var k = front ? (0.35 + depth * 0.65) : (0.30 - depth * 0.28);
+            var alpha = o.alpha * Math.max(0.05, k) * 0.55;
+            ctx.strokeStyle = mix(150, 225, 255) + alpha.toFixed(3) + ')';
+            ctx.lineWidth = Math.max(0.6, base * (front ? 0.0035 : 0.0022));
+            ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+          }
+          if(!front) return;
+          /* motes ride the ring, bigger and brighter as they come forward */
+          for(var m = 0; m < o.motes; m++){
+            var pm = orbitPoint(o, t * 0.6 * o.speed + (m / o.motes) * Math.PI * 2 + o.phase);
+            var d = pm.z / o.rad;
+            var rr = Math.max(0.8, base * 0.006 * (1 + d * 0.5));
+            var al = 0.20 + Math.max(0, d) * 0.65;
+            var gg = ctx.createRadialGradient(pm.x, pm.y, 0, pm.x, pm.y, rr * 3.4);
+            gg.addColorStop(0, mix(200, 245, 255, true) + al.toFixed(2) + ')');
+            gg.addColorStop(1, mix(120, 200, 255, true) + '0)');
+            ctx.fillStyle = gg;
+            ctx.beginPath(); ctx.arc(pm.x, pm.y, rr * 3.4, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        ORB.forEach(function(o){ drawOrbit(o, false); });
+
+        /* ---- the sphere itself: a lit glass ball, not a flat gradient ---- */
+        var body = ctx.createRadialGradient(cx - R * 0.36, cy - R * 0.42, R * 0.06, cx + R * 0.10, cy + R * 0.16, R * 1.06);
+        body.addColorStop(0, mix(226, 248, 255, true) + '0.97)');
+        body.addColorStop(0.28, mix(150, 220, 255, true) + '0.80)');
+        body.addColorStop(0.62, mix(80, 165, 235) + '0.52)');
+        body.addColorStop(0.88, mix(34, 96, 168) + '0.34)');
+        body.addColorStop(1, mix(12, 34, 62) + '0.16)');
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+
+        /* the equator band, clipped so it wraps the ball */
+        ctx.save();
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.985, 0, Math.PI * 2); ctx.clip();
+        ctx.strokeStyle = mix(190, 240, 255, true) + '0.30)';
+        ctx.lineWidth = Math.max(1, R * 0.045);
+        ctx.beginPath(); ctx.ellipse(cx, cy + R * 0.06, R * 1.02, R * 0.22, 0, 0, Math.PI * 2); ctx.stroke();
+        /* a soft shadow under the band gives the ball its roundness */
+        var shade = ctx.createLinearGradient(cx, cy - R, cx, cy + R);
+        shade.addColorStop(0, 'rgba(0,0,0,0)');
+        shade.addColorStop(0.62, 'rgba(0,0,0,0)');
+        shade.addColorStop(1, 'rgba(0,10,25,0.35)');
+        ctx.fillStyle = shade;
+        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        /* rim light: bright where the light enters, gone on the far side */
+        var rim = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
+        rim.addColorStop(0, mix(230, 250, 255, true) + '0.85)');
+        rim.addColorStop(0.45, mix(150, 225, 255, true) + '0.18)');
+        rim.addColorStop(1, mix(120, 190, 255) + '0.05)');
+        ctx.strokeStyle = rim;
+        ctx.lineWidth = Math.max(1, R * 0.035);
+        ctx.beginPath(); ctx.arc(cx, cy, R * 0.985, 0, Math.PI * 2); ctx.stroke();
+
+        /* the core: a small bright heart that breathes */
+        var pulse = 1 + Math.sin(t * 2.4) * 0.06 * (mood.turb || 1);
+        var cr = R * 0.30 * pulse;
+        var core = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr);
+        core.addColorStop(0, mix(255, 255, 255, true) + '0.95)');
+        core.addColorStop(0.35, mix(200, 245, 255, true) + '0.55)');
+        core.addColorStop(1, mix(140, 220, 255, true) + '0)');
+        ctx.fillStyle = core;
+        ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.fill();
+
+        /* specular highlight — the one thing that reads as "sphere" to the eye */
+        ctx.save();
+        ctx.translate(cx - R * 0.34, cy - R * 0.40);
+        ctx.rotate(-0.62);
+        var spec = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.30);
+        spec.addColorStop(0, 'rgba(255,255,255,0.85)');
+        spec.addColorStop(0.45, 'rgba(230,250,255,0.35)');
+        spec.addColorStop(1, 'rgba(230,250,255,0)');
+        ctx.fillStyle = spec;
+        ctx.beginPath(); ctx.ellipse(0, 0, R * 0.30, R * 0.17, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+
+        ORB.forEach(function(o){ drawOrbit(o, true); });
+
+        /* a slow veil of dust around everything, so the orb sits in space */
         for(var i = 0; i < dust.length; i++){
           var p = dust[i];
-          var a = p.a + t * p.sp * spinFactor();
-          var wob = Math.sin(t * 1.6 + p.w) * 0.03 * mood.turb;
-          var rr = R * (p.r + wob + ex * 0.05);
-          var z = Math.sin(a) * rr;
-          var x = Math.cos(a) * rr;
-          var y = z * 0.30;
-          var per = 2.6 / (2.6 + z / R);
-          var tw = 0.55 + 0.45 * Math.sin(t * 2.1 + p.w * 4);
-          var alpha = (0.09 + (z < 0 ? 0.32 : 0.05) + amp * 0.10) * tw;
-          ctx.beginPath();
-          ctx.arc(cx + x * per, cy + y * per, Math.max(0.35, p.s * per * dpr * 0.7), 0, Math.PI * 2);
-          ctx.fillStyle = (i % 6 === 0 ? mix(186,170,255, true) : mix(150,225,255)) + Math.min(0.85, alpha).toFixed(3) + ')';
-          ctx.fill();
+          var a = p.a + t * p.sp * 0.45 * (sp || 0.15);
+          var wob = Math.sin(t * 1.3 + p.w) * 0.05 * mood.turb;
+          var rr = R * (1.55 + p.r * 0.7 + wob);
+          var z = Math.sin(a) * rr, x = Math.cos(a) * rr;
+          var y = z * 0.34;
+          var tw = 0.5 + 0.5 * Math.sin(t * 1.7 + p.w * 3.1);
+          var al = (0.05 + (z < 0 ? 0.16 : 0.02)) * tw;
+          ctx.fillStyle = mix(180, 235, 255) + al.toFixed(3) + ')';
+          ctx.beginPath(); ctx.arc(cx + x, cy + y, p.s * dpr * 0.65, 0, Math.PI * 2); ctx.fill();
         }
 
-        /* ---- hair-thin filaments reaching from the outer ring to the core ---- */
-        var spokes = 7;
-        for(var f = 0; f < spokes; f++){
-          var fa = t * 0.22 * spinFactor() + f * (Math.PI * 2 / spokes);
-          var fr = R * 0.98;
-          ctx.beginPath();
-          ctx.moveTo(cx, cy);
-          ctx.quadraticCurveTo(
-            cx + Math.cos(fa) * fr * 0.45, cy + Math.sin(fa) * fr * 0.16,
-            cx + Math.cos(fa) * fr, cy + Math.sin(fa) * fr * 0.42
-          );
-          ctx.strokeStyle = mix(120,210,255) + (0.035 + ex * 0.05 + amp * 0.03).toFixed(3) + ')';
-          ctx.lineWidth = 0.7 * dpr;
-          ctx.stroke();
-        }
-
-        /* ---- three tilted rings, alternating cyan and violet ---- */
-        for(var k = 0; k < 3; k++){
-          var rx = R * (0.60 + k * 0.17);
-          var ry = rx * (0.20 + k * 0.055);
-          var rot = t * (0.28 + k * 0.16) * (k % 2 ? -1 : 1) * spinFactor();
-          var tone = k === 1 ? mix(182,164,255, true) : mix(130,220,255);
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.rotate(-0.42 + k * 0.42 + rot * 0.25);
-          for(var seg = 0; seg < 2; seg++){
-            ctx.beginPath();
-            ctx.ellipse(0, 0, rx, ry, 0, seg * Math.PI + rot, seg * Math.PI + rot + Math.PI * 0.86);
-            ctx.strokeStyle = tone + (0.10 + k * 0.05 + ex * 0.05).toFixed(3) + ')';
-            ctx.lineWidth = (0.8 + (2 - k) * 0.35) * dpr;
-            ctx.stroke();
-          }
-          /* one bright arc that travels around the ring */
-          var ha = rot * 1.7;
-          ctx.beginPath();
-          ctx.ellipse(0, 0, rx, ry, 0, ha, ha + 0.55);
-          ctx.strokeStyle = mix(235,250,255, true) + (0.38 + ex * 0.25).toFixed(3) + ')';
-          ctx.lineWidth = 1.5 * dpr;
-          ctx.stroke();
-          ctx.restore();
-        }
-
-        /* ---- the iris: a wide aura, a bright lens, a white heart ---- */
-        var ih = R * 1.52 * (1 + ex * 0.02 + amp * 0.06);
-        var iw = R * 0.30 * (1 + ex * 0.10 + amp * 0.35);
-        function lensPath(ww, hh){
-          ctx.beginPath();
-          ctx.moveTo(cx, cy - hh / 2);
-          ctx.bezierCurveTo(cx + ww, cy - hh * 0.18, cx + ww, cy + hh * 0.18, cx, cy + hh / 2);
-          ctx.bezierCurveTo(cx - ww, cy + hh * 0.18, cx - ww, cy - hh * 0.18, cx, cy - hh / 2);
-          ctx.closePath();
-        }
-        lensPath(iw * 2.3, ih);
-        var auraG = ctx.createLinearGradient(cx, cy - ih / 2, cx, cy + ih / 2);
-        auraG.addColorStop(0, mix(140,220,255) + '0)');
-        auraG.addColorStop(0.45, mix(150,225,255) + (0.15 + amp * 0.16 + ex * 0.05).toFixed(3) + ')');
-        auraG.addColorStop(0.55, mix(140,200,255) + (0.15 + amp * 0.16 + ex * 0.05).toFixed(3) + ')');
-        auraG.addColorStop(1, mix(140,220,255) + '0)');
-        ctx.fillStyle = auraG;
-        ctx.fill();
-
-        lensPath(iw, ih);
-        var g = ctx.createLinearGradient(cx, cy - ih / 2, cx, cy + ih / 2);
-        g.addColorStop(0, mix(190,245,255, true) + '0)');
-        g.addColorStop(0.26, mix(150,235,255, true) + (0.50 + amp * 0.20).toFixed(3) + ')');
-        g.addColorStop(0.48, mix(245,253,255, true) + '0.96)');
-        g.addColorStop(0.54, mix(226,250,255, true) + '0.98)');
-        g.addColorStop(0.68, mix(150,220,255, true) + '0.75)');
-        g.addColorStop(0.88, mix(150,160,255) + '0.22)');
-        g.addColorStop(1, mix(150,160,255) + '0)');
-        ctx.fillStyle = g;
-        ctx.shadowColor = mix(140,225,255) + (0.75 + amp * 0.2).toFixed(2) + ')';
-        ctx.shadowBlur = 28 * dpr;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        /* the heart of the lens */
-        var sparkR = R * 0.20 * (1 + amp * 0.45 + ex * 0.10);
-        var spark = ctx.createRadialGradient(cx, cy, 0, cx, cy, sparkR);
-        spark.addColorStop(0, 'rgba(255,255,255,0.95)');
-        spark.addColorStop(0.32, mix(198,245,255, true) + '0.55)');
-        spark.addColorStop(1, mix(120,200,255) + '0)');
-        ctx.fillStyle = spark;
-        ctx.beginPath(); ctx.arc(cx, cy, sparkR, 0, Math.PI * 2); ctx.fill();
-
-        /* specular hairline so the lens reads as glass, not a glowing blob */
-        ctx.beginPath();
-        ctx.moveTo(cx - iw * 0.30, cy - ih * 0.26);
-        ctx.quadraticCurveTo(cx - iw * 0.62, cy, cx - iw * 0.30, cy + ih * 0.26);
-        ctx.strokeStyle = 'rgba(255,255,255,0.30)';
-        ctx.lineWidth = 1.1 * dpr;
-        ctx.stroke();
-
-        /* a breath on every message / voiced word */
-        if(ex > 0.3){
-          for(var pr = 0; pr < 2; pr++){
-            var rp = R * (0.72 + (2.4 - ex) * 0.40 + pr * 0.16);
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, rp, rp * 0.42, 0, 0, Math.PI * 2);
-            ctx.strokeStyle = mix(190,240,255, true) + Math.min(0.40, ex * 0.20 / (pr + 1)).toFixed(3) + ')';
-            ctx.lineWidth = (1.4 - pr * 0.4) * dpr;
-            ctx.stroke();
-          }
-        }
-        ex *= 0.94; amp *= 0.94;
-
-        painted = 1;
+        if(!once) painted = 1;
       }
 
       /* paint exactly one frame on demand — used when the tab comes back from being
