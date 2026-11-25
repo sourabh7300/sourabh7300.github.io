@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="4de2f5fe7fc0"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="0feaccb7e1df"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7424,146 +7424,144 @@ function makeQR(text) {
       }
       function spinFactor(){ return mood.frozen ? 0 : mood.spin; }
 
+      /* ---------------- the orb: a particle sphere, hand-projected ----------
+         Points on a Fibonacci sphere (even spacing, no clumps), rotated on Y and
+         gently on X, projected with a real perspective divide so the far side
+         shrinks and dims. This is the look the reference core has: it drifts and
+         turns while you look at it, instead of sitting still like a lit ball. */
+      var SPHERE = [], CLOUD = [], cloudSeed = 0;
+      function buildPoints(){
+        var n = window.innerWidth < 520 ? 460 : 820;
+        SPHERE = [];
+        var ga = Math.PI * (3 - Math.sqrt(5));
+        for(var i = 0; i < n; i++){
+          var y = 1 - (i / (n - 1)) * 2;
+          var r = Math.sqrt(Math.max(0, 1 - y * y));
+          var a = ga * i;
+          SPHERE.push({ x: Math.cos(a) * r, y: y, z: Math.sin(a) * r, w: 0.55 + Math.random() * 0.9 });
+        }
+        /* a thin outer cloud gives the sphere an atmosphere it can rotate through */
+        CLOUD = [];
+        var m = window.innerWidth < 520 ? 40 : 80;
+        for(var j = 0; j < m; j++){
+          var u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
+          var rr = Math.sqrt(Math.max(0, 1 - u * u));
+          var rad = 1.18 + Math.random() * 0.42;
+          CLOUD.push({ x: Math.cos(th) * rr * rad, y: u * rad, z: Math.sin(th) * rr * rad, w: 0.4 + Math.random() * 0.7 });
+        }
+        cloudSeed = Math.random() * 100;
+      }
+      buildPoints();
+      window.addEventListener('resize', function(){
+        var want = window.innerWidth < 520 ? 460 : 820;
+        if(Math.abs(want - SPHERE.length) > 120) buildPoints();
+      });
+
       function draw(dt, once){
         level();
         readMood();
-        /* the welcome block is laid out after this script runs, so the canvas was
-           being sized at 0x0 and stayed a 1 px invisible dot — re-measure here */
         if(cv.width < 12 || cv.height < 12) size();
         t += dt * 0.001 * mood.pulse;
         var w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
         var base = Math.min(w, h);
-        var R = base * 0.30 * (1 + ex * 0.035 + amp * 0.16);
-        var sp = spinFactor();
+        var R = base * 0.315 * (1 + ex * 0.05 + amp * 0.18);
+        var sp = mood.frozen ? 0 : (mood.spin || 1);
+        var turb = mood.turb || 1;
         ctx.clearRect(0, 0, w, h);
 
-        /* ---- halo: the light the core throws into the dark room ---- */
+        /* ---- the light the sphere sits in ---- */
         var maxR = base / 2;
-        var bloom = ctx.createRadialGradient(cx, cy, R * 0.45, cx, cy, maxR);
-        bloom.addColorStop(0, mix(140, 220, 255) + (0.24 + amp * 0.20 + ex * 0.10).toFixed(3) + ')');
-        bloom.addColorStop(0.34, mix(100, 160, 255) + '0.10)');
-        bloom.addColorStop(0.70, mix(120, 120, 255) + '0.035)');
+        var bloom = ctx.createRadialGradient(cx, cy, R * 0.25, cx, cy, maxR);
+        bloom.addColorStop(0, mix(150, 225, 255) + (0.20 + amp * 0.18 + ex * 0.10).toFixed(3) + ')');
+        bloom.addColorStop(0.30, mix(105, 165, 255) + '0.09)');
+        bloom.addColorStop(0.68, mix(120, 120, 255) + '0.03)');
         bloom.addColorStop(1, mix(90, 120, 255) + '0)');
         ctx.fillStyle = bloom;
         ctx.beginPath(); ctx.arc(cx, cy, maxR, 0, Math.PI * 2); ctx.fill();
 
-        /* ---- orbits: two tilted rings, drawn in depth order so the sphere sits
-                inside them instead of on top of them ---- */
-        var ORB = [
-          { rad: R * 1.62, tilt: 0.30, speed: 0.34, phase: 0.0, alpha: 0.55, motes: 5 },
-          { rad: R * 1.26, tilt: -0.66, speed: -0.26, phase: 1.15, alpha: 0.42, motes: 4 }
+        /* ---- two orbit rings, turning with the sphere ---- */
+        var rings = [
+          { rad: 1.34, tiltX: 0.42, roll: t * 0.22 * sp, squash: 0.30, alpha: 0.30 },
+          { rad: 1.12, tiltX: -0.55, roll: -t * 0.17 * sp + 0.9, squash: 0.24, alpha: 0.22 }
         ];
-        /* an orbit point in 3D: angle -> (screen x, screen y, depth) */
-        function orbitPoint(o, a){
-          var x = Math.cos(a) * o.rad, z = Math.sin(a) * o.rad;
-          var rot = t * o.speed * sp + o.phase;
-          var rx = x * Math.cos(rot) - z * Math.sin(rot);
-          var rz = x * Math.sin(rot) + z * Math.cos(rot);
-          return { x: cx + rx, y: cy + rz * Math.abs(o.tilt) * 1.9, z: rz, sign: o.tilt < 0 ? -1 : 1 };
-        }
-        function drawOrbit(o, front){
-          var SEG = 64;
-          for(var i = 0; i < SEG; i++){
-            var a0 = (i / SEG) * Math.PI * 2, a1 = ((i + 1) / SEG) * Math.PI * 2;
-            var p0 = orbitPoint(o, a0), p1 = orbitPoint(o, a1);
-            var depth = (p0.z + p1.z) / (2 * o.rad);         /* -1 back .. 1 front */
-            var isFront = depth > 0;
-            if(isFront !== front) continue;
-            var k = front ? (0.35 + depth * 0.65) : (0.30 - depth * 0.28);
-            var alpha = o.alpha * Math.max(0.05, k) * 0.55;
-            ctx.strokeStyle = mix(150, 225, 255) + alpha.toFixed(3) + ')';
-            ctx.lineWidth = Math.max(0.6, base * (front ? 0.0035 : 0.0022));
+        for(var k = 0; k < rings.length; k++){
+          var o = rings[k];
+          var SEG = 72;
+          for(var s = 0; s < SEG; s++){
+            var a0 = (s / SEG) * Math.PI * 2, a1 = ((s + 1) / SEG) * Math.PI * 2;
+            var p0 = ringPoint(o, a0, cx, cy, R), p1 = ringPoint(o, a1, cx, cy, R);
+            var front = (p0.z + p1.z) > 0;
+            ctx.strokeStyle = mix(160, 225, 255) + (front ? o.alpha * 0.9 : o.alpha * 0.35).toFixed(2) + ')';
+            ctx.lineWidth = Math.max(0.5, base * (front ? 0.0030 : 0.0018));
             ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
           }
-          if(!front) return;
-          /* motes ride the ring, bigger and brighter as they come forward */
-          for(var m = 0; m < o.motes; m++){
-            var pm = orbitPoint(o, t * 0.6 * o.speed + (m / o.motes) * Math.PI * 2 + o.phase);
-            var d = pm.z / o.rad;
-            var rr = Math.max(0.8, base * 0.006 * (1 + d * 0.5));
-            var al = 0.20 + Math.max(0, d) * 0.65;
-            var gg = ctx.createRadialGradient(pm.x, pm.y, 0, pm.x, pm.y, rr * 3.4);
-            gg.addColorStop(0, mix(200, 245, 255, true) + al.toFixed(2) + ')');
-            gg.addColorStop(1, mix(120, 200, 255, true) + '0)');
-            ctx.fillStyle = gg;
-            ctx.beginPath(); ctx.arc(pm.x, pm.y, rr * 3.4, 0, Math.PI * 2); ctx.fill();
-          }
         }
-        ORB.forEach(function(o){ drawOrbit(o, false); });
 
-        /* ---- the sphere itself: a lit glass ball, not a flat gradient ---- */
-        var body = ctx.createRadialGradient(cx - R * 0.36, cy - R * 0.42, R * 0.06, cx + R * 0.10, cy + R * 0.16, R * 1.06);
-        body.addColorStop(0, mix(226, 248, 255, true) + '0.97)');
-        body.addColorStop(0.28, mix(150, 220, 255, true) + '0.80)');
-        body.addColorStop(0.62, mix(80, 165, 235) + '0.52)');
-        body.addColorStop(0.88, mix(34, 96, 168) + '0.34)');
-        body.addColorStop(1, mix(12, 34, 62) + '0.16)');
-        ctx.fillStyle = body;
-        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
+        /* ---- the sphere itself ---- */
+        var rotY = t * 0.30 * sp;
+        var rotX = Math.sin(t * 0.21) * 0.42 + Math.sin(t * 0.07) * 0.12;
+        var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+        var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+        var FOV = 3.1;                       /* camera distance, in sphere radii */
+        var scale = R;
 
-        /* the equator band, clipped so it wraps the ball */
-        ctx.save();
-        ctx.beginPath(); ctx.arc(cx, cy, R * 0.985, 0, Math.PI * 2); ctx.clip();
-        ctx.strokeStyle = mix(190, 240, 255, true) + '0.30)';
-        ctx.lineWidth = Math.max(1, R * 0.045);
-        ctx.beginPath(); ctx.ellipse(cx, cy + R * 0.06, R * 1.02, R * 0.22, 0, 0, Math.PI * 2); ctx.stroke();
-        /* a soft shadow under the band gives the ball its roundness */
-        var shade = ctx.createLinearGradient(cx, cy - R, cx, cy + R);
-        shade.addColorStop(0, 'rgba(0,0,0,0)');
-        shade.addColorStop(0.62, 'rgba(0,0,0,0)');
-        shade.addColorStop(1, 'rgba(0,10,25,0.35)');
-        ctx.fillStyle = shade;
-        ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
+        function project(p, wobble){
+          var x1 = p.x * cosY - p.z * sinY;
+          var z1 = p.x * sinY + p.z * cosY;
+          var y1 = p.y * cosX - z1 * sinX;
+          var z2 = p.y * sinX + z1 * cosX;
+          if(wobble){
+            var n = Math.sin(t * 1.3 + p.w * 9.1) * 0.02 * turb;
+            x1 += n; y1 += n * 0.7;
+          }
+          var persp = FOV / (FOV + z2);
+          return { x: cx + x1 * scale * persp, y: cy + y1 * scale * persp, z: z2, persp: persp };
+        }
 
-        /* rim light: bright where the light enters, gone on the far side */
-        var rim = ctx.createLinearGradient(cx - R, cy - R, cx + R, cy + R);
-        rim.addColorStop(0, mix(230, 250, 255, true) + '0.85)');
-        rim.addColorStop(0.45, mix(150, 225, 255, true) + '0.18)');
-        rim.addColorStop(1, mix(120, 190, 255) + '0.05)');
-        ctx.strokeStyle = rim;
-        ctx.lineWidth = Math.max(1, R * 0.035);
-        ctx.beginPath(); ctx.arc(cx, cy, R * 0.985, 0, Math.PI * 2); ctx.stroke();
+        var dot = Math.max(0.75, base * 0.0042);
+        ctx.globalCompositeOperation = 'lighter';
+        for(var i = 0; i < SPHERE.length; i++){
+          var q = project(SPHERE[i], true);
+          var depth = (1 - q.z) / 2;                       /* 0 back .. 1 front */
+          var alpha = 0.055 + Math.pow(depth, 1.7) * 0.85;
+          var size = dot * (0.45 + depth * 1.7) * SPHERE[i].w;
+          /* the front of the sphere takes the hot colour, the back stays deep */
+          var col = depth > 0.80 ? mix(225, 250, 255, true)
+                  : depth > 0.45 ? mix(150, 220, 255)
+                  : mix(70, 150, 235);
+          ctx.fillStyle = col + alpha.toFixed(3) + ')';
+          ctx.beginPath(); ctx.arc(q.x, q.y, size, 0, Math.PI * 2); ctx.fill();
+        }
+        for(var c = 0; c < CLOUD.length; c++){
+          var qc = project(CLOUD[c], true);
+          var d2 = (1 - qc.z) / 2;
+          var al = 0.03 + Math.pow(d2, 2) * 0.30;
+          ctx.fillStyle = mix(180, 235, 255) + al.toFixed(3) + ')';
+          ctx.beginPath(); ctx.arc(qc.x, qc.y, dot * 0.5, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalCompositeOperation = 'source-over';
 
-        /* the core: a small bright heart that breathes */
-        var pulse = 1 + Math.sin(t * 2.4) * 0.06 * (mood.turb || 1);
-        var cr = R * 0.30 * pulse;
+        /* ---- a core glow so the middle never looks hollow ---- */
+        var cr = R * 0.52;
         var core = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr);
-        core.addColorStop(0, mix(255, 255, 255, true) + '0.95)');
-        core.addColorStop(0.35, mix(200, 245, 255, true) + '0.55)');
-        core.addColorStop(1, mix(140, 220, 255, true) + '0)');
+        core.addColorStop(0, mix(235, 250, 255, true) + '0.30)');
+        core.addColorStop(0.45, mix(170, 230, 255, true) + '0.10)');
+        core.addColorStop(1, mix(120, 200, 255, true) + '0)');
         ctx.fillStyle = core;
         ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.fill();
 
-        /* specular highlight — the one thing that reads as "sphere" to the eye */
-        ctx.save();
-        ctx.translate(cx - R * 0.34, cy - R * 0.40);
-        ctx.rotate(-0.62);
-        var spec = ctx.createRadialGradient(0, 0, 0, 0, 0, R * 0.30);
-        spec.addColorStop(0, 'rgba(255,255,255,0.85)');
-        spec.addColorStop(0.45, 'rgba(230,250,255,0.35)');
-        spec.addColorStop(1, 'rgba(230,250,255,0)');
-        ctx.fillStyle = spec;
-        ctx.beginPath(); ctx.ellipse(0, 0, R * 0.30, R * 0.17, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.restore();
-
-        ORB.forEach(function(o){ drawOrbit(o, true); });
-
-        /* a slow veil of dust around everything, so the orb sits in space */
-        for(var i = 0; i < dust.length; i++){
-          var p = dust[i];
-          var a = p.a + t * p.sp * 0.45 * (sp || 0.15);
-          var wob = Math.sin(t * 1.3 + p.w) * 0.05 * mood.turb;
-          var rr = R * (1.55 + p.r * 0.7 + wob);
-          var z = Math.sin(a) * rr, x = Math.cos(a) * rr;
-          var y = z * 0.34;
-          var tw = 0.5 + 0.5 * Math.sin(t * 1.7 + p.w * 3.1);
-          var al = (0.05 + (z < 0 ? 0.16 : 0.02)) * tw;
-          ctx.fillStyle = mix(180, 235, 255) + al.toFixed(3) + ')';
-          ctx.beginPath(); ctx.arc(cx + x, cy + y, p.s * dpr * 0.65, 0, Math.PI * 2); ctx.fill();
-        }
-
         if(!once) painted = 1;
+      }
+
+      /* an orbit ring point in screen space, with the same perspective divide */
+      function ringPoint(o, a, cx, cy, R){
+        var x = Math.cos(a) * o.rad, z = Math.sin(a) * o.rad;
+        var rx = x * Math.cos(o.roll) - z * Math.sin(o.roll);
+        var rz = x * Math.sin(o.roll) + z * Math.cos(o.roll);
+        var y = rz * Math.sin(o.tiltX);
+        var depth = rz * Math.cos(o.tiltX);
+        var persp = 3.1 / (3.1 + depth);
+        return { x: cx + rx * R * persp, y: cy + y * R * persp, z: depth };
       }
 
       /* paint exactly one frame on demand — used when the tab comes back from being
