@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="f4ae0d130263"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="520e83bfdc85"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7444,38 +7444,77 @@ function makeQR(text) {
       }
       function spinFactor(){ return mood.frozen ? 0 : mood.spin; }
 
-      /* ---------------- the orb: a particle sphere, hand-projected ----------
-         Points on a Fibonacci sphere (even spacing, no clumps), rotated on Y and
-         gently on X, projected with a real perspective divide so the far side
-         shrinks and dims. This is the look the reference core has: it drifts and
-         turns while you look at it, instead of sitting still like a lit ball. */
-      var SPHERE = [], CLOUD = [], cloudSeed = 0;
-      function buildPoints(){
-        var n = window.innerWidth < 640 ? 640 : 1180;
-        SPHERE = [];
+      /* ---------------- the orb: the portfolio's particle sphere ----------------
+         Matched against MyPortfolio/index.html, which draws its core with Three.js:
+           · a dense Fibonacci sphere (34,000 points on desktop, 12,000 on a phone)
+           · additive blending, round soft points, no lines, no rings
+           · per-particle wobble  p += vec3(sin, cos, sin) * .07
+           · rotation             P.rotation.y = time * .12
+           · colour               mix(c1, c2, y*.22+.5) plus a few bright specks
+           · point size           20 * dpr / -mv.z   (perspective divide)
+         Canvas2D cannot push 34k additive sprites at 60fps, so the count is scaled
+         to what the same look needs at this size (3400 / 1600), and each particle is
+         a cached radial sprite drawn with 'lighter' — the blend the shader uses. */
+      var ORB_N = 0, ORB_PTS = [], SPRITES = {}, TINTS = null;
+      function orbCount(){ return window.innerWidth < 640 ? 1600 : 3400; }
+      function buildOrb(){
+        var n = orbCount();
+        ORB_PTS = [];
         var ga = Math.PI * (3 - Math.sqrt(5));
         for(var i = 0; i < n; i++){
           var y = 1 - (i / (n - 1)) * 2;
           var r = Math.sqrt(Math.max(0, 1 - y * y));
           var a = ga * i;
-          SPHERE.push({ x: Math.cos(a) * r, y: y, z: Math.sin(a) * r, w: 0.55 + Math.random() * 0.9 });
+          ORB_PTS.push({
+            x: Math.cos(a) * r, y: y, z: Math.sin(a) * r,
+            s: Math.random(),                 /* size variance + speck flag */
+            w: Math.random() * 6.283          /* wobble phase */
+          });
         }
-        /* a thin outer cloud gives the sphere an atmosphere it can rotate through */
-        CLOUD = [];
-        var m = window.innerWidth < 640 ? 60 : 92;
-        for(var j = 0; j < m; j++){
-          var u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
-          var rr = Math.sqrt(Math.max(0, 1 - u * u));
-          var rad = 1.18 + Math.random() * 0.42;
-          CLOUD.push({ x: Math.cos(th) * rr * rad, y: u * rad, z: Math.sin(th) * rr * rad, w: 0.4 + Math.random() * 0.7 });
-        }
-        cloudSeed = Math.random() * 100;
+        ORB_N = n;
+        TINTS = null;                          /* palette may just have changed */
       }
-      buildPoints();
+      buildOrb();
       window.addEventListener('resize', function(){
-        var want = window.innerWidth < 640 ? 640 : 1180;
-        if(Math.abs(want - SPHERE.length) > 120) buildPoints();
+        if(Math.abs(orbCount() - ORB_N) > 400) buildOrb();
       });
+
+      function spriteFor(rgb){
+        var key = rgb.join(',');
+        if(SPRITES[key]) return SPRITES[key];
+        var c = document.createElement('canvas');
+        c.width = c.height = 32;
+        var g = c.getContext('2d');
+        var grd = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+        grd.addColorStop(0, 'rgba(' + key + ',1)');
+        grd.addColorStop(0.42, 'rgba(' + key + ',0.55)');
+        grd.addColorStop(1, 'rgba(' + key + ',0)');
+        g.fillStyle = grd;
+        g.fillRect(0, 0, 32, 32);
+        SPRITES[key] = c;
+        return c;
+      }
+      /* five tints from the deep colour to the hot one, like mix(c1, c2, vY) */
+      function tintLadder(){
+        var p = (window.AURA_CORE && window.AURA_CORE.palette) ? window.AURA_CORE.palette() : null;
+        var deep = (p && p.deep) || [120, 200, 255];
+        var hot = (p && p.hot) || [190, 245, 255];
+        var key = deep.join(',') + '|' + hot.join(',');
+        if(TINTS && TINTS.key === key) return TINTS.list;
+        var list = [];
+        for(var i = 0; i < 5; i++){
+          var k = i / 4;
+          var rgb = [
+            Math.round(deep[0] + (hot[0] - deep[0]) * k),
+            Math.round(deep[1] + (hot[1] - deep[1]) * k),
+            Math.round(deep[2] + (hot[2] - deep[2]) * k)
+          ];
+          list.push(spriteFor(rgb));
+        }
+        list.push(spriteFor([190, 255, 245]));      /* the specks, teal-white */
+        TINTS = { key: key, list: list };
+        return list;
+      }
 
       function draw(dt, once){
         level();
@@ -7484,118 +7523,59 @@ function makeQR(text) {
         t += dt * 0.001 * mood.pulse;
         var w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
         var base = Math.min(w, h);
-        var R = base * 0.315 * (1 + ex * 0.05 + amp * 0.18);
+        var R = base * 0.335 * (1 + ex * 0.05 + amp * 0.18);
         var sp = mood.frozen ? 0 : (mood.spin || 1);
         var turb = mood.turb || 1;
-        /* it drifts as well as turns, so it never looks pinned to the page */
-        cx += Math.sin(t * 0.37) * R * 0.035;
-        cy += Math.cos(t * 0.29) * R * 0.026;
         ctx.clearRect(0, 0, w, h);
 
-        /* ---- the light the sphere sits in ---- */
+        /* the glow the sphere sits in — the shader gets this from additive overlap,
+           a 2D canvas needs it painted first or the middle looks hollow */
         var maxR = base / 2;
-        var bloom = ctx.createRadialGradient(cx, cy, R * 0.25, cx, cy, maxR);
-        bloom.addColorStop(0, mix(150, 225, 255) + (0.20 + amp * 0.18 + ex * 0.10).toFixed(3) + ')');
-        bloom.addColorStop(0.30, mix(105, 165, 255) + '0.09)');
-        bloom.addColorStop(0.68, mix(120, 120, 255) + '0.03)');
+        var bloom = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, maxR);
+        bloom.addColorStop(0, mix(140, 220, 255) + (0.16 + amp * 0.16 + ex * 0.09).toFixed(3) + ')');
+        bloom.addColorStop(0.35, mix(105, 165, 255) + '0.07)');
+        bloom.addColorStop(0.72, mix(120, 120, 255) + '0.025)');
         bloom.addColorStop(1, mix(90, 120, 255) + '0)');
         ctx.fillStyle = bloom;
         ctx.beginPath(); ctx.arc(cx, cy, maxR, 0, Math.PI * 2); ctx.fill();
 
-        /* ---- two orbit rings, turning with the sphere ---- */
-        var rings = [
-          { rad: 1.34, tiltX: 0.42, roll: t * 0.22 * sp, squash: 0.30, alpha: 0.30 },
-          { rad: 1.12, tiltX: -0.55, roll: -t * 0.17 * sp + 0.9, squash: 0.24, alpha: 0.22 }
-        ];
-        for(var k = 0; k < rings.length; k++){
-          var o = rings[k];
-          var SEG = 72;
-          for(var s = 0; s < SEG; s++){
-            var a0 = (s / SEG) * Math.PI * 2, a1 = ((s + 1) / SEG) * Math.PI * 2;
-            var p0 = ringPoint(o, a0, cx, cy, R), p1 = ringPoint(o, a1, cx, cy, R);
-            var front = (p0.z + p1.z) > 0;
-            ctx.strokeStyle = mix(160, 225, 255) + (front ? o.alpha * 0.9 : o.alpha * 0.35).toFixed(2) + ')';
-            ctx.lineWidth = Math.max(0.5, base * (front ? 0.0030 : 0.0018));
-            ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
-          }
-        }
-
-        /* a limb glow: the sphere has an edge even though it is made of dots */
-        var shell = ctx.createRadialGradient(cx, cy, R * 0.25, cx, cy, R * 1.04);
-        shell.addColorStop(0, mix(120, 200, 255) + '0)');
-        shell.addColorStop(0.70, mix(110, 190, 255) + '0.030)');
-        shell.addColorStop(0.90, mix(170, 230, 255, true) + '0.085)');
-        shell.addColorStop(1, mix(140, 210, 255) + '0)');
-        ctx.fillStyle = shell;
-        ctx.beginPath(); ctx.arc(cx, cy, R * 1.04, 0, Math.PI * 2); ctx.fill();
-
-        /* ---- the sphere itself ---- */
-        var rotY = t * 0.30 * sp;
-        var rotX = Math.sin(t * 0.21) * 0.42 + Math.sin(t * 0.07) * 0.12;
+        /* rotation: y = time * .12 like the portfolio, x sways with the mood */
+        var rotY = t * 0.12 * sp;
+        var rotX = Math.sin(t * 0.19) * 0.26 * turb;
         var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
         var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
-        var FOV = 3.1;                       /* camera distance, in sphere radii */
-        var scale = R;
+        var FOV = 3.0;
+        var tints = tintLadder();
+        var px = Math.max(1.1, base * 0.0125);
 
-        function project(p, wobble){
-          var x1 = p.x * cosY - p.z * sinY;
-          var z1 = p.x * sinY + p.z * cosY;
-          var y1 = p.y * cosX - z1 * sinX;
-          var z2 = p.y * sinX + z1 * cosX;
-          if(wobble){
-            var n = Math.sin(t * 1.3 + p.w * 9.1) * 0.02 * turb;
-            x1 += n; y1 += n * 0.7;
-          }
-          var persp = FOV / (FOV + z2);
-          return { x: cx + x1 * scale * persp, y: cy + y1 * scale * persp, z: z2, persp: persp };
-        }
-
-        var dot = Math.max(0.55, base * 0.0031);
         ctx.globalCompositeOperation = 'lighter';
-        for(var i = 0; i < SPHERE.length; i++){
-          var q = project(SPHERE[i], true);
-          var depth = (1 - q.z) / 2;                       /* 0 back .. 1 front */
-          var twinkle = 0.82 + 0.18 * Math.sin(t * 2.1 + SPHERE[i].w * 11);
-          var alpha = (0.05 + Math.pow(depth, 1.45) * 0.95) * twinkle;
-          var size = dot * (0.50 + depth * 1.35) * SPHERE[i].w;
-          /* the front of the sphere takes the hot colour, the back stays deep */
-          var col = depth > 0.82 ? mix(210, 248, 255, true)
-                  : depth > 0.50 ? mix(120, 205, 255)
-                  : depth > 0.24 ? mix(60, 150, 240)
-                  : mix(35, 95, 190);
-          ctx.fillStyle = col + alpha.toFixed(3) + ')';
-          ctx.beginPath(); ctx.arc(q.x, q.y, size, 0, Math.PI * 2); ctx.fill();
+        for(var i = 0; i < ORB_PTS.length; i++){
+          var p = ORB_PTS[i];
+          /* wobble: p += vec3(sin, cos, sin) * .07, scaled by turbulence */
+          var wa = t * 1.25 + p.w * 6.28;
+          var wx = Math.sin(wa * 1.3 + p.y) * 0.07 * (0.4 + turb * 0.6);
+          var wy = Math.cos(wa + p.x) * 0.07 * (0.4 + turb * 0.6);
+          var x0 = p.x + wx, y0 = p.y + wy, z0 = p.z + Math.sin(wa * 0.9 + p.z) * 0.05 * turb;
+          var x1 = x0 * cosY - z0 * sinY;
+          var z1 = x0 * sinY + z0 * cosY;
+          var y1 = y0 * cosX - z1 * sinX;
+          var z2 = y0 * sinX + z1 * cosX;
+          var persp = FOV / (FOV + z2);
+          var sx = cx + x1 * R * persp;
+          var sy = cy + y1 * R * persp;
+          var depth = (1 - z2) / 2;                      /* 0 back .. 1 front */
+          var tint = depth > 0.80 ? 4 : depth > 0.58 ? 3 : depth > 0.36 ? 2 : depth > 0.16 ? 1 : 0;
+          var speck = p.s > 0.975;
+          var sz = px * (0.55 + depth * 1.45) * (0.75 + p.s * 0.5) * persp;
+          if(speck) { sz *= 2.1; tint = 5; }
+          ctx.globalAlpha = (0.30 + depth * 0.55) * (speck ? 1 : 0.9);
+          var spr = tints[tint];
+          ctx.drawImage(spr, sx - sz, sy - sz, sz * 2, sz * 2);
         }
-        for(var c = 0; c < CLOUD.length; c++){
-          var qc = project(CLOUD[c], true);
-          var d2 = (1 - qc.z) / 2;
-          var al = 0.03 + Math.pow(d2, 2) * 0.30;
-          ctx.fillStyle = mix(180, 235, 255) + al.toFixed(3) + ')';
-          ctx.beginPath(); ctx.arc(qc.x, qc.y, dot * 0.5, 0, Math.PI * 2); ctx.fill();
-        }
+        ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
 
-        /* ---- a core glow so the middle never looks hollow ---- */
-        var cr = R * 0.52;
-        var core = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr);
-        core.addColorStop(0, mix(235, 250, 255, true) + '0.30)');
-        core.addColorStop(0.45, mix(170, 230, 255, true) + '0.10)');
-        core.addColorStop(1, mix(120, 200, 255, true) + '0)');
-        ctx.fillStyle = core;
-        ctx.beginPath(); ctx.arc(cx, cy, cr, 0, Math.PI * 2); ctx.fill();
-
         if(!once) painted = 1;
-      }
-
-      /* an orbit ring point in screen space, with the same perspective divide */
-      function ringPoint(o, a, cx, cy, R){
-        var x = Math.cos(a) * o.rad, z = Math.sin(a) * o.rad;
-        var rx = x * Math.cos(o.roll) - z * Math.sin(o.roll);
-        var rz = x * Math.sin(o.roll) + z * Math.cos(o.roll);
-        var y = rz * Math.sin(o.tiltX);
-        var depth = rz * Math.cos(o.tiltX);
-        var persp = 3.1 / (3.1 + depth);
-        return { x: cx + rx * R * persp, y: cy + y * R * persp, z: depth };
       }
 
       /* paint exactly one frame on demand — used when the tab comes back from being
