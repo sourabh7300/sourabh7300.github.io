@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="87ca61469779"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="125a58eef35c"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7567,7 +7567,11 @@ function makeQR(text) {
              on the portfolio hero at 540x900: 2.8px points on a 500px sphere). */
           var d = hPx * 0.86;
           NPTS = window.innerWidth < 768 ? 12000 : 34000;
-          PXSIZE = 9 * Math.max(1, Math.min(5, 0.0056 * d));
+          /* 0.85% of the sphere across, not the portfolio's 0.56%: at 500px the reference's
+             2.8px points overlap six deep per pixel, and a straight proportional shrink
+             would land on 1.1px points that never overlap — a dusty haze instead of the
+             glowing grain. Slightly larger points here reproduce the same density. */
+          PXSIZE = 9 * Math.max(1.35, Math.min(5, 0.0085 * d));
           var A = [[], [], [], []], sc = [], sd = [];
           for(var i = 0; i < NPTS; i++){
             for(var k = 0; k < 4; k++){ var p = SH[k](); A[k].push(p[0], p[1], p[2]); }
