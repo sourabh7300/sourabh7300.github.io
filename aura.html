@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="d07968edc426"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="42540112a312"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3816,6 +3816,7 @@ function makeQR(text) {
         var wrap = document.createElement('div');
         wrap.style.cssText = 'display:flex;gap:9px;flex-wrap:wrap;margin-top:10px';
         var LIST = [
+          ['portfolio', 'Portfolio amber', 'conic-gradient(from 200deg,#ff7a3d,#ffe0a0,#82fff0,#ff7a3d)'],
           ['auto', 'Auto (mood)', 'conic-gradient(from 0deg,#78c8ff,#ffba54,#ac8aff,#ff7eb0,#60e8ba,#78c8ff)'],
           ['cyan', 'Cyan', '#78c8ff'], ['gold', 'Gold', '#ffba54'], ['violet', 'Violet', '#ac8aff'],
           ['rose', 'Rose', '#ff7eb0'], ['emerald', 'Emerald', '#60e8ba'], ['mono', 'Mono', '#dee9f5']
@@ -7117,6 +7118,8 @@ function makeQR(text) {
          and leaves mood to drive only motion (spin, pulse, turbulence), so "violet"
          stays violet while a smile still makes it move faster. */
       var ORB_THEMES = {
+        /* the portfolio's own core: c1 (1,.48,.24) to c2 (1,.88,.55) with teal specks */
+        portfolio: { deep: [255, 122,  61], hot: [255, 224, 160], speck: [130, 255, 240] },
         cyan:    { deep: [120, 200, 255], hot: [190, 245, 255] },
         gold:    { deep: [255, 186,  84], hot: [255, 236, 170] },
         violet:  { deep: [172, 138, 255], hot: [228, 208, 255] },
@@ -7124,8 +7127,9 @@ function makeQR(text) {
         emerald: { deep: [ 96, 232, 186], hot: [186, 255, 232] },
         mono:    { deep: [206, 220, 236], hot: [255, 255, 255] }
       };
-      var orbName = 'auto';
-      try{ orbName = localStorage.getItem('aura_orb') || 'auto'; }catch(e){}
+      /* the reference look is the default; auto (mood) stays one tap away */
+      var orbName = 'portfolio';
+      try{ orbName = localStorage.getItem('aura_orb') || 'portfolio'; }catch(e){}
       if(orbName !== 'auto' && !ORB_THEMES[orbName]) orbName = 'auto';
       function setOrb(n){
         orbName = (n === 'auto' || ORB_THEMES[n]) ? n : 'auto';
@@ -7458,7 +7462,7 @@ function makeQR(text) {
       var ORB_N = 0, ORB_PTS = [], SPRITES = {}, TINTS = null;
       /* 5.3ms/frame at 3400 on a 236px canvas, so 6000 still fits inside a 16ms frame;
          the portfolio pushes 34k in WebGL, this is the densest Canvas2D can afford */
-      function orbCount(){ return window.innerWidth < 640 ? 2800 : 6000; }
+      function orbCount(){ return window.innerWidth < 640 ? 4200 : 9000; }
       function buildOrb(){
         var n = orbCount();
         ORB_PTS = [];
@@ -7506,6 +7510,10 @@ function makeQR(text) {
         var hot = (p && p.hot) || [190, 245, 255];
         var key = deep.join(',') + '|' + hot.join(',');
         if(TINTS && TINTS.key === key) return TINTS.list;
+        var p2 = (window.AURA_CORE && window.AURA_CORE.palette) ? window.AURA_CORE.palette() : null;
+        var theme = p2 && p2.orb && window.AURA_CORE.orb ? p2.orb : '';
+        var speck = [130, 255, 240];
+        if(theme === 'portfolio') speck = [130, 255, 240];
         var list = [];
         for(var i = 0; i < 5; i++){
           var k = i / 4;
@@ -7514,9 +7522,9 @@ function makeQR(text) {
             Math.round(deep[1] + (hot[1] - deep[1]) * k),
             Math.round(deep[2] + (hot[2] - deep[2]) * k)
           ];
-          list.push(spriteFor(rgb));
+          list.push('rgb(' + rgb.join(',') + ')');
         }
-        list.push(spriteFor([190, 255, 245]));      /* the specks, teal-white */
+        list.push('rgb(' + speck.join(',') + ')');     /* the teal specks */
         TINTS = { key: key, list: list };
         return list;
       }
@@ -7551,7 +7559,10 @@ function makeQR(text) {
         var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
         var FOV = 3.0;
         var tints = tintLadder();
-        var px = Math.max(0.9, base * 0.0086);          /* finer grain: 34k points are dust, not blobs */
+        /* the reference draws hard tiny points, not soft blobs — a 1.5-2.4px rect on
+           additive blending gives that grain and is faster than a sprite per point */
+        var px = Math.max(1.15, base * 0.0072);
+        var lastTint = -1;
 
         ctx.globalCompositeOperation = 'lighter';
         for(var i = 0; i < ORB_PTS.length; i++){
@@ -7570,14 +7581,14 @@ function makeQR(text) {
           var sy = cy + y1 * R * persp;
           var depth = (1 - z2) / 2;                      /* 0 back .. 1 front */
           var tint = depth > 0.80 ? 4 : depth > 0.58 ? 3 : depth > 0.36 ? 2 : depth > 0.16 ? 1 : 0;
-          var speck = p.s > 0.975;
-          var sz = px * (0.55 + depth * 1.45) * (0.75 + p.s * 0.5) * persp;
-          if(speck) { sz *= 2.1; tint = 5; }
+          var isSpeck = p.s > 0.972;
+          var sz = px * (0.62 + depth * 1.05) * (0.85 + p.s * 0.35) * persp;
+          if(isSpeck){ sz *= 1.8; tint = 5; }
           /* additive blending stacks, so each point must be faint: the reference
              composites 12k-34k of them before the sphere looks solid */
-          ctx.globalAlpha = (0.10 + depth * 0.34) * (speck ? 1 : 0.8);
-          var spr = tints[tint];
-          ctx.drawImage(spr, sx - sz, sy - sz, sz * 2, sz * 2);
+          ctx.globalAlpha = isSpeck ? 0.85 : (0.16 + depth * 0.42);
+          if(tint !== lastTint){ ctx.fillStyle = tints[tint]; lastTint = tint; }
+          ctx.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
         }
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
