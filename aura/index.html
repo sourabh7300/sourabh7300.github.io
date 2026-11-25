@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ac861446f58f"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="36758dd35c58"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3642,8 +3642,8 @@ function makeQR(text) {
     /* a phone has no Code/System tab and no Ctrl K, so those steps would point at
        nothing — they stay for the laptop, where the controls actually exist */
     var TOUR = TOUR_ALL.filter(function(s){
-      if(s.desk && window.innerWidth < 900) return false;   /* laptop-only control */
-      if(s.mob && window.innerWidth >= 900) return false;   /* phone-only note */
+      if(s.desk && window.innerWidth < 640) return false;   /* desktop/tablet control */
+      if(s.mob && window.innerWidth >= 640) return false;   /* phone-only note */
       return true;
     });
     var TOUR_KEY = 'aura_tour_v3';
@@ -3853,7 +3853,7 @@ function makeQR(text) {
     try{
       (function mobileTrim(){
         function trim(){
-          if(window.innerWidth >= 900) return;
+          if(window.innerWidth >= 640) return;
           [].forEach.call(document.querySelectorAll('#tools .at-card'), function(b){
             if(/code forge/i.test(b.textContent || '')) b.remove();
           });
@@ -6266,7 +6266,9 @@ function makeQR(text) {
     (function phoneLayout(){
       function set(el, hide){ if(el) el.style.display = hide ? 'none' : ''; }
       function apply(){
-        var m = window.innerWidth < 900;
+        /* 640, not 900: a tablet has room for five tabs, and Code/System are real
+           features — only a phone drops them */
+        var m = window.innerWidth < 640;
         var t = document.getElementById('tabs');
         if(t){
           set(t.querySelector('button[data-p="code"]'), m);
@@ -7442,7 +7444,7 @@ function makeQR(text) {
          turns while you look at it, instead of sitting still like a lit ball. */
       var SPHERE = [], CLOUD = [], cloudSeed = 0;
       function buildPoints(){
-        var n = window.innerWidth < 520 ? 640 : 1180;
+        var n = window.innerWidth < 640 ? 640 : 1180;
         SPHERE = [];
         var ga = Math.PI * (3 - Math.sqrt(5));
         for(var i = 0; i < n; i++){
@@ -7453,7 +7455,7 @@ function makeQR(text) {
         }
         /* a thin outer cloud gives the sphere an atmosphere it can rotate through */
         CLOUD = [];
-        var m = window.innerWidth < 520 ? 46 : 92;
+        var m = window.innerWidth < 640 ? 60 : 92;
         for(var j = 0; j < m; j++){
           var u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
           var rr = Math.sqrt(Math.max(0, 1 - u * u));
@@ -7464,7 +7466,7 @@ function makeQR(text) {
       }
       buildPoints();
       window.addEventListener('resize', function(){
-        var want = window.innerWidth < 520 ? 640 : 1180;
+        var want = window.innerWidth < 640 ? 640 : 1180;
         if(Math.abs(want - SPHERE.length) > 120) buildPoints();
       });
 
