@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="566c9b864047"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="d07968edc426"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7488,8 +7488,11 @@ function makeQR(text) {
         c.width = c.height = 32;
         var g = c.getContext('2d');
         var grd = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+        /* a tight core with a short falloff: the shader's smoothstep(.5,0,d), not a
+           fat blur — a wide sprite turns 6000 additive points into one woolly ball */
         grd.addColorStop(0, 'rgba(' + key + ',1)');
-        grd.addColorStop(0.42, 'rgba(' + key + ',0.55)');
+        grd.addColorStop(0.26, 'rgba(' + key + ',0.62)');
+        grd.addColorStop(0.60, 'rgba(' + key + ',0.16)');
         grd.addColorStop(1, 'rgba(' + key + ',0)');
         g.fillStyle = grd;
         g.fillRect(0, 0, 32, 32);
@@ -7570,7 +7573,9 @@ function makeQR(text) {
           var speck = p.s > 0.975;
           var sz = px * (0.55 + depth * 1.45) * (0.75 + p.s * 0.5) * persp;
           if(speck) { sz *= 2.1; tint = 5; }
-          ctx.globalAlpha = (0.26 + depth * 0.52) * (speck ? 1 : 0.86);
+          /* additive blending stacks, so each point must be faint: the reference
+             composites 12k-34k of them before the sphere looks solid */
+          ctx.globalAlpha = (0.10 + depth * 0.34) * (speck ? 1 : 0.8);
           var spr = tints[tint];
           ctx.drawImage(spr, sx - sz, sy - sz, sz * 2, sz * 2);
         }
