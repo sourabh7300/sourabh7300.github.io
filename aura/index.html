@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="42540112a312"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="d1a5710512b9"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7484,6 +7484,21 @@ function makeQR(text) {
       window.addEventListener('resize', function(){
         if(Math.abs(orbCount() - ORB_N) > 600) buildOrb();
       });
+      /* pointer parallax, like the reference: rotation.y = time*.12 + mx*.5 */
+      var PAR = { x: 0, y: 0, tx: 0, ty: 0 };
+      function trackPointer(e){
+        var p = (e.touches && e.touches[0]) ? e.touches[0] : e;
+        if(p.clientX == null) return;
+        PAR.tx = (p.clientX / Math.max(1, window.innerWidth)) * 2 - 1;
+        PAR.ty = (p.clientY / Math.max(1, window.innerHeight)) * 2 - 1;
+      }
+      window.addEventListener('pointermove', trackPointer, { passive: true });
+      window.addEventListener('touchmove', trackPointer, { passive: true });
+      window.addEventListener('deviceorientation', function(e){
+        if(e.gamma == null) return;
+        PAR.tx = Math.max(-1, Math.min(1, e.gamma / 45));
+        PAR.ty = Math.max(-1, Math.min(1, (e.beta - 45) / 45));
+      }, true);
 
       function spriteFor(rgb){
         var key = rgb.join(',');
@@ -7552,9 +7567,11 @@ function makeQR(text) {
         ctx.fillStyle = bloom;
         ctx.beginPath(); ctx.arc(cx, cy, maxR, 0, Math.PI * 2); ctx.fill();
 
-        /* rotation: y = time * .12 like the portfolio, x sways with the mood */
-        var rotY = t * 0.12 * sp;
-        var rotX = Math.sin(t * 0.19) * 0.26 * turb;
+        /* rotation: y = time * .12 like the portfolio, plus the pointer's own pull */
+        PAR.x += (PAR.tx - PAR.x) * 0.06;
+        PAR.y += (PAR.ty - PAR.y) * 0.06;
+        var rotY = t * 0.12 * sp + PAR.x * 0.5;
+        var rotX = Math.sin(t * 0.19) * 0.26 * turb + PAR.y * 0.26;
         var cosY = Math.cos(rotY), sinY = Math.sin(rotY);
         var cosX = Math.cos(rotX), sinX = Math.sin(rotX);
         var FOV = 3.0;
