@@ -32,10 +32,14 @@ ok("both keys loaded", A.TAVILY_KEYS.length === 2, A.TAVILY_KEYS.length);
    the expectation has to shrink as the month runs out — it only matched on day 1 */
 const _daysLeft = (function () { const n = new Date(); const last = new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth() + 1, 0)).getUTCDate(); return Math.max(1, last - n.getUTCDate() + 1); })();
 ok("budget splits 60 over the days left", A.tavDailyBudget("AAAAfake1") === Math.max(1, Math.ceil(60 / _daysLeft)), A.tavDailyBudget("AAAAfake1"));
+/* The bank is per key, per day: ceil(credits / days left) each, so it grows as the month
+   runs out. A fixed "20 picks must run dry" only held early in the month. */
+const _perKey = Math.max(1, Math.ceil(60 / _daysLeft));
+const _bank = 2 * _perKey;
 const picks = [];
-for (let i = 0; i < 20; i++) { const k = A.tavPick(1); if (!k) break; picks.push(k.slice(0, 4)); }
+for (let i = 0; i < _bank + 10; i++) { const k = A.tavPick(1); if (!k) break; picks.push(k.slice(0, 4)); }
 ok("keys alternate (spread)", picks.length > 1 && picks[0] !== picks[1], picks.slice(0, 4));
-ok("stops when the bank is spent", picks.length < 20, picks.length);
+ok("stops when the bank is spent", picks.length === _bank, { got: picks.length, bank: _bank });
 ok("todayLeft never negative", A.tavUsageReport().todayLeft >= 0, A.tavUsageReport().todayLeft);
 ok("masked labels only", A.tavUsageReport().keys.every(k => /^t\d…/.test(k.id)), A.tavUsageReport().keys.map(k => k.id));
 
