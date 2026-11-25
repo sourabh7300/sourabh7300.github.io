@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="639ad1f6bbb7"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="8cd6c012d333"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3583,28 +3583,66 @@ function makeQR(text) {
     })();
   }catch(e){}
 
-  /* ---------------- first-run tour ----------------
-     Four things a new user never finds on their own: speak instead of typing, send a
-     file, pair a second device, and the voice switch. Shown once, skippable, and
-     replayable from Settings. It only points at the reference's own controls. */
+  /* ---------------- THE TOUR: what AURA is, and how to drive it ----------------
+     A stranger should finish this knowing how the whole thing runs: where a question
+     goes, what every control does, how the gestures work, and what stays on the
+     device. Each step therefore says three things — what it is, how to use it, and
+     how it works underneath — because "tap here" on its own explains nothing.
+     Replayable from Settings and from + → Guide, on phones and desktops alike. */
   try{
-    /* English by default: the tour is the first thing a stranger sees, and Hinglish
-       only makes sense to speakers of one language pair. People who want Hinglish get
-       it from AURA's replies, not from the onboarding copy. */
+    /* English on purpose: this is the first thing a visitor sees, and the reply
+       language is whatever they type — the tour does not need to guess it. */
     var TOUR = [
-      { sel: '#mic', title: '🎤 Talk instead of typing', body: 'Tap the mic and speak — in English or Hindi. AURA listens, understands and answers out loud. Voice is off by default; the mic is what turns it on.' },
-      { sel: '#plusbtn', title: '📎 Send a file or a screenshot', body: 'Plus → Attach for a text, code, Word or CSV file, or any image. AURA reads the whole file — and can describe what is in a photo, including the text on screen.' },
-      { sel: '#auraMeshBtn', title: '📶 Mesh — pair a second device', body: 'Tap Host to get a 6-digit code. On your other phone or laptop choose Join and type the same code. Both devices then share one chat.' },
-      { sel: '#tv', title: '🔊 Voice on or off', body: 'This switch controls whether AURA speaks its answers. Off means text only; on means you also hear them.' }
+      { sel: '#inp', tab: 'chat', title: 'Start here — ask anything',
+        body: 'Type in the box and press Enter (Shift+Enter adds a line). Ask for a plan, a summary, a fix or a decision.',
+        how: 'Your text goes to the AURA backend, which searches the live web only when the answer has to be current, then streams the reply back. Nothing is pre-written.' },
+      { sel: '#mic', title: 'Talk instead of typing',
+        body: 'Tap the mic and speak in English or Hindi. Tap again to stop; your words appear in the box before they are sent.',
+        how: 'The browser turns speech into text on your device, so typed and spoken questions use the same brain. Spoken replies follow the voice switch.' },
+      { sel: '#tv', title: 'Let AURA speak',
+        body: 'This switch decides whether answers are read out loud. Off means text only.',
+        how: 'Speech synthesis runs in the browser — no audio is uploaded, and the Sound row in Settings can silence everything at once.' },
+      { sel: '#plusbtn', title: 'The + menu holds every tool',
+        body: 'Tap + → Ask, See & sign, Files & devices, App. Each row is the real control, and the small chips show its state.',
+        how: 'The menu is grouped by job instead of by tab, so one action never costs three clicks to find.' },
+      { sel: '#auraSyncHud', title: 'Gesture & Emotion Sync',
+        body: 'Tap “Sync: off” and allow the camera. Open palm holds the core and stops speech, a fist switches to ZEUS, pinch confirms, thumbs up saves the answer — and your expression tints the particles.',
+        how: 'MediaPipe runs in this browser at 8 frames per second (face at 4). No frame or landmark ever leaves the device, and the loop pauses while the tab is hidden.' },
+      { sel: '#plusbtn', title: 'Send a file or a photo',
+        body: 'Plus → Attach for text, code, Word, CSV, PDF or an image. AURA reads the file itself and quotes the parts that matter.',
+        how: 'The file is read in the page and its text — or the picture — travels with your question, so nothing huge is re-uploaded twice.' },
+      { sel: '#plusbtn', title: 'Mesh — two devices, one chat',
+        body: 'Plus → Mesh → Host shows a 6-digit code. On the other phone or laptop choose Join and type the same code.',
+        how: 'Both devices join the same room, so a message typed on one appears on the other and both stay in step.' },
+      { sel: '#tabs button[data-p="chats"]', tab: 'chats', title: 'Chats are kept',
+        body: 'Open Chats to switch, rename or delete a conversation. “New chat” starts a clean one.',
+        how: 'Conversations are stored in this browser, so they survive a reload without an account.' },
+      { sel: '#tabs button[data-p="code"]', tab: 'code', title: 'Code Forge',
+        body: 'Write JavaScript, HTML or Python and press Run — the output appears right below.',
+        how: 'Code runs in a sandboxed frame on your device, so a result can be explained without touching your real files.' },
+      { sel: '#tabs button[data-p="sys"]', tab: 'sys', title: 'System — the honest numbers',
+        body: 'Live diagnostics: engine, memory, latency, build tag, and whether the backend keys are healthy.',
+        how: 'These readings come from the running page and the backend health check, so a slow answer is visible instead of guessed.' },
+      { sel: '#tabs button[data-p="set"]', tab: 'set', title: 'Settings',
+        body: 'Name, voice and sound switches, persona, theme — plus a read-only Services row (search, keys, vision, crashes) and “Show tour” to restart this walkthrough.',
+        how: 'Preferences live in this browser. The Services row only reports the backend, it cannot change it.' },
+      { sel: '#srch', tab: 'chat', title: 'Keyboard: Ctrl K and /',
+        body: 'Ctrl K (⌘K on a Mac) opens the command palette, / jumps straight to the input, Esc closes whatever is open.',
+        how: 'The palette lists the same actions as the buttons, so everything can be reached without a mouse.' },
+      { sel: null, tab: 'chat', title: 'Co-Pilot and Guide',
+        body: 'Plus → Co-Pilot watches the screen or camera frame you share and answers about it. Plus → Guide brings this tour back.',
+        how: 'Co-Pilot only sees what you explicitly share, and stops the moment you switch it off.' }
     ];
-    var TOUR_KEY = 'aura_tour_v2';
-    var tourEl = null, tourStep = 0, tourRing = null;
+    var TOUR_KEY = 'aura_tour_v3';
+    var tourEl = null, tourStep = 0, tourRing = null, tourKey = null;
 
     function ringOn(sel){
       ringOff();
+      if(!sel) return;
       var el = document.querySelector(sel);
       if(!el) return;
       tourRing = el;
+      try{ el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' }); }catch(e){}
       el.style.outline = '2px solid rgba(120,215,255,.85)';
       el.style.outlineOffset = '4px';
       el.style.boxShadow = '0 0 0 6px rgba(120,215,255,.18), 0 0 24px rgba(120,215,255,.45)';
@@ -3617,43 +3655,73 @@ function makeQR(text) {
       tourRing.style.boxShadow = '';
       tourRing = null;
     }
+    function tourSave(state){
+      try{ localStorage.setItem(TOUR_KEY, state); }catch(e){}
+    }
     function tourClose(done){
       ringOff();
+      if(tourKey){ try{ document.removeEventListener('keydown', tourKey, true); }catch(e){} tourKey = null; }
       if(tourEl && tourEl.parentNode) tourEl.parentNode.removeChild(tourEl);
       tourEl = null;
-      try{ localStorage.setItem(TOUR_KEY, done ? 'done' : 'skipped'); }catch(e){}
+      tourSave(done ? 'done' : 'skipped');
+    }
+    function tourGo(i){
+      tourStep = Math.max(0, Math.min(TOUR.length - 1, i));
+      tourDraw();
     }
     function tourDraw(){
       var s = TOUR[tourStep];
       if(!s){ tourClose(true); return; }
+      /* a step may live on another tab: switch first, then point at it */
+      if(s.tab){
+        try{
+          var tb = document.querySelector('#tabs button[data-p="' + s.tab + '"]');
+          if(tb && tb.getAttribute('aria-selected') !== 'true' && !tb.classList.contains('on')) tb.click();
+        }catch(e){}
+      }
       if(!tourEl){
         tourEl = document.createElement('div');
         tourEl.id = 'auraTour';
-        tourEl.style.cssText = 'position:fixed;z-index:99999;left:18px;bottom:96px;width:min(360px,calc(100vw - 36px));' +
-          'background:rgba(10,14,22,.93);border:1px solid rgba(120,215,255,.25);border-radius:16px;padding:16px 16px 12px;' +
+        tourEl.setAttribute('role', 'dialog');
+        tourEl.setAttribute('aria-label', 'AURA tour');
+        tourEl.style.cssText = 'position:fixed;z-index:99999;left:50%;transform:translateX(-50%);' +
+          'width:min(430px,calc(100vw - 24px));max-height:64vh;overflow:auto;' +
+          'background:rgba(10,14,22,.94);border:1px solid rgba(120,215,255,.25);border-radius:16px;padding:15px 16px 12px;' +
           'color:#e8f4ff;font:14px/1.55 Inter,system-ui,sans-serif;box-shadow:0 18px 50px rgba(0,0,0,.55);backdrop-filter:blur(14px)';
         document.body.appendChild(tourEl);
+        tourKey = function(e){
+          if(e.key === 'Escape'){ e.preventDefault(); tourClose(false); }
+          else if(e.key === 'ArrowRight' || e.key === 'Enter'){ e.preventDefault(); tourStep + 1 >= TOUR.length ? tourClose(true) : tourGo(tourStep + 1); }
+          else if(e.key === 'ArrowLeft'){ e.preventDefault(); tourGo(tourStep - 1); }
+        };
+        document.addEventListener('keydown', tourKey, true);
       }
       /* sit above the composer, never on top of it (mobile included) */
       try{
-        var _box = document.getElementById('card') || document.getElementById('inp');
-        var _b = 96;
-        if(_box){
-          var _t = _box.getBoundingClientRect().top;
-          if(_t > 40 && _t < innerHeight - 30) _b = Math.max(20, innerHeight - _t + 12);
+        var box = document.getElementById('card') || document.getElementById('inp');
+        var bottom = 96;
+        if(box){
+          var top = box.getBoundingClientRect().top;
+          if(top > 40 && top < innerHeight - 30) bottom = Math.max(16, Math.min(innerHeight * 0.55, innerHeight - top + 10));
         }
-        tourEl.style.bottom = _b + 'px';
+        tourEl.style.bottom = bottom + 'px';
       }catch(e){}
+      var pct = Math.round(((tourStep + 1) / TOUR.length) * 100);
       tourEl.innerHTML =
-        '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px">' +
-          '<b style="font-size:14.5px">' + s.title + '</b>' +
-          '<button type="button" id="auraTourX" style="background:none;border:0;color:#7f8b9a;font-size:16px;cursor:pointer;line-height:1">\u2715</button>' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">' +
+          '<b style="font-size:14.5px;line-height:1.35">' + s.title + '</b>' +
+          '<button type="button" id="auraTourX" aria-label="Close tour" style="background:none;border:0;color:#7f8b9a;font-size:16px;cursor:pointer;line-height:1">\u2715</button>' +
         '</div>' +
-        '<p style="margin:0 0 12px;color:#b9c6d4">' + s.body + '</p>' +
+        '<div style="height:3px;border-radius:3px;background:rgba(120,215,255,.14);margin:0 0 10px;overflow:hidden">' +
+          '<div style="height:100%;width:' + pct + '%;background:rgba(120,215,255,.8);transition:width .25s"></div>' +
+        '</div>' +
+        '<p style="margin:0 0 9px;color:#c8d6e5">' + s.body + '</p>' +
+        '<p style="margin:0 0 12px;color:#8fa0b3;font-size:12.5px"><b style="color:#9fd8ff">How it works \u00b7 </b>' + s.how + '</p>' +
         '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">' +
           '<span style="color:#6f7c8b;font-size:12px">' + (tourStep + 1) + ' / ' + TOUR.length + '</span>' +
-          '<span>' +
-            '<button type="button" id="auraTourSkip" style="background:none;border:0;color:#7f8b9a;font-size:12.5px;cursor:pointer;margin-right:8px">Skip</button>' +
+          '<span style="display:flex;align-items:center;gap:6px">' +
+            (tourStep > 0 ? '<button type="button" id="auraTourBack" style="background:none;border:1px solid rgba(120,215,255,.22);color:#b9c6d4;font-size:12.5px;padding:6px 12px;border-radius:9px;cursor:pointer">Back</button>' : '') +
+            '<button type="button" id="auraTourSkip" style="background:none;border:0;color:#7f8b9a;font-size:12.5px;cursor:pointer;padding:6px 6px">Skip</button>' +
             '<button type="button" id="auraTourNext" style="background:rgba(120,215,255,.16);border:1px solid rgba(120,215,255,.4);color:#dff4ff;font-size:12.5px;padding:6px 14px;border-radius:9px;cursor:pointer">' +
               (tourStep === TOUR.length - 1 ? 'Done' : 'Next') + '</button>' +
           '</span>' +
@@ -3661,17 +3729,39 @@ function makeQR(text) {
       document.getElementById('auraTourX').onclick = function(){ tourClose(false); };
       document.getElementById('auraTourSkip').onclick = function(){ tourClose(false); };
       document.getElementById('auraTourNext').onclick = function(){
-        tourStep++;
-        if(tourStep >= TOUR.length) tourClose(true); else tourDraw();
+        tourStep + 1 >= TOUR.length ? tourClose(true) : tourGo(tourStep + 1);
       };
-      ringOn(s.sel);
+      var back = document.getElementById('auraTourBack');
+      if(back) back.onclick = function(){ tourGo(tourStep - 1); };
+      setTimeout(function(){ ringOn(s.sel); }, s.tab ? 240 : 30);
     }
     window.__auraTour = function(){
       tourStep = 0;
       try{ localStorage.removeItem(TOUR_KEY); }catch(e){}
       tourDraw();
+      return TOUR.length;
     };
-    /* replay row in Settings, next to the other preferences */
+
+    /* + → Guide opens the tour instead of the retired DOCS sheet */
+    (function wireGuide(){
+      var last = null;
+      function wire(){
+        var b = document.getElementById('auraDocsBtn');
+        if(!b || b === last) return;
+        last = b;
+        b.onclick = function(e){
+          e.stopPropagation();
+          try{ closeMenus(); }catch(err){}
+          window.__auraTour();
+        };
+      }
+      wire();
+      try{
+        new MutationObserver(wire).observe(document.body, { childList: true, subtree: true });
+      }catch(e){ setTimeout(wire, 1500); }
+    })();
+
+    /* replay row in Settings, below the other preferences */
     setTimeout(function(){
       var pan = document.getElementById('p-set');
       if(!pan || document.getElementById('auraTourRow')) return;
@@ -3679,7 +3769,7 @@ function makeQR(text) {
       var row = document.createElement('div');
       row.id = 'auraTourRow';
       row.style.cssText = 'margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;gap:12px';
-      row.innerHTML = '<span>Quick tour \u00b7 mic, attach, mesh, voice</span>' +
+      row.innerHTML = '<span>Full tour \u00b7 every control and how it works</span>' +
         '<button type="button" id="auraTourAgain" style="background:rgba(120,215,255,.12);border:1px solid rgba(120,215,255,.32);color:#dff4ff;padding:6px 12px;border-radius:9px;font-size:12.5px;cursor:pointer">Show tour</button>';
       holder.appendChild(row);
       document.getElementById('auraTourAgain').onclick = function(){ window.__auraTour(); };
@@ -3714,11 +3804,12 @@ function makeQR(text) {
 
     var seen = '';
     try{ seen = localStorage.getItem(TOUR_KEY) || ''; }catch(e){}
-    /* on a phone the tour card sat exactly on top of the multimodal workflow cards,
-       which are the point of the first screen — keep it for wide screens only */
+    /* first visit: after the intro settles, walk the tour once — on phones too, now
+       that the card is compact and clears the composer */
     if(!seen){
-      if(window.innerWidth < 820){ try{ localStorage.setItem(TOUR_KEY, "mobile-skipped"); }catch(e){} }
-      else setTimeout(function(){ tourStep = 0; tourDraw(); }, 1400);
+      var start = function(){ tourStep = 0; tourDraw(); };
+      if(document.readyState === 'complete') setTimeout(start, 1600);
+      else addEventListener('load', function(){ setTimeout(start, 1200); });
     }
   }catch(e){}
 
@@ -5021,7 +5112,7 @@ function makeQR(text) {
         { title: "See & sign", rows: [
           { x: 'cam', icon: '\uD83D\uDCF7', name: 'Camera', sub: 'sign language, live captions and vision in one place' },
           { id: 'auraCopBtn', icon: '\uD83D\uDC41', name: 'Co-Pilot', sub: 'watches the frame and helps on screen' },
-          { x: 'docs', icon: '\uD83D\uDCD8', name: 'Guide', sub: 'what each mode does' }
+          { x: 'docs', icon: '\uD83D\uDCD8', name: 'Guide', sub: 'a tour of every control, and how it works' }
         ] },
         { title: "Files & devices", rows: [
           { attach: true, icon: '\uD83D\uDCCE', name: 'Attach', sub: 'PDF, Word, text, code or a photo' },
@@ -5075,7 +5166,7 @@ function makeQR(text) {
         if(!tools) return null;
         var b = document.createElement('button');
         b.type = 'button'; b.id = 'auraDocsBtn'; b.textContent = '\uD83D\uDCD8 Guide';
-        b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} try{ document.getElementById('docov').classList.add('on'); }catch(err){} };
+        b.onclick = function(e){ e.stopPropagation(); try{ closeMenus(); }catch(err){} if(window.__auraTour) window.__auraTour(); };
         tools.appendChild(b);
         return b;
       }
@@ -8390,7 +8481,7 @@ function makeQR(text) {
     on: false, ready: false, loading: false,
     video: null, ownStream: null, camAsked: 0,
     gesture: null, face: null, loopErr: 0,
-    raf: 0, lastDetect: 0, lastFace: 0, ticks: 0,
+    raf: 0, lastDetect: 0, lastFace: 0, ticks: 0, camErr: '',
     held: { name: '', since: 0 },
     fired: {},
     pinchClose: 0,
@@ -8473,7 +8564,7 @@ function makeQR(text) {
     el.style.color = tint[1];
     el.style.background = tint[0];
     el.style.borderColor = tint[2];
-    el.textContent = msg || ('SYNC · ' + S.mood);
+    el.textContent = msg || (S.camErr && !liveFeed() ? 'SYNC · camera blocked' : ('SYNC · ' + S.mood));
   }
   function paintButtons() {
     const h = hud();
@@ -8579,9 +8670,13 @@ function makeQR(text) {
     if (Date.now() - S.camAsked < 15000) return;          /* no prompt storms */
     S.camAsked = Date.now();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      S.camErr = 'unsupported';
+      paintBadge('SYNC · this browser has no camera');
       note('This browser has no camera access');
       return;
     }
+    /* say what we are waiting for: a permission prompt can sit there unanswered */
+    paintBadge('SYNC · waiting for camera — allow it');
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: 640, height: 480 }, audio: false })
       .then((st) => {
         if (!S.on) { st.getTracks().forEach((t) => t.stop()); return; }
@@ -8592,10 +8687,13 @@ function makeQR(text) {
         document.body.appendChild(v);
         v.play().catch(() => {});
         S.ownStream = st; S.video = v;
+        S.camErr = '';
         note('Sync · camera on');
       })
-      .catch(() => {
-        note('Sync needs the camera — allow it, or open the camera window');
+      .catch((err) => {
+        S.camErr = (err && err.name) || 'blocked';
+        paintBadge('SYNC · camera blocked — allow it, or open 📷 Camera');
+        note('Sync needs the camera — allow it, or open the 📷 Camera window');
       });
   }
 
@@ -8842,9 +8940,8 @@ function makeQR(text) {
     note('Thumbs up — bookmarked');
   }
 
-  /* ---------------- the 8 FPS loop (the HUD keeps its own 60) ----------- */
-  function loop(now) {
-    S.raf = requestAnimationFrame(loop);
+  /* ---------------- the 8 FPS detection step (the HUD keeps its own 60) ----------- */
+  function tick(now) {
     if (!S.on || document.hidden) return;
     if (now - S.lastDetect < 1000 / DETECT_FPS - 1) return;
     S.lastDetect = now;
@@ -8862,12 +8959,32 @@ function makeQR(text) {
     sampleVoice();
     classify(now);
   }
+  function loop(now) {
+    S.raf = requestAnimationFrame(loop);
+    tick(now);
+  }
+  /* requestAnimationFrame is not guaranteed: embedded webviews (Anna's window), an
+     occluded window and power-save modes starve it while the camera is still live.
+     A timer keeps the 8 FPS promise — it only steps in when frames have stopped. */
+  setInterval(function () {
+    if (!S.on || document.hidden) return;
+    if (performance.now() - S.lastDetect < 700) return;   /* frames are flowing */
+    tick(performance.now());
+  }, 260);
+  /* coming back from a background tab should not wait out the frame budget */
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden || !S.on) return;
+    S.lastDetect = 0;
+    S.lastFace = 0;
+    openOwnCamera();
+    try { if (window.__auraIrisDraw) window.__auraIrisDraw(16); } catch (e) {}
+  });
 
   /* ---------------- on / off ---------------- */
   async function enable() {
     if (S.on) return true;
     S.on = true;
-    S.lastDetect = 0; S.lastFace = 0; S.ticks = 0; S.loopErr = 0;
+    S.lastDetect = 0; S.lastFace = 0; S.ticks = 0; S.loopErr = 0; S.camErr = '';
     S.fired = {};
     S.pinchClose = 0;
     paintButtons();
@@ -8915,6 +9032,7 @@ function makeQR(text) {
       tension: +S.tension.toFixed(2), joy: +S.joy.toFixed(2), focus: +S.focus.toFixed(2),
       energy: +S.energy.toFixed(2), pace: +S.pace.toFixed(2),
       fps: DETECT_FPS, ticks: S.ticks, errors: S.loopErr,
+      camera: liveFeed() ? 'live' : (S.camErr || 'none'),
       freeze: !!(core() && core().frozen && core().frozen()),
       palette: core() && core().palette ? core().palette() : null
     })
