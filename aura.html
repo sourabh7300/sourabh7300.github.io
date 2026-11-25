@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="fb6cb6e0653f"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="87ca61469779"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7559,13 +7559,15 @@ function makeQR(text) {
         function build(){
           var box = cv.getBoundingClientRect();
           var hPx = Math.max(24, Math.round(box.height * dpr));
-          /* the reference packs 34,000 points into a 912-device-px sphere (0.0408 per
-             px²) with each point 0.49% of the sphere across. Both scale with the stage,
-             so a 236px orb gets the reference's texture at a smaller size instead of the
-             solid ball you get by keeping 34k points on a fifth of the area. */
+          /* The reference does not scale its count with the window: 34,000 points on a
+             desktop, 12,000 on a phone, whatever the viewport. That fixed count is why
+             it reads as a solid glittering globe instead of separate dots — the points
+             overlap. Copying it exactly means copying the count too, and shrinking the
+             points to stay proportional to the sphere (0.56% of its diameter, measured
+             on the portfolio hero at 540x900: 2.8px points on a 500px sphere). */
           var d = hPx * 0.86;
-          NPTS = Math.max(1400, Math.min(34000, Math.round(0.0408 * d * d)));
-          PXSIZE = 9 * 0.00487 * d;
+          NPTS = window.innerWidth < 768 ? 12000 : 34000;
+          PXSIZE = 9 * Math.max(1, Math.min(5, 0.0056 * d));
           var A = [[], [], [], []], sc = [], sd = [];
           for(var i = 0; i < NPTS; i++){
             for(var k = 0; k < 4; k++){ var p = SH[k](); A[k].push(p[0], p[1], p[2]); }
