@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="0a6b4459d1fd"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="e278f1be8e1e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -6275,19 +6275,32 @@ function makeQR(text) {
           el.setAttribute('data-crow', el === wrap ? 'tools' : 'model');
         });
         /* The reference writes width/height inline on these nodes (34px search, 36px
-           send...). Inline beats every stylesheet, which is the real reason this block
-           grew a pile of !important. Clear the five properties the stylesheet owns,
-           once, and CSS becomes the single source of truth for the row. */
-        var OWNED = ['width', 'height', 'min-width', 'min-height', 'border-radius'];
-        [].forEach.call(crow.querySelectorAll('#auraSearchBtn,#auraAttachBtn,.mic,.send,[data-crow],[data-crow] button'), function(el){
-          OWNED.forEach(function(prop){ el.style.removeProperty(prop); });
-        });
+           send) and re-applies them on its own renders, so a stylesheet cannot own the
+           sizes without !important. One table, one function, applied from JS: the row's
+           sizes are now a single readable list instead of three media queries. */
+        var T = window.innerWidth <= 370 ? { side: 40, mic: 42, send: 46, h: 42 }
+              : window.innerWidth <= 440 ? { side: 36, mic: 40, send: 44, h: 40 }
+              : { side: 38, mic: 40, send: 44, h: 40 };
+        var box = function(el, w, h, r){
+          if(!el) return;
+          el.style.width = w + 'px'; el.style.minWidth = w + 'px';
+          el.style.height = h + 'px'; el.style.minHeight = h + 'px';
+          if(r != null) el.style.borderRadius = r + 'px';
+        };
+        box(crow.querySelector('#auraSearchBtn'), T.side, T.side, 11);
+        box(crow.querySelector('#auraAttachBtn'), T.side, T.side, 11);
+        box(crow.querySelector('.mic'), T.mic, T.mic, 12);
+        box(crow.querySelector('.send'), T.send, T.h, 12);
+        var tw = crow.querySelector('[data-crow="tools"]');
+        if(tw){ box(tw, 40, 40, null); box(tw.querySelector('button'), 40, 40, null); }
         var model = crow.querySelector('[data-crow="model"]');
         if(model && !model.getAttribute('title')) model.setAttribute('title', 'Personality — switch in Settings');
         return true;
       }
       if(!tag()) setTimeout(tag, 500);
       setTimeout(tag, 1800);            /* the reference re-renders its dock once */
+      var rz = 0;
+      window.addEventListener('resize', function(){ clearTimeout(rz); rz = setTimeout(tag, 160); });
     })();
   }catch(e){}
 
@@ -6966,23 +6979,16 @@ function makeQR(text) {
          Widths: 360 -> 40/40/40/42/46, 390 -> 36/36/40/40/44, 430+ -> 38/38/40/40/44. */
       '#card .crow{gap:8px}',
       '#card .crow>*{flex:0 0 auto}',
-      '#card .crow #auraSearchBtn,#card .crow #auraAttachBtn{width:38px;height:38px;border-radius:11px}',
-      '#card .crow .mic{width:40px;height:40px;border-radius:12px}',
-      '#card .crow .send{width:44px;height:40px;border-radius:12px;line-height:1}',
-      '#card .crow [data-crow="tools"]{height:40px}',
-      '#card .crow [data-crow="tools"] button{min-width:40px;height:40px}',
       '#card .crow [data-crow="model"]{flex:0 1 auto;min-width:0;max-width:104px;overflow:hidden;' +
         'height:38px;font-size:12px;white-space:nowrap}',
-      '@media(max-width:430px){',
+      /* 440/370, not 430/380: a phone that reports 430.4 CSS px would fail a
+         max-width:430 query, which is exactly how the old cap went missing */
+      '@media(max-width:440px){',
         '#card .crow{gap:7px}',
         '#card .crow [data-crow="model"]{max-width:76px}',
-        '#card .crow #auraSearchBtn,#card .crow #auraAttachBtn{width:36px;height:36px}',
       '}',
-      '@media(max-width:380px){',
+      '@media(max-width:370px){',
         '#card .crow [data-crow="model"]{display:none}',
-        '#card .crow #auraSearchBtn,#card .crow #auraAttachBtn{width:40px;height:40px}',
-        '#card .crow .mic{width:42px;height:42px}',
-        '#card .crow .send{width:46px;height:42px}',
       '}'
     ].join("");
     document.head.appendChild(mq);
