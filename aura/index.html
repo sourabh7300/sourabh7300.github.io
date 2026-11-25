@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="d1a5710512b9"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="da1bbd62128e"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -6259,6 +6259,30 @@ function makeQR(text) {
     })();
   }catch(e){}
 
+  /* ---------------- composer row markers ----------------
+     The row holds two .persel divs — one wraps the + button, the other is the persona
+     chip. Telling them apart with :nth-of-type(2) in CSS broke the moment anything in
+     the row moved, and the chip's max-width could never win against a flex item's
+     automatic min-width. Tag them once, by identity, and let CSS read the attribute. */
+  try{
+    (function tagCrow(){
+      function tag(){
+        var crow = document.querySelector('#card .crow');
+        if(!crow) return false;
+        var plus = document.getElementById('plusbtn');
+        var wrap = plus && plus.closest ? plus.closest('.persel') : null;
+        [].forEach.call(crow.querySelectorAll('.persel'), function(el){
+          el.setAttribute('data-crow', el === wrap ? 'tools' : 'model');
+        });
+        var model = crow.querySelector('[data-crow="model"]');
+        if(model && !model.getAttribute('title')) model.setAttribute('title', 'Personality — switch in Settings');
+        return true;
+      }
+      if(!tag()) setTimeout(tag, 500);
+      setTimeout(tag, 1800);            /* the reference re-renders its dock once */
+    })();
+  }catch(e){}
+
   /* ---------------- phone layout: three tabs, no suggestion chips, no tip -------
      These are applied through style properties rather than the stylesheet: the tab
      and chip selectors were being mangled inside the generated CSS string, and a
@@ -6912,36 +6936,45 @@ function makeQR(text) {
         '#p-set .row input[type=text]{width:100%!important}',
         '#p-set .row input[type=range]{width:100%!important}',
         '#p-set .sw,#p-set .msw{justify-content:flex-start!important}',
-        // one row, one size: the microphone was 33px wide and the send button 30px,
-        // so the two most used controls were the smallest things on the screen
-        '.crow{gap:8px!important}',
-        '.crow #auraSearchBtn,.crow #auraAttachBtn{width:38px!important;height:38px!important;min-width:38px!important;border-radius:11px!important}',
-        '.crow .mic{width:40px!important;height:40px!important;min-width:40px!important;border-radius:12px!important}',
-        '.crow .send{width:44px!important;height:40px!important;min-width:44px!important;min-height:40px!important;border-radius:12px!important;line-height:1!important}',
-        '.crow .persel button{min-width:40px!important;height:40px!important}',
-        '.crow .persel{height:38px!important;font-size:12px!important}',
       '}',
       '@media(max-width:430px){',
         '.tabs button{font-size:11.5px;padding:0 8px;height:32px}',
         '.tabs{gap:1px}',
-        /* measured at 390: the row was 344px inside a 338px card, so Send hung 9px
-           past the card edge; a narrower persona chip brings it back in */
-        '.crow{gap:7px!important}',
-        '.crow .persel:nth-of-type(2){max-width:76px!important;overflow:hidden!important;flex:0 1 auto!important}',
       '}',
-      /* 360px: the composer row was 384px wide inside a 332px card, so the send
-         button sat 39px off the screen and the hero ran under the card */
-      '@media(max-width:380px){',   /* 360-class phones only; a 390 keeps its persona chip */
-        '.crow{gap:7px!important}',
-        /* the persona chip cannot fit beside five controls at 360px and it only
-           duplicated Settings → personality, so it steps aside and the buttons grow.
-           Only the SECOND .persel is the chip — the first wraps the + button. */
-        '.crow .persel:nth-of-type(2){display:none!important}',
-        '.crow #auraSearchBtn,.crow #auraAttachBtn{width:40px!important;min-width:40px!important;height:40px!important}',
-        '.crow .mic{width:42px!important;min-width:42px!important;height:42px!important}',
-        '.crow .send{width:46px!important;min-width:46px!important;height:42px!important}',
+      /* 360px: the hero was taller than the space above the composer */
+      '@media(max-width:380px){',
         '#coreStageWrap{width:190px!important;height:190px!important}',
         '#wel h2{font-size:clamp(21px,6.4vw,30px)!important}',
+      '}',
+      /* ---------------- the composer row, in one place ----------------
+         This used to be spread over three media queries with !important on every
+         property, and the chip was found with :nth-of-type(2) — which quietly stopped
+         matching, and whose max-width could never win against a flex item's automatic
+         min-width (min beats max). Two fixes make it readable:
+           1. the row's two .persel divs are tagged data-crow="tools" / "model" in JS,
+              by identity, so reordering the row cannot break the rule;
+           2. every selector is scoped under #card, which outranks the reference's
+              plain .crow/.mic/.send rules — no !important is needed at all.
+         Widths: 360 -> 40/40/40/42/46, 390 -> 36/36/40/40/44, 430+ -> 38/38/40/40/44. */
+      '#card .crow{gap:8px}',
+      '#card .crow>*{flex:0 0 auto}',
+      '#card .crow #auraSearchBtn,#card .crow #auraAttachBtn{width:38px;height:38px;border-radius:11px}',
+      '#card .crow .mic{width:40px;height:40px;border-radius:12px}',
+      '#card .crow .send{width:44px;height:40px;border-radius:12px;line-height:1}',
+      '#card .crow [data-crow="tools"]{height:40px}',
+      '#card .crow [data-crow="tools"] button{min-width:40px;height:40px}',
+      '#card .crow [data-crow="model"]{flex:0 1 auto;min-width:0;max-width:104px;overflow:hidden;' +
+        'height:38px;font-size:12px;white-space:nowrap}',
+      '@media(max-width:430px){',
+        '#card .crow{gap:7px}',
+        '#card .crow [data-crow="model"]{max-width:76px}',
+        '#card .crow #auraSearchBtn,#card .crow #auraAttachBtn{width:36px;height:36px}',
+      '}',
+      '@media(max-width:380px){',
+        '#card .crow [data-crow="model"]{display:none}',
+        '#card .crow #auraSearchBtn,#card .crow #auraAttachBtn{width:40px;height:40px}',
+        '#card .crow .mic{width:42px;height:42px}',
+        '#card .crow .send{width:46px;height:42px}',
       '}'
     ].join("");
     document.head.appendChild(mq);
