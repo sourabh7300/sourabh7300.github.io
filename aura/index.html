@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="fa042bff93b9"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="ed4671d6f1b4"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -3592,7 +3592,7 @@ function makeQR(text) {
   try{
     /* English on purpose: this is the first thing a visitor sees, and the reply
        language is whatever they type — the tour does not need to guess it. */
-    var TOUR = [
+    var TOUR_ALL = [
       { sel: '#inp', tab: 'chat', title: 'Start here — ask anything',
         body: 'Type in the box and press Enter (Shift+Enter adds a line). Ask for a plan, a summary, a fix or a decision.',
         how: 'Your text goes to the AURA backend, which searches the live web only when the answer has to be current, then streams the reply back. Nothing is pre-written.' },
@@ -3617,22 +3617,25 @@ function makeQR(text) {
       { sel: '#tabs button[data-p="chats"]', tab: 'chats', title: 'Chats are kept',
         body: 'Open Chats to switch, rename or delete a conversation. “New chat” starts a clean one.',
         how: 'Conversations are stored in this browser, so they survive a reload without an account.' },
-      { sel: '#tabs button[data-p="code"]', tab: 'code', title: 'Code Forge',
+      { sel: '#tabs button[data-p="code"]', tab: 'code', desk: true, title: 'Code Forge',
         body: 'Write JavaScript, HTML or Python and press Run — the output appears right below.',
         how: 'Code runs in a sandboxed frame on your device, so a result can be explained without touching your real files.' },
-      { sel: '#tabs button[data-p="sys"]', tab: 'sys', title: 'System — the honest numbers',
+      { sel: '#tabs button[data-p="sys"]', tab: 'sys', desk: true, title: 'System — the honest numbers',
         body: 'Live diagnostics: engine, memory, latency, build tag, and whether the backend keys are healthy.',
         how: 'These readings come from the running page and the backend health check, so a slow answer is visible instead of guessed.' },
       { sel: '#tabs button[data-p="set"]', tab: 'set', title: 'Settings',
         body: 'Name, voice and sound switches, persona, theme — plus a read-only Services row (search, keys, vision, crashes) and “Show tour” to restart this walkthrough.',
         how: 'Preferences live in this browser. The Services row only reports the backend, it cannot change it.' },
-      { sel: '#srch', tab: 'chat', title: 'Keyboard: Ctrl K and /',
+      { sel: '#srch', tab: 'chat', desk: true, title: 'Keyboard: Ctrl K and /',
         body: 'Ctrl K (⌘K on a Mac) opens the command palette, / jumps straight to the input, Esc closes whatever is open.',
         how: 'The palette lists the same actions as the buttons, so everything can be reached without a mouse.' },
       { sel: null, tab: 'chat', title: 'Co-Pilot and Guide',
         body: 'Plus → Co-Pilot watches the screen or camera frame you share and answers about it. Plus → Guide brings this tour back.',
         how: 'Co-Pilot only sees what you explicitly share, and stops the moment you switch it off.' }
     ];
+    /* a phone has no Code/System tab and no Ctrl K, so those steps would point at
+       nothing — they stay for the laptop, where the controls actually exist */
+    var TOUR = TOUR_ALL.filter(function(s){ return !s.desk || window.innerWidth >= 900; });
     var TOUR_KEY = 'aura_tour_v3';
     var tourEl = null, tourStep = 0, tourRing = null, tourKey = null;
 
