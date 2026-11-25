@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="4fae5e7ae219"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="725d84be5431"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -7497,6 +7497,15 @@ function makeQR(text) {
           }
         }
 
+        /* a limb glow: the sphere has an edge even though it is made of dots */
+        var shell = ctx.createRadialGradient(cx, cy, R * 0.25, cx, cy, R * 1.04);
+        shell.addColorStop(0, mix(120, 200, 255) + '0)');
+        shell.addColorStop(0.70, mix(110, 190, 255) + '0.030)');
+        shell.addColorStop(0.90, mix(170, 230, 255, true) + '0.085)');
+        shell.addColorStop(1, mix(140, 210, 255) + '0)');
+        ctx.fillStyle = shell;
+        ctx.beginPath(); ctx.arc(cx, cy, R * 1.04, 0, Math.PI * 2); ctx.fill();
+
         /* ---- the sphere itself ---- */
         var rotY = t * 0.30 * sp;
         var rotX = Math.sin(t * 0.21) * 0.42 + Math.sin(t * 0.07) * 0.12;
@@ -7526,9 +7535,10 @@ function makeQR(text) {
           var alpha = 0.05 + Math.pow(depth, 1.45) * 0.95;
           var size = dot * (0.50 + depth * 1.35) * SPHERE[i].w;
           /* the front of the sphere takes the hot colour, the back stays deep */
-          var col = depth > 0.80 ? mix(225, 250, 255, true)
-                  : depth > 0.45 ? mix(150, 220, 255)
-                  : mix(70, 150, 235);
+          var col = depth > 0.82 ? mix(210, 248, 255, true)
+                  : depth > 0.50 ? mix(120, 205, 255)
+                  : depth > 0.24 ? mix(60, 150, 240)
+                  : mix(35, 95, 190);
           ctx.fillStyle = col + alpha.toFixed(3) + ')';
           ctx.beginPath(); ctx.arc(q.x, q.y, size, 0, Math.PI * 2); ctx.fill();
         }
