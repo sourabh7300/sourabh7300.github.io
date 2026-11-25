@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="8b3f5ffdd0a6"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="34377832e15d"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -6917,15 +6917,20 @@ function makeQR(text) {
       // A panel is shown by a 0.5s fade-in whose base state is opacity:0. On a device
       // that throttles or disables animations the fade never arrives and the page is
       // fully transparent. The content matters more than the fade, so it stays visible.
-      '.panel.on{opacity:1!important;transform:none!important;animation:none!important}',
+      /* No !important in this block, on purpose — the pattern is the composer row's:
+         scope the selector until it outranks the reference by itself. The reference's
+         own sheet is earlier in <head> and has one !important in total (reduced-motion),
+         so `.panel .sc` beats its `.sc{position:absolute;opacity:0}` on specificity alone,
+         and every equal-specificity rule here wins on order. */
+      '.panel.on{opacity:1;transform:none;animation:none}',
       // the page is fixed on a phone, so the message list is the only scrolling surface
       'html,body{overscroll-behavior-y:contain}',
-      '#msgs{overflow-y:auto!important;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}',
+      '#msgs{overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}',
       '#chatw{min-height:0}',
       /* the old docs sheet must never cover the app */ +
-              '#docov{display:none!important}' +
-        '#msgs .m.a b{display:inline!important}' +
-        '#msgs .m.a b.aura-hd{display:block!important;margin:6px 0 2px}' +
+              '#docov{display:none}' +
+        '#msgs .m.a b{display:inline}' +
+        '#msgs .m.a b.aura-hd{display:block;margin:6px 0 2px}' +
       '#auraJump{position:fixed;right:16px;bottom:124px;z-index:30;display:none;align-items:center;gap:6px;' +
         'padding:8px 13px;border-radius:99px;border:1px solid rgba(120,215,255,.35);' +
         'background:rgba(10,16,26,.92);color:#dff3ff;font:12px Inter,system-ui,sans-serif;' +
@@ -6933,10 +6938,10 @@ function makeQR(text) {
       // .sc is used for two different things: a panel body and a full-screen overlay
       // with opacity:0. The overlay rule also lands on the panel body, which made Chats
       // and Settings render as a transparent grid with no scrolling.
-      '.panel .sc{position:static!important;inset:auto!important;display:block!important;opacity:1!important;pointer-events:auto!important;place-items:normal!important;flex:1!important;min-height:0!important;overflow:auto!important;padding:0 18px 22px!important}',
-      '@media(prefers-reduced-motion:reduce){#msgs .m{opacity:1!important;animation:none!important;transform:none!important}}',
+      '.panel .sc{position:static;inset:auto;display:block;opacity:1;pointer-events:auto;place-items:normal;flex:1;min-height:0;overflow:auto;padding:0 18px 22px}',
+      '@media(prefers-reduced-motion:reduce){#msgs .m{opacity:1;animation:none;transform:none}}',
       // a modal should dim the page, not black it out
-      '.ov{background:rgba(0,0,0,.58)!important;backdrop-filter:blur(5px)!important}',
+      '.ov{background:rgba(0,0,0,.58);backdrop-filter:blur(5px)}',
       '@media(max-width:900px){',
         '.tabs{gap:2px;padding:2px;scrollbar-width:none;justify-content:flex-start}',
         '.tabs::-webkit-scrollbar{display:none}',
