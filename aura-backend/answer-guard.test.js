@@ -55,8 +55,10 @@ ok("Devanagari question gets a Devanagari reply",
   guard.scriptNote("मेरा फोन बंद हो जाता है") === "SCRIPT: the user wrote Devanagari — reply in Devanagari.");
 ok("Hinglish question asks for Roman letters",
   /Roman letters only/.test(guard.scriptNote("bhai kya karu")));
-ok("English question needs no script note",
-  guard.scriptNote("what is the capital of australia") === "");
+/* English used to get no note at all, and a plain English ask ("bmic 2026 teams
+   list") came back in Devanagari on 27 Nov 2026 — the note now says English out loud. */
+ok("English question asks for English",
+  guard.scriptNote("what is the capital of australia") === "SCRIPT: the user wrote English — reply in English.");
 
 console.log("C. one decision for both defects");
 ok("needsRewrite covers identity and script",

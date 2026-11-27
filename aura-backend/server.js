@@ -2828,7 +2828,9 @@ function scriptNote(q) {
   const s = String(q || "");
   if (DEVANAGARI.test(s)) return "SCRIPT: the user wrote Devanagari — reply in Devanagari.";
   if (ROMAN_HINGLISH.test(s)) return "SCRIPT: the user wrote Hindi/Urdu in Roman letters (Hinglish) — reply in Roman letters only, never Devanagari.";
-  return "";
+  /* an English question used to carry no instruction at all and came back in
+     Devanagari ("bmic 2026 teams list", 27 Nov 2026) */
+  return "SCRIPT: the user wrote English — reply in English.";
 }
 /* A STALE ANSWER GETS ONE LIVE LOOK (4 Nov 2026): when the draft admits a training
    cutoff, the question earns a real search and one rewrite grounded in today's
@@ -3433,6 +3435,20 @@ async function groundChat(messages) {
       if (gated.dropped && gated.dropped.length && process.env.AURA_DEBUG) console.log("[gate] dropped " + gated.dropped.length + " off-topic hit(s) for q=\"" + ask + "\"");
       if (hits && hits.length) {
         const top = hits.slice(0, 2);
+        /* HEADLINE-ONLY EVIDENCE (27 Nov 2026): both search keys are invalid, so the
+           news feed returns titles with no body and the model hedged ("couldn't
+           confirm the CEO", "no specific version"). One page, capped, turns the best
+           title into text — skipped whenever the snippet already carries the facts. */
+        if (top[0] && top[0].url && String(top[0].snippet || top[0].extract || "").length < 140) {
+          try {
+            const page = await Promise.race([
+              toolFetch(top[0].url, 3500).catch(() => ""),
+              new Promise(r => setTimeout(() => r(""), 3800))
+            ]);
+            const text = cleanRead(page || "");
+            if (text && text.length > 200) top[0] = Object.assign({}, top[0], { extract: text.slice(0, 1600) });
+          } catch (e) {}
+        }
         /* NO PAGE RE-READS ON THE ANSWER PATH (30 Oct 2026). The search API already
            returns the page text, and a Liquipedia hit already IS the facts block
            (h.extract && /DATES:|TEAMS\s*\(/) — re-reading either through the proxy
