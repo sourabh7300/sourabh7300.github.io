@@ -67,16 +67,22 @@ function sharpenQuery(q, now) {
   const d = now instanceof Date ? now : new Date();
   const day = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const game = gameIn(q);
-  /* NO GAME NAMED (27 Nov 2026): the bare word "esports" came back with prediction
-     markets and high-school press releases — never a score. The biggest titles carry
-     the day's real results, so an unnamed ask searches them by name. */
-  const subject = game || "BGMI Valorant CS2 esports";
+  const subject = game || "esports";
   const asked = String(q || "").toLowerCase();
   const kind = /points\s+table|standings/i.test(asked) ? "standings"
     : /schedule|fixture|kab\b/i.test(asked) ? "fixture schedule"
       : /final|championship|grand/i.test(asked) ? "grand final result"
         : "match result";
   /* sports and leagues already name a competition, so they take no "tournament" prefix */
+  /* NO GAME NAMED (27 Nov 2026, measured): "esports tournament match result 27
+     November 2026" timed out at 8s with zero hits, and the titles list was no better;
+     "esports results today <date>" returns real result pages in ~4s. */
+  if (!game) {
+    const want = /points\s+table|standings/i.test(asked) ? "standings"
+      : /schedule|fixture|kab\b/i.test(asked) ? "fixtures"
+        : "results";
+    return ("esports " + want + " today " + day).replace(/\s+/g, " ").trim();
+  }
   const COMPETITION = /^(cricket|football|tennis|IPL|BBL|PSL|World Cup)$/;
   return (COMPETITION.test(subject)
     ? subject + " " + kind + " " + day

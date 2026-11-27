@@ -4465,10 +4465,12 @@ async function toolSearch(q) {
      standings question gets a result-shaped query and result-shaped sources instead.
      Fail-open: if the focused search finds nothing useful we fall through to the old
      lanes exactly as before. */
+  let focused = false; /* one focused search per question — the rest only adds */
   try {
     if (FOCUS && FOCUS.isResultAsk(q)) {
       const fq = FOCUS.sharpenQuery(q);
       const got = [];
+      focused = true;
       if (searchProvider() !== "free") {
         try {
           /* basic depth on purpose: the query already carries an explicit date, and the
@@ -4508,7 +4510,7 @@ async function toolSearch(q) {
        the merged set keeps the official page first. */
     const [lp, news] = await Promise.all([
       LIQUI.liquipediaSearch(q, 2).catch(() => []),
-      (searchProvider() !== "free" ? realSearch(q, 5, FRESH_RE.test(q)).catch(() => null) : Promise.resolve(null))
+      (!focused && searchProvider() !== "free" ? realSearch(q, 5, FRESH_RE.test(q)).catch(() => null) : Promise.resolve(null))
     ]);
     for (const h of (lp || [])) if (!out.some(x => x.url === h.url)) out.push(h);
     for (const h of (news || [])) {
@@ -4518,8 +4520,9 @@ async function toolSearch(q) {
     if (out.length) return out.slice(0, 4);
   }
   /* a real search API answers first when its key is configured — this is the lane
-     that guarantees fresh, ranked results for "latest …" questions */
-  if (searchProvider() !== "free") {
+     that guarantees fresh, ranked results for "latest …" questions. A focused result
+     search already ran, and a second one is what doubled this path to 8s. */
+  if (!focused && searchProvider() !== "free") {
     try {
       const hits = await realSearch(q, 6, FRESH_RE.test(q));
       if (hits && hits.length) return hits.slice(0, 5);
