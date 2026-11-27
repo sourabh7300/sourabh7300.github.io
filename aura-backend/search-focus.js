@@ -67,7 +67,10 @@ function sharpenQuery(q, now) {
   const d = now instanceof Date ? now : new Date();
   const day = d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const game = gameIn(q);
-  const subject = game || "esports";
+  /* NO GAME NAMED (27 Nov 2026): the bare word "esports" came back with prediction
+     markets and high-school press releases — never a score. The biggest titles carry
+     the day's real results, so an unnamed ask searches them by name. */
+  const subject = game || "BGMI Valorant CS2 esports";
   const asked = String(q || "").toLowerCase();
   const kind = /points\s+table|standings/i.test(asked) ? "standings"
     : /schedule|fixture|kab\b/i.test(asked) ? "fixture schedule"
@@ -91,6 +94,8 @@ function scoreHit(h) {
   if (/\b(today|yesterday|hours? ago)\b/i.test(text)) s += 1;
   if (/high\s*school|collegiate|scholastic|playvs/i.test(text)) s -= 4; /* the junk that started this */
   if (/how to watch|where to watch|preview|tickets|odds|betting/i.test(text)) s -= 2;
+  /* a market on who MIGHT win is not a result — the generic esports ask surfaced these */
+  if (/prediction\s+market|robinhood|polymarket|kalshi/i.test(text + " " + url)) s -= 5;
   return s;
 }
 
