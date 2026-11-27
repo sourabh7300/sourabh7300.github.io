@@ -2730,6 +2730,10 @@ const AURA_FACT_RULES =
      match nahi hai" while the results only talked about Australia — a confident negative is
      as wrong as an invented list. */
   "Never claim that nothing is scheduled, released or available today unless the LIVE WEB RESULTS actually say so for that exact team, product or event; if they are about something else, say in one natural line that you could not confirm it for today and give the nearest thing they do show. " +
+  /* OWNER REPORT 27 Nov 2026: "aaj esports me kaun jeeta" answered "I am unable to
+     provide real-time information … I have no internet access" in Devanagari after
+     eight seconds — the web results had been fetched, they just named no single winner. */
+  "Never say you cannot access the internet, browse, or get real-time or current information, and never mention a training date: the results for this turn were fetched seconds ago. For an esports question name the game and the tournament explicitly, keep two events apart, and put the date the source shows next to every result; if the results name no single winner, give the newest dated result, standings or fixture they DO show in one line each and ask which game or event the user means. " +
   /* OWNER REPORT 5 Nov 2026: asked for Microsoft's CEO, the same rules produced "I couldn't
      find a live result confirming the current CEO" — a refusal for a fact that never moves.
      Only figures that move need today's source; settled facts stay answerable. */
@@ -2768,7 +2772,9 @@ const DEVANAGARI = /[\u0900-\u097F]/;
 const IDENTITY_ASK = /(who\s+are\s+you|what('s| is) your name|which (model|ai|llm)|are you (chatgpt|gpt|gemini|claude|human|real)|kaun ho|kaun hai (tu|tum)|tumhara naam|naam kya|aapka naam)/i;
 const SELF_MODEL = /(my name is|i am|i'm|main hoon|mera naam)\s+[^.\n]{0,50}?\b(nemotron|gpt-?[0-9]|llama|qwen|mistral|codestral|claude|gemini|deepseek|phi-?[0-9]|nvidia|openai|anthropic|meta ai|gemma)/i;
 const SELF_VENDOR = /\b(i (?:was|am) (?:developed|trained|created|built) by|researchers at (?:nvidia|openai|anthropic|google deepmind)|trained by (?:nvidia|openai|anthropic))/i;
-const ROMAN_HINGLISH = /\b(kya|hai|hain|kaise|kaisa|nahi|nhi|bhai|yaar|mujhe|mera|meri|karu|karun|karo|kyun|kyu|accha|acha|bata|batao|ho|raha|rahi|tum|aap|main|aur|abhi|kuch|koi)\b/i;
+/* "aaj esports me kaun jeeta" matched none of these, so the question carried no
+   script instruction and the answer came back in Devanagari (27 Nov 2026). */
+const ROMAN_HINGLISH = /\b(kya|hai|hain|kaise|kaisa|nahi|nhi|bhai|yaar|mujhe|mera|meri|karu|karun|karo|kyun|kyu|accha|acha|bata|batao|ho|raha|rahi|tum|aap|main|aur|abhi|kuch|koi|aaj|kal|kaun|kaunsa|kitna|kitne|kitni|kahan|jeeta|jeeti|chahiye|hoga|hui|gaya|gayi|wala|wali|mein)\b/i;
 /* "Main AURA hoon. Main GPT-4 architecture pe kaam karta hoon." — a first-person
    claim about which model or architecture powers the assistant. Widened after that
    exact line reached the live site (4 Nov 2026). */
@@ -4495,14 +4501,21 @@ async function toolSearch(q) {
     }
   } catch (e) {}
   if (LIQUI && LIQUI.isEsportsQuery(q)) {
-    try {
-      const lp = await LIQUI.liquipediaSearch(q, 2);
-      for (const h of lp) if (!out.some(x => x.url === h.url)) out.push(h);
-    } catch (e) {}
-    /* an official tournament page beats a generic news feed for rosters/dates, so it
-       is the whole evidence set — irrelevant headlines were what nudged the model
-       into mixing events up in the first place */
-    if (out.length) return out.slice(0, 2);
+    /* LIQUIPEDIA *AND* THE NEWS INDEX, TOGETHER (27 Nov 2026): Liquipedia carries the
+       roster and the dates but never the line "who won today", so a result question
+       used to leave here with an event page and nothing else — the model then refused.
+       Sequential waits are what made that cost 8s; both lanes now run in parallel and
+       the merged set keeps the official page first. */
+    const [lp, news] = await Promise.all([
+      LIQUI.liquipediaSearch(q, 2).catch(() => []),
+      (searchProvider() !== "free" ? realSearch(q, 5, FRESH_RE.test(q)).catch(() => null) : Promise.resolve(null))
+    ]);
+    for (const h of (lp || [])) if (!out.some(x => x.url === h.url)) out.push(h);
+    for (const h of (news || [])) {
+      if (out.length >= 5) break;
+      if (!out.some(x => x.url === h.url)) out.push(h);
+    }
+    if (out.length) return out.slice(0, 4);
   }
   /* a real search API answers first when its key is configured — this is the lane
      that guarantees fresh, ranked results for "latest …" questions */
@@ -4838,7 +4851,7 @@ app.post("/v1/chat/stream", async (req, res) => {
   {
     const __preQ = lastUserMsg(messages);
     const __live = (FRESH_RE.test(__preQ) || (FOCUS && FOCUS.isResultAsk(__preQ))) && !isSmallTalk(__preQ);
-    messages = await deadline(groundChat(messages), __live ? 7000 : 2200, messages);
+    messages = await deadline(groundChat(messages), __live ? 6500 : 2200, messages);
   }
   if (process.env.AURA_DEBUG) console.log("[timing] ground " + (Date.now() - __t0) + "ms");
   /* resolve a continuation ("teams in it") against the previous turn — the stream lane
