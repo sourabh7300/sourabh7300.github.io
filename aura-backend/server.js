@@ -4508,8 +4508,15 @@ async function toolSearch(q) {
        used to leave here with an event page and nothing else — the model then refused.
        Sequential waits are what made that cost 8s; both lanes now run in parallel and
        the merged set keeps the official page first. */
+    /* A FOCUSED RESULT SEARCH IS ALREADY THE ANSWER SET (27 Nov 2026, measured): waiting
+       for Liquipedia afterwards pushed this path past its 6.5s budget, so the evidence
+       was thrown away and the model said "no real-time data" after 10s. */
+    if (focused && out.length) return out.slice(0, 4);
     const [lp, news] = await Promise.all([
-      LIQUI.liquipediaSearch(q, 2).catch(() => []),
+      Promise.race([
+        LIQUI.liquipediaSearch(q, 2).catch(() => []),
+        new Promise(r => setTimeout(() => r([]), 2500))
+      ]),
       (!focused && searchProvider() !== "free" ? realSearch(q, 5, FRESH_RE.test(q)).catch(() => null) : Promise.resolve(null))
     ]);
     for (const h of (lp || [])) if (!out.some(x => x.url === h.url)) out.push(h);
