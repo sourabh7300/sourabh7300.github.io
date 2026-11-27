@@ -3442,8 +3442,8 @@ async function groundChat(messages) {
         if (top[0] && top[0].url && String(top[0].snippet || top[0].extract || "").length < 140) {
           try {
             const page = await Promise.race([
-              toolFetch(top[0].url, 3500).catch(() => ""),
-              new Promise(r => setTimeout(() => r(""), 3800))
+              toolFetch(top[0].url, 2000).catch(() => ""),
+              new Promise(r => setTimeout(() => r(""), 2200))
             ]);
             const text = cleanRead(page || "");
             if (text && text.length > 200) top[0] = Object.assign({}, top[0], { extract: text.slice(0, 1600) });
