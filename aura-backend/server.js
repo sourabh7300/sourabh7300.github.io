@@ -4908,6 +4908,19 @@ app.post("/v1/chat/stream", async (req, res) => {
      what keeps the event context, so the buffer decision must not look at __q alone */
   const __merged = followUpQuery(messages, __q);
   const __buffer = !!(LIQUI && (LIQUI.isEsportsQuery(__q) || LIQUI.isEsportsQuery(__merged)));
+  /* NO INVENTED ROSTERS (27 Nov 2026): "bmic 2026 teams list" was answered with
+     "Team Liquid / Team Secret / T1" — teams from another game entirely. When the ask
+     is a roster question and the evidence carries no verified list, the model is told
+     not to name any team at all. */
+  try {
+    if (isRosterAsk(__merged) || isRosterAsk(__q)) {
+      const __f = evidenceFacts(messages);
+      if (!__f || !__f.list || __f.list.length < 3) {
+        messages = messages.concat([{ role: "system", content:
+          "ROSTER RULE (live): no verified team list for this event is in the results above. Do not name a single team, and never borrow teams from another tournament or another game. Say in one short line that the official list is not verified yet, and ask for the exact event and year." }]);
+      }
+    }
+  } catch (e) {}
   /* roster-exact answers never touch a model (see esportsFastAnswer) */
   const __fast = esportsFastAnswer(messages, __merged, __q);
   if (__fast) { send({ model: "live esports data" }); send({ delta: __fast }); finish(); return; }
