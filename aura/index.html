@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="90266ee3cb34"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
+<title>AURA · ZEUS — Inner Interface</title><meta name="aura-build" content="7fe20aa020c8"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0"><meta name="theme-color" content="#000000">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;0,6..72,700;1,6..72,400&display=swap" rel="stylesheet">
 <style>:root{--fs:'Newsreader','Tiempos Text',Georgia,serif;--fn:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--tx:#ece9e6;--dim:#8f8c89;--line:rgba(255,255,255,.12);--card:rgba(27,27,29,.88);--f2:'Inter',system-ui,sans-serif;
@@ -4389,6 +4389,55 @@ function makeQR(text) {
       return Math.max(12, Math.round(innerHeight - r.top + 12));
     }
 
+    /* Reviewer report (Anna, 27 Nov): the 50px eye sat on top of chat text. It now
+       docks in the header beside the Sync chip, where nothing is behind it, and a
+       dropped launcher keeps a clear gutter so a dragged one cannot cover a bubble
+       either. Both are geometry owned here, not a stylesheet. */
+    function copHeaderDock(btn){
+      try{
+        var hud = document.getElementById('auraSyncHud');
+        if(!hud || !hud.parentNode) return false;
+        var r = hud.getBoundingClientRect();
+        if(!r.width || r.top < 0) return false;
+        var side = Math.max(34, Math.min(50, Math.round(r.height - 4)));
+        btn.style.width = side + 'px';
+        btn.style.height = side + 'px';
+        btn.style.left = 'auto';
+        btn.style.bottom = 'auto';
+        btn.style.top = Math.round(r.top + (r.height - side) / 2) + 'px';
+        btn.style.right = Math.max(8, Math.round(innerWidth - r.left + 8)) + 'px';
+        btn.dataset.dock = 'header';
+        copGutter(false);
+        return true;
+      }catch(e){ return false; }
+    }
+    /* the eye floats over the column, so the column keeps a clear lane for it: bubbles
+       end 64px before the right edge and no glyph can sit on a sentence. */
+    function copGutter(on){
+      try{
+        var m = document.getElementById('msgs');
+        if(!m) return;
+        if(on && !m.dataset.copGutter){
+          m.dataset.copPrevPad = m.style.paddingRight || '';
+          m.style.paddingRight = '64px';
+        } else if(!on && m.dataset.copGutter){
+          m.style.paddingRight = m.dataset.copPrevPad || '';
+        }
+        m.dataset.copGutter = on ? '1' : '';
+      }catch(e){}
+    }
+    function copDockCorner(btn){
+      btn.style.width = '50px';
+      btn.style.height = '50px';
+      btn.style.left = 'auto';
+      btn.style.top = 'auto';
+      btn.style.right = '14px';
+      btn.style.bottom = copDefaultBottom() + 'px';
+      btn.dataset.dock = 'corner';
+      /* the gutter is what keeps a corner-docked eye off the message text */
+      copGutter(true);
+    }
+
     /* the always-visible entry point: a 50px orb, draggable, tap to open the window */
     var launcherEl = null;
     function copLauncher(){
@@ -4403,8 +4452,12 @@ function makeQR(text) {
         'color:#dff4ff;box-shadow:0 14px 34px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.05) inset;' +
         'cursor:pointer;transition:transform .16s ease';
       var pos = copPosGet('aura_cop_pos_btn');
-      if(pos){ b.style.left = pos.l + 'px'; b.style.top = pos.t + 'px'; }
-      else { b.style.right = '14px'; b.style.bottom = copDefaultBottom() + 'px'; }
+      if(pos){
+        b.style.left = pos.l + 'px'; b.style.top = pos.t + 'px';
+        b.dataset.dock = 'free';
+        copGutter(true);
+      }
+      else copDockCorner(b);
       document.body.appendChild(b);
       launcherEl = b;
       var moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
@@ -4433,10 +4486,12 @@ function makeQR(text) {
       b.addEventListener('click', function(){ copPanel(true); });
       /* the composer is measured, and it is not always laid out when the launcher is
          built — re-place once the first paint has settled as well as on resize */
-      setTimeout(function(){ if(b.style.right !== 'auto') b.style.bottom = copDefaultBottom() + 'px'; }, 500);
+      setTimeout(function(){
+        if(b.dataset.dock !== 'free') copDockCorner(b);
+      }, 500);
       window.addEventListener('resize', function(){
-        if(b.style.right !== 'auto') b.style.bottom = copDefaultBottom() + 'px';
-        copClamp(b);
+        if(b.dataset.dock === 'free'){ copClamp(b); return; }
+        copDockCorner(b);
       });
       return b;
     }
@@ -4445,7 +4500,7 @@ function makeQR(text) {
       if(panelEl && document.body.contains(panelEl)) return panelEl;
       var p = document.createElement('div');
       p.id = 'auraCopPanel';
-      p.style.cssText = 'position:fixed;z-index:46;width:min(338px,calc(100vw - 20px));' +
+      p.style.cssText = 'position:fixed;z-index:46;width:min(404px,calc(100vw - 16px));' +
         'background:linear-gradient(180deg,rgba(14,22,34,.97),rgba(8,13,21,.97));' +
         'border:1px solid rgba(120,215,255,.26);border-radius:16px;' +
         'box-shadow:0 22px 60px rgba(0,0,0,.62),0 0 0 1px rgba(255,255,255,.04) inset;' +
@@ -4473,12 +4528,12 @@ function makeQR(text) {
           '</div>' +
         '</div>' +
         '<div style="padding:0 12px 10px">' +
-          '<button id="auraCopToggle" type="button" style="width:100%;padding:10px 12px;border-radius:11px;border:1px solid rgba(120,215,255,.45);' +
+          '<button id="auraCopToggle" type="button" style="width:100%;padding:12px 14px;border-radius:11px;border:1px solid rgba(120,215,255,.45);' +
             'background:linear-gradient(135deg,#48c8ff,#2f7bff);color:#04121f;font:700 12.8px Inter,system-ui,sans-serif;cursor:pointer">Start screen share</button>' +
         '</div>' +
         '<div style="display:flex;gap:6px;padding:0 12px 8px">' +
           '<input id="auraCopQ" type="text" placeholder="Ask about your screen\u2026" autocomplete="off" ' +
-            'style="flex:1;min-width:0;padding:9px 11px;border-radius:10px;border:1px solid rgba(255,255,255,.14);' +
+            'style="flex:1;min-width:0;padding:11px 11px;border-radius:10px;border:1px solid rgba(255,255,255,.14);' +
             'background:rgba(255,255,255,.05);color:#eaf6ff;font:12.8px Inter,system-ui,sans-serif;outline:none">' +
           '<button id="auraCopMic" type="button" aria-label="Ask by voice" title="Ask by voice" style="padding:0 9px;border-radius:10px;border:1px solid rgba(120,215,255,.25);background:rgba(120,215,255,.08);color:#cfe9ff;font:15px Inter,system-ui,sans-serif;cursor:pointer">\uD83C\uDFA4</button>' +
           '<button id="auraCopPhoto" type="button" aria-label="Ask with a photo" title="Ask with a photo / screenshot" style="padding:0 9px;border-radius:10px;border:1px solid rgba(120,215,255,.25);background:rgba(120,215,255,.08);color:#cfe9ff;font:15px Inter,system-ui,sans-serif;cursor:pointer">📷</button>' +
@@ -4572,9 +4627,23 @@ function makeQR(text) {
       if(photoBtn) photoBtn.onclick = function(){ copPickPhoto(); };
       p.querySelector('#auraCopAsk').onclick = ask;
       p.querySelector('#auraCopQ').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); ask(); } });
-      /* the PiP button only exists where the browser can float a real window */
-      if(!('documentPictureInPicture' in window)) p.querySelector('#auraCopPip').style.display = 'none';
+      /* the PiP button needs BOTH the API and a top-level page: inside an app frame
+         (the Anna window is an iframe) requestWindow cannot work, so hiding it is
+         honest instead of offering a button that always throws. */
+      if(!copCanFloat()){
+        var pipBtn = p.querySelector('#auraCopPip');
+        if(pipBtn) pipBtn.style.display = 'none';
+      }
       return p;
+    }
+
+    /* PiP is only legal in a top-level page: the Anna app runs in an iframe, and there
+       requestWindow throws "only allowed from a top-level browsing context". */
+    function copTopLevel(){
+      try{ return window.self === window.top; }catch(e){ return false; }
+    }
+    function copCanFloat(){
+      return ('documentPictureInPicture' in window) && copTopLevel();
     }
 
     /* float the panel over other apps as a real always-on-top window */
@@ -4584,12 +4653,21 @@ function makeQR(text) {
         if(pipWin){ try{ pipWin.close(); }catch(e){} pipWin = null; }
         var p = buildPanel();
         var win = null;
+        if('documentPictureInPicture' in window && !copTopLevel()){
+          /* not an error the visitor can fix — say what is true and give them a bigger
+             docked panel instead of the old "Float failed: …" line */
+          p.dataset.wide = '1';
+          p.style.width = 'min(540px,calc(100vw - 16px))';
+          copClamp(p);
+          tell('This window cannot float a separate panel \u2014 Co-Pilot is docked and widened here');
+          return;
+        }
         if('documentPictureInPicture' in window){
           /* Chrome only opens this window for a REAL tap. Without one the promise can sit
              pending for ever, which looked like a dead button — so it gets a deadline and
              an honest message instead of silence. */
           win = await Promise.race([
-            window.documentPictureInPicture.requestWindow({ width: 360, height: 470 }),
+            window.documentPictureInPicture.requestWindow({ width: 420, height: 600 }),
             new Promise(function(_, rej){
               setTimeout(function(){ rej(new Error('the browser did not open the floating window — tap \u29c9 again, and allow popups for this site')); }, 6000);
             })
@@ -4598,8 +4676,13 @@ function makeQR(text) {
           /* no Document PiP (Firefox/Safari/older Chrome): a plain popup still gives a
              separate window you can drag beside another app. It is NOT always-on-top,
              and the label says so instead of pretending. */
-          win = window.open('', 'auraCopPop', 'width=372,height=520,menubar=no,toolbar=no,location=no,status=no');
-          if(!win) return tell('Popup blocked \u2014 allow popups for this site, then tap \u29c9 again');
+          win = window.open('', 'auraCopPop', 'width=420,height=620,menubar=no,toolbar=no,location=no,status=no');
+          if(!win){
+            p.dataset.wide = '1';
+            p.style.width = 'min(540px,calc(100vw - 16px))';
+            copClamp(p);
+            return tell('Popups are blocked here \u2014 Co-Pilot stays docked and widened');
+          }
         }
         pipWin = win;
         /* the window has to be recognisable at a glance — in the OS task list and in
@@ -4637,7 +4720,15 @@ function makeQR(text) {
         copSyncMini(); copStatus();
       }catch(e){
         try{ localStorage.setItem('aura_pip_last', JSON.stringify({ at: Date.now(), ok: false, err: String((e && e.message) || e) })); }catch(x){}
-        tell('Float failed: ' + (e && e.message || 'not allowed'));
+        /* never surface a raw DOM exception to a visitor: widen the docked panel and
+           leave one plain sentence in the toast */
+        var panel = panelEl; 
+        if(panel){
+          panel.dataset.wide = '1';
+          panel.style.width = 'min(540px,calc(100vw - 16px))';
+          try{ copClamp(panel); }catch(x){}
+        }
+        tell('Floating is not available in this window \u2014 Co-Pilot is docked and widened instead');
       }
     }
 
@@ -10056,6 +10147,499 @@ function makeQR(text) {
     if (!b) return;
     if (handle(boxValue())) { e.preventDefault(); e.stopPropagation(); clearBox(); }
   }, true);
+})();
+</script>
+<script id="aura-quantum-core">/* ================= AURA QUANTUM CORE =================
+   A quantum question — typed, dictated or spoken — is recognised on its own and
+   never reaches the chat lane: it goes to POST /api/quantum, which compiles the
+   prompt into a circuit, runs it on Qiskit Aer and explains the result. The reply
+   is drawn as a circuit + probability card inside the same assistant bubble.
+   No toggle, no /command, no layout change; a slow or dead lane leaves one short
+   line in the bubble so the chat itself never stalls.
+   ================================================================= */
+(function(){
+  "use strict";
+  if(window.__auraQuantum) return;
+  window.__auraQuantum = true;
+
+  var BASE = (localStorage.getItem("aura_backend_url") || "https://aura-backend-jomj.onrender.com").replace(/\/+$/, "");
+  var SHOTS = 1024;
+  var TIMEOUT = 45000;
+  /* natural language, not a command: one of these words anywhere in the sentence */
+  var INTENT = /\b(quantum|qubits?|qiskit|superposition|entangl(?:e|ed|ement|ing)?|bell[ -]?state|grover|hadamard|bloch|qaoa|shor|deutsch|amplitude[ -]amplification|quantum[ -]circuit|quantum[ -]key|teleport(?:ation)?|decoherence|noise[ -]model)\b/i;
+
+  var CSS = [
+    ".aqc-wrap{display:block;max-width:100%}",
+    ".aqc-bubble{max-width:min(560px,100%)}",
+    ".aqc-status{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;letter-spacing:.03em;color:var(--dim,#8fa6b2)}",
+    ".aqc-dot{width:7px;height:7px;border-radius:50%;background:var(--ac,#4df3ff);box-shadow:0 0 10px var(--ac,#4df3ff);animation:aqcPulse 1.15s ease-in-out infinite}",
+    "@keyframes aqcPulse{0%,100%{opacity:.35;transform:scale(.82)}50%{opacity:1;transform:scale(1.15)}}",
+    ".aqc-card{margin-top:4px;padding:12px 12px 10px;border-radius:14px;border:1px solid rgba(130,220,255,.18);background:linear-gradient(165deg,rgba(12,28,38,.9),rgba(6,14,20,.72));box-shadow:0 8px 28px rgba(0,0,0,.28);display:flex;flex-direction:column;gap:10px}",
+    ".aqc-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}",
+    ".aqc-title{font-size:13.5px;font-weight:600;letter-spacing:.01em;color:var(--fg,#e8f6ff)}",
+    ".aqc-badges{display:flex;gap:6px;flex:none}",
+    ".aqc-badge{display:inline-flex;align-items:baseline;gap:4px;padding:3px 7px;border-radius:7px;font-size:8.5px;letter-spacing:.12em;color:var(--dim,#8fa6b2);border:1px solid rgba(130,220,255,.22);background:rgba(70,190,255,.08)}",
+    ".aqc-badge b{font-size:11px;letter-spacing:0;color:var(--ac,#4df3ff)}",
+    ".aqc-diagram{overflow:auto;padding:2px 0}",
+    ".aqc-svg{display:block;width:100%;height:auto;max-height:190px;min-width:200px}",
+    ".aqc-wire{stroke:rgba(150,215,255,.35);stroke-width:1}",
+    ".aqc-q{fill:var(--dim,#8fa6b2);font-size:8.5px;letter-spacing:.04em}",
+    ".aqc-gate{fill:rgba(70,190,255,.12);stroke:rgba(120,225,255,.6);stroke-width:1}",
+    ".aqc-g{fill:var(--ac,#4df3ff);font-size:9px;font-weight:600;text-anchor:middle;letter-spacing:.04em}",
+    ".aqc-sub{fill:var(--dim,#8fa6b2);font-size:6.8px;text-anchor:middle}",
+    ".aqc-conn{stroke:rgba(120,225,255,.55);stroke-width:1}",
+    ".aqc-ctrl{fill:var(--ac,#4df3ff)}",
+    ".aqc-tgt{fill:none;stroke:rgba(120,225,255,.85);stroke-width:1.2}",
+    ".aqc-x{stroke:rgba(120,225,255,.85);stroke-width:1.3}",
+    ".aqc-meas{fill:rgba(255,255,255,.05);stroke:rgba(150,215,255,.4);stroke-width:1}",
+    ".aqc-m{fill:var(--dim,#cfe9f5);font-size:8.5px;text-anchor:middle}",
+    ".aqc-bars{display:flex;flex-direction:column;gap:5px}",
+    ".aqc-bar{display:grid;grid-template-columns:58px 1fr 54px;align-items:center;gap:8px;font-size:11px}",
+    ".aqc-ket{color:var(--fg,#dff2ff);font-variant-numeric:tabular-nums}",
+    ".aqc-track{height:6px;border-radius:4px;background:rgba(255,255,255,.07);overflow:hidden}",
+    ".aqc-fill{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,rgba(70,190,255,.55),var(--ac,#4df3ff));box-shadow:0 0 8px rgba(77,243,255,.35)}",
+    ".aqc-pct{text-align:right;color:var(--dim,#8fa6b2);font-variant-numeric:tabular-nums}",
+    ".aqc-analysis{margin:8px 0 0;font-size:13px;line-height:1.55;color:inherit;white-space:pre-wrap}",
+    ".aqc-error{margin-top:2px;padding:9px 11px;border-radius:10px;font-size:12.5px;line-height:1.5;color:#ffd7dd;background:rgba(255,90,110,.09);border:1px solid rgba(255,90,110,.28)}"
+  ].join("\n");
+  try{
+    if(!document.getElementById("aura-quantum-css")){
+      var st = document.createElement("style");
+      st.id = "aura-quantum-css";
+      st.textContent = CSS;
+      (document.head || document.documentElement).appendChild(st);
+    }
+  }catch(e){}
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c];
+    });
+  }
+
+  function angleLabel(a){
+    var v = Number(a);
+    if(!isFinite(v) || Math.abs(v - 1.5708) < 0.002) return "\u03c0/2";
+    if(Math.abs(v - 3.14159) < 0.003) return "\u03c0";
+    if(Math.abs(v - 0.7854) < 0.003) return "\u03c0/4";
+    if(Math.abs(v - 4.71239) < 0.003) return "3\u03c0/2";
+    return v.toFixed(2);
+  }
+
+  /* ---- the diagram: wires, gate boxes, control dots, targets, measurement ---- */
+  function svgCircuit(d){
+    var n = Math.max(1, Math.min(6, parseInt(d.num_qubits, 10) || 1));
+    var gates = Array.isArray(d.gates) ? d.gates.slice(0, 40) : [];
+    var rowH = 26, padTop = 16, labelW = 28, colW = 40, measW = 34;
+    var cols = Math.max(1, gates.length);
+    var W = labelW + cols * colW + measW + 12;
+    var H = padTop * 2 + (n - 1) * rowH;
+    function y(q){ return padTop + q * rowH; }
+    function cross(x, cy){
+      return '<line class="aqc-x" x1="' + (x - 3.2) + '" y1="' + (cy - 3.2) + '" x2="' + (x + 3.2) + '" y2="' + (cy + 3.2) + '"/>' +
+             '<line class="aqc-x" x1="' + (x - 3.2) + '" y1="' + (cy + 3.2) + '" x2="' + (x + 3.2) + '" y2="' + (cy - 3.2) + '"/>';
+    }
+    function target(x, cy){
+      return '<circle class="aqc-tgt" cx="' + x + '" cy="' + cy + '" r="6.2"/>' +
+             '<line class="aqc-wire" x1="' + (x - 6.2) + '" y1="' + cy + '" x2="' + (x + 6.2) + '" y2="' + cy + '"/>' +
+             '<line class="aqc-wire" x1="' + x + '" y1="' + (cy - 6.2) + '" x2="' + x + '" y2="' + (cy + 6.2) + '"/>';
+    }
+
+    var out = '<svg class="aqc-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMinYMid meet" role="img" aria-label="Quantum circuit: ' + esc(d.title || "circuit") + '">';
+    var q;
+    for(q = 0; q < n; q++){
+      out += '<text class="aqc-q" x="1" y="' + (y(q) + 4) + '">q' + q + '</text>';
+      out += '<line class="aqc-wire" x1="' + labelW + '" y1="' + y(q) + '" x2="' + (W - 6) + '" y2="' + y(q) + '"/>';
+    }
+
+    gates.forEach(function(g, i){
+      if(!g || typeof g !== "object") return;
+      var name = String(g.gate || "").toLowerCase();
+      var t = (g.targets && g.targets[0]);
+      var cs = Array.isArray(g.controls) ? g.controls : [];
+      if(typeof t !== "number" || t < 0 || t >= n) return;
+      var x = labelW + 20 + i * colW;
+
+      if(name === "cx" || name === "cz" || name === "swap" || name === "ccx"){
+        var ys = [y(t)], k;
+        for(k = 0; k < cs.length; k++){ if(cs[k] >= 0 && cs[k] < n) ys.push(y(cs[k])); }
+        if(ys.length > 1){
+          out += '<line class="aqc-conn" x1="' + x + '" y1="' + Math.min.apply(null, ys) + '" x2="' + x + '" y2="' + Math.max.apply(null, ys) + '"/>';
+        }
+        for(k = 0; k < cs.length; k++){
+          if(cs[k] < 0 || cs[k] >= n) continue;
+          if(name === "swap") out += cross(x, y(cs[k]));
+          else out += '<circle class="aqc-ctrl" cx="' + x + '" cy="' + y(cs[k]) + '" r="3.3"/>';
+        }
+        if(name === "swap") out += cross(x, y(t));
+        else if(name === "cz") out += '<circle class="aqc-ctrl" cx="' + x + '" cy="' + y(t) + '" r="3.3"/>';
+        else out += target(x, y(t));
+        return;
+      }
+
+      var label = name.toUpperCase();
+      var angled = (name === "rx" || name === "ry" || name === "rz");
+      var sub = angled ? angleLabel(g.angle) : "";
+      var bw = Math.max(24, label.length * 6.6 + 12);
+      out += '<rect class="aqc-gate" x="' + (x - bw / 2) + '" y="' + (y(t) - 10) + '" width="' + bw + '" height="20" rx="5"/>';
+      out += '<text class="aqc-g" x="' + x + '" y="' + (y(t) + (angled ? -0.5 : 4)) + '">' + esc(label) + '</text>';
+      if(sub) out += '<text class="aqc-sub" x="' + x + '" y="' + (y(t) + 8) + '">' + esc(sub) + '</text>';
+    });
+
+    var mx = labelW + cols * colW + 10;
+    for(q = 0; q < n; q++){
+      out += '<rect class="aqc-meas" x="' + mx + '" y="' + (y(q) - 10) + '" width="26" height="20" rx="5"/>';
+      out += '<text class="aqc-m" x="' + (mx + 13) + '" y="' + (y(q) + 4) + '">M</text>';
+    }
+    return out + '</svg>';
+  }
+
+  function card(d){
+    var probs = (d.probabilities && typeof d.probabilities === "object") ? d.probabilities : {};
+    var keys = Object.keys(probs);
+    var bars = "", i, k, v;
+    for(i = 0; i < keys.length && i < 12; i++){
+      k = keys[i];
+      v = Number(probs[k]);
+      if(!isFinite(v)) v = 0;
+      bars += '<div class="aqc-bar"><span class="aqc-ket">|' + esc(k) + '\u27e9</span>' +
+              '<span class="aqc-track"><span class="aqc-fill" style="width:' + Math.max(0, Math.min(100, v)) + '%"></span></span>' +
+              '<span class="aqc-pct">' + v.toFixed(2) + '%</span></div>';
+    }
+    if(!bars) bars = '<div class="aqc-bar"><span class="aqc-ket">\u2014</span><span class="aqc-track"></span><span class="aqc-pct">no data</span></div>';
+
+    return '<div class="aqc-card">' +
+             '<div class="aqc-head">' +
+               '<div class="aqc-title">' + esc(d.title || "Quantum Circuit") + '</div>' +
+               '<div class="aqc-badges">' +
+                 '<span class="aqc-badge"><b>' + esc(d.num_qubits) + '</b>QUBITS</span>' +
+                 '<span class="aqc-badge"><b>' + esc(d.circuit_depth) + '</b>DEPTH</span>' +
+               '</div>' +
+             '</div>' +
+             '<div class="aqc-diagram">' + svgCircuit(d) + '</div>' +
+             '<div class="aqc-bars">' + bars + '</div>' +
+           '</div>';
+  }
+
+  /* "Quantum of Solace" and "Quantum Leap" are a film and a series, not circuits:
+     a title mentioned next to a media word keeps its normal chat answer */
+  var NOT_COMPUTING = /\b(movie|film|series|episode|song|album|lyrics|trailer|bond|solace|leap|quantum of solace|quantum leap)\b/i;
+
+  function isQuantumQuestion(text){
+    if(!text) return false;
+    if(/^[\/!]/.test(text)) return false;                    /* real commands stay commands */
+    if(!INTENT.test(text)) return false;
+    try{ if(typeof parseCmd === "function" && parseCmd(text)) return false; }catch(e){}
+    if(NOT_COMPUTING.test(text) && !/\b(qubit|circuit|qiskit|hadamard|grover|qaoa|shots?)\b/i.test(text)) return false;
+    return true;
+  }
+
+  function busyOff(){
+    try{ var t = document.getElementById("think"); if(t) t.classList.remove("on"); }catch(e){}
+    try{ if(typeof state === "string" && state === "thinking") setState("idle"); }catch(e){}
+  }
+
+  async function runQuantum(text){
+    var wrap = null, statusEl = null, slow = null, persona = "aura";
+    try{ if(typeof mode === "string" && mode === "zeus") persona = "zeus"; }catch(e){}
+
+    try{
+      try{ if(typeof addMsg === "function") addMsg("u", text); }catch(e){}
+      try{ var inp = document.getElementById("inp"); if(inp) inp.value = ""; }catch(e){}
+      try{ saveChat(); }catch(e){}
+      try{ setState("thinking"); var th = document.getElementById("think"); if(th) th.classList.add("on"); }catch(e){}
+      try{ if(window.SFX && typeof window.SFX.tick === "function") window.SFX.tick(); }catch(e){}
+
+      var bubble = addMsg("a", "", true);
+      wrap = bubble && bubble.lastChild ? bubble.lastChild : bubble;
+      if(bubble && bubble.classList) bubble.classList.add("aqc-bubble");
+      wrap.className = "aqc-wrap";
+      wrap.innerHTML = '<div class="aqc-status"><span class="aqc-dot"></span>Initializing Q-Core &amp; running ' + SHOTS + ' quantum shots\u2026</div>';
+      statusEl = wrap.firstChild;
+
+      slow = setTimeout(function(){
+        if(statusEl) statusEl.innerHTML = '<span class="aqc-dot"></span>Q-Core is waking from a cold start \u2014 still running ' + SHOTS + ' shots\u2026';
+      }, 12000);
+
+      var ctrl = (typeof AbortController === "function") ? new AbortController() : null;
+      var timer = setTimeout(function(){ try{ if(ctrl) ctrl.abort(); }catch(e){} }, TIMEOUT);
+      var res, data = null;
+      try{
+        res = await fetch(BASE + "/api/quantum", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: text, persona: persona, shots: SHOTS }),
+          signal: ctrl ? ctrl.signal : undefined
+        });
+        try{ data = await res.json(); }catch(e){ data = null; }
+      }finally{
+        clearTimeout(timer);
+        clearTimeout(slow);
+        slow = null;
+      }
+      if(!res) throw new Error("no response from the Q-Core");
+      if(!res.ok || !data || data.error){
+        throw new Error((data && (data.message || data.error)) || ("HTTP " + res.status));
+      }
+
+      if(statusEl && statusEl.parentNode) statusEl.parentNode.removeChild(statusEl);
+      statusEl = null;
+      wrap.insertAdjacentHTML("beforeend", card(data));
+
+      var analysis = String(data.analysis == null ? "" : data.analysis).trim();
+      if(analysis){
+        var p = document.createElement("p");
+        p.className = "aqc-analysis";
+        p.textContent = analysis;
+        wrap.appendChild(p);
+      }
+
+      try{ setState("speaking"); }catch(e){}
+      try{ convo.push({ r: "a", t: (data.title || "Quantum run") + (analysis ? "\n\n" + analysis : "") }); }catch(e){}
+      try{ saveChat(); }catch(e){}
+      /* the persona already speaks its chat answers; the quantum explanation joins in */
+      try{ if(analysis && typeof speak === "function") speak(analysis); }catch(e){}
+      try{ var m = document.getElementById("msgs"); if(m) m.scrollTop = 1e9; }catch(e){}
+      try{ if(typeof slog === "function") slog("<b>QUANTUM</b> " + esc(String(text).slice(0, 40))); }catch(e){}
+    }catch(err){
+      var reason = String((err && err.message) || "network error").replace(/[.\s]+$/, "");
+      var msg = (err && err.name === "AbortError")
+        ? "Q-Core timed out after " + Math.round(TIMEOUT / 1000) + "s \u2014 the lane may still be cold-starting. Your chat is unaffected; ask again in a moment."
+        : "Q-Core could not answer: " + reason + " \u2014 your chat is unaffected.";
+      try{ if(statusEl && statusEl.parentNode) statusEl.parentNode.removeChild(statusEl); }catch(e){}
+      try{
+        if(wrap){
+          var box = document.createElement("div");
+          box.className = "aqc-error";
+          box.textContent = msg;
+          wrap.appendChild(box);
+        }
+      }catch(e){}
+      try{ convo.push({ r: "a", t: msg }); }catch(e){}
+      try{ saveChat(); }catch(e){}
+      try{ if(typeof slog === "function") slog("<b>QUANTUM</b> failed: " + esc(String(msg).slice(0, 80))); }catch(e){}
+    }finally{
+      if(slow) clearTimeout(slow);
+      busyOff();
+    }
+  }
+
+  /* one interception point: the composer, the mic, the voice lane and every
+     "send" click all end in window.send, so nothing else needs to change */
+  function install(){
+    var base = window.send;
+    if(typeof base !== "function" || base.__auraQuantum) return false;
+    var wrapped = function(q){
+      var text = String(q == null ? "" : q).trim();
+      if(!text || !isQuantumQuestion(text)) return base.apply(this, arguments);
+      if(window.__auraQuantumBusy) return;             /* one run at a time */
+      window.__auraQuantumBusy = true;
+      var done = runQuantum(text);
+      if(done && typeof done.finally === "function") done.finally(function(){ window.__auraQuantumBusy = false; });
+      return done;
+    };
+    wrapped.__auraQuantum = true;
+    window.send = wrapped;
+    return true;
+  }
+
+  if(!install()){
+    /* a late module may have replaced send after this block; try once more shortly */
+    setTimeout(install, 400);
+    setTimeout(install, 1500);
+  }
+
+  window.__auraQuantumRun = function(prompt, persona, shots){
+    return fetch(BASE + "/api/quantum", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: String(prompt || ""), persona: persona === "zeus" ? "zeus" : "aura", shots: Math.max(1, Math.min(2048, parseInt(shots, 10) || SHOTS)) })
+    }).then(function(r){ return r.json(); });
+  };
+})();
+</script>
+<script id="aura-diagnostics">/* ================= AURA DIAGNOSTICS =================
+   Reviewer report (Anna, 27 Nov): the page promises a notification when diagnostics
+   finish, and nothing appears. A run now has a start line, a live progress line,
+   a green result card in the bubble and a toast that stays 6s — so a finished run
+   can never look like a stuck one.
+   ================================================== */
+(function(){
+  "use strict";
+  if(window.__auraDiagnostics) return;
+  window.__auraDiagnostics = true;
+
+  var BASE = (localStorage.getItem("aura_backend_url") || "https://aura-backend-jomj.onrender.com").replace(/\/+$/, "");
+  /* "run diagnostics", "diagnostics", "self diagnostics", "system health check" */
+  var RUN = /^(?:please\s+)?(?:\/)?(?:run\s+|start\s+|do\s+|show\s+)?(?:a\s+)?(?:full\s+|system\s+|self[\s-]?)?(?:diagnostics?|health[\s-]?check)(?:\s+(?:check|run|please|now))?[.!]?$/i;
+
+  function toast(msg){
+    try{
+      var t = document.getElementById("toast");
+      if(!t){
+        t = document.createElement("div");
+        t.id = "toast"; t.className = "toast";
+        document.body.appendChild(t);
+      }
+      t.textContent = msg;
+      t.classList.add("on");
+      clearTimeout(toast.h);
+      toast.h = setTimeout(function(){ t.classList.remove("on"); }, 6000);
+    }catch(e){}
+  }
+
+  function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+
+  async function backendCheck(){
+    var started = performance.now();
+    try{
+      var r = await fetch(BASE + "/health", { method: "GET", signal: AbortSignal.timeout(6000) });
+      var ms = Math.round(performance.now() - started);
+      var j = null;
+      try{ j = await r.json(); }catch(e){}
+      if(!r.ok) return { ok: false, label: "Backend", note: "HTTP " + r.status };
+      if(j && (j.build || j.ok)) return { ok: true, label: "Backend", note: (j.build ? "build " + j.build : "live") + " · " + ms + " ms" };
+      return { ok: true, label: "Backend", note: "answered in " + ms + " ms" };
+    }catch(e){
+      return { ok: false, label: "Backend", note: "unreachable (" + ((e && e.name) || "error") + ")" };
+    }
+  }
+
+  async function quantumCheck(){
+    try{
+      var r = await fetch(BASE + "/api/quantum", { method: "HEAD", signal: AbortSignal.timeout(5000) });
+      /* the FastAPI lane answers HEAD with 405; a host without the route answers 404,
+         and the Node backend's own-site guard answers 403 — neither is usable. */
+      var live = [200, 400, 405, 422].indexOf(r.status) >= 0;
+      return { ok: live, label: "Quantum lane", note: live ? "reachable (HTTP " + r.status + ")" : "not deployed on this host (HTTP " + r.status + ")" };
+    }catch(e){
+      return { ok: false, label: "Quantum lane", note: "unreachable" };
+    }
+  }
+
+  function storageCheck(){
+    try{
+      var k = "aura_diag_probe";
+      localStorage.setItem(k, "1");
+      var ok = localStorage.getItem(k) === "1";
+      localStorage.removeItem(k);
+      return { ok: ok, label: "Local memory", note: ok ? "read/write" : "write refused" };
+    }catch(e){ return { ok: false, label: "Local memory", note: "blocked in this frame" }; }
+  }
+
+  async function run(){
+    var checks = [];
+    checks.push({ ok: !!navigator.onLine, label: "Network", note: navigator.onLine ? "online" : "offline" });
+    checks.push({ ok: !!document.getElementById("auraIris") || typeof window.__auraIrisDraw === "function", label: "Holographic core", note: "rendering" });
+    checks.push(storageCheck());
+    checks.push({ ok: "speechSynthesis" in window, label: "Voice out", note: "speechSynthesis" in window ? "available" : "not in this browser" });
+    checks.push({ ok: !!(window.SpeechRecognition || window.webkitSpeechRecognition), label: "Voice in", note: (window.SpeechRecognition || window.webkitSpeechRecognition) ? "available" : "not in this browser" });
+    checks.push({ ok: !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia), label: "Vision co-pilot", note: (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) ? "screen capture ready" : "blocked here" });
+    checks.push({ ok: /Mobi|Android/i.test(navigator.userAgent) ? true : !!navigator.mediaDevices, label: "Camera", note: navigator.mediaDevices ? "ready" : "unavailable" });
+    checks.push(await backendCheck());
+    checks.push(await quantumCheck());
+    return checks;
+  }
+
+  function card(checks, ms){
+    var pass = checks.filter(function(c){ return c.ok; }).length;
+    var rows = checks.map(function(c){
+      return '<div class="diagrow"><span class="diagdot ' + (c.ok ? "ok" : "bad") + '"></span>' +
+             '<b>' + c.label + '</b><span>' + c.note + '</span></div>';
+    }).join("");
+    var all = pass === checks.length;
+    return '<div class="diagcard">' +
+      '<div class="diaghead"><span class="diagtitle">' + (all ? "✓ Diagnostics complete" : "Diagnostics complete — " + pass + "/" + checks.length + " green") + '</span>' +
+      '<span class="diagms">' + ms + ' ms</span></div>' +
+      '<div class="diagrows">' + rows + '</div>' +
+      '<div class="diagfoot">' + (all ? "All critical systems nominal." : "Everything else keeps working; the amber rows need a browser or network that allows them.") + '</div>' +
+      '</div>';
+  }
+
+  var CSS = [
+    ".diagcard{margin-top:2px;padding:12px 13px;border-radius:13px;border:1px solid rgba(120,215,255,.22);background:linear-gradient(160deg,rgba(10,26,36,.9),rgba(6,13,20,.72));max-width:520px}",
+    ".diaghead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}",
+    ".diagtitle{font-size:13px;font-weight:600;color:#dff4ff}",
+    ".diagms{font-size:10.5px;color:#7f93a5;font-variant-numeric:tabular-nums}",
+    ".diagrows{display:flex;flex-direction:column;gap:4px}",
+    ".diagrow{display:grid;grid-template-columns:9px 132px 1fr;align-items:center;gap:8px;font-size:11.5px;color:#a9bccc}",
+    ".diagrow b{font-weight:500;color:#d5e7f4}",
+    ".diagdot{width:7px;height:7px;border-radius:50%;display:block}",
+    ".diagdot.ok{background:#3ddc97;box-shadow:0 0 7px rgba(61,220,151,.55)}",
+    ".diagdot.bad{background:#ffb454;box-shadow:0 0 7px rgba(255,180,84,.5)}",
+    ".diagfoot{margin-top:9px;font-size:11px;color:#8fa6b2}"
+  ].join("\n");
+  try{
+    if(!document.getElementById("aura-diag-css")){
+      var st = document.createElement("style");
+      st.id = "aura-diag-css"; st.textContent = CSS;
+      (document.head || document.documentElement).appendChild(st);
+    }
+  }catch(e){}
+
+  var busy = false;
+  async function runDiagnostics(text){
+    if(busy) return;
+    busy = true;
+    var wrap = null, line = null, t0 = performance.now();
+    try{
+      try{ if(typeof addMsg === "function") addMsg("u", text); }catch(e){}
+      try{ var i = document.getElementById("inp"); if(i) i.value = ""; }catch(e){}
+      try{ saveChat(); }catch(e){}
+      try{ setState("thinking"); var th = document.getElementById("think"); if(th) th.classList.add("on"); }catch(e){}
+      try{ if(window.SFX && window.SFX.tick) window.SFX.tick(); }catch(e){}
+
+      var bubble = addMsg("a", "", true);
+      wrap = bubble && bubble.lastChild ? bubble.lastChild : bubble;
+      wrap.className = "diagwrap";
+      wrap.innerHTML = '<div class="diagping">Running diagnostics \u2014 engine, voice, vision, backend\u2026</div>';
+      line = wrap.firstChild;
+
+      var checks = await run();
+      var ms = Math.round(performance.now() - t0);
+      if(line && line.parentNode) line.parentNode.removeChild(line);
+      wrap.insertAdjacentHTML("beforeend", card(checks, ms));
+
+      var pass = checks.filter(function(c){ return c.ok; }).length;
+      var msg = pass === checks.length
+        ? "Diagnostics complete \u2014 all " + checks.length + " checks green (" + ms + " ms)"
+        : "Diagnostics complete \u2014 " + pass + "/" + checks.length + " green (" + ms + " ms)";
+      toast("\u2713 " + msg);
+      try{ if(typeof slog === "function") slog("<b>DIAG</b> " + msg); }catch(e){}
+      try{ convo.push({ r: "a", t: msg }); }catch(e){}
+      try{ saveChat(); }catch(e){}
+      try{ setState("speaking"); }catch(e){}
+      try{ if(typeof speak === "function") speak(msg); }catch(e){}
+      try{ var m = document.getElementById("msgs"); if(m) m.scrollTop = 1e9; }catch(e){}
+    }catch(err){
+      var bad = "Diagnostics could not finish: " + ((err && err.message) || "unknown error");
+      try{ if(line && line.parentNode) line.parentNode.removeChild(line); }catch(e){}
+      try{ if(wrap){ var p = document.createElement("div"); p.className = "diagfoot"; p.textContent = bad; wrap.appendChild(p); } }catch(e){}
+      toast(bad);
+      try{ convo.push({ r: "a", t: bad }); }catch(e){}
+    }finally{
+      try{ var th2 = document.getElementById("think"); if(th2) th2.classList.remove("on"); }catch(e){}
+      try{ if(typeof state === "string" && state === "thinking") setState("idle"); }catch(e){}
+      busy = false;
+    }
+  }
+
+  function install(){
+    var base = window.send;
+    if(typeof base !== "function" || base.__auraDiagnostics) return false;
+    var wrapped = function(q){
+      var text = String(q == null ? "" : q).trim();
+      if(!text || !RUN.test(text)) return base.apply(this, arguments);
+      if(busy) return;
+      return runDiagnostics(text);
+    };
+    wrapped.__auraDiagnostics = true;
+    window.send = wrapped;
+    return true;
+  }
+  if(!install()){ setTimeout(install, 400); setTimeout(install, 1500); }
+
+  window.__auraRunDiagnostics = function(){ return runDiagnostics("run diagnostics"); };
 })();
 </script>
 </body></html>
